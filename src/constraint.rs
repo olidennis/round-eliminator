@@ -5,9 +5,9 @@ use crate::lineset::LineSet;
 
 use either::Either;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use serde::{Deserialize,Serialize};
 
 /// This struct represents a set of constraints.
 /// It is represented by a set of lines.
@@ -16,7 +16,7 @@ use serde::{Deserialize,Serialize};
 /// Permutations indicates whether all permutations of each line are also included,
 /// where true indicates that they are, false indicates that the lines have been minimized by removing permutations,
 /// and none indicates that the constraints are arbitrary.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize,Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Constraint {
     pub lines: Vec<Line>,
     pub delta: usize,
@@ -144,23 +144,22 @@ impl Constraint {
     }
 
     /// Create constraints starting from their text representation.
-    pub fn from_text(text : &str, mapping: &HashMap<String, usize>) -> Constraint {
+    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Constraint {
         let vec = Self::string_to_vec(text);
-        Self::from_vec(&vec,mapping)
+        Self::from_vec(&vec, mapping)
     }
 
     /// Given a string that represents a set of constraint, the string is parsed and split in a vector representation,
     /// Each resulting vector represents a vector representation of a line, where
     /// each of its resulting vectors represents a single group of the line.
     /// Each group is represented by a vector of strings.
-    pub fn string_to_vec(text : &str) -> Vec<Vec<Vec<String>>> {
-        text.lines().map(|line|Line::string_to_vec(line)).collect()
+    pub fn string_to_vec(text: &str) -> Vec<Vec<Vec<String>>> {
+        text.lines().map(|line| Line::string_to_vec(line)).collect()
     }
-
 
     /// Creates a set of constraints starting from its vector representation.
     /// `mapping` needs to provide a map from string labels to group positions.
-    /// For example, if 001 010 001 111 represents the line A B C ABC, 
+    /// For example, if 001 010 001 111 represents the line A B C ABC,
     /// then `mapping` must map `A to 0`, `B to 1`, and `C to 2`
     pub fn from_vec(v: &Vec<Vec<Vec<String>>>, mapping: &HashMap<String, usize>) -> Constraint {
         let first = Line::from_vec(&v[0], mapping);
@@ -182,13 +181,10 @@ impl Constraint {
     /// Each of its vectors represents a single group of the line.
     /// Each group is represented by a vector of strings.
     /// `mapping` needs to provide a map from string labels to group positions.
-    /// For example, if 001 010 001 111 represents the line A B C ABC, 
+    /// For example, if 001 010 001 111 represents the line A B C ABC,
     /// then `mapping` must map `A to 0`, `B to 1`, and `C to 2`
     pub fn to_vec(&self, mapping: &HashMap<usize, String>) -> Vec<Vec<Vec<String>>> {
-        self.lines
-            .iter()
-            .map(|line| line.to_vec(mapping))
-            .collect()
+        self.lines.iter().map(|line| line.to_vec(mapping)).collect()
     }
 
     /// Returns the unique groups appearing among the lines of the constraints.

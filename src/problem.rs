@@ -4,18 +4,18 @@ use crate::bignum::BigNum;
 use crate::constraint::Constraint;
 use crate::line::Line;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
-use serde::{Deserialize,Serialize};
 
-/// A problem is represented by its left and right constraints, where left is the active side. 
+/// A problem is represented by its left and right constraints, where left is the active side.
 /// All the following is then optional.
 /// We may have a mapping from labels to their string representation, represented by a list of tuples (String,number).
 /// We may have a mapping from the current labels to the sets of the previous step.
 /// We may have the mapping of the string representation of the problem of the previous step.
 /// We may have computed if the current problem is trivial.
 /// We may have computed the strength diagram for the labels on the right side, represented by a vector of directed edges.
-#[derive(Clone, Debug, Eq, PartialEq,Deserialize,Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Problem {
     pub left: Constraint,
     pub right: Constraint,
@@ -27,7 +27,6 @@ pub struct Problem {
 }
 
 impl Problem {
-
     /// Constructor a problem.
     pub fn new(
         left: Constraint,
@@ -36,7 +35,7 @@ impl Problem {
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
         map_text_oldlabel: Option<Vec<(String, usize)>>,
         diagram: Option<Vec<(usize, usize)>>,
-        is_trivial : Option<bool>
+        is_trivial: Option<bool>,
     ) -> Self {
         Self {
             left,
@@ -55,11 +54,14 @@ impl Problem {
     }
 
     /// Construct a problem starting from a text representation (where there are left and right constraint separated by an empty line).
-    pub fn from_line_separated_text(text : &str) -> Self {
+    pub fn from_line_separated_text(text: &str) -> Self {
         let mut lines = text.lines();
-        let left : String = lines.by_ref().take_while(|line|!line.is_empty()).join("\n");
-        let right : String = lines.join("\n");
-        Self::from_text(&left,&right)
+        let left: String = lines
+            .by_ref()
+            .take_while(|line| !line.is_empty())
+            .join("\n");
+        let right: String = lines.join("\n");
+        Self::from_text(&left, &right)
     }
 
     /// Construct a problem starting from a text representation of the left and right constarints.
@@ -81,10 +83,11 @@ impl Problem {
         let pleft = Constraint::string_to_vec(left);
         let pright = Constraint::string_to_vec(right);
 
-        pleft.into_iter()
+        pleft
+            .into_iter()
             .chain(pright.into_iter())
-            .flat_map(|v|v.into_iter())
-            .flat_map(|v|v.into_iter())
+            .flat_map(|v| v.into_iter())
+            .flat_map(|v| v.into_iter())
             .unique()
             .sorted()
             .enumerate()
@@ -131,7 +134,7 @@ impl Problem {
             map_label_oldset,
             map_text_oldlabel,
             None, //TODO: do not recompute all diagram if (from,to) is an edge of the diagram
-            None
+            None,
         )
     }
 
@@ -159,7 +162,7 @@ impl Problem {
             map_label_oldset,
             map_text_oldlabel,
             None, //TODO: do not recompute all diagram if (from,to) is an edge of the diagram
-            None
+            None,
         )
     }
 
@@ -212,7 +215,7 @@ impl Problem {
             Some(map_label_oldset),
             self.map_text_label.clone(),
             None,
-            None
+            None,
         );
         result.left.remove_permutations();
         result.compute_triviality();
@@ -284,9 +287,10 @@ impl Problem {
         let mut adj = vec![vec![]; num_labels];
         for x in self.labels() {
             for y in self.labels() {
-                let is_left = x != y && right
-                    .choices_iter()
-                    .all(|line| right.satisfies(&line.replace_fast(x, y)));
+                let is_left = x != y
+                    && right
+                        .choices_iter()
+                        .all(|line| right.satisfies(&line.replace_fast(x, y)));
                 if is_left {
                     adj[x].push(y);
                 }
@@ -361,22 +365,26 @@ impl Problem {
     /// otherwise each label i gets the string "<i>".
     pub fn assign_chars(&mut self) {
         if self.map_text_label.is_none() {
-            self.map_text_label = Some(self.labels().map(|i|{
-                if self.num_labels() <= 62 {
-                    let i = i as u8;
-                    let c = match i {
-                        0..=25 => { (b'A' + i) as char }
-                        26..=51 => { (b'a' + i -26) as char }
-                        52..=61 => { (b'0' + i -52) as char }
-                        _ => { (b'z' +1 + i -62) as char }
-                    };
-                    (format!("{}",c),i as usize)
-                } else {
-                    (format!("<{}>",i),i as usize)
-                }
-            }).collect());
+            self.map_text_label = Some(
+                self.labels()
+                    .map(|i| {
+                        if self.num_labels() <= 62 {
+                            let i = i as u8;
+                            let c = match i {
+                                0..=25 => (b'A' + i) as char,
+                                26..=51 => (b'a' + i - 26) as char,
+                                52..=61 => (b'0' + i - 52) as char,
+                                _ => (b'z' + 1 + i - 62) as char,
+                            };
+                            (format!("{}", c), i as usize)
+                        } else {
+                            (format!("<{}>", i), i as usize)
+                        }
+                    })
+                    .collect(),
+            );
         }
-	}
+    }
 
     /// Returns a simple representation of the problem,
     /// where all possible optional things are computed (except of the mapping to the previous problem if it does not exist).
@@ -387,28 +395,40 @@ impl Problem {
         let left = self.left.to_vec(&map);
         let right = self.right.to_vec(&map);
 
-        let mapping = match (self.map_label_oldset.as_ref(),self.map_text_oldlabel.as_ref()){
-            (Some(lo),Some(to)) => {
+        let mapping = match (
+            self.map_label_oldset.as_ref(),
+            self.map_text_oldlabel.as_ref(),
+        ) {
+            (Some(lo), Some(to)) => {
                 let oldmap = Self::map_to_inv_hashmap(to);
                 let mut v = vec![];
-                for (l,o) in lo {
-                    let old = o.one_bits().map(|x|oldmap[&x].to_owned()).collect();
+                for (l, o) in lo {
+                    let old = o.one_bits().map(|x| oldmap[&x].to_owned()).collect();
                     let new = map[l].to_owned();
-                    v.push((old,new));
+                    v.push((old, new));
                 }
                 Some(v)
             }
-            _ => None
+            _ => None,
         };
 
         self.compute_diagram_edges();
         let diagram = self.diagram.as_ref().unwrap();
-        let diagram = diagram.iter().map(|(a,b)|(map[a].to_owned(),map[b].to_owned())).collect();
+        let diagram = diagram
+            .iter()
+            .map(|(a, b)| (map[a].to_owned(), map[b].to_owned()))
+            .collect();
 
         self.compute_triviality();
         let is_trivial = self.is_trivial.unwrap();
 
-        ResultProblem{left,right,mapping,diagram,is_trivial}
+        ResultProblem {
+            left,
+            right,
+            mapping,
+            diagram,
+            is_trivial,
+        }
     }
 }
 
@@ -420,44 +440,51 @@ impl Problem {
 /// `diagram` consists of a vector of edges, where each edge is represented by the text representation of the label.
 /// `is_trivial` is true if and only if the problem is 0 rounds solvable.
 pub struct ResultProblem {
-    pub left : Vec<Vec<Vec<String>>>,
-    pub right : Vec<Vec<Vec<String>>>,
-    pub mapping : Option<Vec<(Vec<String>,String)>>,
-    pub diagram : Vec<(String,String)>,
-    pub is_trivial : bool
+    pub left: Vec<Vec<Vec<String>>>,
+    pub right: Vec<Vec<Vec<String>>>,
+    pub mapping: Option<Vec<(Vec<String>, String)>>,
+    pub diagram: Vec<(String, String)>,
+    pub is_trivial: bool,
 }
 
 impl std::fmt::Display for ResultProblem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
         let mut r = String::new();
         if let Some(mapping) = &self.mapping {
             r += "Mapping\n";
-            for (o,l) in mapping {
-                let s : String = o.iter().join("");
-                r += &format!("{} <- {}\n",l,s);
+            for (o, l) in mapping {
+                let s: String = o.iter().join("");
+                r += &format!("{} <- {}\n", l, s);
             }
         }
 
-        let left = self.left.iter().map(|x|x.iter().map(|t|t.iter().join("")).join(" ")).join("\n");
-        let right = self.right.iter().map(|x|x.iter().map(|t|t.iter().join("")).join(" ")).join("\n");
+        let left = self
+            .left
+            .iter()
+            .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+            .join("\n");
+        let right = self
+            .right
+            .iter()
+            .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+            .join("\n");
 
         r += "\nLeft (Active)\n";
-        r += &format!("{}\n",left);
+        r += &format!("{}\n", left);
         r += "\nRight (Passive)\n";
-        r += &format!("{}\n",right);
+        r += &format!("{}\n", right);
 
         r += "\nDiagram\n";
         for (s1, s2) in self.diagram.iter() {
-            r += &format!("{} -> {}\n",s1,s2);
+            r += &format!("{} -> {}\n", s1, s2);
         }
 
-		r += "\nThe problem is ";
-		if !self.is_trivial {
-			r += "NOT ";
-		}
-		r += "zero rounds solvable.\n";
+        r += "\nThe problem is ";
+        if !self.is_trivial {
+            r += "NOT ";
+        }
+        r += "zero rounds solvable.\n";
 
-        write!(f,"{}",r)
+        write!(f, "{}", r)
     }
 }

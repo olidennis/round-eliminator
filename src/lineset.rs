@@ -18,7 +18,6 @@ pub struct BigBitSet {
     v: Vec<usize>,
 }
 
-
 impl LineSet for BigBitSet {
     fn new(delta: usize, bits: usize) -> Self {
         let sz = 1 << (delta * bits);

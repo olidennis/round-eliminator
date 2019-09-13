@@ -1,8 +1,8 @@
 use crate::bignum::BigNum;
 use itertools::Itertools;
 use permutator::Permutation;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde::{Deserialize,Serialize};
 
 /// This struct represent a single line of the constraints of a problem.
 /// It is internally represented by a vector of bits of type BigNum,
@@ -10,7 +10,7 @@ use serde::{Deserialize,Serialize};
 /// For example, if Delta=3 and Bits=2, the bitvector 011111 represents
 /// the constraint where there are 3 groups, 01, 11, and 11, that if we call the first bit A and the second bit B,
 /// corresponds to a constraint like B AB AB.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize,Serialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Line {
     pub inner: BigNum,
     pub delta: usize,
@@ -18,8 +18,7 @@ pub struct Line {
 }
 
 impl Line {
-
-    /// Creates a new line, with `delta` groups of `bits` bits, where the bits are initialized 
+    /// Creates a new line, with `delta` groups of `bits` bits, where the bits are initialized
     /// using the given `num` value.
     pub fn from(delta: usize, bits: usize, num: BigNum) -> Self {
         Self {
@@ -29,7 +28,7 @@ impl Line {
         }
     }
 
-    /// Creates a new line, with `delta` groups of `bits` bits, 
+    /// Creates a new line, with `delta` groups of `bits` bits,
     /// where the bits are set to what the `groups` iterator gives.
     /// It is assumed that `groups` is an iterator returning `delta` elements.
     pub fn from_groups(delta: usize, bits: usize, groups: impl Iterator<Item = BigNum>) -> Line {
@@ -101,7 +100,7 @@ impl Line {
         })
     }
 
-    /// Creates a new line where the label `from` is replaced by the label `to`, 
+    /// Creates a new line where the label `from` is replaced by the label `to`,
     /// assuming that each group contains a single label.
     pub fn replace_fast(&self, from: usize, to: usize) -> Line {
         let one = BigNum::one();
@@ -180,25 +179,28 @@ impl Line {
     /// Given a string that represents a line, the string is parsed and split in a vector representation,
     /// Each resulting vector represents a single group of the line.
     /// Each group is represented by a vector of strings.
-    pub fn string_to_vec(line : &str) -> Vec<Vec<String>> {
-        line.split_whitespace().map(|w|{
-            w.chars().batching(|it|{
-                match it.next() {
-                    Some('<') => {
-                        Some(format!("<{}>",it.take_while(|&c|c!='>').collect::<String>()))
-                    },
-                    Some(c) => Some(format!("{}",c)),
-                    None => None
-                }
-            }).collect()
-        }).collect()
+    pub fn string_to_vec(line: &str) -> Vec<Vec<String>> {
+        line.split_whitespace()
+            .map(|w| {
+                w.chars()
+                    .batching(|it| match it.next() {
+                        Some('<') => Some(format!(
+                            "<{}>",
+                            it.take_while(|&c| c != '>').collect::<String>()
+                        )),
+                        Some(c) => Some(format!("{}", c)),
+                        None => None,
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     /// Creates a line starting from its vector representation.
     /// `mapping` needs to provide a map from string labels to group positions.
-    /// For example, if 001 010 001 111 represents the line A B C ABC, 
+    /// For example, if 001 010 001 111 represents the line A B C ABC,
     /// then `mapping` must map `A to 0`, `B to 1`, and `C to 2`
-    pub fn from_vec(v : &Vec<Vec<String>>, mapping: &HashMap<String, usize>) -> Self {
+    pub fn from_vec(v: &Vec<Vec<String>>, mapping: &HashMap<String, usize>) -> Self {
         let delta = v.len();
         let bits = mapping.len();
         let mut line = BigNum::zero();
@@ -218,9 +220,9 @@ impl Line {
     /// Each resulting vector represents a single group of the line.
     /// Each group is represented by a vector of strings.
     /// `mapping` needs to provide a map from string labels to group positions.
-    /// For example, if 001 010 001 111 represents the line A B C ABC, 
+    /// For example, if 001 010 001 111 represents the line A B C ABC,
     /// then `mapping` must map `A to 0`, `B to 1`, and `C to 2`
-    pub fn to_vec(&self, mapping : &HashMap<usize,String> ) -> Vec<Vec<String>> {
+    pub fn to_vec(&self, mapping: &HashMap<usize, String>) -> Vec<Vec<String>> {
         let bits = self.bits;
         self.groups()
             .map(|g| {
@@ -231,7 +233,6 @@ impl Line {
             })
             .collect()
     }
-
 
     /// Rename the labels, that is, each possible group value gets a single bit in the new line.
     /// `mapping` indicates how to map groups to labels.
