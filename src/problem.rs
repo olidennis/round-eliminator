@@ -94,8 +94,8 @@ impl Problem {
     }
 
     pub fn relax(&self, from: usize, to: usize) -> Problem {
-        let left = self.left.relax(from, to);
-        let right = self.right.relax(from, to);
+        let left = self.left.replace(from, to);
+        let right = self.right.replace(from, to);
         let map_label_oldset = self
             .map_label_oldset
             .as_ref()
