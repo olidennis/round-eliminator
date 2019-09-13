@@ -327,7 +327,7 @@ impl Problem {
     fn allowed_sets_for_speedup(&self) -> Vec<BigNum> {
         let m = self.diagram_adj();
         self.all_possible_sets()
-            .filter(|&x| Problem::is_rightclosed_or_singleton(x, &m))
+            .filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m))
             .collect()
     }
 
@@ -344,12 +344,8 @@ impl Problem {
         m
     }
 
-    /// Returns true if the given set of labels is either a right closed subset of the diagram or a singleton.
-    fn is_rightclosed_or_singleton(set: BigNum, m: &Vec<Vec<usize>>) -> bool {
-        if set.count_ones() == 1 {
-            return true;
-        }
-
+    /// Returns true if the given set of labels is a right closed subset of the diagram.
+    fn is_rightclosed(set: BigNum, m: &Vec<Vec<usize>>) -> bool {
         for x in set.one_bits() {
             for &t in &m[x] {
                 if !set.bit(t) {
