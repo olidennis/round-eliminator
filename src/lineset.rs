@@ -4,6 +4,7 @@ use crate::bignum::BigNum;
 use crate::line::Line;
 use std::collections::HashSet;
 
+/// A trait for a set that can contain lines efficiently.
 pub trait LineSet {
     fn contains(&self, line: Line) -> bool;
     fn insert(&mut self, line: Line);
@@ -12,6 +13,9 @@ pub trait LineSet {
 
 const BITS_PER_ELEM: usize = 8 * std::mem::size_of::<usize>();
 
+/// A set that can contain lines using a bitvector.
+/// It is fast to get/set.
+/// It is slow to initialize and it uses a lot of memory.
 pub struct BigBitSet {
     v: Vec<usize>,
 }
@@ -32,17 +36,20 @@ impl LineSet for BigBitSet {
         }
     }
     fn contains(&self, line: Line) -> bool {
-        //BigNum performs an overflow check
+        //this will panic if a line does not fit an usize
         let x = line.inner.as_usize();
         ((self.v[x / BITS_PER_ELEM] >> (x % BITS_PER_ELEM)) & 1) != 0
     }
     fn insert(&mut self, line: Line) {
-        //BigNum performs an overflow check
+        //his will panic if a line does not fit an usize
         let x = line.inner.as_usize();
         self.v[x / BITS_PER_ELEM] |= 1 << (x % BITS_PER_ELEM);
     }
 }
 
+/// HashSet can be used to contain lines.
+/// It is a bit slower to get/set compared to a BigBitSet.
+/// It is fast to initialize and does not use much memory.
 impl LineSet for HashSet<BigNum> {
     fn new(_: usize, _: usize) -> Self {
         HashSet::new()
