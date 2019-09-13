@@ -25,6 +25,7 @@ impl LineSet for BigBitSet {
     fn new(delta: usize, bits: usize) -> Self {
         let sz = 1 << (delta * bits);
         Self {
+            //TODO: why +1? I don't remember.
             v: vec![0; sz / BITS_PER_ELEM + 1],
         }
     }

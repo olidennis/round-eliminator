@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::bignum::BigNum;
 use crate::line::Line;
 use crate::lineset::BigBitSet;

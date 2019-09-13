@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::bignum::BigNum;
 use itertools::Itertools;
 use permutator::Permutation;
@@ -20,10 +18,6 @@ pub struct Line {
 }
 
 impl Line {
-    /// Creates a new line, with `delta` groups of `bits` bits, where all bits are not set.
-    pub fn new(delta: usize, bits: usize) -> Self {
-        Self::from(delta, bits, BigNum::zero())
-    }
 
     /// Creates a new line, with `delta` groups of `bits` bits, where the bits are initialized 
     /// using the given `num` value.
