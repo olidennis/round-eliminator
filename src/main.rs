@@ -1,29 +1,128 @@
+use clap::{App as ClApp, AppSettings, Arg, SubCommand};
+
 mod bignum;
 mod constraint;
 mod line;
 mod lineset;
 mod problem;
+mod file;
 
-use problem::Problem;
+fn main(){
 
-fn main() {
-    let text = "M <Unmatched> <Unmatched> <Unmatched> <Unmatched> <Unmatched>
-<Pointer> <Pointer> <Pointer> <Pointer> <Pointer> <Pointer>
+    let matches = ClApp::new("Sim")
+        .version("0.1")
+        .about("...")
+        .subcommand(
+            SubCommand::with_name("file")
+                .about("Obtain input from file")
+                .arg(
+                    Arg::with_name("file")
+                        .short("f")
+                        .long("file")
+                        .value_name("FILE")
+                        .required(true)
+                        .help("Input file")
+                )
+                .arg(
+                    Arg::with_name("iter")
+                        .short("i")
+                        .long("iter")
+                        .value_name("ITER")
+                        .required(true)
+                        .help("Number of iterations")
+                )
+        )
+        .subcommand(
+            SubCommand::with_name("server")
+                .about("Spawn an http server")
+                .arg(
+                    Arg::with_name("bindaddr")
+                        .short("a")
+                        .long("addr")
+                        .default_value("127.0.0.1:8080")
+                        .help("bind address")
+                )
+        )
+        .subcommand(
+            SubCommand::with_name("autolb")
+                .about("Find a lower bound automatically using state merging")
+                .arg(
+                    Arg::with_name("file")
+                        .short("f")
+                        .long("file")
+                        .value_name("FILE")
+                        .required(true)
+                        .help("Input file")
+                )
+                .arg(
+                    Arg::with_name("labels")
+                        .short("l")
+                        .long("labels")
+                        .value_name("LABELS")
+                        .required(true)
+                        .help("Maximum number of labels")
+                )
+                .arg(
+                    Arg::with_name("iter")
+                        .short("i")
+                        .long("iter")
+                        .value_name("ITER")
+                        .required(true)
+                        .help("Maximum number of iterations")
+                )
+        )
+        .subcommand(
+            SubCommand::with_name("autoub")
+                .about("Find an upper bound automatically by removing labels")
+                .arg(
+                    Arg::with_name("file")
+                        .short("f")
+                        .long("file")
+                        .value_name("FILE")
+                        .required(true)
+                        .help("Input file")
+                )
+                .arg(
+                    Arg::with_name("labels")
+                        .short("l")
+                        .long("labels")
+                        .value_name("LABELS")
+                        .required(true)
+                        .help("Maximum number of labels")
+                )
+                .arg(
+                    Arg::with_name("iter")
+                        .short("i")
+                        .long("iter")
+                        .value_name("ITER")
+                        .required(true)
+                        .help("Maximum number of iterations")
+                )
+        )
+        .setting(AppSettings::SubcommandRequired)
+        .get_matches();
 
-M <Unmatched><Pointer> <Unmatched><Pointer> <Unmatched><Pointer> <Unmatched><Pointer> <Unmatched><Pointer>
-<Unmatched> <Unmatched> <Unmatched> <Unmatched> <Unmatched> <Unmatched>";
-    let mut p0 = Problem::from_line_separated_text(text);
-    println!("{}", p0.as_result());
 
-    let mut p1 = p0.speedup();
-    println!("{}", p1.as_result());
+    if let Some(s) = matches.subcommand_matches("server") {
+        let addr = s.value_of("bindaddr").unwrap();
+        //server(addr);
+        unimplemented!();
+    }else if let Some(f) = matches.subcommand_matches("file") {
+        let name = f.value_of("file").unwrap();
+        let iter : usize = f.value_of("iter").unwrap().parse().unwrap();
+        file::file(name,iter);
+	}else if let Some(f) = matches.subcommand_matches("autolb") {
+        let name = f.value_of("file").unwrap();
+        let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
+        let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
+        //autolb::autolb(name,labels,iter);
+        unimplemented!();
+	}else if let Some(f) = matches.subcommand_matches("autoub") {
+        let name = f.value_of("file").unwrap();
+        let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
+        let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
+        //autoub::autoub(name,labels,iter);
+        unimplemented!();
+	}
 
-    let mut p2 = p1.speedup();
-    println!("{}", p2.as_result());
-
-    let mut p3 = p2.speedup();
-    println!("{}", p3.as_result());
-
-    //let mut p4 = p3.speedup();
-    //println!("{}",p4.to_text());
 }
