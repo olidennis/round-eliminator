@@ -20,13 +20,6 @@ pub struct BigBitSet {
     v: Vec<usize>,
 }
 
-impl BigBitSet {
-    pub fn with_capacity(sz: usize) -> Self {
-        Self {
-            v: vec![0; sz / BITS_PER_ELEM + 1],
-        }
-    }
-}
 
 impl LineSet for BigBitSet {
     fn new(delta: usize, bits: usize) -> Self {
