@@ -6,8 +6,10 @@ use crate::line::Line;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::hash::Hash;
+use serde::{Deserialize,Serialize};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+
+#[derive(Clone, Debug, Eq, PartialEq,Deserialize,Serialize)]
 pub struct Problem {
     pub left: Constraint,
     pub right: Constraint,
@@ -61,8 +63,8 @@ impl Problem {
     }
 
     fn create_map_text_label(left: &str, right: &str) -> Vec<(String, usize)> {
-        let pleft = Constraint::parse(left);
-        let pright = Constraint::parse(right);
+        let pleft = Constraint::string_to_vec(left);
+        let pright = Constraint::string_to_vec(right);
 
         pleft.into_iter()
             .chain(pright.into_iter())
@@ -248,7 +250,7 @@ impl Problem {
             for y in self.labels() {
                 let is_left = x != y && right
                     .choices_iter()
-                    .all(|line| right.satisfies(&line.replace(x, y)));
+                    .all(|line| right.satisfies(&line.replace_fast(x, y)));
                 if is_left {
                     adj[x].push(y);
                 }
@@ -313,48 +315,6 @@ impl Problem {
         true
     }
 
-    pub fn to_text(&mut self) -> String {
-        self.assign_chars();
-        let map = Self::map_to_inv_hashmap(self.map_text_label.as_ref().unwrap());
-
-        let left = self.left.to_text(&map);
-        let right = self.right.to_text(&map);
-
-        let mut r = String::new();
-
-        match (self.map_label_oldset.as_ref(),self.map_text_oldlabel.as_ref()){
-            (Some(lo),Some(to)) => {
-                let oldmap = Self::map_to_inv_hashmap(to);
-                r += "Mapping\n";
-                for (l,o) in lo {
-                    let s : String = o.one_bits().map(|x|&oldmap[&x]).join("");
-                    r += &format!("{} <- {}\n",map[l],s);
-                }
-            }
-            _ => {}
-        }
-
-        r += "\nLeft (Active)\n";
-        r += &format!("{}\n",left);
-        r += "\nRight (Passive)\n";
-        r += &format!("{}\n",right);
-
-        if let Some(diagram) = &self.diagram {
-            r += "\nDiagram\n";
-            for (s1, s2) in diagram.iter() {
-                r += &format!("{} -> {}\n",map[s1],map[s2]);
-            }
-        }
-		if let Some(is_trivial) = self.is_trivial {
-			r += "\nThe problem is ";
-			if !is_trivial {
-				r += "NOT ";
-			}
-			r += "zero rounds solvable.\n";
-		}
-        r
-    }
-
     pub fn assign_chars(&mut self) {
         if self.map_text_label.is_none() {
             self.map_text_label = Some(self.labels().map(|i|{
@@ -373,4 +333,79 @@ impl Problem {
             }).collect());
         }
 	}
+
+    pub fn as_result(&mut self) -> ResultProblem {
+        self.assign_chars();
+        let map = Self::map_to_inv_hashmap(self.map_text_label.as_ref().unwrap());
+
+        let left = self.left.to_vec(&map);
+        let right = self.right.to_vec(&map);
+
+        let mapping = match (self.map_label_oldset.as_ref(),self.map_text_oldlabel.as_ref()){
+            (Some(lo),Some(to)) => {
+                let oldmap = Self::map_to_inv_hashmap(to);
+                let mut v = vec![];
+                for (l,o) in lo {
+                    let old = o.one_bits().map(|x|oldmap[&x].to_owned()).collect();
+                    let new = map[l].to_owned();
+                    v.push((old,new));
+                }
+                Some(v)
+            }
+            _ => None
+        };
+
+        self.compute_diagram_edges();
+        let diagram = self.diagram.as_ref().unwrap();
+        let diagram = diagram.iter().map(|(a,b)|(map[a].to_owned(),map[b].to_owned())).collect();
+
+        self.compute_triviality();
+        let is_trivial = self.is_trivial.unwrap();
+
+        ResultProblem{left,right,mapping,diagram,is_trivial}
+    }
+}
+
+
+pub struct ResultProblem {
+    pub left : Vec<Vec<Vec<String>>>,
+    pub right : Vec<Vec<Vec<String>>>,
+    pub mapping : Option<Vec<(Vec<String>,String)>>,
+    pub diagram : Vec<(String,String)>,
+    pub is_trivial : bool
+}
+
+impl std::fmt::Display for ResultProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
+        let mut r = String::new();
+        if let Some(mapping) = &self.mapping {
+            r += "Mapping\n";
+            for (o,l) in mapping {
+                let s : String = o.iter().join("");
+                r += &format!("{} <- {}\n",l,s);
+            }
+        }
+
+        let left = self.left.iter().map(|x|x.iter().map(|t|t.iter().join("")).join(" ")).join("\n");
+        let right = self.right.iter().map(|x|x.iter().map(|t|t.iter().join("")).join(" ")).join("\n");
+
+        r += "\nLeft (Active)\n";
+        r += &format!("{}\n",left);
+        r += "\nRight (Passive)\n";
+        r += &format!("{}\n",right);
+
+        r += "\nDiagram\n";
+        for (s1, s2) in self.diagram.iter() {
+            r += &format!("{} -> {}\n",s1,s2);
+        }
+
+		r += "\nThe problem is ";
+		if !self.is_trivial {
+			r += "NOT ";
+		}
+		r += "zero rounds solvable.\n";
+
+        write!(f,"{}",r)
+    }
 }

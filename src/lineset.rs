@@ -7,7 +7,7 @@ use std::collections::HashSet;
 pub trait LineSet {
     fn contains(&self, line: Line) -> bool;
     fn insert(&mut self, line: Line);
-    fn new(delta: u8, bits: u8) -> Self;
+    fn new(delta: usize, bits: usize) -> Self;
 }
 
 const BITS_PER_ELEM: usize = 8 * std::mem::size_of::<usize>();
@@ -25,26 +25,26 @@ impl BigBitSet {
 }
 
 impl LineSet for BigBitSet {
-    fn new(delta: u8, bits: u8) -> Self {
-        let sz = 1 << (delta as usize * bits as usize);
+    fn new(delta: usize, bits: usize) -> Self {
+        let sz = 1 << (delta * bits);
         Self {
             v: vec![0; sz / BITS_PER_ELEM + 1],
         }
     }
     fn contains(&self, line: Line) -> bool {
         //BigNum performs an overflow check
-        let x = line.inner.as_u64() as usize;
+        let x = line.inner.as_usize();
         ((self.v[x / BITS_PER_ELEM] >> (x % BITS_PER_ELEM)) & 1) != 0
     }
     fn insert(&mut self, line: Line) {
         //BigNum performs an overflow check
-        let x = line.inner.as_u64() as usize;
+        let x = line.inner.as_usize();
         self.v[x / BITS_PER_ELEM] |= 1 << (x % BITS_PER_ELEM);
     }
 }
 
 impl LineSet for HashSet<BigNum> {
-    fn new(_: u8, _: u8) -> Self {
+    fn new(_: usize, _: usize) -> Self {
         HashSet::new()
     }
     fn contains(&self, line: Line) -> bool {

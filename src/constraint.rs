@@ -9,19 +9,21 @@ use either::Either;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use serde::{Deserialize,Serialize};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize,Serialize)]
 pub struct Constraint {
     pub lines: Vec<Line>,
-    pub delta: u8,
-    pub bits: u8,
+    pub delta: usize,
+    pub bits: usize,
     pub mask: BigNum,
     permutations: Option<bool>,
 }
 
 impl Constraint {
     /// creates an empty set of constraints, where delta is `delta` and the number of possible labels is `bits`
-    pub fn new(delta: u8, bits: u8) -> Self {
+    pub fn new(delta: usize, bits: usize) -> Self {
         Constraint {
             lines: vec![],
             delta,
@@ -57,7 +59,7 @@ impl Constraint {
         let delta = self.delta;
         let bits = self.bits;
         for line in self.lines.iter() {
-            let newline = line.relax(from, to);
+            let newline = line.replace(from, to);
             newlines.push(newline);
         }
         Self {
@@ -126,7 +128,10 @@ impl Constraint {
     /// given some constraint such that their groups represent sets, rename those sets such that
     /// each possible group of each line value gets a single bit in the new lines
     pub fn renamed(&self, mapping: &HashMap<BigNum, usize>) -> Constraint {
-        let newbits = mapping.len() as u8;
+        let newbits = mapping.len();
+        if newbits * self.delta > BigNum::MAX.bits() {
+            panic!("The result is too big");
+        }
         let mut new = Constraint::new(self.delta, newbits);
         for line in self.lines.iter() {
             new.add_reduce(line.renamed(mapping));
@@ -134,21 +139,26 @@ impl Constraint {
         new
     }
 
-    pub fn parse(text : &str) -> Vec<Vec<Vec<String>>> {
-        text.lines().map(|line|Line::parse(line)).collect()
+    /// create constraints starting from their text representation
+    pub fn from_text(text : &str, mapping: &HashMap<String, usize>) -> Constraint {
+        let vec = Self::string_to_vec(text);
+        Self::from_vec(&vec,mapping)
+    }
+
+    /// convert a text representation of the constraints to a vector representation
+    pub fn string_to_vec(text : &str) -> Vec<Vec<Vec<String>>> {
+        text.lines().map(|line|Line::string_to_vec(line)).collect()
     }
 
     /// create constraints starting from their string representation
-    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Constraint {
-        let parsed = Constraint::parse(text);
-
-        let first = Line::from_parsed(&parsed[0], mapping);
+    pub fn from_vec(v: &Vec<Vec<Vec<String>>>, mapping: &HashMap<String, usize>) -> Constraint {
+        let first = Line::from_vec(&v[0], mapping);
         let delta = first.delta;
         let bits = first.bits;
 
         let mut c = Constraint::new(delta, bits);
-        for line in &parsed {
-            let line = Line::from_parsed(line, mapping);
+        for line in v {
+            let line = Line::from_vec(line, mapping);
             assert!(line.delta == delta);
             assert!(line.bits == bits);
             c.add_reduce(line);
@@ -156,12 +166,12 @@ impl Constraint {
         c
     }
 
-    /// creates a character representation of the constraints
-    pub fn to_text(&self, mapping: &HashMap<usize, String>) -> String {
+    /// creates a vector representation of the constraints
+    pub fn to_vec(&self, mapping: &HashMap<usize, String>) -> Vec<Vec<Vec<String>>> {
         self.lines
             .iter()
-            .map(|line| line.to_text(mapping))
-            .join("\n")
+            .map(|line| line.to_vec(mapping))
+            .collect()
     }
 
     /// return the unique groups appearing among the lines of the constraints
@@ -175,7 +185,7 @@ impl Constraint {
 
     /// perform the existential step on the current constraints
     pub fn new_constraint_exist(&self, mapping: &HashMap<BigNum, usize>) -> Constraint {
-        let newbits = mapping.len() as u8;
+        let newbits = mapping.len();
         let mut new = Constraint::new(self.delta, newbits);
         for line in &self.lines {
             new.add_reduce(line.anymap(mapping));
@@ -250,10 +260,10 @@ impl Constraint {
 
     /// create a mapping between a set and its position in the adj matrix
     /// a plain array is used instead of a HashMap to make things faster
-    fn sets_adj_map(sets: &Vec<BigNum>, bits: u8) -> Vec<usize> {
+    fn sets_adj_map(sets: &Vec<BigNum>, bits: usize) -> Vec<usize> {
         let mut v = vec![0; 1 << bits];
         for (i, x) in sets.iter().enumerate() {
-            v[x.as_u64() as usize] = i;
+            v[x.as_usize()] = i;
         }
         v
     }
@@ -288,7 +298,7 @@ impl Constraint {
     {
         h.insert(line);
         for (i, group) in line.groups().enumerate() {
-            let pos = map[group.as_u64() as usize];
+            let pos = map[group.as_usize()];
             for &sup in &succ[pos] {
                 let newgroup = sets[sup];
                 let newline = line.with_group(i, newgroup);
