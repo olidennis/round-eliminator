@@ -310,7 +310,7 @@ impl Constraint {
     }
 
     /// Recursive helper for `superlines_over`.
-    pub fn superlines_add<T>(
+    fn superlines_add<T>(
         line: Line,
         h: &mut T,
         sets: &Vec<BigNum>,
