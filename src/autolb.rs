@@ -18,20 +18,20 @@ impl Auto for AutoLb{
 
     /// Here simplifying means replacing label A with label B, where in the diagram there is an arrow from A to B.
     fn simplify(p : &mut Problem, (c1,c2) : Self::Simplification) -> Option<Problem> {
-        // TODO: maybe it makes sense to give none if the problem got trivial (this would require to change should_yield)
-        Some(p.replace(c1,c2))
+        let mut np = p.replace(c1,c2);
+        np.compute_triviality();
+        if np.is_trivial() {
+            return None;
+        }
+        Some(np)
     }
 
     /// A solution is better if we did more speedup steps to get a trivial problem, or the same but the current one is not a trivial problem.
-    /// Also, we yield solutions only if either we reached a trivial problem (so we have a full solution), o we reached the limit.
-    fn should_yield(sol : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool {
+    fn should_yield(sol : &mut Sequence<Self>, best : &mut Sequence<Self>, _ : usize) -> bool {
         let sol_is_trivial = sol.current().is_trivial();
         let best_is_trivial = best.current().is_trivial();
 
-        let better = sol.speedups > best.speedups || ( sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial );
-        let end_reached = sol.speedups == maxiter || sol_is_trivial;
-
-        better && end_reached
+        sol.speedups > best.speedups || ( sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial )
     }
 
     /// We should continue trying if we did not reach the speedup steps limit, and
