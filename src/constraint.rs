@@ -199,7 +199,10 @@ impl Constraint {
         let newbits = mapping.len();
         let mut new = Constraint::new(self.delta, newbits);
         for line in &self.lines {
-            new.add_reduce(line.anymap(mapping));
+            let newline = line.anymap(mapping);
+            if !newline.contains_empty_group() {
+                new.add_reduce(newline);
+            }
         }
         new
     }

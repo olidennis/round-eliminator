@@ -37,6 +37,9 @@ impl Problem {
         diagram: Option<Vec<(usize, usize)>>,
         is_trivial: Option<bool>,
     ) -> Self {
+        if left.lines.len() == 0 || right.lines.len() == 0 {
+            panic!("Empty constraints!");
+        }
         Self {
             left,
             right,

@@ -1,3 +1,2 @@
 - Auto Lb/Ub sometimes not printing mapping
 - The order of labels changes strangely
-- If some labels appear only on one side, bad things happen
