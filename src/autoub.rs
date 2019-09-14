@@ -20,19 +20,15 @@ impl Auto for AutoUb{
     }
 
     fn should_yield(sol : &mut Sequence<Self>, best : &mut Sequence<Self>, _ : usize) -> bool {
-        sol.current_mut().compute_triviality();
-        best.current_mut().compute_triviality();
-        let sol_is_trivial = sol.current().is_trivial.unwrap();
-        let best_is_trivial = best.current().is_trivial.unwrap();
+        let sol_is_trivial = sol.current().is_trivial();
+        let best_is_trivial = best.current().is_trivial();
 
         sol_is_trivial && ( !best_is_trivial || sol.speedups < best.speedups )        
     }
 
     fn should_continue(sol : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool {
-        sol.current_mut().compute_triviality();
-        best.current_mut().compute_triviality();
-        let sol_is_trivial = sol.current().is_trivial.unwrap();
-        let best_is_trivial = best.current().is_trivial.unwrap();
+        let sol_is_trivial = sol.current().is_trivial();
+        let best_is_trivial = best.current().is_trivial();
 
         sol.speedups < maxiter && !sol_is_trivial && (!best_is_trivial || best.speedups -1 > sol.speedups ) 
     }

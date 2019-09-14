@@ -171,6 +171,10 @@ impl Problem {
         )
     }
 
+    pub fn is_trivial(&self) -> bool {
+        self.is_trivial.unwrap()
+    }
+
     /// Computes if the current problem is 0 rounds solvable, saving the result
     pub fn compute_triviality(&mut self) {
         // add_permutations should be a no-op if this is called from speedup()
