@@ -26,7 +26,7 @@ pub trait Auto : Sized + Copy + Clone{
     /// given the current state, the current best state, and the maximum number of speedup steps, returns true it makes sense to do more speedup steps.
     fn should_continue(sequence : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool;
     /// given a problem and a simplification, return a new problem where the simplification has been performed
-    fn simplify(p : &mut Problem, simpl : Self::Simplification) -> Problem;
+    fn simplify(p : &mut Problem, simpl : Self::Simplification) -> Option<Problem>;
 }
 
 #[derive(Clone)]
@@ -88,10 +88,13 @@ impl<T> Sequence<T> where T : Auto {
         self.push(Step::Speedup(new));
     }
 
-    fn push_simplification(&mut self, simpl : T::Simplification ) {
+    fn push_simplification(&mut self, simpl : T::Simplification ) -> bool {
         let last = self.current_mut();
-        let new = T::simplify(last,simpl);
-        self.push(Step::Simplify((simpl,new)));
+        if let Some(new) = T::simplify(last,simpl) {
+            self.push(Step::Simplify((simpl,new)));
+            return true;
+        }
+        false
     }
 
     fn pop_simplification(&mut self){
@@ -138,9 +141,10 @@ impl<T:Auto> AutomaticSimplifications<T> {
             self.sol.pop_speedup();
         } else {
             for simpl in T::simplifications(&mut self.sol, self.maxlabels) {
-                self.sol.push_simplification(simpl);
-                self.simplify(cb);
-                self.sol.pop_simplification();
+                if self.sol.push_simplification(simpl) {
+                    self.simplify(cb);
+                    self.sol.pop_simplification();
+                }
             }
             
         }
@@ -217,9 +221,10 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                 }
                 State::SimplifySimplify(iter) => {
                     if let Some(simpl) = iter.next() {
-                        self.auto.sol.push_simplification(simpl);
-                        self.stack.push(State::SimplifyAfterSimplifyCall);
-                        self.stack.push(State::Simplify);
+                        if self.auto.sol.push_simplification(simpl) {
+                            self.stack.push(State::SimplifyAfterSimplifyCall);
+                            self.stack.push(State::Simplify);
+                        }
                     } else {
                         self.stack.pop();
                     }

@@ -17,8 +17,9 @@ impl Auto for AutoLb{
     }
 
     /// Here simplifying means replacing label A with label B, where in the diagram there is an arrow from A to B.
-    fn simplify(p : &mut Problem, (c1,c2) : Self::Simplification) -> Problem {
-        p.replace(c1,c2)
+    fn simplify(p : &mut Problem, (c1,c2) : Self::Simplification) -> Option<Problem> {
+        // TODO: maybe it makes sense to give none if the problem got trivial (this would require to change should_yield)
+        Some(p.replace(c1,c2))
     }
 
     /// A solution is better if we did more speedup steps to get a trivial problem, or the same but the current one is not a trivial problem.

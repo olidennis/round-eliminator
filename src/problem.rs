@@ -51,6 +51,11 @@ impl Problem {
         }
     }
 
+    /// Check if the constraints are well formed, that is, the same set of labels appears on both sides
+    pub fn has_same_labels_left_right(&self) -> bool {
+        self.left.real_mask() == self.right.real_mask()
+    }
+
     /// Construct a problem starting from left and right constraints.
     pub fn from_constraints(left: Constraint, right: Constraint) -> Self {
         Self::new(left, right, None, None, None, None, None)
@@ -74,6 +79,9 @@ impl Problem {
         let left = Constraint::from_text(left, &hm);
         let right = Constraint::from_text(right, &hm);
         let mut problem = Self::new(left, right, Some(map_text_label), None, None, None, None);
+        if !problem.has_same_labels_left_right() {
+            panic!("Left and right constraints have different sets of labels!");
+        }
         problem.compute_triviality();
         problem.compute_diagram_edges();
         problem
@@ -147,9 +155,26 @@ impl Problem {
     }
 
     /// Make the problem harder, by keeping only labels satisfying the bitmask `keepmask`.
-    pub fn harden(&self, keepmask: BigNum) -> Problem {
-        let left = self.left.harden(keepmask);
-        let right = self.right.harden(keepmask);
+    pub fn harden(&self, mut keepmask: BigNum) -> Option<Problem> {
+
+        // if, by making the problem harder, we get different sets of labels on the two sides,
+        // repeat the operation, until we get the same set of labels
+        let mut left;
+        let mut right;
+        loop {
+            left = self.left.harden(keepmask);
+            right = self.right.harden(keepmask);
+            keepmask = left.real_mask() & right.real_mask();
+            if left.real_mask() == keepmask && right.real_mask() == keepmask {
+                break;
+            }
+        }
+
+        // actually, it should be that either both are zero or none are zero
+        if left.lines.len() == 0 || right.lines.len() == 0 {
+            return None;
+        }
+
         let map_label_oldset = self.map_label_oldset.as_ref().map(|map| {
             map.iter()
                 .cloned()
@@ -163,7 +188,7 @@ impl Problem {
                 .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
                 .collect()
         });
-        Problem::new(
+        Some(Problem::new(
             left,
             right,
             map_text_label,
@@ -171,7 +196,7 @@ impl Problem {
             map_text_oldlabel,
             None, //TODO: do not recompute all diagram if (from,to) is an edge of the diagram
             None,
-        )
+        ))
     }
 
     pub fn is_trivial(&self) -> bool {

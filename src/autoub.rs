@@ -19,7 +19,7 @@ impl Auto for AutoUb{
 
     /// Here simplification means making the problem harder,
     /// restricting the label set to the ones contained in `mask`.
-    fn simplify(p : &mut Problem, mask : Self::Simplification) -> Problem {
+    fn simplify(p : &mut Problem, mask : Self::Simplification) -> Option<Problem> {
         p.harden(mask)
     }
 
