@@ -5,27 +5,32 @@ use crate::bignum::BigNum;
 use crate::auto::Step;
 use std::collections::HashMap;
 
-#[derive(Copy,Clone)]
+#[derive(Clone)]
 pub struct AutoUb;
 impl Auto for AutoUb{
     type Simplification = BigNum;
 
+
+    fn new() -> Self {
+        Self
+    }
     /// The possible simplifications are described by sets of labels,
     /// the valid ones are the sets containing at most `maxlabel` labels
-    fn simplifications(sol : &mut Sequence<Self>, maxlabels : usize) -> Box<dyn Iterator<Item=Self::Simplification>> {
+    fn simplifications(&mut self, sol : &mut Sequence<Self>, maxlabels : usize) -> Box<dyn Iterator<Item=Self::Simplification>> {
         let iter = sol.current().all_possible_sets().filter(move |x|x.count_ones() <= maxlabels as u32);
         Box::new(iter)
     }
 
     /// Here simplification means making the problem harder,
     /// restricting the label set to the ones contained in `mask`.
-    fn simplify(p : &mut Problem, mask : Self::Simplification) -> Option<Problem> {
+    fn simplify(&mut self, sequence : &mut Sequence<Self>, mask : Self::Simplification) -> Option<Problem> {
+        let p = sequence.current_mut();
         p.harden(mask)
     }
 
     /// A solution is better if the current problem is 0 rounds solvable and
     /// either the other problem is non trivial, or both are trivial and the current one requires less rounds.
-    fn should_yield(sol : &mut Sequence<Self>, best : &mut Sequence<Self>, _ : usize) -> bool {
+    fn should_yield(&mut self, sol : &mut Sequence<Self>, best : &mut Sequence<Self>, _ : usize) -> bool {
         let sol_is_trivial = sol.current().is_trivial();
         let best_is_trivial = best.current().is_trivial();
 
@@ -35,7 +40,7 @@ impl Auto for AutoUb{
     /// We should continue trying if we did not reach the speedup steps limit, and
     /// the current solution is still not 0 rounds solvable, and
     /// either we still have no solutions or we can improve it by at least one round.
-    fn should_continue(sol : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool {
+    fn should_continue(&mut self, sol : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool {
         let sol_is_trivial = sol.current().is_trivial();
         let best_is_trivial = best.current().is_trivial();
 

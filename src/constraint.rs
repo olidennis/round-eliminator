@@ -16,7 +16,7 @@ use std::collections::HashSet;
 /// Permutations indicates whether all permutations of each line are also included,
 /// where true indicates that they are, false indicates that the lines have been minimized by removing permutations,
 /// and none indicates that the constraints are arbitrary.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash)]
 pub struct Constraint {
     pub lines: Vec<Line>,
     pub delta: usize,

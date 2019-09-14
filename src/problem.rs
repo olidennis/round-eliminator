@@ -15,7 +15,7 @@ use std::hash::Hash;
 /// We may have the mapping of the string representation of the problem of the previous step.
 /// We may have computed if the current problem is trivial.
 /// We may have computed the strength diagram for the labels on the right side, represented by a vector of directed edges.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash)]
 pub struct Problem {
     pub left: Constraint,
     pub right: Constraint,
