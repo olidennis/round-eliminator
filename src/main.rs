@@ -6,6 +6,7 @@ mod line;
 mod lineset;
 mod problem;
 mod file;
+mod autolb;
 
 fn main(){
 
@@ -115,8 +116,7 @@ fn main(){
         let name = f.value_of("file").unwrap();
         let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
-        //autolb::autolb(name,labels,iter);
-        unimplemented!();
+        autolb::autolb(name,labels,iter);
 	}else if let Some(f) = matches.subcommand_matches("autoub") {
         let name = f.value_of("file").unwrap();
         let labels : usize = f.value_of("labels").unwrap().parse().unwrap();

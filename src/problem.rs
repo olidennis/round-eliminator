@@ -95,6 +95,11 @@ impl Problem {
             .collect()
     }
 
+    /// Creates a mapping from label numbers to their string representation
+    pub fn map_label_text(&self) -> HashMap<usize,String> {
+        Self::map_to_inv_hashmap(self.map_text_label.as_ref().unwrap())
+    }
+
     /// Accessory function to convert a list of pairs `(a,b)` to a map mapping `a` to `b`
     fn map_to_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<A, B>
     where
@@ -386,7 +391,7 @@ impl Problem {
     /// where all possible optional things are computed (except of the mapping to the previous problem if it does not exist).
     pub fn as_result(&mut self) -> ResultProblem {
         self.assign_chars();
-        let map = Self::map_to_inv_hashmap(self.map_text_label.as_ref().unwrap());
+        let map = self.map_label_text();
 
         let left = self.left.to_vec(&map);
         let right = self.right.to_vec(&map);
