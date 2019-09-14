@@ -83,7 +83,8 @@ impl<T> Sequence<T> where T : Auto {
     fn push_speedup(&mut self) {
         self.speedups += 1;
         let last = self.current_mut();
-        let new = last.speedup();
+        let mut new = last.speedup();
+        new.assign_chars();
         self.push(Step::Speedup(new));
     }
 
