@@ -317,7 +317,7 @@ impl Problem {
     }
 
     /// Returns an iterator over all possible sets of labels.
-    fn all_possible_sets(&self) -> impl Iterator<Item = BigNum> {
+    pub fn all_possible_sets(&self) -> impl Iterator<Item = BigNum> {
         assert!(self.left.bits == self.right.bits);
         assert!(self.left.mask == self.right.mask);
         let bits = self.left.bits;

@@ -7,6 +7,7 @@ mod lineset;
 mod problem;
 mod file;
 mod autolb;
+mod autoub;
 
 fn main(){
 
@@ -121,8 +122,7 @@ fn main(){
         let name = f.value_of("file").unwrap();
         let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
-        //autoub::autoub(name,labels,iter);
-        unimplemented!();
+        autoub::autoub(name,labels,iter);
 	}
 
 }
