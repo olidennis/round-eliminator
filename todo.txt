@@ -1,2 +1,1 @@
 - Auto Lb/Ub sometimes not printing mapping
-- Wrong speedup for problems/problem.txt

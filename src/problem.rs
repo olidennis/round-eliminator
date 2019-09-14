@@ -214,6 +214,11 @@ impl Problem {
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = Self::map_to_inv_hashmap(&map_label_oldset);
 
+        let newbits = hm_oldset_label.len();
+        if newbits * std::cmp::max(self.left.delta,self.right.delta) > BigNum::MAX.bits() {
+            panic!("The result is too big");
+        }
+
         let newleft = newleft_before_renaming.renamed(&hm_oldset_label);
         let newright = left.new_constraint_exist(&hm_oldset_label);
 

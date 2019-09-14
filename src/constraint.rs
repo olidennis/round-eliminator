@@ -133,9 +133,6 @@ impl Constraint {
     /// For example, if 011010 should be mapped to 1000, then mapping should map `011010` to 3 (the position of the unique bit with value 1).
     pub fn renamed(&self, mapping: &HashMap<BigNum, usize>) -> Constraint {
         let newbits = mapping.len();
-        if newbits * self.delta > BigNum::MAX.bits() {
-            panic!("The result is too big");
-        }
         let mut new = Constraint::new(self.delta, newbits);
         for line in self.lines.iter() {
             new.add_reduce(line.renamed(mapping));
