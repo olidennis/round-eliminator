@@ -48,7 +48,7 @@ impl Auto for AutoLb{
 impl std::fmt::Display for Sequence<AutoLb> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let mut cloned = self.clone();
-        writeln!(f,"\nLower bound of {} rounds.\n",self.speedups)?;
+        writeln!(f,"\nLower bound of {} rounds.\n",self.speedups + if self.current().is_trivial() {0} else {1})?;
 
         let mut lastmap : Option<HashMap<_,_>> = None;
 
