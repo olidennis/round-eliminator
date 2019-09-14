@@ -1,1 +1,2 @@
 - The order of labels changes strangely
+- get_diagram_edges_from_rightconstraints is WRONG. If the sets are A A A | B B B it creates an arrow from A to B and from B to A
