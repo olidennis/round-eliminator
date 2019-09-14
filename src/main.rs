@@ -5,9 +5,10 @@ mod constraint;
 mod line;
 mod lineset;
 mod problem;
-mod file;
 mod autolb;
 mod autoub;
+mod auto;
+mod cli;
 
 fn main(){
 
@@ -112,17 +113,17 @@ fn main(){
     }else if let Some(f) = matches.subcommand_matches("file") {
         let name = f.value_of("file").unwrap();
         let iter : usize = f.value_of("iter").unwrap().parse().unwrap();
-        file::file(name,iter);
+        cli::file(name,iter);
 	}else if let Some(f) = matches.subcommand_matches("autolb") {
         let name = f.value_of("file").unwrap();
         let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
-        autolb::autolb(name,labels,iter);
+        cli::autolb(name,labels,iter);
 	}else if let Some(f) = matches.subcommand_matches("autoub") {
         let name = f.value_of("file").unwrap();
         let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
-        autoub::autoub(name,labels,iter);
+        cli::autoub(name,labels,iter);
 	}
 
 }
