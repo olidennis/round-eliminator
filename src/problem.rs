@@ -332,7 +332,8 @@ impl Problem {
                 let is_left = x != y
                     && right
                         .choices_iter()
-                        .all(|line| right.satisfies(&line.replace_fast(x, y)));
+                        .flat_map(|line|line.replace_one_fast(x,y))
+                        .all(|line| right.satisfies(&line));
                 if is_left {
                     adj[x].push(y);
                 }
@@ -400,7 +401,7 @@ impl Problem {
 
     /// Assign a text representation to the labels.
     /// If there are at most 62 labels, single chars are used,
-    /// otherwise each label i gets the string "<i>".
+    /// otherwise each label i gets the string "(i)".
     pub fn assign_chars(&mut self) {
         if self.map_text_label.is_none() {
             self.map_text_label = Some(
@@ -416,7 +417,7 @@ impl Problem {
                             };
                             (format!("{}", c), i as usize)
                         } else {
-                            (format!("<{}>", i), i as usize)
+                            (format!("({})", i), i as usize)
                         }
                     })
                     .collect(),

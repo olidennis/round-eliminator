@@ -110,6 +110,18 @@ impl Line {
         self.edited(|group| if group == from { to } else { group })
     }
 
+    /// This method assumes that each group contains a single label.
+    /// Given a line where `from` may appear multiple times, it returns an iterator of lines
+    /// where at each step one additional appearence of `from` is replaced by `to`.
+    /// For example, given A A C, where from=A and to=B, it returns B A C, B B C.
+    pub fn replace_one_fast(&self, from : usize, to : usize) -> impl Iterator<Item=Line> {
+        let one = BigNum::one();
+        let from = one << from;
+        let to = one << to;
+        let mut state = self.clone();
+        self.groups().enumerate().filter(move |&(_,x)|x==from).map(move |(i,_)|{state=state.with_group(i, to); state})
+    }
+
     /// Creates a new line where only labels allowed by the given mask are kept.
     /// If a group becomes empty, it returns None.
     pub fn harden(&self, keepmask: BigNum) -> Option<Line> {
@@ -184,9 +196,9 @@ impl Line {
             .map(|w| {
                 w.chars()
                     .batching(|it| match it.next() {
-                        Some('<') => Some(format!(
-                            "<{}>",
-                            it.take_while(|&c| c != '>').collect::<String>()
+                        Some('(') => Some(format!(
+                            "({})",
+                            it.take_while(|&c| c != ')').collect::<String>()
                         )),
                         Some(c) => Some(format!("{}", c)),
                         None => None,
