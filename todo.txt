@@ -3,3 +3,4 @@
 - The original right contraints may give a diagram with cycles, and the second part of get_diagram_edges_from_rightconstraints, is not correct in that case.
 - The program panics with autoub/autolb if the number of allowed labels is less than the initial ones.
 - auto lb/ub, if the initial problem is zero round solvable, it does not write anything
+- for semimatching on bipartite graphs, autolb spends 20% of the time checking for triviality
