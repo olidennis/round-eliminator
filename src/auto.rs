@@ -5,8 +5,8 @@ use crate::problem::Problem;
 /// We start from an initial problem,
 /// then at each step we can either simplify and get a new problem,
 /// or perform one step of speedup and get a new problem
-#[derive(Clone)]
-pub enum Step<T:Clone>{
+#[derive(Clone,Debug)]
+pub enum Step<T:Clone+std::fmt::Debug>{
     Initial(Problem),
     Simplify((T,Problem)),
     Speedup(Problem)
@@ -18,7 +18,7 @@ pub enum Step<T:Clone>{
 /// and if it makes sense to continue trying the current path.
 /// Also, it needs to provide a way to simplify the current problem, given the current simplification.
 pub trait Auto : Sized + Clone{
-    type Simplification : Copy + Clone ;
+    type Simplification : Copy + Clone + std::fmt::Debug;
     /// constructor
     fn new() -> Self;
     /// given the current state and the maximum number of labels, returns an iterator over the possible simplifications that can be performed.

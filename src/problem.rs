@@ -319,13 +319,18 @@ impl Problem {
         mask.count_ones() as usize
     }
 
+    /// Returns the largest label. It may be different from num_labels()-1.
+    pub fn max_label(&self) -> usize {
+        self.labels().max().unwrap()
+    }
+
     /// If this problem is not the result of a speedup,
     /// we need to compute the diagram by looking at the right constraints.
     /// We put an edge from A to B if each time A can be used also B can be used.
     fn get_diagram_edges_from_rightconstraints(&mut self) -> Vec<(usize, usize)> {
         let mut right = self.right.clone();
         right.add_permutations();
-        let num_labels = self.num_labels();
+        let num_labels = self.max_label()+1;
         let mut adj = vec![vec![]; num_labels];
         for x in self.labels() {
             for y in self.labels() {
