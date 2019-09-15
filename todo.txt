@@ -1,4 +1,4 @@
 - The original right contraints may give a diagram with cycles, and the second part of get_diagram_edges_from_rightconstraints, is not correct in that case. The same may happen for a problem that is the result of harden(). This is currently fixed by showing an arrow  A->C even if there is A->B and B->C
 - The order of labels changes strangely
-- it would be nice to hide the compute_* methods in problem.rs, and modify e.g. is_trivial() such that it never fails.
 - for semimatching on bipartite graphs, autolb spends 20% of the time checking for triviality
+- avoid recomputing the diagram from scratch in case of relax

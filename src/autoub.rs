@@ -38,18 +38,15 @@ impl Auto for AutoUb{
     /// A solution is better if the current problem is 0 rounds solvable and
     /// either the other problem is non trivial, or both are trivial and the current one requires less rounds.
     fn should_yield(&mut self, sol : &mut Sequence<Self>, best : &mut Sequence<Self>, _ : usize) -> bool {
-        let sol_is_trivial = sol.current().is_trivial();
-        let best_is_trivial = best.current().is_trivial();
+        let sol_is_trivial = sol.current().is_trivial;
+        let best_is_trivial = best.current().is_trivial;
 
         let should_yield = sol_is_trivial && ( !best_is_trivial || sol.speedups < best.speedups );
         if should_yield {
             for x in sol.steps.iter_mut() {
-                let p = match x {
-                    Step::Initial(p) => {p},
-                    Step::Simplify((_,p)) => {p},
-                    Step::Speedup(p) => {p}
-                };
-                p.compute_diagram_edges_from_rightconstraints();
+                if let Step::Simplify((_,p)) = x {
+                    p.compute_diagram_edges_from_rightconstraints();
+                }
             }
         }
         should_yield
@@ -59,8 +56,8 @@ impl Auto for AutoUb{
     /// the current solution is still not 0 rounds solvable, and
     /// either we still have no solutions or we can improve it by at least one round.
     fn should_continue(&mut self, sol : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool {
-        let sol_is_trivial = sol.current().is_trivial();
-        let best_is_trivial = best.current().is_trivial();
+        let sol_is_trivial = sol.current().is_trivial;
+        let best_is_trivial = best.current().is_trivial;
 
         sol.speedups < maxiter && !sol_is_trivial && (!best_is_trivial || best.speedups -1 > sol.speedups ) 
     }

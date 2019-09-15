@@ -86,8 +86,7 @@ impl<T> Sequence<T> where T : Auto {
     fn push_speedup(&mut self) {
         self.speedups += 1;
         let last = self.current_mut();
-        let mut new = last.speedup();
-        new.assign_chars();
+        let new = last.speedup();
         self.push(Step::Speedup(new));
     }
 
@@ -124,8 +123,7 @@ impl<T:Auto> AutomaticSimplifications<T> {
     /// each time a better result is found, the closure is called
     #[allow(dead_code)]
     pub fn run<F>(&mut self, mut cb : F) where F : FnMut(&Sequence<T>){
-        self.sol.current_mut().compute_triviality();
-        if self.sol.current().is_trivial() {
+        if self.sol.current().is_trivial {
             self.sol.make_printable();
             cb(&self.sol);
         }
@@ -201,8 +199,7 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
             match self.stack.last_mut().unwrap() {
                 State::Start => {
                     self.stack.pop();
-                    self.auto.sol.current_mut().compute_triviality();
-                    if self.auto.sol.current().is_trivial() {
+                    if self.auto.sol.current().is_trivial {
                         self.auto.sol.make_printable();
                         return Some(self.auto.sol.clone());
                     }

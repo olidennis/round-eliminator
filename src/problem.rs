@@ -19,11 +19,11 @@ use std::hash::Hash;
 pub struct Problem {
     pub left: Constraint,
     pub right: Constraint,
-    pub map_text_label: Option<Vec<(String, usize)>>,
+    pub map_text_label: Vec<(String, usize)>,
+    pub is_trivial: bool,
+    pub diagram: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
-    pub is_trivial: Option<bool>,
-    pub diagram: Option<Vec<(usize, usize)>>,
 }
 
 impl Problem {
@@ -33,22 +33,28 @@ impl Problem {
         right: Constraint,
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
-        map_text_oldlabel: Option<Vec<(String, usize)>>,
-        diagram: Option<Vec<(usize, usize)>>,
-        is_trivial: Option<bool>,
+        map_text_oldlabel: Option<Vec<(String, usize)>>
     ) -> Self {
         if left.lines.len() == 0 || right.lines.len() == 0 {
             panic!("Empty constraints!");
         }
-        Self {
+        let mut p = Self {
             left,
             right,
-            map_text_label,
+            map_text_label : vec![],
             map_label_oldset,
             map_text_oldlabel,
-            diagram,
-            is_trivial,
+            diagram : vec![],
+            is_trivial : false
+        };
+        if let Some(map) = map_text_label {
+            p.map_text_label = map;
+        } else {
+            p.assign_chars();
         }
+        p.compute_triviality();
+        p.compute_diagram_edges();
+        p
     }
 
     /// Check if the constraints are well formed, that is, the same set of labels appears on both sides
@@ -58,7 +64,7 @@ impl Problem {
 
     /// Construct a problem starting from left and right constraints.
     pub fn from_constraints(left: Constraint, right: Constraint) -> Self {
-        Self::new(left, right, None, None, None, None, None)
+        Self::new(left, right, None, None, None)
     }
 
     /// Construct a problem starting from a text representation (where there are left and right constraint separated by an empty line).
@@ -78,12 +84,10 @@ impl Problem {
         let hm = Self::map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm);
         let right = Constraint::from_text(right, &hm);
-        let mut problem = Self::new(left, right, Some(map_text_label), None, None, None, None);
+        let problem = Self::new(left, right, Some(map_text_label), None, None);
         if !problem.has_same_labels_left_right() {
             panic!("Left and right constraints have different sets of labels!");
         }
-        problem.compute_triviality();
-        problem.compute_diagram_edges();
         problem
     }
 
@@ -108,7 +112,7 @@ impl Problem {
 
     /// Creates a mapping from label numbers to their string representation
     pub fn map_label_text(&self) -> HashMap<usize,String> {
-        Self::map_to_inv_hashmap(self.map_text_label.as_ref().unwrap())
+        Self::map_to_inv_hashmap(&self.map_text_label)
     }
 
     /// Accessory function to convert a list of pairs `(a,b)` to a map mapping `a` to `b`
@@ -139,18 +143,13 @@ impl Problem {
             .as_ref()
             .map(|map| map.iter().cloned().filter(|&(l, _)| l != from).collect());
         let map_text_oldlabel = self.map_text_oldlabel.clone();
-        let map_text_label = self
-            .map_text_label
-            .as_ref()
-            .map(|map| map.iter().cloned().filter(|&(_, l)| l != from).collect());
+        let map_text_label = self.map_text_label.iter().cloned().filter(|&(_, l)| l != from).collect();
         Problem::new(
             left,
             right,
-            map_text_label,
+            Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            None, //TODO: do not recompute all diagram if (from,to) is an edge of the diagram
-            None,
         )
     }
 
@@ -187,32 +186,24 @@ impl Problem {
                 .collect()
         });
         let map_text_oldlabel = self.map_text_oldlabel.clone();
-        let map_text_label = self.map_text_label.as_ref().map(|map| {
-            map.iter()
+        let map_text_label = self.map_text_label.iter()
                 .cloned()
                 .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
-                .collect()
-        });
+                .collect();
+
         let mut p = Problem::new(
             left,
             right,
-            map_text_label,
+            Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            None, //TODO: do not recompute all diagram if (from,to) is an edge of the diagram
-            None,
         );
 
+        // TODO: avoid computing it inside the new
         if fix_diagram {
             p.compute_diagram_edges_from_rightconstraints();
-        } else {
-            p.compute_diagram_edges();
         }
         Some(p)
-    }
-
-    pub fn is_trivial(&self) -> bool {
-        self.is_trivial.unwrap()
     }
 
     /// Computes if the current problem is 0 rounds solvable, saving the result
@@ -220,9 +211,6 @@ impl Problem {
         // add_permutations should be a no-op if this is called from speedup()
         // and in this way it always works
         // and cloning right makes this function side-effect free on the constraints
-        if self.is_trivial.is_some() {
-            return;
-        }
         let right = self.right.clone();
         self.right.add_permutations();
         assert!(self.left.bits == self.right.bits);
@@ -235,14 +223,13 @@ impl Problem {
         });
 
         self.right = right;
-        self.is_trivial = Some(is_trivial);
+        self.is_trivial = is_trivial;
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
     pub fn speedup(&mut self) -> Self {
-        self.compute_diagram_edges();
         let mut left = self.left.clone();
         let mut right = self.right.clone();
         left.add_permutations();
@@ -259,32 +246,24 @@ impl Problem {
             panic!("The result is too big");
         }
 
-        let newleft = newleft_before_renaming.renamed(&hm_oldset_label);
-        let newright = left.new_constraint_exist(&hm_oldset_label);
+        let mut newleft = newleft_before_renaming.renamed(&hm_oldset_label);
+        let mut newright = left.new_constraint_exist(&hm_oldset_label);
 
-        let mut result = Self::new(
+        newleft.remove_permutations();
+        newright.remove_permutations();
+
+        Self::new(
             newleft,
             newright,
             None,
             Some(map_label_oldset),
-            self.map_text_label.clone(),
-            None,
-            None,
-        );
-        result.left.remove_permutations();
-        result.compute_triviality();
-        result.right.remove_permutations();
-        result.compute_diagram_edges();
-        result
+            Some(self.map_text_label.clone()),
+        )
     }
 
     /// Computes the strength diagram for the labels on the right constraints.
     /// We put an edge from A to B if each time A can be used then also B can be used.
-    pub fn compute_diagram_edges(&mut self) {
-        if self.diagram.is_some() {
-            return;
-        }
-        
+    pub fn compute_diagram_edges(&mut self) {        
         if self.map_label_oldset.is_some() {
             self.compute_diagram_edges_from_oldsets();
         } else {
@@ -314,7 +293,7 @@ impl Problem {
                 result.push((label, otherlabel));
             }
         }
-        self.diagram = Some(result);
+        self.diagram = result;
     }
 
     /// Returns an iterator over the possible labels.
@@ -368,7 +347,7 @@ impl Problem {
                 }
             }
         }
-        self.diagram = Some(result);
+        self.diagram = result;
     }
 
     /// Returns an iterator over all possible sets of labels.
@@ -395,7 +374,7 @@ impl Problem {
     pub fn diagram_adj(&self) -> Vec<Vec<usize>> {
         assert!(self.left.bits == self.right.bits);
         let bits = self.left.bits;
-        let diag = self.diagram.as_ref().unwrap();
+        let diag = &self.diagram;
 
         let mut m = vec![vec![]; bits as usize];
         for &(x, y) in diag {
@@ -420,8 +399,7 @@ impl Problem {
     /// If there are at most 62 labels, single chars are used,
     /// otherwise each label i gets the string "(i)".
     pub fn assign_chars(&mut self) {
-        if self.map_text_label.is_none() {
-            self.map_text_label = Some(
+            self.map_text_label =
                 self.labels()
                     .map(|i| {
                         if self.num_labels() <= 62 {
@@ -437,15 +415,12 @@ impl Problem {
                             (format!("({})", i), i as usize)
                         }
                     })
-                    .collect(),
-            );
-        }
+                    .collect()
     }
 
     /// Returns a simple representation of the problem,
     /// where all possible optional things are computed (except of the mapping to the previous problem if it does not exist).
     pub fn as_result(&mut self) -> ResultProblem {
-        self.assign_chars();
         let map = self.map_label_text();
 
         let left = self.left.to_vec(&map);
@@ -468,15 +443,12 @@ impl Problem {
             _ => None,
         };
 
-        self.compute_diagram_edges();
-        let diagram = self.diagram.as_ref().unwrap();
-        let diagram = diagram
+        let diagram = self.diagram
             .iter()
             .map(|(a, b)| (map[a].to_owned(), map[b].to_owned()))
             .collect();
 
-        self.compute_triviality();
-        let is_trivial = self.is_trivial.unwrap();
+        let is_trivial = self.is_trivial;
 
         ResultProblem {
             left,
