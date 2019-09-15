@@ -25,7 +25,14 @@ impl Auto for AutoUb{
     /// restricting the label set to the ones contained in `mask`.
     fn simplify(&mut self, sequence : &mut Sequence<Self>, mask : Self::Simplification) -> Option<Problem> {
         let p = sequence.current_mut();
-        p.harden(mask)
+        // Unfortunately, it may happen that if we use set inclusion to compute the diagram, we miss some edges.
+        // So we need to use the right constraints.
+        // The problem is that, while having more edges may help the speedup,
+        // this actually slows down autoub,
+        // but we still need to use this slower version, otherwise we would show the wrong diagram to the user
+        // so we fix this by using the wrong diagram, that is still correct to use to do speedup, since it only misses edges,
+        // and we recompute the correct only when we yield a solution.
+        p.harden(mask, false)
     }
 
     /// A solution is better if the current problem is 0 rounds solvable and
@@ -34,7 +41,18 @@ impl Auto for AutoUb{
         let sol_is_trivial = sol.current().is_trivial();
         let best_is_trivial = best.current().is_trivial();
 
-        sol_is_trivial && ( !best_is_trivial || sol.speedups < best.speedups )        
+        let should_yield = sol_is_trivial && ( !best_is_trivial || sol.speedups < best.speedups );
+        if should_yield {
+            for x in sol.steps.iter_mut() {
+                let p = match x {
+                    Step::Initial(p) => {p},
+                    Step::Simplify((_,p)) => {p},
+                    Step::Speedup(p) => {p}
+                };
+                p.compute_diagram_edges_from_rightconstraints();
+            }
+        }
+        should_yield
     }
 
     /// We should continue trying if we did not reach the speedup steps limit, and

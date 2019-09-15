@@ -155,7 +155,12 @@ impl Problem {
     }
 
     /// Make the problem harder, by keeping only labels satisfying the bitmask `keepmask`.
-    pub fn harden(&self, mut keepmask: BigNum) -> Option<Problem> {
+    /// if `fix_diagram` is true, the correct diagram is (slowly) computed,
+    /// otherwise the (possibly wrong) diagram given by set inclusion is computed.
+    /// For example, if the original right constraints are D A B | C AB AB,
+    /// and the mask keeps only ABC, the new constraints are only C AB AB,
+    /// and we should now get an arrow from A to B and vice versa.
+    pub fn harden(&self, mut keepmask: BigNum, fix_diagram : bool) -> Option<Problem> {
 
         // if, by making the problem harder, we get different sets of labels on the two sides,
         // repeat the operation, until we get the same set of labels
@@ -188,7 +193,7 @@ impl Problem {
                 .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
                 .collect()
         });
-        Some(Problem::new(
+        let mut p = Problem::new(
             left,
             right,
             map_text_label,
@@ -196,7 +201,14 @@ impl Problem {
             map_text_oldlabel,
             None, //TODO: do not recompute all diagram if (from,to) is an edge of the diagram
             None,
-        ))
+        );
+
+        if fix_diagram {
+            p.compute_diagram_edges_from_rightconstraints();
+        } else {
+            p.compute_diagram_edges();
+        }
+        Some(p)
     }
 
     pub fn is_trivial(&self) -> bool {
@@ -272,17 +284,17 @@ impl Problem {
         if self.diagram.is_some() {
             return;
         }
-        let diag = if self.map_label_oldset.is_some() {
-            self.get_diagram_edges_from_oldsets()
+        
+        if self.map_label_oldset.is_some() {
+            self.compute_diagram_edges_from_oldsets();
         } else {
-            self.get_diagram_edges_from_rightconstraints()
+            self.compute_diagram_edges_from_rightconstraints();
         };
-        self.diagram = Some(diag);
     }
 
     /// One way to compute the diagram is using set inclusion,
     /// if this problem is the result of a speedup.
-    fn get_diagram_edges_from_oldsets(&self) -> Vec<(usize, usize)> {
+    fn compute_diagram_edges_from_oldsets(&mut self) {
         let mut result = vec![];
         let map_label_oldset = self.map_label_oldset.as_ref().unwrap();
 
@@ -302,7 +314,7 @@ impl Problem {
                 result.push((label, otherlabel));
             }
         }
-        result
+        self.diagram = Some(result);
     }
 
     /// Returns an iterator over the possible labels.
@@ -327,7 +339,7 @@ impl Problem {
     /// If this problem is not the result of a speedup,
     /// we need to compute the diagram by looking at the right constraints.
     /// We put an edge from A to B if each time A can be used also B can be used.
-    fn get_diagram_edges_from_rightconstraints(&mut self) -> Vec<(usize, usize)> {
+    pub fn compute_diagram_edges_from_rightconstraints(&mut self) {
         let mut right = self.right.clone();
         right.add_permutations();
         let num_labels = self.max_label()+1;
@@ -356,7 +368,7 @@ impl Problem {
                 }
             }
         }
-        result
+        self.diagram = Some(result);
     }
 
     /// Returns an iterator over all possible sets of labels.
