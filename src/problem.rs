@@ -346,7 +346,7 @@ impl Problem {
                     .iter()
                     .filter(|&&t| t != y)
                     .all(|&t| adj[t].iter().find(|&&x| x == y).is_none());
-                if is_direct {
+                if true || is_direct {
                     result.push((x, y));
                 }
             }

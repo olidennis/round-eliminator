@@ -102,6 +102,7 @@ impl Line {
 
     /// Creates a new line where the label `from` is replaced by the label `to`,
     /// assuming that each group contains a single label.
+    #[allow(dead_code)]
     pub fn replace_fast(&self, from: usize, to: usize) -> Line {
         let one = BigNum::one();
         let from = one << from;
