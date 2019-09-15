@@ -124,6 +124,11 @@ impl<T:Auto> AutomaticSimplifications<T> {
     /// each time a better result is found, the closure is called
     #[allow(dead_code)]
     pub fn run<F>(&mut self, mut cb : F) where F : FnMut(&Sequence<T>){
+        self.sol.current_mut().compute_triviality();
+        if self.sol.current().is_trivial() {
+            self.sol.make_printable();
+            cb(&self.sol);
+        }
         self.problem(&mut cb);	
     }
 
@@ -162,7 +167,7 @@ impl<T:Auto> IntoIterator for AutomaticSimplifications<T> {
     fn into_iter(self) -> Self::IntoIter {
         AutomaticSimplificationsIntoIterator {
             auto: self,
-            stack : vec![State::Problem]
+            stack : vec![State::Start]
         }
     }
 }
@@ -172,6 +177,7 @@ impl<T:Auto> IntoIterator for AutomaticSimplifications<T> {
 /// This allows to get a proper rust iterator, but the code is ugly,
 /// since the recursion needs to be converted to a state machine.
 enum State<T:Auto> {
+    Start,
     Problem,
     ProblemAfterCheckYield,
     Simplify,
@@ -193,6 +199,15 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                 return None;
             }
             match self.stack.last_mut().unwrap() {
+                State::Start => {
+                    self.stack.pop();
+                    self.auto.sol.current_mut().compute_triviality();
+                    if self.auto.sol.current().is_trivial() {
+                        self.auto.sol.make_printable();
+                        return Some(self.auto.sol.clone());
+                    }
+                    self.stack.push(State::Problem);
+                }
                 State::Problem => {
                     self.stack.pop();
                     self.stack.push(State::ProblemAfterCheckYield);
