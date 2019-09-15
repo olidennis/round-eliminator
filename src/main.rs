@@ -1,17 +1,16 @@
 use clap::{App as ClApp, AppSettings, Arg, SubCommand};
 
+mod auto;
+mod autolb;
+mod autoub;
 mod bignum;
+mod cli;
 mod constraint;
 mod line;
 mod lineset;
 mod problem;
-mod autolb;
-mod autoub;
-mod auto;
-mod cli;
 
-fn main(){
-
+fn main() {
     let matches = ClApp::new("Sim")
         .version("0.1")
         .about("...")
@@ -24,7 +23,7 @@ fn main(){
                         .long("file")
                         .value_name("FILE")
                         .required(true)
-                        .help("Input file")
+                        .help("Input file"),
                 )
                 .arg(
                     Arg::with_name("iter")
@@ -32,8 +31,8 @@ fn main(){
                         .long("iter")
                         .value_name("ITER")
                         .required(true)
-                        .help("Number of iterations")
-                )
+                        .help("Number of iterations"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("server")
@@ -43,8 +42,8 @@ fn main(){
                         .short("a")
                         .long("addr")
                         .default_value("127.0.0.1:8080")
-                        .help("bind address")
-                )
+                        .help("bind address"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("autolb")
@@ -55,7 +54,7 @@ fn main(){
                         .long("file")
                         .value_name("FILE")
                         .required(true)
-                        .help("Input file")
+                        .help("Input file"),
                 )
                 .arg(
                     Arg::with_name("labels")
@@ -63,7 +62,7 @@ fn main(){
                         .long("labels")
                         .value_name("LABELS")
                         .required(true)
-                        .help("Maximum number of labels")
+                        .help("Maximum number of labels"),
                 )
                 .arg(
                     Arg::with_name("iter")
@@ -71,8 +70,8 @@ fn main(){
                         .long("iter")
                         .value_name("ITER")
                         .required(true)
-                        .help("Maximum number of iterations")
-                )
+                        .help("Maximum number of iterations"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("autoub")
@@ -83,7 +82,7 @@ fn main(){
                         .long("file")
                         .value_name("FILE")
                         .required(true)
-                        .help("Input file")
+                        .help("Input file"),
                 )
                 .arg(
                     Arg::with_name("labels")
@@ -91,7 +90,7 @@ fn main(){
                         .long("labels")
                         .value_name("LABELS")
                         .required(true)
-                        .help("Maximum number of labels")
+                        .help("Maximum number of labels"),
                 )
                 .arg(
                     Arg::with_name("iter")
@@ -99,31 +98,29 @@ fn main(){
                         .long("iter")
                         .value_name("ITER")
                         .required(true)
-                        .help("Maximum number of iterations")
-                )
+                        .help("Maximum number of iterations"),
+                ),
         )
         .setting(AppSettings::SubcommandRequired)
         .get_matches();
-
 
     if let Some(s) = matches.subcommand_matches("server") {
         let addr = s.value_of("bindaddr").unwrap();
         //server(addr);
         unimplemented!();
-    }else if let Some(f) = matches.subcommand_matches("file") {
+    } else if let Some(f) = matches.subcommand_matches("file") {
         let name = f.value_of("file").unwrap();
-        let iter : usize = f.value_of("iter").unwrap().parse().unwrap();
-        cli::file(name,iter);
-	}else if let Some(f) = matches.subcommand_matches("autolb") {
+        let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
+        cli::file(name, iter);
+    } else if let Some(f) = matches.subcommand_matches("autolb") {
         let name = f.value_of("file").unwrap();
-        let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
-        let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
-        cli::autolb(name,labels,iter);
-	}else if let Some(f) = matches.subcommand_matches("autoub") {
+        let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
+        let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
+        cli::autolb(name, labels, iter);
+    } else if let Some(f) = matches.subcommand_matches("autoub") {
         let name = f.value_of("file").unwrap();
-        let labels : usize = f.value_of("labels").unwrap().parse().unwrap();
-        let iter   : usize = f.value_of("iter").unwrap().parse().unwrap();
-        cli::autoub(name,labels,iter);
-	}
-
+        let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
+        let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
+        cli::autoub(name, labels, iter);
+    }
 }

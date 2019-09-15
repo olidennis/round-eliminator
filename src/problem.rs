@@ -33,7 +33,7 @@ impl Problem {
         right: Constraint,
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
-        map_text_oldlabel: Option<Vec<(String, usize)>>
+        map_text_oldlabel: Option<Vec<(String, usize)>>,
     ) -> Self {
         if left.lines.len() == 0 || right.lines.len() == 0 {
             panic!("Empty constraints!");
@@ -41,11 +41,11 @@ impl Problem {
         let mut p = Self {
             left,
             right,
-            map_text_label : vec![],
+            map_text_label: vec![],
             map_label_oldset,
             map_text_oldlabel,
-            diagram : vec![],
-            is_trivial : false
+            diagram: vec![],
+            is_trivial: false,
         };
         if let Some(map) = map_text_label {
             p.map_text_label = map;
@@ -111,7 +111,7 @@ impl Problem {
     }
 
     /// Creates a mapping from label numbers to their string representation
-    pub fn map_label_text(&self) -> HashMap<usize,String> {
+    pub fn map_label_text(&self) -> HashMap<usize, String> {
         Self::map_to_inv_hashmap(&self.map_text_label)
     }
 
@@ -143,7 +143,12 @@ impl Problem {
             .as_ref()
             .map(|map| map.iter().cloned().filter(|&(l, _)| l != from).collect());
         let map_text_oldlabel = self.map_text_oldlabel.clone();
-        let map_text_label = self.map_text_label.iter().cloned().filter(|&(_, l)| l != from).collect();
+        let map_text_label = self
+            .map_text_label
+            .iter()
+            .cloned()
+            .filter(|&(_, l)| l != from)
+            .collect();
         Problem::new(
             left,
             right,
@@ -159,8 +164,7 @@ impl Problem {
     /// For example, if the original right constraints are D A B | C AB AB,
     /// and the mask keeps only ABC, the new constraints are only C AB AB,
     /// and we should now get an arrow from A to B and vice versa.
-    pub fn harden(&self, mut keepmask: BigNum, fix_diagram : bool) -> Option<Problem> {
-
+    pub fn harden(&self, mut keepmask: BigNum, fix_diagram: bool) -> Option<Problem> {
         // if, by making the problem harder, we get different sets of labels on the two sides,
         // repeat the operation, until we get the same set of labels
         let mut left;
@@ -186,10 +190,12 @@ impl Problem {
                 .collect()
         });
         let map_text_oldlabel = self.map_text_oldlabel.clone();
-        let map_text_label = self.map_text_label.iter()
-                .cloned()
-                .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
-                .collect();
+        let map_text_label = self
+            .map_text_label
+            .iter()
+            .cloned()
+            .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
+            .collect();
 
         let mut p = Problem::new(
             left,
@@ -242,7 +248,7 @@ impl Problem {
         let hm_oldset_label = Self::map_to_inv_hashmap(&map_label_oldset);
 
         let newbits = hm_oldset_label.len();
-        if newbits * std::cmp::max(self.left.delta,self.right.delta) > BigNum::MAX.bits() {
+        if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::MAX.bits() {
             panic!("The result is too big");
         }
 
@@ -263,7 +269,7 @@ impl Problem {
 
     /// Computes the strength diagram for the labels on the right constraints.
     /// We put an edge from A to B if each time A can be used then also B can be used.
-    pub fn compute_diagram_edges(&mut self) {        
+    pub fn compute_diagram_edges(&mut self) {
         if self.map_label_oldset.is_some() {
             self.compute_diagram_edges_from_oldsets();
         } else {
@@ -321,14 +327,14 @@ impl Problem {
     pub fn compute_diagram_edges_from_rightconstraints(&mut self) {
         let mut right = self.right.clone();
         right.add_permutations();
-        let num_labels = self.max_label()+1;
+        let num_labels = self.max_label() + 1;
         let mut adj = vec![vec![]; num_labels];
         for x in self.labels() {
             for y in self.labels() {
                 let is_left = x != y
                     && right
                         .choices_iter()
-                        .flat_map(|line|line.replace_one_fast(x,y))
+                        .flat_map(|line| line.replace_one_fast(x, y))
                         .all(|line| right.satisfies(&line));
                 if is_left {
                     adj[x].push(y);
@@ -399,23 +405,23 @@ impl Problem {
     /// If there are at most 62 labels, single chars are used,
     /// otherwise each label i gets the string "(i)".
     pub fn assign_chars(&mut self) {
-            self.map_text_label =
-                self.labels()
-                    .map(|i| {
-                        if self.num_labels() <= 62 {
-                            let i = i as u8;
-                            let c = match i {
-                                0..=25 => (b'A' + i) as char,
-                                26..=51 => (b'a' + i - 26) as char,
-                                52..=61 => (b'0' + i - 52) as char,
-                                _ => (b'z' + 1 + i - 62) as char,
-                            };
-                            (format!("{}", c), i as usize)
-                        } else {
-                            (format!("({})", i), i as usize)
-                        }
-                    })
-                    .collect()
+        self.map_text_label = self
+            .labels()
+            .map(|i| {
+                if self.num_labels() <= 62 {
+                    let i = i as u8;
+                    let c = match i {
+                        0..=25 => (b'A' + i) as char,
+                        26..=51 => (b'a' + i - 26) as char,
+                        52..=61 => (b'0' + i - 52) as char,
+                        _ => (b'z' + 1 + i - 62) as char,
+                    };
+                    (format!("{}", c), i as usize)
+                } else {
+                    (format!("({})", i), i as usize)
+                }
+            })
+            .collect()
     }
 
     /// Returns a simple representation of the problem,
@@ -443,7 +449,8 @@ impl Problem {
             _ => None,
         };
 
-        let diagram = self.diagram
+        let diagram = self
+            .diagram
             .iter()
             .map(|(a, b)| (map[a].to_owned(), map[b].to_owned()))
             .collect();

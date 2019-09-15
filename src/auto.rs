@@ -1,15 +1,14 @@
 use crate::problem::Problem;
 
-
 /// A chain of simplifications.
 /// We start from an initial problem,
 /// then at each step we can either simplify and get a new problem,
 /// or perform one step of speedup and get a new problem
-#[derive(Clone,Debug)]
-pub enum Step<T:Clone+std::fmt::Debug>{
+#[derive(Clone, Debug)]
+pub enum Step<T: Clone + std::fmt::Debug> {
     Initial(Problem),
-    Simplify((T,Problem)),
-    Speedup(Problem)
+    Simplify((T, Problem)),
+    Speedup(Problem),
 }
 
 /// A generic simplification strategy should implement this trait.
@@ -17,68 +16,100 @@ pub enum Step<T:Clone+std::fmt::Debug>{
 /// and it should be able to tell if the current state is better than the current best one,
 /// and if it makes sense to continue trying the current path.
 /// Also, it needs to provide a way to simplify the current problem, given the current simplification.
-pub trait Auto : Sized + Clone{
-    type Simplification : Copy + Clone + std::fmt::Debug;
+pub trait Auto: Sized + Clone {
+    type Simplification: Copy + Clone + std::fmt::Debug;
     /// constructor
     fn new() -> Self;
     /// given the current state and the maximum number of labels, returns an iterator over the possible simplifications that can be performed.
-    fn simplifications(&mut self, sequence : &mut Sequence<Self>, maxlabels : usize) -> Box<dyn Iterator<Item=Self::Simplification>>;
+    fn simplifications(
+        &mut self,
+        sequence: &mut Sequence<Self>,
+        maxlabels: usize,
+    ) -> Box<dyn Iterator<Item = Self::Simplification>>;
     /// given the current state, the current best state, and the maximum number of speedup steps, returns true if the current state is better than the stored best one.
-    fn should_yield(&mut self, sequence : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool;
+    fn should_yield(
+        &mut self,
+        sequence: &mut Sequence<Self>,
+        best: &mut Sequence<Self>,
+        maxiter: usize,
+    ) -> bool;
     /// given the current state, the current best state, and the maximum number of speedup steps, returns true it makes sense to do more speedup steps.
-    fn should_continue(&mut self, sequence : &mut Sequence<Self>, best : &mut Sequence<Self>, maxiter : usize) -> bool;
+    fn should_continue(
+        &mut self,
+        sequence: &mut Sequence<Self>,
+        best: &mut Sequence<Self>,
+        maxiter: usize,
+    ) -> bool;
     /// given a problem (sequence.current()) and a simplification, return a new problem where the simplification has been performed.
     /// If for some reason the simplification does not make sense anymore, return None.
-    fn simplify(&mut self, sequence : &mut Sequence<Self>, simpl : Self::Simplification) -> Option<Problem>;
+    fn simplify(
+        &mut self,
+        sequence: &mut Sequence<Self>,
+        simpl: Self::Simplification,
+    ) -> Option<Problem>;
 }
 
 #[derive(Clone)]
-pub struct Sequence<T> where T : Auto {
-    pub steps : Vec<Step<T::Simplification>>,
-    pub speedups : usize,
+pub struct Sequence<T>
+where
+    T: Auto,
+{
+    pub steps: Vec<Step<T::Simplification>>,
+    pub speedups: usize,
 }
 
-impl<T> Sequence<T> where T : Auto {
-    pub fn new(p : Problem) -> Self {
-		Self{ steps : vec![Step::Initial(p)], speedups : 0 }
-	}
+impl<T> Sequence<T>
+where
+    T: Auto,
+{
+    pub fn new(p: Problem) -> Self {
+        Self {
+            steps: vec![Step::Initial(p)],
+            speedups: 0,
+        }
+    }
 
     pub fn current(&self) -> &Problem {
         match self.steps.last().unwrap() {
-            Step::Initial(p) => {p},
-            Step::Simplify((_,p)) => {p},
-            Step::Speedup(p) => {p}
+            Step::Initial(p) => p,
+            Step::Simplify((_, p)) => p,
+            Step::Speedup(p) => p,
         }
     }
 
     pub fn current_mut(&mut self) -> &mut Problem {
         match self.steps.last_mut().unwrap() {
-            Step::Initial(p) => {p},
-            Step::Simplify((_,p)) => {p},
-            Step::Speedup(p) => {p}
+            Step::Initial(p) => p,
+            Step::Simplify((_, p)) => p,
+            Step::Speedup(p) => p,
         }
     }
-	
 
     fn make_printable(&mut self) {
         for step in self.steps.iter_mut() {
             match step {
-                Step::Initial(p) => {let _ = p.as_result(); },
-                Step::Simplify((_,p)) => {let _ = p.as_result(); },
-                Step::Speedup(p) => {let _ = p.as_result(); }
+                Step::Initial(p) => {
+                    let _ = p.as_result();
+                }
+                Step::Simplify((_, p)) => {
+                    let _ = p.as_result();
+                }
+                Step::Speedup(p) => {
+                    let _ = p.as_result();
+                }
             }
         }
     }
 
-    fn push(&mut self, step : Step<T::Simplification>){
+    fn push(&mut self, step: Step<T::Simplification>) {
         self.steps.push(step);
     }
 
-    fn pop(&mut self){
+    fn pop(&mut self) {
         self.steps.pop();
     }
 
-    fn pop_speedup(&mut self){
+    fn pop_speedup(&mut self) {
         self.speedups -= 1;
         self.pop();
     }
@@ -90,106 +121,123 @@ impl<T> Sequence<T> where T : Auto {
         self.push(Step::Speedup(new));
     }
 
-    fn push_simplification(&mut self, simpl : T::Simplification, auto : &mut T ) -> bool {
-        if let Some(new) = auto.simplify(self,simpl) {
-            self.push(Step::Simplify((simpl,new)));
+    fn push_simplification(&mut self, simpl: T::Simplification, auto: &mut T) -> bool {
+        if let Some(new) = auto.simplify(self, simpl) {
+            self.push(Step::Simplify((simpl, new)));
             return true;
         }
         false
     }
 
-    fn pop_simplification(&mut self){
+    fn pop_simplification(&mut self) {
         self.pop();
     }
 }
 
-pub struct AutomaticSimplifications<T : Auto> {
-    pub sol : Sequence<T>,
-    pub best : Sequence<T>,
-    pub maxiter : usize,
-    pub maxlabels : usize,
-    auto : T
+pub struct AutomaticSimplifications<T: Auto> {
+    pub sol: Sequence<T>,
+    pub best: Sequence<T>,
+    pub maxiter: usize,
+    pub maxlabels: usize,
+    auto: T,
 }
 
-impl<T:Auto> AutomaticSimplifications<T> {
-    pub fn new(p : Problem, maxiter : usize, maxlabels : usize) -> Self {
-
+impl<T: Auto> AutomaticSimplifications<T> {
+    pub fn new(p: Problem, maxiter: usize, maxlabels: usize) -> Self {
         let sol = Sequence::new(p);
         let best = sol.clone();
-        Self { sol, best , maxiter, maxlabels, auto : T::new() }
+        Self {
+            sol,
+            best,
+            maxiter,
+            maxlabels,
+            auto: T::new(),
+        }
     }
 
     /// internal iterator version of automatic simplification,
     /// each time a better result is found, the closure is called
     #[allow(dead_code)]
-    pub fn run<F>(&mut self, mut cb : F) where F : FnMut(&Sequence<T>){
+    pub fn run<F>(&mut self, mut cb: F)
+    where
+        F: FnMut(&Sequence<T>),
+    {
         if self.sol.current().is_trivial {
             self.sol.make_printable();
             cb(&self.sol);
         }
-        self.problem(&mut cb);	
+        self.problem(&mut cb);
     }
 
-    fn problem<F>(&mut self, cb : &mut F) where F : FnMut(&Sequence<T>){
-        if self.auto.should_yield(&mut self.sol, &mut self.best, self.maxiter) {
+    fn problem<F>(&mut self, cb: &mut F)
+    where
+        F: FnMut(&Sequence<T>),
+    {
+        if self
+            .auto
+            .should_yield(&mut self.sol, &mut self.best, self.maxiter)
+        {
             self.best = self.sol.clone();
             self.best.make_printable();
             cb(&self.best);
         }
-        if self.auto.should_continue(&mut self.sol, &mut self.best, self.maxiter) {
+        if self
+            .auto
+            .should_continue(&mut self.sol, &mut self.best, self.maxiter)
+        {
             self.simplify(cb);
         }
     }
-    fn simplify<F>(&mut self, cb : &mut F) where F : FnMut(&Sequence<T>) {
+    fn simplify<F>(&mut self, cb: &mut F)
+    where
+        F: FnMut(&Sequence<T>),
+    {
         if self.sol.current().num_labels() <= self.maxlabels {
             self.sol.push_speedup();
             self.problem(cb);
             self.sol.pop_speedup();
         } else {
             for simpl in self.auto.simplifications(&mut self.sol, self.maxlabels) {
-                if self.sol.push_simplification(simpl,&mut self.auto) {
+                if self.sol.push_simplification(simpl, &mut self.auto) {
                     self.simplify(cb);
                     self.sol.pop_simplification();
                 }
             }
-            
         }
     }
 }
 
-
-impl<T:Auto> IntoIterator for AutomaticSimplifications<T> {
+impl<T: Auto> IntoIterator for AutomaticSimplifications<T> {
     type Item = Sequence<T>;
     type IntoIter = AutomaticSimplificationsIntoIterator<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         AutomaticSimplificationsIntoIterator {
             auto: self,
-            stack : vec![State::Start]
+            stack: vec![State::Start],
         }
     }
 }
 
-
 /// External iterator version of automatic simplification.
 /// This allows to get a proper rust iterator, but the code is ugly,
 /// since the recursion needs to be converted to a state machine.
-enum State<T:Auto> {
+enum State<T: Auto> {
     Start,
     Problem,
     ProblemAfterCheckYield,
     Simplify,
     SimplifyAfterProblemCall,
     SimplifyAfterSimplifyCall,
-    SimplifySimplify(Box<dyn Iterator<Item=T::Simplification>>)
+    SimplifySimplify(Box<dyn Iterator<Item = T::Simplification>>),
 }
 
-pub struct AutomaticSimplificationsIntoIterator<T:Auto> {
-    auto : AutomaticSimplifications<T>,
-    stack : Vec<State<T>>
+pub struct AutomaticSimplificationsIntoIterator<T: Auto> {
+    auto: AutomaticSimplifications<T>,
+    stack: Vec<State<T>>,
 }
 
-impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
+impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
     type Item = Sequence<T>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -208,7 +256,11 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                 State::Problem => {
                     self.stack.pop();
                     self.stack.push(State::ProblemAfterCheckYield);
-                    if self.auto.auto.should_yield(&mut self.auto.sol, &mut self.auto.best, self.auto.maxiter) {
+                    if self.auto.auto.should_yield(
+                        &mut self.auto.sol,
+                        &mut self.auto.best,
+                        self.auto.maxiter,
+                    ) {
                         self.auto.best = self.auto.sol.clone();
                         self.auto.best.make_printable();
                         return Some(self.auto.best.clone());
@@ -216,7 +268,11 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                 }
                 State::ProblemAfterCheckYield => {
                     self.stack.pop();
-                    if self.auto.auto.should_continue(&mut self.auto.sol, &mut self.auto.best, self.auto.maxiter) {
+                    if self.auto.auto.should_continue(
+                        &mut self.auto.sol,
+                        &mut self.auto.best,
+                        self.auto.maxiter,
+                    ) {
                         self.stack.push(State::Simplify);
                     }
                 }
@@ -227,7 +283,11 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                         self.stack.push(State::SimplifyAfterProblemCall);
                         self.stack.push(State::Problem);
                     } else {
-                        self.stack.push(State::SimplifySimplify(self.auto.auto.simplifications(&mut self.auto.sol, self.auto.maxlabels)));
+                        self.stack.push(State::SimplifySimplify(
+                            self.auto
+                                .auto
+                                .simplifications(&mut self.auto.sol, self.auto.maxlabels),
+                        ));
                     }
                 }
                 State::SimplifyAfterProblemCall => {
@@ -236,7 +296,11 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                 }
                 State::SimplifySimplify(iter) => {
                     if let Some(simpl) = iter.next() {
-                        if self.auto.sol.push_simplification(simpl,&mut self.auto.auto) {
+                        if self
+                            .auto
+                            .sol
+                            .push_simplification(simpl, &mut self.auto.auto)
+                        {
                             self.stack.push(State::SimplifyAfterSimplifyCall);
                             self.stack.push(State::Simplify);
                         }
@@ -249,7 +313,6 @@ impl<T:Auto> Iterator for AutomaticSimplificationsIntoIterator<T>  {
                     self.stack.pop();
                 }
             }
-            
         }
     }
 }

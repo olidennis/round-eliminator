@@ -195,7 +195,7 @@ impl Constraint {
 
     /// Return a mask that indicates which labels are actually used
     pub fn real_mask(&self) -> BigNum {
-        self.sets().fold(BigNum::zero(), |a,b|a|b)
+        self.sets().fold(BigNum::zero(), |a, b| a | b)
     }
 
     /// Performs the existential step on the current constraints.
