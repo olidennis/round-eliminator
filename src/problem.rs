@@ -235,7 +235,7 @@ impl Problem {
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
-    pub fn speedup(&mut self) -> Self {
+    pub fn speedup(&self) -> Self {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
         left.add_permutations();
@@ -429,7 +429,7 @@ impl Problem {
 
     /// Returns a simple representation of the problem,
     /// where all possible optional things are computed (except of the mapping to the previous problem if it does not exist).
-    pub fn as_result(&mut self) -> ResultProblem {
+    pub fn as_result(&self) -> ResultProblem {
         let map = self.map_label_text();
 
         let left = self.left.to_vec(&map);
