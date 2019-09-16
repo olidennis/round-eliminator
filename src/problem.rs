@@ -342,13 +342,16 @@ impl Problem {
             }
         }
         let mut result = vec![];
+        let is_direct = |x:usize,y:usize|{ adj[y].iter().find(|&&t|x==t).is_none() };
+
         for x in self.labels() {
             for &y in &adj[x] {
-                let is_direct = adj[x]
-                    .iter()
-                    .filter(|&&t| t != y)
-                    .all(|&t| adj[t].iter().find(|&&x| x == y).is_none());
-                if true || is_direct {
+                let should_keep = 
+                    adj[x]
+                        .iter()
+                        .filter(|&&t| t != y && is_direct(x,t))
+                        .all(|&t| adj[t].iter().filter(|&&w|is_direct(t,w)).find(|&&w| w == y).is_none());
+                if should_keep {
                     result.push((x, y));
                 }
             }
