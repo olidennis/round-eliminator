@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 pub type Simpl = (usize,usize);
 pub type RProblem = (Problem,ResultProblem);
 pub type RSimplifications = Vec<(Simpl,(String,String))>;
-pub type RLowerBoundStep = Vec<(crate::autolb::ResultStep,Problem,ResultProblem)>;
-pub type RUpperBoundStep = Vec<(crate::autoub::ResultStep,Problem,ResultProblem)>;
+pub type RLowerBoundStep = Vec<(Problem,crate::autolb::ResultStep,ResultProblem)>;
+pub type RUpperBoundStep = Vec<(Problem,crate::autoub::ResultStep,ResultProblem)>;
 
 pub fn new_problem(left : &str, right : &str) -> RProblem {
     let p = Problem::from_text(left, right);
@@ -44,7 +44,7 @@ pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator
     auto.into_iter().map(|seq|{
         seq.as_result().steps.into_iter().map(|s|{
             let r = s.1.as_result();
-            (s.0,s.1,r)
+            (s.1,s.0,r)
         }).collect()
     })
 }
@@ -54,7 +54,7 @@ pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator
     auto.into_iter().map(|seq|{
         seq.as_result().steps.into_iter().map(|s|{
             let r = s.1.as_result();
-            (s.0,s.1,r)
+            (s.1,s.0,r)
         }).collect()
     })
 }
