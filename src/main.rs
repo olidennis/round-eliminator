@@ -9,6 +9,7 @@ mod constraint;
 mod line;
 mod lineset;
 mod problem;
+mod simpleapi;
 
 fn main() {
     let matches = ClApp::new("Sim")

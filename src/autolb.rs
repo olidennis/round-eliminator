@@ -105,3 +105,48 @@ impl std::fmt::Display for Sequence<AutoLb> {
         Ok(())
     }
 }
+
+pub enum ResultStep{
+    Initial,
+    Simplified(Vec<(String,String)>),
+    Speedup
+}
+
+pub struct ResultAutoLb{
+    pub steps : Vec<(ResultStep,Problem)>
+}
+
+impl Sequence<AutoLb> {
+    pub fn as_result(&self) -> ResultAutoLb {
+        let mut v = vec![];
+        let mut simpls = vec![];
+        let mut lastp : Option<Problem> = None;
+        let mut lastmap: Option<HashMap<usize, String>> = None;
+
+        for step in self.steps.iter() {
+            let p = match step {
+                Step::Initial(p) => {
+                    v.push((ResultStep::Initial,p.clone()));
+                    p
+                }
+                Step::Simplify(((x, y), p)) => {
+                    let map = lastmap.unwrap();
+                    simpls.push((map[x].clone(), map[y].clone()));
+                    p
+                }
+                Step::Speedup(p) => {
+                    if !simpls.is_empty() {
+                        v.push((ResultStep::Simplified(simpls.clone()),lastp.take().unwrap()));
+                    }
+                    simpls = vec![];
+                    v.push((ResultStep::Speedup,p.clone()));
+                    p
+                }
+            };
+            lastmap = Some(p.map_label_text());
+            lastp = Some(p.clone());
+        }
+
+        ResultAutoLb{ steps : v }
+    }
+}

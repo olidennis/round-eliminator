@@ -117,3 +117,43 @@ impl std::fmt::Display for Sequence<AutoUb> {
         Ok(())
     }
 }
+
+
+pub enum ResultStep{
+    Initial,
+    Simplified(Vec<String>),
+    Speedup
+}
+
+pub struct ResultAutoUb{
+    pub steps : Vec<(ResultStep,Problem)>
+}
+
+impl Sequence<AutoUb> {
+    pub fn as_result(&self) -> ResultAutoUb {
+        let mut v = vec![];
+        let mut lastmap: Option<HashMap<usize, String>> = None;
+
+        for step in self.steps.iter() {
+            let p = match step {
+                Step::Initial(p) => {
+                    v.push((ResultStep::Initial,p.clone()));
+                    p
+                }
+                Step::Simplify((mask, p)) => {
+                    let map = lastmap.unwrap();
+                    let simpls = mask.one_bits().map(|x|map[&x].to_owned()).collect();
+                    v.push((ResultStep::Simplified(simpls),p.clone()));
+                    p
+                }
+                Step::Speedup(p) => {
+                    v.push((ResultStep::Speedup,p.clone()));
+                    p
+                }
+            };
+            lastmap = Some(p.map_label_text());
+        }
+
+        ResultAutoUb{ steps : v }
+    }
+}
