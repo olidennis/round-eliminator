@@ -110,3 +110,9 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
     }
     f(Response::Done);
 }
+
+pub fn request_json<F>(req : &str, mut f : F) where F : FnMut(String) {
+    let req : Request = serde_json::from_str(req).unwrap();
+    let handler = |resp : Response|{  let s = serde_json::to_string(&resp).unwrap(); f(s);  };
+    request(req,handler);
+}
