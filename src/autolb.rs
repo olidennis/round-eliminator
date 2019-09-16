@@ -4,6 +4,7 @@ use crate::auto::Step;
 use crate::problem::Problem;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct AutoLb {
@@ -106,6 +107,7 @@ impl std::fmt::Display for Sequence<AutoLb> {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub enum ResultStep{
     Initial,
     Simplified(Vec<(String,String)>),

@@ -4,6 +4,7 @@ use crate::auto::Step;
 use crate::bignum::BigNum;
 use crate::problem::Problem;
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct AutoUb;
@@ -118,7 +119,7 @@ impl std::fmt::Display for Sequence<AutoUb> {
     }
 }
 
-
+#[derive(Deserialize, Serialize)]
 pub enum ResultStep{
     Initial,
     Simplified(Vec<String>),

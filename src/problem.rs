@@ -477,6 +477,7 @@ impl Problem {
 /// `mapping` represent a text mapping between sets of old labels and new labels.
 /// `diagram` consists of a vector of edges, where each edge is represented by the text representation of the label.
 /// `is_trivial` is true if and only if the problem is 0 rounds solvable.
+#[derive(Deserialize, Serialize)]
 pub struct ResultProblem {
     pub left: Vec<Vec<Vec<String>>>,
     pub right: Vec<Vec<Vec<String>>>,
