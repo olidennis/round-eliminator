@@ -4,3 +4,4 @@
 - find a nice way to handle diagrams in the case of harden()
 - gui: manual relabeling
 - gui: allow interrupting autolb autoub
+- gui: spinner autolb many labels appears later
