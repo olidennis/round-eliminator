@@ -3,3 +3,4 @@
 - avoid recomputing the diagram from scratch in case of relax
 - find a nice way to handle diagrams in the case of harden()
 - gui: manual relabeling
+- gui: allow interrupting autolb autoub
