@@ -64,7 +64,7 @@ pub fn rename(p : &Problem, v : Renaming) -> RProblem {
 
 pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=RLowerBoundStep>{
     let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels);
-    auto.into_iter().map(|seq|{
+    auto.into_iter().map(move |seq|{
         seq.as_result().steps.into_iter().map(|s|{
             let r = s.1.as_result();
             (s.1,s.0,r)
@@ -83,7 +83,7 @@ pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator
 }
 
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum Request{
     NewProblem(String,String),
     Speedup(Problem),
@@ -110,6 +110,7 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
             f(Response::P(r));
         }
         Request::Speedup(p) => {
+            let text =p.as_result();
             let r = speedup(&p);
             f(Response::P(r));
         }
