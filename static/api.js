@@ -1,6 +1,6 @@
 function request(req, onresult, oncomplete) {
-    var a = new WebSocket("ws://" + location.host + "/api");
-    var r = JSON.stringify(req);
+    let a = new WebSocket("ws://" + location.host + "/api");
+    let r = JSON.stringify(req);
     a.onopen = function() {
         a.send(r);
     }
@@ -30,6 +30,10 @@ function api_possible_simplifications(p, ready){
 
 function api_simplify(p, s, ready){
     request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} );
+}
+
+function api_harden(p, h, ready){
+    request({ Harden : [p,h] }, function(r){ready(r.OP)} , function(){} );
 }
 
 function api_rename(p, v, ready){

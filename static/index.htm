@@ -20,7 +20,7 @@
         }
     </style>
     <script>
-        var ctr = 0;
+        let ctr = 0;
 
         $(document).ready(function(){
 
@@ -39,10 +39,10 @@
         }
 
         function make_table(v,f){
-            var s = '<table class="table">';
-            for (line of v) {
+            let s = '<table class="table">';
+            for (let line of v) {
                 s += '<tr>';
-                for (elem of line) {
+                for (let elem of line) {
                     s += '<td>'+f(elem)+'</td>';
                 }
                 s += '</tr>';
@@ -52,47 +52,50 @@
         }
 
         function generate_html_for_problem(problem,id) {
-            var blob = problem[0];
-            var x = problem[1];
-            var cur_to_old = {};
+            let blob = problem[0];
+            let x = problem[1];
+            let cur_to_old = {};
 
-            var forall = make_table(x.left,merge);
-            var exists = make_table(x.right,merge);
+            let labels = Array.from(new Set(x.left.concat(x.right).flat(Infinity)));
+            labels.sort();
 
-            var nodes = [...new Set([].concat.apply([], x.diagram))];
-            var visnodes = [];
-            for ( node of nodes ) {
+            let forall = make_table(x.left,merge);
+            let exists = make_table(x.right,merge);
+
+            let nodes = [...new Set([].concat.apply([], x.diagram))];
+            let visnodes = [];
+            for (let node of nodes ) {
                 visnodes.push({id: node, label: node});
             }
-            var visnodes = new vis.DataSet(visnodes);
-            var visedges = [];
-            for (edge of x.diagram ) {
+            let visnodes2 = new vis.DataSet(visnodes);
+            let visedges = [];
+            for (let edge of x.diagram ) {
                 visedges.push({ from : edge[0], to : edge[1], arrows: 'to'});
             }
-            var visedges = new vis.DataSet(visedges);
-            var visdata = {
-                nodes: visnodes,
-                edges: visedges
+            let visedges2 = new vis.DataSet(visedges);
+            let visdata = {
+                nodes: visnodes2,
+                edges: visedges2
             };
 
-            var diagram = $('<div class="panel-resizable" id="'+id+'"></div>');
+            let diagram = $('<div class="panel-resizable" id="'+id+'"></div>');
             diagram.ready(function(ev){
-                var container = document.getElementById(id);
-                var network = new vis.Network(document.getElementById(id), visdata, {});
+                let container = document.getElementById(id);
+                let network = new vis.Network(document.getElementById(id), visdata, {});
             });
 
-            var next = $('<button type="button" class="btn btn-primary">Speedup</button>');
+            let next = $('<button type="button" class="btn btn-primary">Speedup</button>');
             next.click(function(ev) {
                 api_speedup(blob, append_new_problem );
             });
 
-            var simpls = $('<div class="col-md rounded bg-white m-2 p-2"/>');
+            let simpls = $('<div class="col-md rounded bg-white m-2 p-2"/>');
             api_possible_simplifications(blob,function(v){
-                for ( simpl of v ){
-                    var sblob = simpl[0];
-                    var sstr = simpl[1];
-                    var bstr = sstr[0] + "→" + sstr[1];
-                    var bsimpl = $('<button type="button" class="btn btn-primary">'+ bstr + '</button>');
+                for (let simpl of v ){
+                    let sblob = simpl[0];
+                    let sstr = simpl[1];
+                    let bstr = sstr[0] + "→" + sstr[1];
+                    var bsimpl = $('<button type="button" class="btn btn-primary">'+bstr+'</button>');
                     bsimpl.click(function(ev) {
                         api_simplify(blob, sblob, append_new_problem);
                     });
@@ -100,33 +103,55 @@
                 }
             });
 
-            var divautolb = $('<div class="col-md rounded bg-white m-2 p-2"/>');
-            var maxiterlb = $('<input/>').attr({ type: 'number', value: '30' });
-            var maxlabelslb = $('<input/>').attr({ type: 'number', value: '5' });
+            let hard = $('<div class="col-md rounded bg-white m-2 p-2"/>');
+            for(let label of labels){
+                let check = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">'+label+'</p></label></div>');
+                hard.append(check);
+            }
+            let hardbtn = $('<button type="button" class="btn btn-primary">Harden</button>');
+            hardbtn.click(function(ev) {
+                let checks = Array.from($('input[type=checkbox]',hard));
+                let entries = Array.from(checks.entries());
+                let selected = entries.filter(([i,x]) => x.checked).map(([i,x]) => i);
+                let selectedlabels = selected.map(i => labels[i]);
+                api_harden(blob,selectedlabels,function(x){
+                    if( x != null ){
+                        append_new_problem(x);
+                    } else {
+                        alert("All labels would disappear...");
+                    }
+                });
+                
+            });
+            hard.append(hardbtn);
+
+            let divautolb = $('<div class="col-md rounded bg-white m-2 p-2"/>');
+            let maxiterlb = $('<input/>').attr({ type: 'number', value: '30' });
+            let maxlabelslb = $('<input/>').attr({ type: 'number', value: '5' });
             divautolb.append(maxiterlb);
             divautolb.append(maxlabelslb);
 
-            var autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
+            let autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
             autolb.click(function(ev) {
-                var divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Lower Bound...");
-                var spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
-                var onresult = function (result) {
-                    var toshow = $('<div/>')
+                let divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Lower Bound...");
+                let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
+                let onresult = function (result) {
+                    let toshow = $('<div/>')
                     toshow.append(spinner);
 
-                    var rounds = result.filter(step => step[1] == "Speedup" ).length;
-                    var nt = result[result.length-1][2].is_trivial;
+                    let rounds = result.filter(step => step[1] == "Speedup" ).length;
+                    let nt = result[result.length-1][2].is_trivial;
                     if ( !nt )rounds += 1;
                     toshow.append($('<div class="col-md rounded bg-secondary text-white m-2 p-2"/>').append("Lower bound of " + rounds + " rounds."));
 
 
-                    for( step of result ) {
+                    for( let step of result ) {
                         what = step[1];
                         if( what == "Initial" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Initial Problem."));
                         else if( what == "Speedup" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Performed one step of Speedup."));
                         else if( what.Simplified != null ){
-                            for( simpl of what.Simplified ){
-                                var ssimpl = simpl[0] + "→" + simpl[1];
+                            for(let simpl of what.Simplified ){
+                                let ssimpl = simpl[0] + "→" + simpl[1];
                                 toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Performed simplification "+ssimpl));
                             }
                         }
@@ -135,7 +160,7 @@
                     }
                     divresult.html(toshow);
                 }
-                var onend = function () {
+                let onend = function () {
                     spinner.remove();
                 }
                 append_generic(divresult);
@@ -143,30 +168,30 @@
             });
             divautolb.append(autolb);
 
-            var divautoub = $('<div class="col-md rounded bg-white m-2 p-2"/>');
-            var maxiterub = $('<input/>').attr({ type: 'number', value: '5' });
-            var maxlabelsub = $('<input/>').attr({ type: 'number', value: '4' });
+            let divautoub = $('<div class="col-md rounded bg-white m-2 p-2"/>');
+            let maxiterub = $('<input/>').attr({ type: 'number', value: '5' });
+            let maxlabelsub = $('<input/>').attr({ type: 'number', value: '4' });
             divautoub.append(maxiterub);
             divautoub.append(maxlabelsub);
-            var autoub = $('<button type="button" class="btn btn-primary">Automatic Upper Bound</button>');
+            let autoub = $('<button type="button" class="btn btn-primary">Automatic Upper Bound</button>');
             autoub.click(function(ev) {
-                var divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Upper Bound...");
-                var spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
-                var onresult = function (result) {
-                    var toshow = $('<div/>');
+                let divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Upper Bound...");
+                let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
+                let onresult = function (result) {
+                    let toshow = $('<div/>');
                     toshow.append(spinner);
 
-                    var rounds = result.filter(step => step[1] == "Speedup" ).length;
-                    var nt = result[result.length-1][2].is_trivial;
+                    let rounds = result.filter(step => step[1] == "Speedup" ).length;
+                    let nt = result[result.length-1][2].is_trivial;
                     if ( !nt )rounds += 1;
                     toshow.append($('<div class="col-md rounded bg-secondary text-white m-2 p-2"/>').append("Upper bound of " + rounds + " rounds."));
 
-                    for( step of result ) {
+                    for(let step of result ) {
                         what = step[1];
                         if( what == "Initial" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Initial Problem."));
                         else if( what == "Speedup" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Performed one step of Speedup."));
                         else if( what.Simplified != null ){
-                            var s = merge(what.Simplified);
+                            let s = merge(what.Simplified);
                             toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Kept only labels "+s));
                         }
                         problem = [step[0],step[2]];
@@ -174,7 +199,7 @@
                     }
                     divresult.html(toshow);
                 }
-                var onend = function () {
+                let onend = function () {
                     spinner.remove();
                 }
                 append_generic(divresult);
@@ -182,17 +207,17 @@
             });
             divautoub.append(autoub);
 
-            var trivial = "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
-            var col0 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append(trivial);
+            let trivial = "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
+            let col0 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append(trivial);
 
-            var col1 = null;
-            var col2 = null;
-            var col4 = null;
+            let col1 = null;
+            let col2 = null;
+            let col4 = null;
             if( x.mapping != null ){
-                var s = '<table class="table">';
-                    for (line of x.mapping) {
-                        var old = merge(line[0]);
-                        var cur = line[1];
+                let s = '<table class="table">';
+                    for (let line of x.mapping) {
+                        let old = merge(line[0]);
+                        let cur = line[1];
                         s += '<tr><td><span class="rounded m-1 labelborder">'+old+'</span></td><td>'+cur+'</td></tr>';
                         cur_to_old[cur] = old;
                     }
@@ -201,20 +226,20 @@
                 let oldmap = function (v){
                     return merge(v.map(function(x){ return '<span class="rounded m-1 labelborder">'+cur_to_old[x]+'</span><br/>'; }));
                 };
-                var forall_old = make_table(x.left, oldmap);
-                var exists_old = make_table(x.right, oldmap);
+                let forall_old = make_table(x.left, oldmap);
+                let exists_old = make_table(x.right, oldmap);
                 col1 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Active</h4><h6><small>Any choice satisfies previous Passive</small></h6>' +forall_old);
                 col2 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Passive</h4><h6><small>Exists choice satisfying previous Active</small></h6>' +exists_old);
                 col4 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Renaming</h4><h6><small>Old and new labels</small></h6>' +renaming);
             }
             
-            var col3 = $('<div class="col-md rounded m-2 p-2"/>').append(diagram);
-            var col5 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Active (Relabeled)</h4><h6><small>Any choice satisfies previous Passive</small></h6>' +forall);
-            var col6 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Passive (Relabeled)</h4><h6><small>Exists choice satisfying previous Active</small></h6>' +exists);
-            var col7 = $('<div class="col-sm rounded m-2 p-2 text-right"/>').append(next);
+            let col3 = $('<div class="col-md rounded m-2 p-2"/>').append(diagram);
+            let col5 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Active (Relabeled)</h4><h6><small>Any choice satisfies previous Passive</small></h6>' +forall);
+            let col6 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Passive (Relabeled)</h4><h6><small>Exists choice satisfying previous Active</small></h6>' +exists);
+            let col7 = $('<div class="col-sm rounded m-2 p-2 text-right"/>').append(next);
 
-            var row = x.mapping == null ? $('<div class="row rounded bg-light mt-5 p-5"/>').append(col0,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,divautolb,divautoub) :
-                                          $('<div class="row rounded bg-light mt-5 p-5"/>').append(col0,$('<div class="w-100"/>'),col1,col2,col4,$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,divautolb,divautoub);
+            let row = x.mapping == null ? $('<div class="row rounded bg-light mt-5 p-5"/>').append(col0,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,hard,divautolb,divautoub) :
+                                          $('<div class="row rounded bg-light mt-5 p-5"/>').append(col0,$('<div class="w-100"/>'),col1,col2,col4,$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,hard,divautolb,divautoub);
 
             return $('<div/>').append(row);
         }
@@ -226,7 +251,7 @@
 
         function append_new_problem_to(x,to) {
             ctr += 1;
-            var html = generate_html_for_problem(x,"canvas"+ctr);
+            let html = generate_html_for_problem(x,"canvas"+ctr);
             to.append(html);
         }
 
@@ -236,22 +261,22 @@
 
 
         function on_input_click() {
-            var f1 = $('#inf1').val();
-            var f2 = $('#inf2').val();
-            var text = "";
-            for(line of f1.split("\n")) {
+            let f1 = $('#inf1').val();
+            let f2 = $('#inf2').val();
+            let text = "";
+            for(let line of f1.split("\n")) {
                 if( line != "" ){
                     text += line + "\n";
                 }
             }
-            var a = text;
+            let a = text;
             text = "";
-            for(line of f2.split("\n")) {
+            for(let line of f2.split("\n")) {
                 if( line != "" ){
                     text += line + "\n";
                 }
             }
-            var b = text;
+            let b = text;
             api_new_problem(a,b, append_new_problem);
         }
     </script>

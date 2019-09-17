@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 pub type Simpl = (usize,usize);
 pub type Renaming = Vec<(Vec<String>,String)>;
+pub type Keeping = Vec<String>;
 pub type RProblem = (Problem,ResultProblem);
 pub type RSimplifications = Vec<(Simpl,(String,String))>;
 pub type RLowerBoundStep = Vec<(Problem,crate::autolb::ResultStep,ResultProblem)>;
@@ -40,6 +41,17 @@ pub fn simplify(p : &Problem, (a,b) : Simpl) -> RProblem  {
     let np = p.replace(a,b);
     let nr = np.as_result();
     (np,nr)
+}
+
+pub fn harden(p : &Problem, v : Keeping) -> Option<RProblem> {
+    let map = &p.map_text_label;
+    let map = Problem::map_to_hashmap(map);
+    let keep = v.iter().map(|x|BigNum::one()<<map[x]).fold(BigNum::zero(),|a,b|a|b);
+    let np = p.harden(keep, true);
+    np.map(|np|{
+        let nr = np.as_result();
+        (np,nr)
+    })
 }
 
 pub fn rename(p : &Problem, v : Renaming) -> RProblem {
@@ -89,6 +101,7 @@ pub enum Request{
     Speedup(Problem),
     PossibleSimplifications(Problem),
     Simplify(Problem,Simpl),
+    Harden(Problem,Keeping),
     Rename(Problem,Renaming),
     AutoLb(Problem,usize,usize),
     AutoUb(Problem,usize,usize)
@@ -97,6 +110,7 @@ pub enum Request{
 #[derive(Deserialize, Serialize)]
 pub enum Response{
     Done,
+    OP(Option<RProblem>),
     P(RProblem),
     S(RSimplifications),
     L(RLowerBoundStep),
@@ -110,7 +124,6 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
             f(Response::P(r));
         }
         Request::Speedup(p) => {
-            let text =p.as_result();
             let r = speedup(&p);
             f(Response::P(r));
         }
@@ -121,6 +134,10 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
         Request::Simplify(p,s) => {
             let r = simplify(&p,s);
             f(Response::P(r));
+        }
+        Request::Harden(p,k) => {
+            let r = harden(&p, k);
+            f(Response::OP(r));
         }
         Request::Rename(p,x) => {
             let r = rename(&p, x);
