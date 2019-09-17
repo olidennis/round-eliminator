@@ -107,8 +107,7 @@ fn main() {
 
     if let Some(s) = matches.subcommand_matches("server") {
         let addr = s.value_of("bindaddr").unwrap();
-        //server(addr);
-        unimplemented!();
+        cli::server(addr);
     } else if let Some(f) = matches.subcommand_matches("file") {
         let name = f.value_of("file").unwrap();
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
