@@ -2,4 +2,4 @@
 - for semimatching on bipartite graphs, autolb spends 20% of the time checking for triviality
 - avoid recomputing the diagram from scratch in case of relax
 - find a nice way to handle diagrams in the case of harden()
-- gui: manual relabeling, manual editing
+- gui: manual relabeling
