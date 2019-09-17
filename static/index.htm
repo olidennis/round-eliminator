@@ -208,9 +208,10 @@
                 
                 let divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Upper Bound...");
                 let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
+                divdivresult.append(spinner);
+
                 let onresult = function (result) {
                     let toshow = $('<div/>');
-                    toshow.append(spinner);
 
                     let rounds = result.filter(step => step[1] == "Speedup" ).length;
                     let nt = result[result.length-1][2].is_trivial;
