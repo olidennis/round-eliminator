@@ -249,10 +249,18 @@
             let col6 = $('<div class="col-md rounded bg-white m-2 p-2"/>').append('<h4>Passive (Relabeled)</h4><h6><small>Exists choice satisfying previous Active</small></h6>' +exists);
             let col7 = $('<div class="col-sm rounded m-2 p-2 text-right"/>').append(next);
 
-            let row = x.mapping == null ? $('<div class="row rounded bg-light mt-5 p-5"/>').append(col0,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,hard,divautolb,divautoub,edit) :
-                                          $('<div class="row rounded bg-light mt-5 p-5"/>').append(col0,$('<div class="w-100"/>'),col1,col2,col4,$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,hard,divautolb,divautoub,edit);
+            let row = x.mapping == null ? $('<div class="row rounded bg-light mb-5 p-5"/>').append(col0,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,hard,divautolb,divautoub,edit) :
+                                          $('<div class="row rounded bg-light mb-5 p-5"/>').append(col0,$('<div class="w-100"/>'),col1,col2,col4,$('<div class="w-100"/>'),col5,col6,col3,$('<div class="w-100"/>'),col7,simpls,hard,divautolb,divautoub,edit);
+            let result = $('<div m-0 p-0/>').append(row);
 
-            return $('<div/>').append(row);
+            let closediv = $('<div class="text-left"/>');
+            let close = $('<button type="button" class="btn btn-secondary">Close</button>');
+            close.click(function(){
+                result.remove();
+            });
+            closediv.append(close);
+            result.prepend(closediv);
+            return result;
         }
 
 
@@ -294,7 +302,7 @@
 </head><body>
 
 <div class="container-fluid m-0 p-0">
-    <div class="container-fluid rounded bg-light m-0 p-5">
+    <div class="container-fluid rounded bg-light m-0 mb-5 p-5">
         <div class="row">
             <div class="col-md">
                 <h4>Active</h4>
