@@ -116,7 +116,7 @@ impl Problem {
     }
 
     /// Accessory function to convert a list of pairs `(a,b)` to a map mapping `a` to `b`
-    fn map_to_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<A, B>
+    pub fn map_to_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<A, B>
     where
         A: Hash + Eq + Clone,
         B: Clone,
@@ -125,7 +125,7 @@ impl Problem {
     }
 
     /// Accessory function to convert a list of pairs `(a,b)` to a map mapping `b` to `a`
-    fn map_to_inv_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<B, A>
+    pub fn map_to_inv_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<B, A>
     where
         B: Hash + Eq + Clone,
         A: Clone,
