@@ -7,3 +7,4 @@
 - gui: spinner autolb many labels appears later
 - panics on the server while doing gui things
 - gui: escape html entities
+- if a simplification is performed, new arrows may appear in the diagram (start from matching, simplify P->U, the arrow M->U appears, before M was disconnected). Maybe the diagrams generated from autolb do not show this.

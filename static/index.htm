@@ -64,6 +64,27 @@
             }
         }
 
+        function make_performed_action(action){
+            return $('<div class="card bg-info text-white m-2 p-2"/>').append(action);
+        }
+
+        function performed_initial() {
+            return make_performed_action("Initial problem.");
+        }
+
+        function performed_simplification(s){
+            return make_performed_action("Performed simplification "+s);
+        }
+
+        function performed_harden(s){
+            return make_performed_action("Kept only labels "+s);
+        }
+
+        function performed_speedup() {
+            return make_performed_action("Performed speedup.");
+        }
+
+
         function make_div_diagram(problem){
             let x = problem[1];
             let id = freeid();
@@ -179,9 +200,9 @@
 
             let autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
             autolb.click(function(ev) {
-                let divdivresult = $('<div/>');
+                let divdivresult = $('<div class="card m-2"/>');
                 let closediv = $('<div class="text-left"/>');
-                let close = $('<button type="button" class="btn btn-secondary">Close LB</button>');
+                let close = $('<button type="button" class="btn btn-secondary m-2">Close LB</button>');
                 close.click(function(){
                     divdivresult.remove();
                 });
@@ -198,17 +219,17 @@
                     let rounds = result.filter(step => step[1] == "Speedup" ).length;
                     let nt = result[result.length-1][2].is_trivial;
                     if ( !nt )rounds += 1;
-                    toshow.append($('<div class="col-md rounded bg-secondary text-white m-2 p-2"/>').append("Lower bound of " + rounds + " rounds."));
+                    toshow.append(make_performed_action("Lower bound of " + rounds + " rounds."));
 
 
                     for( let step of result ) {
                         what = step[1];
-                        if( what == "Initial" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Initial Problem."));
-                        else if( what == "Speedup" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Performed one step of Speedup."));
+                        if( what == "Initial" )toshow.append(performed_initial());
+                        else if( what == "Speedup" )toshow.append(performed_speedup());
                         else if( what.Simplified != null ){
                             for(let simpl of what.Simplified ){
                                 let ssimpl = simpl[0] + "→" + simpl[1];
-                                toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Performed simplification "+ssimpl));
+                                toshow.append(performed_simplification(ssimpl));
                             }
                         }
                         problem = [step[0],step[2]];
@@ -242,9 +263,9 @@
 
             let autoub = $('<button type="button" class="btn btn-primary">Automatic Upper Bound</button>');
             autoub.click(function(ev) {
-                let divdivresult = $('<div/>');
+                let divdivresult = $('<div class="card m-2"/>');
                 let closediv = $('<div class="text-left"/>');
-                let close = $('<button type="button" class="btn btn-secondary">Close UB</button>');
+                let close = $('<button type="button" class="btn btn-secondary m-2">Close UB</button>');
                 close.click(function(){
                     divdivresult.remove();
                 });
@@ -261,15 +282,15 @@
                     let rounds = result.filter(step => step[1] == "Speedup" ).length;
                     let nt = result[result.length-1][2].is_trivial;
                     if ( !nt )rounds += 1;
-                    toshow.append($('<div class="col-md rounded bg-secondary text-white m-2 p-2"/>').append("Upper bound of " + rounds + " rounds."));
+                    toshow.append(make_performed_action("Upper bound of " + rounds + " rounds."));
 
                     for(let step of result ) {
                         what = step[1];
-                        if( what == "Initial" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Initial Problem."));
-                        else if( what == "Speedup" )toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Performed one step of Speedup."));
+                        if( what == "Initial" )toshow.append(performed_initial());
+                        else if( what == "Speedup" )toshow.append(performed_speedup());
                         else if( what.Simplified != null ){
                             let s = merge(what.Simplified);
-                            toshow.append($('<div class="col-md rounded bg-info text-white m-2 p-2"/>').append("Kept only labels "+s));
+                            toshow.append(performed_harden(s));
                         }
                         problem = [step[0],step[2]];
                         append_new_problem_to(problem,toshow);
