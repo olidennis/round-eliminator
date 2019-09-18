@@ -4,6 +4,7 @@ Minor/performance:
 - when harden() or simplify(), new arrows may appear. AutoLB and AutoUb are currently ignoring new arrows, and compute them only when giving the result (to show the right diagram).
 
 Todo:
+- hardening by keeping lines instead of labels
 - gui: manual relabeling
 - gui: allow interrupting autolb autoub
 - gui: spinner autolb many labels appears later
