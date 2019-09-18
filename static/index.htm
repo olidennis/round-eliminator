@@ -34,6 +34,10 @@
 
         });
 
+        function escape(s){
+            return $('<div/>').text(s).html();
+        }
+
         function freeid(){
             return ++ctr;
         }
@@ -65,7 +69,7 @@
         }
 
         function make_performed_action(action){
-            return $('<div class="card bg-info text-white m-2 p-2"/>').append(action);
+            return $('<div class="card bg-info text-white m-2 p-2"/>').text(action);
         }
 
         function performed_initial() {
@@ -73,11 +77,11 @@
         }
 
         function performed_simplification(s){
-            return make_performed_action("Performed simplification "+s);
+            return make_performed_action("Performed simplification "+escape(s));
         }
 
         function performed_harden(s){
-            return make_performed_action("Kept only labels "+s);
+            return make_performed_action("Kept only labels "+escape(s));
         }
 
         function performed_speedup() {
@@ -145,7 +149,7 @@
                     let sblob = simpl[0];
                     let sstr = simpl[1];
                     let bstr = sstr[0] + "→" + sstr[1];
-                    var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+bstr+'</button>');
+                    var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+escape(bstr)+'</button>');
                     bsimpl.click(function(ev) {
                         api_simplify(blob, sblob, append_new_problem);
                     });
@@ -163,7 +167,7 @@
             let hard = $('<div/>');
             hard.append('<p>Please choose which labels should be kept.</p>');
             for(let label of labels){
-                let check = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">'+label+'</p></label></div>');
+                let check = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">'+escape(label)+'</p></label></div>');
                 hard.append(check);
             }
             let hardbtn = $('<button type="button" class="btn btn-primary">Harden</button>');
@@ -316,7 +320,7 @@
         }
 
         function make_oldlabel(v,cur_to_old) {
-            return merge(v.map(function(x){ return '<span class="rounded m-1 labelborder">'+cur_to_old[x]+'</span><br/>'; }));
+            return merge(v.map(function(x){ return '<span class="rounded m-1 labelborder">'+escape(cur_to_old[x])+'</span><br/>'; }));
         }
 
         function make_div_renaming(problem){
@@ -324,7 +328,7 @@
             let s = '<table class="table">';
             console.log(renaming);
             for (let [cur,old] of Object.entries(renaming)) {
-                s += '<tr><td><span class="rounded m-1 labelborder">'+old+'</span></td><td>'+cur+'</td></tr>';
+                s += '<tr><td><span class="rounded m-1 labelborder">'+escape(old)+'</span></td><td>'+escape(cur)+'</td></tr>';
             }
             s += '</table>';
             return s;
@@ -374,8 +378,8 @@
             }
             
             let id_new_leftright = freeid();
-            let left_new = make_table(x.left,merge);
-            let right_new = make_table(x.right,merge);
+            let left_new = make_table(x.left,function(x){return merge(x.map(y => escape(y)))});
+            let right_new = make_table(x.right,function(x){return merge(x.map(y => escape(y)))});
             let col_left_new = make_card("m-2","p-0","<h6>Active</h6><h6><small>Any choice satisfies previous Passive</small></h6>",left_new,true,id_new_leftright);
             let col_right_new = make_card("m-2","p-0","<h6>Passive</h6><h6><small>Exists choice satisfying previous Active</small></h6>",right_new,true,id_new_leftright);
 

@@ -3,12 +3,11 @@ Minor/performance:
 - for semimatching on bipartite graphs, autolb spends 20% of the time checking for triviality
 - when harden() or simplify(), new arrows may appear. AutoLB and AutoUb are currently ignoring new arrows, and compute them only when giving the result (to show the right diagram).
 
-
 Todo:
 - gui: manual relabeling
 - gui: allow interrupting autolb autoub
 - gui: spinner autolb many labels appears later
 - panics on the server while doing gui things
+- send server errors to client
 
 Bugs:
-- gui: escape html entities
