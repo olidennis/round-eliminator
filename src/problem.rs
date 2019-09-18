@@ -135,7 +135,7 @@ impl Problem {
 
     /// Returns a new problem where the label `from` has been replaced with label `to`.
     /// The new problem is strictly easier if there is a diagram edge from `from` to `to`.
-    pub fn replace(&self, from: usize, to: usize) -> Problem {
+    pub fn replace(&self, from: usize, to: usize, fix_diagram : bool ) -> Problem {
         let left = self.left.replace(from, to);
         let right = self.right.replace(from, to);
         let map_label_oldset = self
@@ -149,13 +149,17 @@ impl Problem {
             .cloned()
             .filter(|&(_, l)| l != from)
             .collect();
-        Problem::new(
+        let mut p = Problem::new(
             left,
             right,
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-        )
+        );
+        if fix_diagram {
+            p.compute_diagram_edges_from_rightconstraints();
+        }
+        p
     }
 
     /// Make the problem harder, by keeping only labels satisfying the bitmask `keepmask`.

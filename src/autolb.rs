@@ -38,7 +38,7 @@ impl Auto for AutoLb {
     ) -> Option<Problem> {
         let speedups = sequence.speedups;
         let p = sequence.current_mut();
-        let np = p.replace(c1, c2);
+        let np = p.replace(c1, c2,false);
         if np.is_trivial || !self.done.insert((speedups, np.clone())) {
             return None;
         }
@@ -55,8 +55,17 @@ impl Auto for AutoLb {
         let sol_is_trivial = sol.current().is_trivial;
         let best_is_trivial = best.current().is_trivial;
 
-        sol.speedups > best.speedups
-            || (sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial)
+        let should_yield = sol.speedups > best.speedups
+            || (sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial);
+        
+        if should_yield {
+            for x in sol.steps.iter_mut() {
+                if let Step::Simplify((_, p)) = x {
+                    p.compute_diagram_edges_from_rightconstraints();
+                }
+            }
+        }
+        should_yield
     }
 
     /// We should continue trying if we did not reach the speedup steps limit, and

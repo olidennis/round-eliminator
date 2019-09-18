@@ -38,7 +38,7 @@ pub fn possible_simplifications(p : &Problem) -> RSimplifications {
 }
 
 pub fn simplify(p : &Problem, (a,b) : Simpl) -> RProblem  {
-    let np = p.replace(a,b);
+    let np = p.replace(a,b,true);
     let nr = np.as_result();
     (np,nr)
 }
