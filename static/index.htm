@@ -121,7 +121,7 @@
             let blob = problem[0];
             let next = $('<button type="button" class="btn btn-primary ml-2">Speedup</button>');
             next.click(function(ev) {
-                api_speedup(blob, append_new_problem );
+                api_speedup(blob, append_new_problem_or_error );
             });
             return next;
         }
@@ -176,13 +176,7 @@
                 let entries = Array.from(checks.entries());
                 let selected = entries.filter(([i,x]) => x.checked).map(([i,x]) => i);
                 let selectedlabels = selected.map(i => labels[i]);
-                api_harden(blob,selectedlabels,function(x){
-                    if( x != null ){
-                        append_new_problem(x);
-                    } else {
-                        alert("All labels would disappear...");
-                    }
-                });
+                api_harden(blob,selectedlabels,append_new_problem_or_error);
                 
             });
             hard.append(hardbtn);
@@ -217,7 +211,12 @@
                 let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
                 divdivresult.append(spinner);
 
-                let onresult = function (result) {
+                let onresult = function (_result) {
+                    if( _result.E != null ){
+                        alert(_result.E);
+                    }
+                    let result = _result.L;
+
                     let toshow = $('<div/>')
 
                     let rounds = result.filter(step => step[1] == "Speedup" ).length;
@@ -280,7 +279,12 @@
                 let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
                 divdivresult.append(spinner);
 
-                let onresult = function (result) {
+                let onresult = function (_result) {
+                    if( _result.E != null ){
+                        alert(_result.E);
+                    }
+                    let result = _result.U;
+
                     let toshow = $('<div/>');
 
                     let rounds = result.filter(step => step[1] == "Speedup" ).length;
@@ -437,6 +441,14 @@
             append_new_problem_to(x,$("#steps"))
         }
 
+        function append_new_problem_or_error(x) {
+            if( x.E != null ){
+                alert(x.E);
+                return;
+            }
+            append_new_problem_to(x.P,$("#steps"))
+        }
+
 
         function on_input_click() {
             let f1 = $('#inf1').val();
@@ -455,7 +467,7 @@
                 }
             }
             let b = text;
-            api_new_problem(a,b, append_new_problem);
+            api_new_problem(a,b, append_new_problem_or_error);
         }
     </script>
 </head><body>
