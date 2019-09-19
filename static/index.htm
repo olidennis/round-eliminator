@@ -22,6 +22,10 @@
             height: auto !important;
             padding-bottom: 100vh !important;
         }
+        .table > tr:first-child > td,
+        .table > tbody > tr:first-child > td {
+            border: none;
+        }
     </style>
     <script>
         let ctr = 0;
@@ -456,7 +460,7 @@
                 tools.append(newrenaming_card);
             }
 
-            let col_tools = make_card("m-2","p-0","<h6>Tools</h6><h6><small>Speedup, edit, simplifications, ...</small></h6>",tools,true,id_new_leftright);
+            let col_tools = make_card("m-2 d-print-none","p-0","<h6>Tools</h6><h6><small>Speedup, edit, simplifications, ...</small></h6>",tools,true,id_new_leftright);
 
             let row = x.mapping == null ? $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools) :
                                           $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),col_left_old,col_right_old,col_renaming,$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools);
