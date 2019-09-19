@@ -12,6 +12,7 @@ use futures::stream::StreamExt;
 use futures01::stream::Stream;
 use futures01::sync::mpsc;
 use futures01::Future;
+use futures_cpupool::CpuPool;
 
 pub fn file(name: &str, iter: usize) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
@@ -76,11 +77,20 @@ async fn serve_client(ws: WebSocket) -> Result<(),()> {
             .map_err(|ws_err| eprintln!("websocket send error: {}", ws_err)),
     );
 
+
     while let Some(m) = ws_rx.next().await {
         match m {
             Ok(m) =>  
                 if m.is_text() {
-                    crate::simpleapi::request_json(m.to_str().expect("error parsing json!"), |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); }); 
+                    let request = m.to_str().expect("error parsing json!").to_owned();
+                    let pool = CpuPool::new(1);
+                    let tx = tx.clone();
+                    let fun = move || -> Result<(), ()> {
+                        crate::simpleapi::request_json(&request, |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); });
+                        Ok(()) 
+                    };
+                    let fut = pool.spawn_fn(fun);
+                    warp::spawn(fut);
                 }
             Err(e) => { eprintln!("Error while receiving message from websocket: {:?}",e); return Err(()); }
         }

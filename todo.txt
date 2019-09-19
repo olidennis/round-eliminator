@@ -10,4 +10,3 @@ Todo soon:
 - gui: allow interrupting autolb autoub
 
 Bugs:
-- broken pipe if speedup takes too much (should be solved by putting the computation on a different thread, so then the server replies to pings)

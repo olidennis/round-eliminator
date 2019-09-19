@@ -11,7 +11,6 @@ function request(req, onresult, oncomplete) {
     },5000);
 
     a.onopen = function() {
-        a.send( JSON.stringify( "Ping" ) );
         a.send(r);
     }
     a.onerror = function(e) {
