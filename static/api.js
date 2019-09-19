@@ -4,6 +4,14 @@ function request(req, onresult, oncomplete) {
     a.onopen = function() {
         a.send(r);
     }
+    a.onerror = function(e) {
+        alert("Something bad happened.");
+        oncomplete();
+    }
+    a.onclose = function(e){
+        if( !e.wasClean )alert("Something bad happened.");
+        oncomplete();
+    }
     a.onmessage = function(s){
         let m = s.data;
         let o = JSON.parse(m);
@@ -17,11 +25,11 @@ function request(req, onresult, oncomplete) {
 }
 
 function api_new_problem(s1,s2, ready) {
-    request({ NewProblem : [s1,s2] }, function(r){ready(r)} , function(){} );
+    request({ NewProblem : [s1,s2] }, ready , function(){} );
 }
 
 function api_speedup(p, ready){
-    request({ Speedup : p }, function(r){ready(r)} , function(){} );
+    request({ Speedup : p }, ready , function(){} );
 }
 
 function api_possible_simplifications(p, ready){
@@ -33,18 +41,18 @@ function api_simplify(p, s, ready){
 }
 
 function api_harden(p, h, ready){
-    request({ Harden : [p,h] }, function(r){ready(r)} , function(){} );
+    request({ Harden : [p,h] }, ready , function(){} );
 }
 
 function api_rename(p, v, ready){
-    request({ Rename : [p,v] }, function(r){ready(r)} , function(){} );
+    request({ Rename : [p,v] }, ready , function(){} );
 }
 
 function api_autolb(p,label,iter, result, end) {
-    request({ AutoLb : [p,label,iter] }, function(r){result(r)} , end );
+    request({ AutoLb : [p,label,iter] }, result , end );
 }
 
 function api_autoub(p,label,iter, result, end) {
-    request({ AutoUb : [p,label,iter] }, function(r){result(r)} , end );
+    request({ AutoUb : [p,label,iter] }, result , end );
 }
 

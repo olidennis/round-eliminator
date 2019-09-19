@@ -18,6 +18,10 @@
         .labelborder {
             border: solid 1px black;
         }
+        html {
+            height: auto !important;
+            padding-bottom: 100vh !important;
+        }
     </style>
     <script>
         let ctr = 0;
@@ -221,6 +225,7 @@
                 let onresult = function (_result) {
                     if( _result.E != null ){
                         alert(_result.E);
+                        return;
                     }
                     let result = _result.L;
 
@@ -289,6 +294,7 @@
                 let onresult = function (_result) {
                     if( _result.E != null ){
                         alert(_result.E);
+                        return;
                     }
                     let result = _result.U;
 

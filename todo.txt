@@ -8,8 +8,8 @@ Todo:
 
 Todo soon:
 - gui: allow interrupting autolb autoub
-- if the server is closed, handle the error on the client
 
 Bugs:
 - broken pipe if speedup takes too much
 - gui: spinner autolb many labels appears later (can not reproduce)
+- Error while receiving message from websocket: Io(Os { code: 32, kind: BrokenPipe, message: "Broken pipe" })
