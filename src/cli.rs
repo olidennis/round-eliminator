@@ -82,7 +82,7 @@ async fn serve_client(ws: WebSocket) -> Result<(),()> {
                 if m.is_text() {
                     crate::simpleapi::request_json(m.to_str().expect("error parsing json!"), |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); }); 
                 }
-            Err(e) => { eprintln!("Error while receiving message from websocket: {:?}",e); }
+            Err(e) => { eprintln!("Error while receiving message from websocket: {:?}",e); return Err(()); }
         }
     }
     Ok(())

@@ -115,12 +115,14 @@ pub enum Request{
     Harden(Problem,Keeping),
     Rename(Problem,Renaming),
     AutoLb(Problem,usize,usize),
-    AutoUb(Problem,usize,usize)
+    AutoUb(Problem,usize,usize),
+    Ping
 }
 
 #[derive(Deserialize, Serialize)]
 pub enum Response{
     Done,
+    Pong,
     P(RProblem),
     S(RSimplifications),
     L(RLowerBoundStep),
@@ -130,6 +132,10 @@ pub enum Response{
 
 pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
     match req {
+        Request::Ping => {
+            f(Response::Pong);
+            return;
+        }
         Request::NewProblem(s1,s2) => {
             match new_problem(&s1, &s2) {
                 Ok(r) =>  {f(Response::P(r))}

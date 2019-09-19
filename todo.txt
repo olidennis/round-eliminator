@@ -10,6 +10,4 @@ Todo soon:
 - gui: allow interrupting autolb autoub
 
 Bugs:
-- broken pipe if speedup takes too much
-- gui: spinner autolb many labels appears later (can not reproduce)
-- Error while receiving message from websocket: Io(Os { code: 32, kind: BrokenPipe, message: "Broken pipe" })
+- broken pipe if speedup takes too much (should be solved by putting the computation on a different thread, so then the server replies to pings)
