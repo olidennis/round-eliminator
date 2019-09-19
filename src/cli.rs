@@ -52,7 +52,9 @@ pub fn server(addr : &str) {
         .and(warp::ws2())
         .map(|ws: warp::ws::Ws2,| {
             ws.on_upgrade(move |socket| {
-                serve_client(socket).boxed().compat()
+                serve_client(socket).boxed().compat().map_err(|e| {
+                    eprintln!("serve_client error: {:?}", e);
+                })
             })
         });
 
@@ -75,8 +77,13 @@ async fn serve_client(ws: WebSocket) -> Result<(),()> {
     );
 
     while let Some(m) = ws_rx.next().await {
-        let m = m.map_err(|_|())?;
-        crate::simpleapi::request_json(m.to_str().unwrap(), |s|{  tx.unbounded_send(Message::text(s)).unwrap(); });
+        match m {
+            Ok(m) =>  
+                if m.is_text() {
+                    crate::simpleapi::request_json(m.to_str().expect("error parsing json!"), |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); }); 
+                }
+            Err(e) => { eprintln!("Error while receiving message from websocket: {:?}",e); }
+        }
     }
     Ok(())
 }

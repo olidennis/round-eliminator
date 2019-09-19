@@ -8,7 +8,6 @@ Todo:
 - gui: manual relabeling
 - gui: allow interrupting autolb autoub
 - gui: spinner autolb many labels appears later
-- panics on the server while doing gui things
 - show some spinner when the button speedup is pressed
 - remove "computing ... bound" when it finishes without result
 
