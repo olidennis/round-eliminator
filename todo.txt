@@ -9,7 +9,6 @@ Todo:
 
 Todo soon:
 - gui: manual relabeling
-- show some spinner when the button speedup is pressed
 
 Bugs:
 - broken pipe if speedup takes too much

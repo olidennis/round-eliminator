@@ -117,11 +117,18 @@
             return diagram;
         }
 
+        function make_spinner(s){
+            return $('<div class="card card-body m-2 bg-warning text-dark"/>').append($('<div class="spinner-border" role="status"></div>')).append(s);
+
+        }
+
         function make_button_speedup(problem) {
             let blob = problem[0];
             let next = $('<button type="button" class="btn btn-primary ml-2">Speedup</button>');
             next.click(function(ev) {
-                api_speedup(blob, append_new_problem_or_error );
+                let spinner = make_spinner("Performing speedup...");
+                append_generic(spinner);
+                api_speedup(blob, function(x){ spinner.remove(); return append_new_problem_or_error(x); } );
             });
             return next;
         }
@@ -208,7 +215,7 @@
                 divdivresult.append(closediv);
 
                 let divresult = $('<div class="container-fluid m-0 p-0"/>');
-                let spinner = $('<div class="card card-body m-2 bg-warning text-dark"/>').append($('<div class="spinner-border" role="status"></div>')).append("Computing lower bound...");
+                let spinner = make_spinner("Computing lower bound...");
                 divdivresult.append(spinner);
 
                 let onresult = function (_result) {
@@ -276,7 +283,7 @@
                 divdivresult.append(closediv);
                 
                 let divresult = $('<div class="container-fluid m-0 p-0"/>');
-                let spinner = $('<div class="card card-body m-2 bg-warning text-dark"/>').append($('<div class="spinner-border" role="status"></div>')).append("Computing upper bound...");
+                let spinner = make_spinner("Computing upper bound...");
                 divdivresult.append(spinner);
 
                 let onresult = function (_result) {
