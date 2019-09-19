@@ -59,6 +59,13 @@ pub fn rename(p : &Problem, v : Renaming) -> Result<RProblem,String> {
     if newlabelscount != v.len() {
         return Err("Labels must be different!".into());
     }
+    for (_,lab) in &v {
+        let valid1 = lab.len() == 1 && lab != "(" && lab != ")";
+        let valid2 = lab.len() > 1 && lab.starts_with("(") && lab.ends_with(")") && lab.chars().filter(|&x|x==')').count() == 1;
+        if !valid1 && !valid2  {
+            return Err(format!("Labels must be either single characters, or strings contained in parentheses! Wrong label: {}",lab));
+        }
+    }
 
     let map_text_oldlabel = p.map_text_oldlabel.as_ref().unwrap();
     let map_label_oldset = p.map_label_oldset.as_ref().unwrap();

@@ -118,7 +118,7 @@
         }
 
         function make_spinner(s){
-            return $('<div class="card card-body m-2 bg-warning text-dark"/>').append($('<div class="spinner-border" role="status"></div>')).append(s);
+            return $('<div class="card card-body m-2 bg-light"/>').append($('<div class="spinner-border" role="status"></div>')).append(s);
 
         }
 
@@ -336,13 +336,39 @@
 
         function make_div_renaming(problem){
             let renaming = get_renaming(problem);
-            let s = '<table class="table">';
-            console.log(renaming);
+            let table = $('<table class="table"/>');
             for (let [cur,old] of Object.entries(renaming)) {
-                s += '<tr><td><span class="rounded m-1 labelborder">'+escape(old)+'</span></td><td>'+escape(cur)+'</td></tr>';
+                let tr = $('<tr/>');
+                tr.append('<td><span class="rounded m-1 labelborder">'+escape(old)+'</span></td>');
+                tr.append('<td>'+escape(cur)+'</td>');
+                table.append(tr);
             }
-            s += '</table>';
-            return s;
+            return table;
+        }
+
+        function make_div_newrenaming(problem){
+            let div = $('<div/>');
+
+            let renaming = get_renaming(problem);
+            let table = $('<table class="table"/>');
+            for (let [cur,old] of Object.entries(renaming)) {
+                let tr = $('<tr/>');
+                tr.append('<td><span class="rounded m-1 labelborder">'+escape(old)+'</span></td>');
+                let input = $('<input/>').val(cur);
+                tr.append($('<td/>').append(input));
+                table.append(tr);
+            }
+            div.append(table);
+            let rename = $('<button type="button" class="btn btn-primary">Rename</button>');
+            rename.click(function(ev) {
+                let labels = Array.from($('input',table)).map(x => x.value);
+                let entries = Array.from(labels.entries());
+                let newmapping = entries.map(([i,x]) => [problem[1].mapping[i][0],x]);
+                console.log(newmapping);
+                api_rename(problem[0],newmapping,append_new_problem_or_error);
+            });
+            div.append(rename);
+            return div;
         }
 
         function make_table(v,f){
@@ -410,6 +436,7 @@
             let autolb_card = make_card("m-2","p-0","<h7>Automatic Lower Bound</h7>",divautolb,false,freeid());
             let autoub_card = make_card("m-2","p-0","<h7>Automatic Upper Bound</h7>",divautoub,false,freeid());
 
+
             let tools = $('<div/>');
             tools.append(next);
             tools.append(edit);
@@ -417,6 +444,11 @@
             tools.append(hard_card);
             tools.append(autolb_card);
             tools.append(autoub_card);
+            if( x.mapping != null ){
+                let divnewrenaming = make_div_newrenaming(problem);
+                let newrenaming_card = make_card("m-2","p-0","<h7>New Renaming</h7>",divnewrenaming,false,freeid());
+                tools.append(newrenaming_card);
+            }
 
             let col_tools = make_card("m-2","p-0","<h6>Tools</h6><h6><small>Speedup, edit, simplifications, ...</small></h6>",tools,true,id_new_leftright);
 

@@ -5,10 +5,10 @@ Minor/performance:
 
 Todo:
 - hardening by keeping lines instead of labels
-- gui: allow interrupting autolb autoub
 
 Todo soon:
-- gui: manual relabeling
+- gui: allow interrupting autolb autoub
+- if the server is closed, handle the error on the client
 
 Bugs:
 - broken pipe if speedup takes too much
