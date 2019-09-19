@@ -112,7 +112,7 @@
                 edges: visedges2
             };
 
-            let diagram = $('<div class="panel-resizable" style="width: 300px; height: 300px;" id="'+id+'"></div>');
+            let diagram = $('<div class="panel-resizable" style="width: 300px; height: 300px;" id="'+id+'" onmouseover="document.body.style.overflow=\'hidden\';"  onmouseout="document.body.style.overflow=\'auto\';"></div>');
             diagram.ready(function(ev){
                 let container = document.getElementById(id);
                 let network = new vis.Network(document.getElementById(id), visdata, {});
