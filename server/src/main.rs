@@ -1,15 +1,8 @@
+mod cli;
+
 use clap::{App as ClApp, AppSettings, Arg, SubCommand};
 
-mod auto;
-mod autolb;
-mod autoub;
-mod bignum;
-mod cli;
-mod constraint;
-mod line;
-mod lineset;
-mod problem;
-mod simpleapi;
+
 
 fn main() {
     let matches = ClApp::new("Sim")

@@ -1,9 +1,8 @@
 extern crate futures01;
-
-use crate::auto::AutomaticSimplifications;
-use crate::autolb::AutoLb;
-use crate::autoub::AutoUb;
-use crate::problem::Problem;
+use simulation::AutomaticSimplifications;
+use simulation::AutoLb;
+use simulation::AutoUb;
+use simulation::Problem;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use futures::future::{FutureExt, TryFutureExt};
@@ -86,7 +85,7 @@ async fn serve_client(ws: WebSocket) -> Result<(),()> {
                     let pool = CpuPool::new(1);
                     let tx = tx.clone();
                     let fun = move || -> Result<(), ()> {
-                        crate::simpleapi::request_json(&request, |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); });
+                        simulation::request_json(&request, |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); });
                         Ok(()) 
                     };
                     let fut = pool.spawn_fn(fun);

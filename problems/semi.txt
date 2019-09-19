@@ -1,0 +1,8 @@
+z z z
+A a a
+B B b
+C C C
+
+z A
+a BA
+b CBA
