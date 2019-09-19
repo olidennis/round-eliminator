@@ -5,11 +5,13 @@ Minor/performance:
 
 Todo:
 - hardening by keeping lines instead of labels
-- gui: manual relabeling
 - gui: allow interrupting autolb autoub
-- gui: spinner autolb many labels appears later
-- show some spinner when the button speedup is pressed
+
+Todo soon:
+- gui: manual relabeling
 - remove "computing ... bound" when it finishes without result
+- show some spinner when the button speedup is pressed
 
 Bugs:
 - broken pipe if speedup takes too much
+- gui: spinner autolb many labels appears later (can not reproduce)
