@@ -34,9 +34,9 @@ impl Problem {
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
         map_text_oldlabel: Option<Vec<(String, usize)>>,
-    ) -> Self {
+    ) -> Result<Self,String> {
         if left.lines.len() == 0 || right.lines.len() == 0 {
-            panic!("Empty constraints!");
+            return Err("Empty constraints!".into());
         }
         let mut p = Self {
             left,
@@ -54,7 +54,7 @@ impl Problem {
         }
         p.compute_triviality();
         p.compute_diagram_edges();
-        p
+        Ok(p)
     }
 
     /// Check if the constraints are well formed, that is, the same set of labels appears on both sides
@@ -63,12 +63,12 @@ impl Problem {
     }
 
     /// Construct a problem starting from left and right constraints.
-    pub fn from_constraints(left: Constraint, right: Constraint) -> Self {
+    pub fn from_constraints(left: Constraint, right: Constraint) -> Result<Self,String> {
         Self::new(left, right, None, None, None)
     }
 
     /// Construct a problem starting from a text representation (where there are left and right constraint separated by an empty line).
-    pub fn from_line_separated_text(text: &str) -> Self {
+    pub fn from_line_separated_text(text: &str) -> Result<Self,String> {
         let mut lines = text.lines();
         let left: String = lines
             .by_ref()
@@ -79,16 +79,16 @@ impl Problem {
     }
 
     /// Construct a problem starting from a text representation of the left and right constarints.
-    pub fn from_text(left: &str, right: &str) -> Self {
+    pub fn from_text(left: &str, right: &str) -> Result<Self,String> {
         let map_text_label = Self::create_map_text_label(left, right);
         let hm = Self::map_to_hashmap(&map_text_label);
-        let left = Constraint::from_text(left, &hm);
-        let right = Constraint::from_text(right, &hm);
-        let problem = Self::new(left, right, Some(map_text_label), None, None);
+        let left = Constraint::from_text(left, &hm)?;
+        let right = Constraint::from_text(right, &hm)?;
+        let problem = Self::new(left, right, Some(map_text_label), None, None)?;
         if !problem.has_same_labels_left_right() {
-            panic!("Left and right constraints have different sets of labels!");
+            return Err("Left and right constraints have different sets of labels!".into());
         }
-        problem
+        Ok(problem)
     }
 
     /// Given a text representation of left and right constraints,
@@ -155,7 +155,7 @@ impl Problem {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-        );
+        ).unwrap();
         if fix_diagram {
             p.compute_diagram_edges_from_rightconstraints();
         }
@@ -207,7 +207,7 @@ impl Problem {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-        );
+        ).unwrap();
 
         // TODO: avoid computing it inside the new
         if fix_diagram {
@@ -239,7 +239,7 @@ impl Problem {
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
-    pub fn speedup(&self) -> Self {
+    pub fn speedup(&self) -> Result<Self,String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
         left.add_permutations();
@@ -253,7 +253,7 @@ impl Problem {
 
         let newbits = hm_oldset_label.len();
         if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::MAX.bits() {
-            panic!("The result is too big");
+            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::MAX.bits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
         }
 
         let mut newleft = newleft_before_renaming.renamed(&hm_oldset_label);

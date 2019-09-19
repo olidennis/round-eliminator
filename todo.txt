@@ -9,6 +9,7 @@ Todo:
 - gui: allow interrupting autolb autoub
 - gui: spinner autolb many labels appears later
 - panics on the server while doing gui things
-- send server errors to client
+- show some spinner when the button speedup is pressed
 
 Bugs:
+- broken pipe if speedup takes too much

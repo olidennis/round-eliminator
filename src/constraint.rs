@@ -141,7 +141,7 @@ impl Constraint {
     }
 
     /// Create constraints starting from their text representation.
-    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Constraint {
+    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Result<Constraint,String> {
         let vec = Self::string_to_vec(text);
         Self::from_vec(&vec, mapping)
     }
@@ -158,7 +158,10 @@ impl Constraint {
     /// `mapping` needs to provide a map from string labels to group positions.
     /// For example, if 001 010 001 111 represents the line A B C ABC,
     /// then `mapping` must map `A to 0`, `B to 1`, and `C to 2`
-    pub fn from_vec(v: &Vec<Vec<Vec<String>>>, mapping: &HashMap<String, usize>) -> Constraint {
+    pub fn from_vec(v: &Vec<Vec<Vec<String>>>, mapping: &HashMap<String, usize>) -> Result<Constraint,String> {
+        if v.is_empty() {
+            return Err("Constraints can not be empty!".into());
+        }
         let first = Line::from_vec(&v[0], mapping);
         let delta = first.delta;
         let bits = first.bits;
@@ -170,7 +173,7 @@ impl Constraint {
             assert!(line.bits == bits);
             c.add_reduce(line);
         }
-        c
+        Ok(c)
     }
 
     /// Creates a vector representation of the constraints.

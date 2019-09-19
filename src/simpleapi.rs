@@ -18,16 +18,16 @@ pub type RSimplifications = Vec<(Simpl,(String,String))>;
 pub type RLowerBoundStep = Vec<(Problem,crate::autolb::ResultStep,ResultProblem)>;
 pub type RUpperBoundStep = Vec<(Problem,crate::autoub::ResultStep,ResultProblem)>;
 
-pub fn new_problem(left : &str, right : &str) -> RProblem {
-    let p = Problem::from_text(left, right);
+pub fn new_problem(left : &str, right : &str) -> Result<RProblem,String> {
+    let p = Problem::from_text(left, right)?;
     let r = p.as_result();
-    (p,r)
+    Ok((p,r))
 }
 
-pub fn speedup(p : &Problem) -> RProblem {
-    let np = p.speedup();
+pub fn speedup(p : &Problem) -> Result<RProblem,String> {
+    let np = p.speedup()?;
     let nr = np.as_result();
-    (np,nr)
+    Ok((np,nr))
 }
 
 pub fn possible_simplifications(p : &Problem) -> RSimplifications {
@@ -43,7 +43,7 @@ pub fn simplify(p : &Problem, (a,b) : Simpl) -> RProblem  {
     (np,nr)
 }
 
-pub fn harden(p : &Problem, v : Keeping) -> Option<RProblem> {
+pub fn harden(p : &Problem, v : Keeping) -> Result<RProblem,String> {
     let map = &p.map_text_label;
     let map = Problem::map_to_hashmap(map);
     let keep = v.iter().map(|x|BigNum::one()<<map[x]).fold(BigNum::zero(),|a,b|a|b);
@@ -51,13 +51,13 @@ pub fn harden(p : &Problem, v : Keeping) -> Option<RProblem> {
     np.map(|np|{
         let nr = np.as_result();
         (np,nr)
-    })
+    }).ok_or("The new problem would have empty constraints!".into())
 }
 
-pub fn rename(p : &Problem, v : Renaming) -> RProblem {
+pub fn rename(p : &Problem, v : Renaming) -> Result<RProblem,String> {
     let newlabelscount = v.iter().map(|(_,s)|s.to_owned()).unique().count();
     if newlabelscount != v.len() {
-        panic!("Labels must be different!");
+        return Err("Labels must be different!".into());
     }
 
     let map_text_oldlabel = p.map_text_oldlabel.as_ref().unwrap();
@@ -71,26 +71,30 @@ pub fn rename(p : &Problem, v : Renaming) -> RProblem {
     let mut np = p.clone();
     np.map_text_label = newmapping;
     let nr = np.as_result();
-    (np,nr)
+    Ok((np,nr))
 }
 
-pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=RLowerBoundStep>{
+pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=Result<RLowerBoundStep,String>>{
     let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels);
-    auto.into_iter().map(move |seq|{
-        seq.as_result().steps.into_iter().map(|s|{
-            let r = s.1.as_result();
-            (s.1,s.0,r)
-        }).collect()
+    auto.into_iter().map(move |r|{
+        r.map(|seq|{
+            seq.as_result().steps.into_iter().map(|s|{
+                let r = s.1.as_result();
+                (s.1,s.0,r)
+            }).collect()
+        })
     })
 }
 
-pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=RUpperBoundStep>{
+pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
     let auto = AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels);
-    auto.into_iter().map(|seq|{
-        seq.as_result().steps.into_iter().map(|s|{
-            let r = s.1.as_result();
-            (s.1,s.0,r)
-        }).collect()
+    auto.into_iter().map(move |r|{
+        r.map(|seq|{
+            seq.as_result().steps.into_iter().map(|s|{
+                let r = s.1.as_result();
+                (s.1,s.0,r)
+            }).collect()
+        })
     })
 }
 
@@ -110,22 +114,26 @@ pub enum Request{
 #[derive(Deserialize, Serialize)]
 pub enum Response{
     Done,
-    OP(Option<RProblem>),
     P(RProblem),
     S(RSimplifications),
     L(RLowerBoundStep),
-    U(RUpperBoundStep)
+    U(RUpperBoundStep),
+    E(String)
 }
 
 pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
     match req {
         Request::NewProblem(s1,s2) => {
-            let r = new_problem(&s1, &s2);
-            f(Response::P(r));
+            match new_problem(&s1, &s2) {
+                Ok(r) =>  {f(Response::P(r))}
+                Err(s) => {f(Response::E(s))}
+            }
         }
         Request::Speedup(p) => {
-            let r = speedup(&p);
-            f(Response::P(r));
+            match speedup(&p) {
+                Ok(r) =>  {f(Response::P(r))}
+                Err(s) => {f(Response::E(s))}
+            }
         }
         Request::PossibleSimplifications(p) => {
             let r = possible_simplifications(&p);
@@ -136,21 +144,31 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
             f(Response::P(r));
         }
         Request::Harden(p,k) => {
-            let r = harden(&p, k);
-            f(Response::OP(r));
+            match harden(&p, k) {
+                Ok(r) =>  {f(Response::P(r))}
+                Err(s) => {f(Response::E(s))}
+            }
         }
         Request::Rename(p,x) => {
-            let r = rename(&p, x);
-            f(Response::P(r));
+            match rename(&p,x) {
+                Ok(r) =>  {f(Response::P(r))}
+                Err(s) => {f(Response::E(s))}
+            }
         }
         Request::AutoLb(p,i,l) => {
             for r in autolb(&p,i,l) {
-                f(Response::L(r));
+                match r {
+                    Ok(r) =>  {f(Response::L(r))}
+                    Err(s) => {f(Response::E(s))}
+                }
             }
         }
         Request::AutoUb(p,i,l) => {
             for r in autoub(&p,i,l) {
-                f(Response::U(r));
+                match r {
+                    Ok(r) =>  {f(Response::U(r))}
+                    Err(s) => {f(Response::E(s))}
+                }
             }
         }
     }
