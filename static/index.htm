@@ -207,8 +207,8 @@
                 closediv.append(close);
                 divdivresult.append(closediv);
 
-                let divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Lower Bound...");
-                let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
+                let divresult = $('<div class="container-fluid m-0 p-0"/>');
+                let spinner = $('<div class="card card-body m-2 bg-warning text-dark"/>').append($('<div class="spinner-border" role="status"></div>')).append("Computing lower bound...");
                 divdivresult.append(spinner);
 
                 let onresult = function (_result) {
@@ -275,8 +275,8 @@
                 closediv.append(close);
                 divdivresult.append(closediv);
                 
-                let divresult = $('<div class="container-fluid m-0 p-0"/>').append("Computing Upper Bound...");
-                let spinner = $('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
+                let divresult = $('<div class="container-fluid m-0 p-0"/>');
+                let spinner = $('<div class="card card-body m-2 bg-warning text-dark"/>').append($('<div class="spinner-border" role="status"></div>')).append("Computing upper bound...");
                 divdivresult.append(spinner);
 
                 let onresult = function (_result) {

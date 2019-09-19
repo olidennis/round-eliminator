@@ -9,7 +9,6 @@ Todo:
 
 Todo soon:
 - gui: manual relabeling
-- remove "computing ... bound" when it finishes without result
 - show some spinner when the button speedup is pressed
 
 Bugs:
