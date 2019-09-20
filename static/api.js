@@ -38,13 +38,36 @@ function request_server(req, onresult, oncomplete) {
 
 }
 
-function request_wasm(req, onresult, oncomplete) {
+$.getScript("wasm.js",function(){
+    console.log("wasm.js loaded!");
+    wasm_bindgen.init("wasm_bg.wasm").then(function(api){
+        console.log("really loaded wasm");
+    });
+});
+
+function request_wasm(req, onresult, oncomplete, worker) {
+    let r = JSON.stringify(req);
+
+    if( !worker ){
+        let f = function(m){
+            let o = JSON.parse(m);
+            if( o == "Pong" ){
+            }else if( o != "Done" ){
+                onresult(o);
+            } else {
+                oncomplete();
+            }
+        }
+        wasm_bindgen.request_json(r,f);
+        return;
+    }
+
     var w = new Worker("worker.js");
     w.onerror = function() {
         console.log('There is an error with your worker!');
       }
 
-    let r = JSON.stringify(req);
+    
     console.log("Sending request.");
     w.postMessage(r);
 
@@ -62,40 +85,40 @@ function request_wasm(req, onresult, oncomplete) {
     }
 }
 
-function request(req, onresult, oncomplete) {
-    return request_wasm(req,onresult,oncomplete);
+function request(req, onresult, oncomplete, worker) {
+    return request_wasm(req,onresult,oncomplete,worker);
 }
 
 
 export function api_new_problem(s1,s2, ready) {
-    request({ NewProblem : [s1,s2] }, ready , function(){} );
+    request({ NewProblem : [s1,s2] }, ready , function(){} , true);
 }
 
 export function api_speedup(p, ready){
-    request({ Speedup : p }, ready , function(){} );
+    request({ Speedup : p }, ready , function(){} , true);
 }
 
 export function api_possible_simplifications(p, ready){
-    request({ PossibleSimplifications : p }, function(r){ready(r.S)} , function(){} );
+    request({ PossibleSimplifications : p }, function(r){ready(r.S)} , function(){} , false);
 }
 
 export function api_simplify(p, s, ready){
-    request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} );
+    request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} , true);
 }
 
 export function api_harden(p, h, ready){
-    request({ Harden : [p,h] }, ready , function(){} );
+    request({ Harden : [p,h] }, ready , function(){} , true);
 }
 
 export function api_rename(p, v, ready){
-    request({ Rename : [p,v] }, ready , function(){} );
+    request({ Rename : [p,v] }, ready , function(){} , true);
 }
 
 export function api_autolb(p,label,iter, result, end) {
-    request({ AutoLb : [p,label,iter] }, result , end );
+    request({ AutoLb : [p,label,iter] }, result , end ,true );
 }
 
 export function api_autoub(p,label,iter, result, end) {
-    request({ AutoUb : [p,label,iter] }, result , end );
+    request({ AutoUb : [p,label,iter] }, result , end ,true);
 }
 

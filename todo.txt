@@ -10,4 +10,3 @@ Todo soon:
 - gui: allow interrupting autolb autoub
 
 Bugs:
-Firefox starts behaving in a strange way after using autolb
