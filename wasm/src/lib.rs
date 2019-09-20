@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn request_json(req : &str, f: &js_sys::Function ){
+    utils::set_panic_hook();
     simulation::request_json(req,|s|{
         let this = JsValue::NULL;
         let s = JsValue::from(s);

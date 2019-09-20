@@ -129,6 +129,14 @@ function handleError(e) {
     wasm.__wbindgen_exn_store(addHeapObject(e));
 }
 
+let cachegetInt32Memory = null;
+function getInt32Memory() {
+    if (cachegetInt32Memory === null || cachegetInt32Memory.buffer !== wasm.memory.buffer) {
+        cachegetInt32Memory = new Int32Array(wasm.memory.buffer);
+    }
+    return cachegetInt32Memory;
+}
+
 function init(module) {
 
     let result;
@@ -148,6 +156,22 @@ function init(module) {
         } catch (e) {
             handleError(e)
         }
+    };
+    imports.wbg.__wbg_new_59cb74e423758ede = function() {
+        const ret = new Error();
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_stack_558ba5917b466edd = function(arg0, arg1) {
+        const ret = getObject(arg1).stack;
+        const ret0 = passStringToWasm(ret);
+        const ret1 = WASM_VECTOR_LEN;
+        getInt32Memory()[arg0 / 4 + 0] = ret0;
+        getInt32Memory()[arg0 / 4 + 1] = ret1;
+    };
+    imports.wbg.__wbg_error_4bb6c2a97407129a = function(arg0, arg1) {
+        const v0 = getStringFromWasm(arg0, arg1).slice();
+        wasm.__wbindgen_free(arg0, arg1 * 1);
+        console.error(v0);
     };
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm(arg0, arg1));
@@ -189,9 +213,11 @@ function init(module) {
     return result.then(({instance, module}) => {
         wasm = instance.exports;
         init.__wbindgen_wasm_module = module;
+
         return wasm;
     });
 }
+
 let test = { init : init };
 self.wasm_bindgen = Object.assign(test, __exports);
 

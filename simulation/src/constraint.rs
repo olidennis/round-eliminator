@@ -223,8 +223,9 @@ impl Constraint {
         let delta = self.delta as usize;
         let bits = self.bits as usize;
 
+        let limit = if cfg!(feature = "littlemem") { 31 } else { 32 };
         // either use a bitset or a hashset, depending on the size of the problem
-        if delta * bits > 32 {
+        if delta * bits > limit {
             self.new_constraint_forall_best::<HashSet<BigNum>>(sets)
         } else {
             self.new_constraint_forall_best::<BigBitSet>(sets)

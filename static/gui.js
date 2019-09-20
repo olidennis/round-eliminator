@@ -214,7 +214,7 @@ function make_div_autolb(problem){
 
 
             for( let step of result ) {
-                what = step[1];
+                let what = step[1];
                 if( what == "Initial" )toshow.append(performed_initial());
                 else if( what == "Speedup" )toshow.append(performed_speedup());
                 else if( what.Simplified != null ){
@@ -282,7 +282,7 @@ function make_div_autoub(problem){
             toshow.append(make_performed_action("Upper bound of " + rounds + " rounds."));
 
             for(let step of result ) {
-                what = step[1];
+                let what = step[1];
                 if( what == "Initial" )toshow.append(performed_initial());
                 else if( what == "Speedup" )toshow.append(performed_speedup());
                 else if( what.Simplified != null ){

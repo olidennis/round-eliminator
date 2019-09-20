@@ -41,6 +41,7 @@ function request_server(req, onresult, oncomplete) {
 function request_wasm(req, onresult, oncomplete) {
     var w = new Worker("worker.js");
     let r = JSON.stringify(req);
+    console.log("Sending request.");
     w.postMessage(r);
 
     w.onmessage = function (s){
@@ -51,6 +52,7 @@ function request_wasm(req, onresult, oncomplete) {
             onresult(o);
         } else {
             oncomplete();
+            w.terminate();
         }
     }
 }
