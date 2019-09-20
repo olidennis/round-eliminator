@@ -1,5 +1,5 @@
 
-function request_server(req, onresult, oncomplete) {
+function request_server(req, onresult, oncomplete, worker) {
     let a = new WebSocket("ws://" + location.host + "/api");
     let r = JSON.stringify(req);
 
@@ -34,13 +34,20 @@ function request_server(req, onresult, oncomplete) {
             a.close();
         }
     }
-
+    return function(){
+        console.log("not implemented!");
+    }
 }
 
-$.getScript("wasm.js",function(){
-    wasm_bindgen.init("wasm_bg.wasm").then(function(x){
+let use_wasm = !window.location.href.includes("server");
+
+
+if( use_wasm ){ 
+    $.getScript("wasm.js",function(){
+        wasm_bindgen.init("wasm_bg.wasm").then(function(x){
+        });
     });
-});
+}
 
 function request_wasm(req, onresult, oncomplete, worker) {
     let r = JSON.stringify(req);
@@ -85,7 +92,11 @@ function request_wasm(req, onresult, oncomplete, worker) {
 }
 
 function request(req, onresult, oncomplete, worker) {
-    return request_wasm(req,onresult,oncomplete,worker);
+    if( use_wasm ){
+        return request_wasm(req,onresult,oncomplete,worker);
+    } else {
+        return request_server(req,onresult,oncomplete,worker);
+    }
 }
 
 

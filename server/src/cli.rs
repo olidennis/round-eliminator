@@ -46,8 +46,13 @@ pub fn autoub(name: &str, labels: usize, iter: usize) {
 }
 
 pub fn server(addr : &str) {
-    let dir = warp::fs::dir("static/");
-    let index = warp::path::end().and(warp::fs::file("static/index.htm"));
+
+    let dir_server = warp::path("server").and(warp::fs::dir("static/"));
+    let index_server = warp::path("server").and(warp::path::end()).and(warp::fs::file("static/index.htm"));
+
+    let dir_wasm = warp::fs::dir("static/");
+    let index_wasm = warp::path::end().and(warp::fs::file("static/index.htm"));
+
     let ws = warp::path("api")
         .and(warp::ws2())
         .map(|ws: warp::ws::Ws2,| {
@@ -58,7 +63,7 @@ pub fn server(addr : &str) {
             })
         });
 
-    let serve = dir.or(ws).or(index);
+    let serve = dir_server.or(index_server).or(dir_wasm).or(ws).or(index_wasm);
 
     let addr = addr.parse::<std::net::SocketAddr>().unwrap();
     warp::serve(serve).run(addr);
