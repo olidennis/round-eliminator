@@ -27,7 +27,6 @@ function request_server(req, onresult, oncomplete) {
         let m = s.data;
         let o = JSON.parse(m);
         if( o == "Pong" ){
-            //console.log("received pong!");
         }else if( o != "Done" ){
             onresult(o);
         } else {
@@ -39,9 +38,7 @@ function request_server(req, onresult, oncomplete) {
 }
 
 $.getScript("wasm.js",function(){
-    console.log("wasm.js loaded!");
-    wasm_bindgen.init("wasm_bg.wasm").then(function(api){
-        console.log("really loaded wasm");
+    wasm_bindgen.init("wasm_bg.wasm").then(function(x){
     });
 });
 
@@ -59,16 +56,14 @@ function request_wasm(req, onresult, oncomplete, worker) {
             }
         }
         wasm_bindgen.request_json(r,f);
-        return;
+        return function(){};
     }
 
     var w = new Worker("worker.js");
     w.onerror = function() {
-        console.log('There is an error with your worker!');
+        console.log('There is an error with the worker!');
       }
 
-    
-    console.log("Sending request.");
     w.postMessage(r);
 
     w.onmessage = function (s){
@@ -79,10 +74,14 @@ function request_wasm(req, onresult, oncomplete, worker) {
             onresult(o);
         } else {
             oncomplete();
-            console.log("killing worker");
             w.terminate();
         }
     }
+    let terminate = function(){
+        console.log("terminating worker!");
+        w.terminate();
+    }
+    return terminate;
 }
 
 function request(req, onresult, oncomplete, worker) {
@@ -91,34 +90,34 @@ function request(req, onresult, oncomplete, worker) {
 
 
 export function api_new_problem(s1,s2, ready) {
-    request({ NewProblem : [s1,s2] }, ready , function(){} , true);
+    return request({ NewProblem : [s1,s2] }, ready , function(){} , true);
 }
 
 export function api_speedup(p, ready){
-    request({ Speedup : p }, ready , function(){} , true);
+    return request({ Speedup : p }, ready , function(){} , true);
 }
 
 export function api_possible_simplifications(p, ready){
-    request({ PossibleSimplifications : p }, function(r){ready(r.S)} , function(){} , false);
+    return request({ PossibleSimplifications : p }, function(r){ready(r.S)} , function(){} , false);
 }
 
 export function api_simplify(p, s, ready){
-    request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} , true);
+    return request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} , true);
 }
 
 export function api_harden(p, h, ready){
-    request({ Harden : [p,h] }, ready , function(){} , true);
+    return request({ Harden : [p,h] }, ready , function(){} , true);
 }
 
 export function api_rename(p, v, ready){
-    request({ Rename : [p,v] }, ready , function(){} , true);
+    return request({ Rename : [p,v] }, ready , function(){} , true);
 }
 
 export function api_autolb(p,label,iter, result, end) {
-    request({ AutoLb : [p,label,iter] }, result , end ,true );
+    return request({ AutoLb : [p,label,iter] }, result , end ,true );
 }
 
 export function api_autoub(p,label,iter, result, end) {
-    request({ AutoUb : [p,label,iter] }, result , end ,true);
+    return request({ AutoUb : [p,label,iter] }, result , end ,true);
 }
 

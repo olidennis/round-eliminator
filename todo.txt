@@ -7,6 +7,7 @@ Todo:
 - hardening by keeping lines instead of labels
 
 Todo soon:
-- gui: allow interrupting autolb autoub
+- gui: allow interrupting autolb autoub when the server is used 
 
 Bugs:
+- on safari workers do not get killed

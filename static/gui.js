@@ -188,9 +188,6 @@ function make_div_autolb(problem){
         let divdivresult = $('<div class="card m-2"/>');
         let closediv = $('<div class="text-left"/>');
         let close = $('<button type="button" class="btn btn-secondary m-2">Close LB</button>');
-        close.click(function(){
-            divdivresult.remove();
-        });
         closediv.append(close);
         divdivresult.append(closediv);
 
@@ -233,7 +230,11 @@ function make_div_autolb(problem){
         }
         divdivresult.append(divresult);
         append_generic(divdivresult);
-        api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , onresult, onend);
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , onresult, onend);
+        close.click(function(){
+            divdivresult.remove();
+            ch();
+        });
     });
     divautolb.append(autolb);
     return divautolb;
@@ -257,9 +258,6 @@ function make_div_autoub(problem){
         let divdivresult = $('<div class="card m-2"/>');
         let closediv = $('<div class="text-left"/>');
         let close = $('<button type="button" class="btn btn-secondary m-2">Close UB</button>');
-        close.click(function(){
-            divdivresult.remove();
-        });
         closediv.append(close);
         divdivresult.append(closediv);
         
@@ -299,7 +297,11 @@ function make_div_autoub(problem){
         }
         divdivresult.append(divresult);
         append_generic(divdivresult);
-        api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10) , onresult, onend);
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10) , onresult, onend);
+        close.click(function(){
+            divdivresult.remove();
+            ch();
+        });
     });
     divautoub.append(autoub);
     return divautoub;
