@@ -11,8 +11,10 @@ function request_server(req, onresult, oncomplete, worker) {
         }
     },5000);
 
+    let t0;
     a.onopen = function() {
         a.send(r);
+        t0 = performance.now();
     }
     a.onerror = function(e) {
         //onclose will be called even if onerror is called
@@ -31,6 +33,8 @@ function request_server(req, onresult, oncomplete, worker) {
             onresult(o);
         } else {
             //oncomplete();
+            let t1 = performance.now();
+            console.log("Computation took "+(t1-t0)+" ms.");
             a.close();
         }
     }
@@ -51,6 +55,7 @@ if( use_wasm ){
 
 function request_wasm(req, onresult, oncomplete, worker) {
     let r = JSON.stringify(req);
+    let t0 = performance.now();
 
     if( !worker ){
         let f = function(m){
@@ -59,6 +64,8 @@ function request_wasm(req, onresult, oncomplete, worker) {
             }else if( o != "Done" ){
                 onresult(o);
             } else {
+                let t1 = performance.now();
+                console.log("Computation took "+(t1-t0)+" ms.");
                 oncomplete();
             }
         }
@@ -80,6 +87,8 @@ function request_wasm(req, onresult, oncomplete, worker) {
         }else if( o != "Done" ){
             onresult(o);
         } else {
+            let t1 = performance.now();
+            console.log("Computation took "+(t1-t0)+" ms.");
             oncomplete();
             w.terminate();
         }
