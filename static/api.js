@@ -1,4 +1,5 @@
-function request(req, onresult, oncomplete) {
+
+function request_server(req, onresult, oncomplete) {
     let a = new WebSocket("ws://" + location.host + "/api");
     let r = JSON.stringify(req);
 
@@ -37,35 +38,57 @@ function request(req, onresult, oncomplete) {
 
 }
 
-function api_new_problem(s1,s2, ready) {
+function request_wasm(req, onresult, oncomplete) {
+    var w = new Worker("worker.js");
+    let r = JSON.stringify(req);
+    w.postMessage(r);
+
+    w.onmessage = function (s){
+        let r = s.data;
+        let o = JSON.parse(r);
+        if( o == "Pong" ){
+        }else if( o != "Done" ){
+            onresult(o);
+        } else {
+            oncomplete();
+        }
+    }
+}
+
+function request(req, onresult, oncomplete) {
+    return request_wasm(req,onresult,oncomplete);
+}
+
+
+export function api_new_problem(s1,s2, ready) {
     request({ NewProblem : [s1,s2] }, ready , function(){} );
 }
 
-function api_speedup(p, ready){
+export function api_speedup(p, ready){
     request({ Speedup : p }, ready , function(){} );
 }
 
-function api_possible_simplifications(p, ready){
+export function api_possible_simplifications(p, ready){
     request({ PossibleSimplifications : p }, function(r){ready(r.S)} , function(){} );
 }
 
-function api_simplify(p, s, ready){
+export function api_simplify(p, s, ready){
     request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} );
 }
 
-function api_harden(p, h, ready){
+export function api_harden(p, h, ready){
     request({ Harden : [p,h] }, ready , function(){} );
 }
 
-function api_rename(p, v, ready){
+export function api_rename(p, v, ready){
     request({ Rename : [p,v] }, ready , function(){} );
 }
 
-function api_autolb(p,label,iter, result, end) {
+export function api_autolb(p,label,iter, result, end) {
     request({ AutoLb : [p,label,iter] }, result , end );
 }
 
-function api_autoub(p,label,iter, result, end) {
+export function api_autoub(p,label,iter, result, end) {
     request({ AutoUb : [p,label,iter] }, result , end );
 }
 
