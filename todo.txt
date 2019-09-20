@@ -8,6 +8,5 @@ Todo:
 
 Todo soon:
 - gui: allow interrupting autolb autoub when the server is used 
-- fix api to work with server again
 
 Bugs:
