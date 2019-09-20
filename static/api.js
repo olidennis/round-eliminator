@@ -40,6 +40,10 @@ function request_server(req, onresult, oncomplete) {
 
 function request_wasm(req, onresult, oncomplete) {
     var w = new Worker("worker.js");
+    w.onerror = function() {
+        console.log('There is an error with your worker!');
+      }
+
     let r = JSON.stringify(req);
     console.log("Sending request.");
     w.postMessage(r);
@@ -52,6 +56,7 @@ function request_wasm(req, onresult, oncomplete) {
             onresult(o);
         } else {
             oncomplete();
+            console.log("killing worker");
             w.terminate();
         }
     }
