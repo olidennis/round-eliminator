@@ -194,7 +194,6 @@ function init(module) {
     });
 }
 
-let test = { init : init };
-self.wasm_bindgen = Object.assign(test, __exports);
+self.wasm_bindgen = Object.assign({init}, __exports);
 
 })();
