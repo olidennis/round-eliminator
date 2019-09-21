@@ -51,9 +51,10 @@ impl Auto for AutoLb {
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         _: usize,
+        colors: usize
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial;
-        let best_is_trivial = best.current().is_trivial;
+        let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
+        let best_is_trivial = best.current().is_trivial || best.current().coloring >= colors;
 
         let should_yield = sol.speedups > best.speedups
             || (sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial);

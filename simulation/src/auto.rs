@@ -32,6 +32,7 @@ pub trait Auto: Sized + Clone {
         sequence: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         maxiter: usize,
+        colors: usize
     ) -> bool;
     /// given the current state, the current best state, and the maximum number of speedup steps, returns true it makes sense to do more speedup steps.
     fn should_continue(
@@ -182,7 +183,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     {
         if self
             .auto
-            .should_yield(&mut self.sol, &mut self.best, self.maxiter)
+            .should_yield(&mut self.sol, &mut self.best, self.maxiter, self.colors)
         {
             self.best = self.sol.clone();
             self.best.make_printable();
@@ -272,6 +273,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                         &mut self.auto.sol,
                         &mut self.auto.best,
                         self.auto.maxiter,
+                        self.auto.colors
                     ) {
                         self.auto.best = self.auto.sol.clone();
                         self.auto.best.make_printable();
