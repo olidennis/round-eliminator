@@ -183,6 +183,13 @@ function make_div_autolb(problem){
     divautolb.append(iterform);
     divautolb.append(labelsform);
 
+    let collabel = $('<label>Input coloring:</label>');
+    let collb = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
+    let colform = $('<div class="form-group"/>').append(collabel).append(collb);
+    if( x.left[0].length == 2 || x.right[0].length == 2 ){
+        divautolb.append(colform);
+    }
+
     let autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
     autolb.click(function(ev) {
         let divdivresult = $('<div class="card m-2"/>');
@@ -230,7 +237,7 @@ function make_div_autolb(problem){
         }
         divdivresult.append(divresult);
         append_generic(divdivresult);
-        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , onresult, onend);
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) , onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();
@@ -252,6 +259,13 @@ function make_div_autoub(problem){
     let labelsform = $('<div class="form-group"/>').append(labelslabel).append(maxlabelsub);
     divautoub.append(iterform);
     divautoub.append(labelsform);
+
+    let collabel = $('<label>Input coloring:</label>');
+    let colub = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
+    let colform = $('<div class="form-group"/>').append(collabel).append(colub);
+    if( x.left[0].length == 2 || x.right[0].length == 2 ){
+        divautoub.append(colform);
+    }
 
     let autoub = $('<button type="button" class="btn btn-primary">Automatic Upper Bound</button>');
     autoub.click(function(ev) {
@@ -297,7 +311,7 @@ function make_div_autoub(problem){
         }
         divdivresult.append(divresult);
         append_generic(divdivresult);
-        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10) , onresult, onend);
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10) , onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

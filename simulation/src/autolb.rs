@@ -75,8 +75,9 @@ impl Auto for AutoLb {
         sol: &mut Sequence<Self>,
         _: &mut Sequence<Self>,
         maxiter: usize,
+        colors: usize
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial;
+        let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
 
         sol.speedups < maxiter && !sol_is_trivial
     }

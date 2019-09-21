@@ -76,8 +76,9 @@ impl Auto for AutoUb {
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         maxiter: usize,
+        colors : usize
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial;
+        let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
         let best_is_trivial = best.current().is_trivial;
 
         sol.speedups < maxiter

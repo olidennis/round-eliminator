@@ -9,7 +9,5 @@ Todo:
 
 Todo soon:
 - gui: allow interrupting autolb autoub when the server is used 
-- allow autoub to assume that a coloring is given
-- allow autolb to search only for something that is not trivial given a coloring
 
 Bugs:

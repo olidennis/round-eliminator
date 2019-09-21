@@ -39,6 +39,7 @@ pub trait Auto: Sized + Clone {
         sequence: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         maxiter: usize,
+        colors: usize
     ) -> bool;
     /// given a problem (sequence.current()) and a simplification, return a new problem where the simplification has been performed.
     /// If for some reason the simplification does not make sense anymore, return None.
@@ -141,11 +142,12 @@ pub struct AutomaticSimplifications<T: Auto> {
     pub best: Sequence<T>,
     pub maxiter: usize,
     pub maxlabels: usize,
+    pub colors: usize,
     auto: T,
 }
 
 impl<T: Auto> AutomaticSimplifications<T> {
-    pub fn new(p: Problem, maxiter: usize, maxlabels: usize) -> Self {
+    pub fn new(p: Problem, maxiter: usize, maxlabels: usize, colors : usize) -> Self {
         let sol = Sequence::new(p);
         let best = sol.clone();
         Self {
@@ -153,6 +155,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
             best,
             maxiter,
             maxlabels,
+            colors,
             auto: T::new(),
         }
     }
@@ -187,7 +190,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
         }
         if self
             .auto
-            .should_continue(&mut self.sol, &mut self.best, self.maxiter)
+            .should_continue(&mut self.sol, &mut self.best, self.maxiter,self.colors)
         {
             self.simplify(cb)?;
         }
@@ -281,6 +284,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                         &mut self.auto.sol,
                         &mut self.auto.best,
                         self.auto.maxiter,
+                        self.auto.colors
                     ) {
                         self.stack.push(State::Simplify);
                     }

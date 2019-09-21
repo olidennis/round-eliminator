@@ -81,8 +81,8 @@ pub fn rename(p : &Problem, v : Renaming) -> Result<RProblem,String> {
     Ok((np,nr))
 }
 
-pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=Result<RLowerBoundStep,String>>{
-    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels);
+pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize, colors:usize) -> impl Iterator<Item=Result<RLowerBoundStep,String>>{
+    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, colors);
     auto.into_iter().map(move |r|{
         r.map(|seq|{
             seq.as_result().steps.into_iter().map(|s|{
@@ -93,8 +93,8 @@ pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator
     })
 }
 
-pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
-    let auto = AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels);
+pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize, colors : usize) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
+    let auto = AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels,colors);
     auto.into_iter().map(move |r|{
         r.map(|seq|{
             seq.as_result().steps.into_iter().map(|s|{
@@ -114,8 +114,8 @@ pub enum Request{
     Simplify(Problem,Simpl),
     Harden(Problem,Keeping),
     Rename(Problem,Renaming),
-    AutoLb(Problem,usize,usize),
-    AutoUb(Problem,usize,usize),
+    AutoLb(Problem,usize,usize,usize),
+    AutoUb(Problem,usize,usize,usize),
     Ping
 }
 
@@ -168,16 +168,16 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
                 Err(s) => {f(Response::E(s))}
             }
         }
-        Request::AutoLb(p,i,l) => {
-            for r in autolb(&p,i,l) {
+        Request::AutoLb(p,i,l,c) => {
+            for r in autolb(&p,i,l,c) {
                 match r {
                     Ok(r) =>  {f(Response::L(r))}
                     Err(s) => {f(Response::E(s))}
                 }
             }
         }
-        Request::AutoUb(p,i,l) => {
-            for r in autoub(&p,i,l) {
+        Request::AutoUb(p,i,l,c) => {
+            for r in autoub(&p,i,l,c) {
                 match r {
                     Ok(r) =>  {f(Response::U(r))}
                     Err(s) => {f(Response::E(s))}

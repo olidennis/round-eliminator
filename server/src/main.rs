@@ -65,6 +65,14 @@ fn main() {
                         .value_name("ITER")
                         .required(true)
                         .help("Maximum number of iterations"),
+                )
+                .arg(
+                    Arg::with_name("col")
+                        .short("c")
+                        .long("col")
+                        .value_name("COL")
+                        .required(false)
+                        .help("size of input coloring"),
                 ),
         )
         .subcommand(
@@ -93,6 +101,14 @@ fn main() {
                         .value_name("ITER")
                         .required(true)
                         .help("Maximum number of iterations"),
+                )
+                .arg(
+                    Arg::with_name("col")
+                        .short("c")
+                        .long("col")
+                        .value_name("COL")
+                        .required(false)
+                        .help("size of input coloring"),
                 ),
         )
         .setting(AppSettings::SubcommandRequired)
@@ -109,11 +125,13 @@ fn main() {
         let name = f.value_of("file").unwrap();
         let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
-        cli::autolb(name, labels, iter);
+        let col : usize = f.value_of("col").unwrap_or("0").parse().unwrap();
+        cli::autolb(name, labels, iter,col);
     } else if let Some(f) = matches.subcommand_matches("autoub") {
         let name = f.value_of("file").unwrap();
         let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
-        cli::autoub(name, labels, iter);
+        let col : usize = f.value_of("col").unwrap_or("0").parse().unwrap();
+        cli::autoub(name, labels, iter,col);
     }
 }
