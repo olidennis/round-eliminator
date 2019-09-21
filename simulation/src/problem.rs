@@ -369,7 +369,9 @@ impl Problem {
         assert!(self.left.mask == self.right.mask);
         let bits = self.left.bits;
         let mask = self.left.mask;
-        (1..(1 << bits))
+        // otherwise it's too slow anyway
+        assert!(bits < 64);
+        (1..(1u64 << bits))
             .map(|x| BigNum::from(x))
             .filter(move |&x| mask.is_superset(x))
     }
