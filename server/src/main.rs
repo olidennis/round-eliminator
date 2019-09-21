@@ -108,7 +108,7 @@ fn main() {
                         .long("col")
                         .value_name("COL")
                         .required(false)
-                        .help("size of input coloring"),
+                        .help("size of input coloring (works only in the node-edge case)"),
                 ),
         )
         .setting(AppSettings::SubcommandRequired)
