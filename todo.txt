@@ -5,9 +5,11 @@ Minor/performance:
 
 Todo:
 - hardening by keeping lines instead of labels
-- add check for triviality assuming that a coloring is given
+- relax by making the diagram a path (guaranteed fixpoint)
 
 Todo soon:
 - gui: allow interrupting autolb autoub when the server is used 
+- allow autoub to assume that a coloring is given
+- allow autolb to search only for something that is not trivial given a coloring
 
 Bugs:
