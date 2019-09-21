@@ -310,6 +310,9 @@ function make_div_autoub(problem){
 function make_div_triviality(problem){
     let x = problem[1];
     let trivial = "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
+    if( ! x.is_trivial && x.coloring > 1 ){
+        trivial += " It can be solved given a " + x.coloring + " coloring.";
+    }
     let div = $('<div/>').append(trivial);
     return div;
 }

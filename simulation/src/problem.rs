@@ -55,6 +55,7 @@ impl Problem {
             p.assign_chars();
         }
         p.compute_triviality();
+        p.compute_independent_lines();
         p.compute_diagram_edges();
         Ok(p)
     }
