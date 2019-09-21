@@ -24,6 +24,7 @@ pub struct Problem {
     pub diagram: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
+    pub coloring : usize
 }
 
 impl Problem {
@@ -46,6 +47,7 @@ impl Problem {
             map_text_oldlabel,
             diagram: vec![],
             is_trivial: false,
+            coloring : 0
         };
         if let Some(map) = map_text_label {
             p.map_text_label = map;
@@ -221,20 +223,89 @@ impl Problem {
         // add_permutations should be a no-op if this is called from speedup()
         // and in this way it always works
         // and cloning right makes this function side-effect free on the constraints
-        let right = self.right.clone();
-        self.right.add_permutations();
-        assert!(self.left.bits == self.right.bits);
+        let mut right = self.right.clone();
+        right.add_permutations();
+        assert!(self.left.bits == right.bits);
         let bits = self.left.bits;
-        let delta_r = self.right.delta;
+        let delta_r = right.delta;
 
         let is_trivial = self.left.choices_iter().any(|action| {
             let mask = action.mask();
-            Line::forall_single(delta_r, bits, mask).all(|x| self.right.satisfies(&x))
+            Line::forall_single(delta_r, bits, mask).all(|x| right.satisfies(&x))
         });
 
-        self.right = right;
         self.is_trivial = is_trivial;
     }
+
+    /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
+    pub fn compute_independent_lines(&mut self){
+        let mut right = self.right.clone();
+        right.add_permutations();
+        assert!(self.left.bits == right.bits);
+        let bits = self.left.bits;
+        let delta_r = right.delta;
+        if delta_r != 2 {
+            return;
+        }
+        let mut edges = vec![];
+        // it could be improved by a factor 2 (also later)...
+        for l1 in self.left.choices_iter() {
+            let m1 = l1.mask();
+            'outer: for l2 in self.left.choices_iter() {
+                let m2 = l2.mask();
+                for p1 in m1.one_bits() {
+                    for p2 in m2.one_bits() {
+                        let num = ((BigNum::one() << p1) << bits) | (BigNum::one() << p2); 
+                        let line = Line::from(2, bits, num);
+                        if !right.satisfies(&line) {
+                            continue 'outer;
+                        }
+                    }
+                }
+                edges.push((l1,l2));
+            }
+        }
+        if edges.is_empty() {
+            self.coloring = 1;
+            return;
+        }
+
+        let map : HashMap<_,_> = edges.iter().cloned().chain(edges.iter().map(|&(a,b)|(b,a))).map(|(a,_)|a).unique().enumerate().map(|(i,x)|(x,i)).collect();
+        let n = map.len();
+        let mut adj_l =  vec![vec![];n];
+        let mut adj_m = vec![vec![false;n];n];
+        for (a,b) in edges {
+            let a = map[&a];
+            let b = map[&b];
+            adj_l[a].push(b);
+            adj_m[a][b] = true;
+        }
+
+        self.coloring = 2;
+        for sz in 3..n {
+            let valid : Vec<_> = adj_l.iter().enumerate().filter(|(_,l)|{ l.len() >= sz-1 }).map(|(i,_)|i).collect();
+            if valid.len() < sz {
+                break;
+            }
+            use permutator::copy::Combination;
+            'search: for set in valid.combination(sz) {
+                for &x in &set {
+                    for &y in &set {
+                        if x != y && !adj_m[x][y] {
+                            continue 'search;
+                        }
+                    }
+                }
+                self.coloring = sz;
+                break;
+            }
+            if self.coloring != sz {
+                break;
+            }
+        }
+
+    }
+
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
@@ -465,6 +536,7 @@ impl Problem {
             .collect();
 
         let is_trivial = self.is_trivial;
+        let coloring = self.coloring;
 
         ResultProblem {
             left,
@@ -472,6 +544,7 @@ impl Problem {
             mapping,
             diagram,
             is_trivial,
+            coloring
         }
     }
 }
@@ -490,6 +563,7 @@ pub struct ResultProblem {
     pub mapping: Option<Vec<(Vec<String>, String)>>,
     pub diagram: Vec<(String, String)>,
     pub is_trivial: bool,
+    pub coloring: usize
 }
 
 impl std::fmt::Display for ResultProblem {
@@ -529,6 +603,10 @@ impl std::fmt::Display for ResultProblem {
             r += "NOT ";
         }
         r += "zero rounds solvable.\n";
+
+        if self.coloring >= 2 {
+            r += &format!("\nThe problem is zero rounds solvable given a {} coloring.\n",self.coloring);
+        }
 
         write!(f, "{}", r)
     }
