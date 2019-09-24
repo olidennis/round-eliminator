@@ -2,7 +2,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uint::*;
 
 construct_uint! {
-    pub struct BigNum(1);
+    pub struct BigNum(5);
 }
 
 impl Serialize for BigNum {

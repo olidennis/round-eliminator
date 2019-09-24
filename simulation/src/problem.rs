@@ -283,7 +283,7 @@ impl Problem {
         }
 
         self.coloring = 2;
-        for sz in 3..n {
+        for sz in 3..=n {
             let valid : Vec<_> = adj_l.iter().enumerate().filter(|(_,l)|{ l.len() >= sz-1 }).map(|(i,_)|i).collect();
             if valid.len() < sz {
                 break;
