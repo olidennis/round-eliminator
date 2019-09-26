@@ -11,3 +11,4 @@ Todo soon:
 - gui: allow interrupting autolb autoub when the server is used 
 
 Bugs:
+after harden, the problem may get small, but it still triggers assert!(bits < 64);
