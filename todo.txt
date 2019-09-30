@@ -5,10 +5,11 @@ Minor/performance:
 
 Todo:
 - hardening by keeping lines instead of labels
-- relax by making the diagram a path (guaranteed fixpoint)
+- relax by making the diagram a path (guaranteed fixpoint), in general allow "add arrow" relaxation
 
 Todo soon:
 - gui: allow interrupting autolb autoub when the server is used 
 
 Bugs:
 after harden, the problem may get small, but it still triggers assert!(bits < 64);
+after speedup, it is possible that set inclusion misses some edges (different sets may be actually become equally strong)
