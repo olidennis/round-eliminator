@@ -9,6 +9,7 @@ Todo:
 
 Todo soon:
 - gui: allow interrupting autolb autoub when the server is used 
+- gui: write on top of each rectangle what was the step that brought us to this rectangle from the previous one
 
 Bugs:
 after harden, the problem may get small, but it still triggers assert!(bits < 64);
