@@ -13,4 +13,4 @@ Todo soon:
 
 Bugs:
 after harden, the problem may get small, but it still triggers assert!(bits < 64);
-after speedup, it is possible that set inclusion misses some edges (different sets may be actually become equally strong)
+after speedup, it is possible that set inclusion misses some edges (different sets may be actually become equally strong). Also, it would help the automatic lb/ub if the bidirectional edges force a simplification before doing anything else.
