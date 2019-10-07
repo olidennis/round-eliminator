@@ -22,6 +22,7 @@ pub struct Problem {
     pub map_text_label: Vec<(String, usize)>,
     pub is_trivial: bool,
     pub diagram: Vec<(usize, usize)>,
+    pub reachable: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
     pub coloring : usize
@@ -46,6 +47,7 @@ impl Problem {
             map_label_oldset,
             map_text_oldlabel,
             diagram: vec![],
+            reachable: vec![],
             is_trivial: false,
             coloring : 0
         };
@@ -346,7 +348,7 @@ impl Problem {
     /// Computes the strength diagram for the labels on the right constraints.
     /// We put an edge from A to B if each time A can be used then also B can be used.
     pub fn compute_diagram_edges(&mut self) {
-        if self.map_label_oldset.is_some() {
+        if self.map_label_oldset.is_some() && false {
             self.compute_diagram_edges_from_oldsets();
         } else {
             self.compute_diagram_edges_from_rightconstraints();
@@ -357,6 +359,7 @@ impl Problem {
     /// if this problem is the result of a speedup.
     fn compute_diagram_edges_from_oldsets(&mut self) {
         let mut result = vec![];
+        let mut reachable = vec![];
         let map_label_oldset = self.map_label_oldset.as_ref().unwrap();
 
         for &(label, oldset) in map_label_oldset.iter() {
@@ -374,7 +377,11 @@ impl Problem {
             for (otherlabel, _) in right {
                 result.push((label, otherlabel));
             }
+            for (otherlabel,_) in candidates {
+                reachable.push((label,otherlabel));
+            }
         }
+        self.reachable = reachable;
         self.diagram = result;
     }
 
@@ -417,6 +424,8 @@ impl Problem {
                 }
             }
         }
+        let mut reachable = vec![];
+
         let mut result = vec![];
         let is_direct = |x:usize,y:usize|{ adj[y].iter().find(|&&t|x==t).is_none() };
 
@@ -430,8 +439,10 @@ impl Problem {
                 if should_keep {
                     result.push((x, y));
                 }
+                reachable.push((x,y));
             }
         }
+        self.reachable = reachable;
         self.diagram = result;
     }
 
@@ -451,10 +462,34 @@ impl Problem {
     /// Returns an iterator over all possible sets of labels that are actually needed for the speedup step.
     /// This currently means all possible right closed subsets of the diagram plus all possible singletons.
     fn allowed_sets_for_speedup(&self) -> Vec<BigNum> {
-        let m = self.diagram_adj();
-        self.all_possible_sets()
-            .filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m))
-            .collect()
+        //let m = self.diagram_adj();
+        //self.all_possible_sets()
+        //    .filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m))
+        //    .collect()
+        let rcs = self.right_closed_subsets();
+        self.labels().map(|i|BigNum::one() << i).chain(rcs.into_iter()).unique().collect()
+    }
+
+
+    fn rcs_helper(&self, right : &Vec<BigNum>, result : &mut Vec<BigNum>, added : BigNum, max : usize ){
+        for x in self.labels() {
+            let toadd = (BigNum::one() << x) | right[x];
+            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(added) ) {
+                let new = added | toadd;
+                result.push(new);
+                self.rcs_helper(right, result, new, x+1);
+            }
+        }
+    }
+
+    fn right_closed_subsets(&self) -> Vec<BigNum> {
+        let mut right = vec![BigNum::zero();self.max_label()+1];
+        for &(a,b) in self.reachable.iter() {
+            right[a] = right[a] | (BigNum::one() << b);
+        }
+        let mut result = vec![];
+        self.rcs_helper(&right, &mut result, BigNum::zero(), 0);
+        result.into_iter().unique().sorted().collect()
     }
 
     /// Return the adjacency list of the diagram.
