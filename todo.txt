@@ -1,7 +1,5 @@
 Minor/performance:
 - The order of labels changes strangely
-- for semimatching on bipartite graphs, autolb spends 20% of the time checking for triviality
-- when harden() or simplify(), new arrows may appear. AutoLB and AutoUb are currently ignoring new arrows, and compute them only when giving the result (to show the right diagram).
 
 Todo:
 - hardening by keeping lines instead of labels
