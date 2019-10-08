@@ -2,6 +2,7 @@ use crate::auto::Auto;
 use crate::auto::Sequence;
 use crate::auto::Step;
 use crate::problem::Problem;
+use crate::problem::DiagramType;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
@@ -38,7 +39,7 @@ impl Auto for AutoLb {
     ) -> Option<Problem> {
         let speedups = sequence.speedups;
         let p = sequence.current_mut();
-        let np = p.replace(c1, c2,false);
+        let np = p.replace(c1, c2, DiagramType::Accurate);
         if np.is_trivial || !self.done.insert((speedups, np.clone())) {
             return None;
         }
@@ -58,14 +59,15 @@ impl Auto for AutoLb {
 
         let should_yield = sol.speedups > best.speedups
             || (sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial);
-        
+        /*
+        //now the correct diagram has been always computed, so this part should be removed
         if should_yield {
             for x in sol.steps.iter_mut() {
                 if let Step::Simplify((_, p)) = x {
                     p.compute_diagram_edges_from_rightconstraints();
                 }
             }
-        }
+        }*/
         should_yield
     }
 

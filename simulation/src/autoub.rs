@@ -3,6 +3,7 @@ use crate::auto::Sequence;
 use crate::auto::Step;
 use crate::bignum::BigNum;
 use crate::problem::Problem;
+use crate::problem::DiagramType;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +44,7 @@ impl Auto for AutoUb {
         // but we still need to use this slower version, otherwise we would show the wrong diagram to the user
         // so we fix this by using the wrong diagram, that is still correct to use to do speedup, since it only misses edges,
         // and we recompute the correct only when we yield a solution.
-        p.harden(mask, false)
+        p.harden(mask, DiagramType::Accurate)
     }
 
     /// A solution is better if the current problem is 0 rounds solvable and
@@ -59,13 +60,14 @@ impl Auto for AutoUb {
         let best_is_trivial = best.current().is_trivial || best.current().coloring >= colors;
 
         let should_yield = sol_is_trivial && (!best_is_trivial || sol.speedups < best.speedups);
+        /*
         if should_yield {
             for x in sol.steps.iter_mut() {
                 if let Step::Simplify((_, p)) = x {
                     p.compute_diagram_edges_from_rightconstraints();
                 }
             }
-        }
+        }*/
         should_yield
     }
 

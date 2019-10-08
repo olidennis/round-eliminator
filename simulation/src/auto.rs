@@ -1,4 +1,5 @@
 use crate::problem::Problem;
+use crate::problem::DiagramType;
 
 /// A chain of simplifications.
 /// We start from an initial problem,
@@ -120,7 +121,7 @@ where
     fn push_speedup(&mut self) -> Result<(),String> {
         self.speedups += 1;
         let last = self.current_mut();
-        let new = last.speedup()?;
+        let new = last.speedup(DiagramType::Accurate)?;
         self.push(Step::Speedup(new));
         Ok(())
     }

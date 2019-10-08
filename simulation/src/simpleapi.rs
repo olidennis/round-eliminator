@@ -3,6 +3,7 @@
 
 use crate::problem::Problem;
 use crate::problem::ResultProblem;
+use crate::problem::DiagramType;
 use crate::autolb::AutoLb;
 use crate::autoub::AutoUb;
 use crate::auto::AutomaticSimplifications;
@@ -25,7 +26,7 @@ pub fn new_problem(left : &str, right : &str) -> Result<RProblem,String> {
 }
 
 pub fn speedup(p : &Problem) -> Result<RProblem,String> {
-    let np = p.speedup()?;
+    let np = p.speedup(DiagramType::Accurate)?;
     let nr = np.as_result();
     Ok((np,nr))
 }
@@ -38,7 +39,7 @@ pub fn possible_simplifications(p : &Problem) -> RSimplifications {
 }
 
 pub fn simplify(p : &Problem, (a,b) : Simpl) -> RProblem  {
-    let np = p.replace(a,b,true);
+    let np = p.replace(a,b,DiagramType::Accurate);
     let nr = np.as_result();
     (np,nr)
 }
@@ -47,7 +48,7 @@ pub fn harden(p : &Problem, v : Keeping) -> Result<RProblem,String> {
     let map = &p.map_text_label;
     let map = Problem::map_to_hashmap(map);
     let keep = v.iter().map(|x|BigNum::one()<<map[x]).fold(BigNum::zero(),|a,b|a|b);
-    let np = p.harden(keep, true);
+    let np = p.harden(keep, DiagramType::Accurate);
     np.map(|np|{
         let nr = np.as_result();
         (np,nr)

@@ -28,6 +28,11 @@ pub struct Problem {
     pub coloring : usize
 }
 
+pub enum DiagramType{
+    Fast,
+    Accurate
+}
+
 impl Problem {
     /// Constructor a problem.
     pub fn new(
@@ -36,6 +41,7 @@ impl Problem {
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
         map_text_oldlabel: Option<Vec<(String, usize)>>,
+        diagramtype : DiagramType
     ) -> Result<Self,String> {
         if left.lines.len() == 0 || right.lines.len() == 0 {
             return Err("Empty constraints!".into());
@@ -58,7 +64,7 @@ impl Problem {
         }
         p.compute_triviality();
         p.compute_independent_lines();
-        p.compute_diagram_edges();
+        p.compute_diagram_edges(diagramtype);
         Ok(p)
     }
 
@@ -69,7 +75,7 @@ impl Problem {
 
     /// Construct a problem starting from left and right constraints.
     pub fn from_constraints(left: Constraint, right: Constraint) -> Result<Self,String> {
-        Self::new(left, right, None, None, None)
+        Self::new(left, right, None, None, None, DiagramType::Accurate)
     }
 
     /// Construct a problem starting from a text representation (where there are left and right constraint separated by an empty line).
@@ -89,7 +95,7 @@ impl Problem {
         let hm = Self::map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm)?;
         let right = Constraint::from_text(right, &hm)?;
-        let problem = Self::new(left, right, Some(map_text_label), None, None)?;
+        let problem = Self::new(left, right, Some(map_text_label), None, None, DiagramType::Accurate )?;
         if !problem.has_same_labels_left_right() {
             return Err("Left and right constraints have different sets of labels!".into());
         }
@@ -140,7 +146,7 @@ impl Problem {
 
     /// Returns a new problem where the label `from` has been replaced with label `to`.
     /// The new problem is strictly easier if there is a diagram edge from `from` to `to`.
-    pub fn replace(&self, from: usize, to: usize, fix_diagram : bool ) -> Problem {
+    pub fn replace(&self, from: usize, to: usize, diagramtype : DiagramType ) -> Problem {
         let left = self.left.replace(from, to);
         let right = self.right.replace(from, to);
         let map_label_oldset = self
@@ -154,16 +160,14 @@ impl Problem {
             .cloned()
             .filter(|&(_, l)| l != from)
             .collect();
-        let mut p = Problem::new(
+        let p = Problem::new(
             left,
             right,
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
+            diagramtype
         ).unwrap();
-        if fix_diagram {
-            p.compute_diagram_edges_from_rightconstraints();
-        }
         p
     }
 
@@ -173,7 +177,7 @@ impl Problem {
     /// For example, if the original right constraints are D A B | C AB AB,
     /// and the mask keeps only ABC, the new constraints are only C AB AB,
     /// and we should now get an arrow from A to B and vice versa.
-    pub fn harden(&self, mut keepmask: BigNum, fix_diagram: bool) -> Option<Problem> {
+    pub fn harden(&self, mut keepmask: BigNum, diagramtype : DiagramType ) -> Option<Problem> {
         // if, by making the problem harder, we get different sets of labels on the two sides,
         // repeat the operation, until we get the same set of labels
         let mut left;
@@ -206,18 +210,15 @@ impl Problem {
             .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
             .collect();
 
-        let mut p = Problem::new(
+        let p = Problem::new(
             left,
             right,
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
+            diagramtype
         ).unwrap();
 
-        // TODO: avoid computing it inside the new
-        if fix_diagram {
-            p.compute_diagram_edges_from_rightconstraints();
-        }
         Some(p)
     }
 
@@ -313,7 +314,7 @@ impl Problem {
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
-    pub fn speedup(&self) -> Result<Self,String> {
+    pub fn speedup(&self, diagramtype : DiagramType ) -> Result<Self,String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
         left.add_permutations();
@@ -342,17 +343,17 @@ impl Problem {
             None,
             Some(map_label_oldset),
             Some(self.map_text_label.clone()),
+            diagramtype
         )
     }
 
     /// Computes the strength diagram for the labels on the right constraints.
     /// We put an edge from A to B if each time A can be used then also B can be used.
-    pub fn compute_diagram_edges(&mut self) {
-        if self.map_label_oldset.is_some() && false {
-            self.compute_diagram_edges_from_oldsets();
-        } else {
-            self.compute_diagram_edges_from_rightconstraints();
-        };
+    pub fn compute_diagram_edges(&mut self, diagramtype : DiagramType ) {
+        match (diagramtype,self.map_label_oldset.is_some()) {
+            (DiagramType::Fast, true) => self.compute_diagram_edges_from_oldsets(),
+            _ => self.compute_diagram_edges_from_rightconstraints()
+        }
     }
 
     /// One way to compute the diagram is using set inclusion,

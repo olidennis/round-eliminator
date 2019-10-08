@@ -3,6 +3,7 @@ use simulation::AutomaticSimplifications;
 use simulation::AutoLb;
 use simulation::AutoUb;
 use simulation::Problem;
+use simulation::DiagramType;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use futures::future::{FutureExt, TryFutureExt};
@@ -21,7 +22,7 @@ pub fn file(name: &str, iter: usize) {
 
     for _ in 0..iter {
         println!("-------------------------");
-        p = p.speedup().unwrap();
+        p = p.speedup(DiagramType::Accurate).unwrap();
         p.compute_independent_lines();
         println!("{}", p.as_result());
     }
