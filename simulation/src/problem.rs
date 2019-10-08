@@ -463,12 +463,15 @@ impl Problem {
     /// Returns an iterator over all possible sets of labels that are actually needed for the speedup step.
     /// This currently means all possible right closed subsets of the diagram plus all possible singletons.
     fn allowed_sets_for_speedup(&self) -> Vec<BigNum> {
+
         //let m = self.diagram_adj();
-        //self.all_possible_sets()
-        //    .filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m))
-        //    .collect()
+        //let test : Vec<_> = self.all_possible_sets().filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m)).unique().sorted().collect();
+
         let rcs = self.right_closed_subsets();
-        self.labels().map(|i|BigNum::one() << i).chain(rcs.into_iter()).unique().collect()
+        let result = self.labels().map(|i|BigNum::one() << i).chain(rcs.into_iter()).unique().sorted().collect();
+
+        //assert!(test == result);
+        result
     }
 
 
