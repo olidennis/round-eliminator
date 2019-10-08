@@ -25,7 +25,8 @@ pub struct Problem {
     pub reachable: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
-    pub coloring : usize
+    pub coloring : usize,
+    pub mergeable : Vec<BigNum>
 }
 
 pub enum DiagramType{
@@ -55,7 +56,8 @@ impl Problem {
             diagram: vec![],
             reachable: vec![],
             is_trivial: false,
-            coloring : 0
+            coloring : 0,
+            mergeable : vec![]
         };
         if let Some(map) = map_text_label {
             p.map_text_label = map;
@@ -65,6 +67,7 @@ impl Problem {
         p.compute_triviality();
         p.compute_independent_lines();
         p.compute_diagram_edges(diagramtype);
+        p.compute_mergeable();
         Ok(p)
     }
 
@@ -544,6 +547,30 @@ impl Problem {
             .collect()
     }
 
+    pub fn compute_mergeable(&mut self) {
+        let adj : Vec<BigNum> = self.diagram_adj().iter().map(|v|
+            v.iter().map(|&c| BigNum::one() << c).fold(BigNum::zero(), |r, x| r | x)
+        ).collect();
+
+        let mut result = vec![];
+        for i in 0..adj.len(){
+            let mut set = BigNum::zero();
+            for j in adj[i].one_bits() {
+                if adj[j].bit(i) {
+                    set = set | (BigNum::one() << j);
+                }
+            }
+            if set != BigNum::zero() {
+                set = set | (BigNum::one() << i);
+                result.push(set);
+            }
+        }
+
+        let result = result.into_iter().unique().sorted().collect();
+        self.mergeable = result;
+    }
+
+
     /// Returns a simple representation of the problem,
     /// where all possible optional things are computed (except of the mapping to the previous problem if it does not exist).
     pub fn as_result(&self) -> ResultProblem {
@@ -578,13 +605,16 @@ impl Problem {
         let is_trivial = self.is_trivial;
         let coloring = self.coloring;
 
+        let mergeable = self.mergeable.iter().map(|v|v.one_bits().map(|x|map[&x].to_owned()).collect()).collect();
+
         ResultProblem {
             left,
             right,
             mapping,
             diagram,
             is_trivial,
-            coloring
+            coloring,
+            mergeable
         }
     }
 }
@@ -603,7 +633,8 @@ pub struct ResultProblem {
     pub mapping: Option<Vec<(Vec<String>, String)>>,
     pub diagram: Vec<(String, String)>,
     pub is_trivial: bool,
-    pub coloring: usize
+    pub coloring: usize,
+    pub mergeable: Vec<Vec<String>>
 }
 
 impl std::fmt::Display for ResultProblem {
@@ -646,6 +677,14 @@ impl std::fmt::Display for ResultProblem {
 
         if self.coloring >= 2 {
             r += &format!("\nThe problem is zero rounds solvable given a {} coloring.\n",self.coloring);
+        }
+
+        if !self.mergeable.is_empty() {
+            r += "The following labels could be merged without changing the complexity of the problem:\n";
+            for v in self.mergeable.iter() {
+                r += &v.join(" ");
+                r += "\n";
+            }
         }
 
         write!(f, "{}", r)

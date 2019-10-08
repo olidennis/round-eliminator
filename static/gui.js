@@ -331,6 +331,17 @@ function make_div_triviality(problem){
     return div;
 }
 
+function make_div_mergeable(problem) {
+    let x = problem[1];
+    let div = null;
+    if( x.mergeable.length > 0 ){
+        let groups = x.mergeable.map( v => merge(v));
+        let mergeable = groups.join(", ");
+        div = $('<div/>').append("The following labels could be merged without changing the complexity of the problem: " + escape(mergeable))
+    }
+    return div;
+}
+
 function make_oldlabel(v,cur_to_old) {
     return merge(v.map(function(x){ return '<span class="rounded m-1 labelborder">'+escape(cur_to_old[x])+'</span><br/>'; }));
 }
@@ -401,9 +412,9 @@ function generate_html_for_problem(problem, reason) {
     let trivial = $('<div class="card card-body m-0 p-2"/>').append(divtrivial);
     let col_trivial = $('<div class="col-auto m-2 p-0">').append(trivial);
 
-    let col_left_old = null;
-    let col_right_old = null;
-    let col_renaming = null;
+    let col_left_old = $("<div/>");
+    let col_right_old = $("<div/>");;
+    let col_renaming = $("<div/>");;
     if( x.mapping != null ){
         let id = freeid();
         let cur_to_old = get_renaming(problem);
@@ -424,7 +435,9 @@ function generate_html_for_problem(problem, reason) {
     let diagram = make_div_diagram(problem);
     let col_diagram = make_card("m-2","p-0","<h6>Diagram</h6><h6><small>Strength of right side labels</small></h6>",diagram,true,id_new_leftright);
 
-
+    let divmergeable = make_div_mergeable(problem);
+    let mergeable = $('<div class="card card-body m-0 p-2"/>').append(divmergeable);
+    let col_mergeable = divmergeable == null? $('<div/>') : $('<div class="col-auto m-2 p-0">').append(mergeable);
 
     let next = make_button_speedup(problem);
     let edit = make_button_edit(problem);
@@ -453,8 +466,7 @@ function generate_html_for_problem(problem, reason) {
 
     let col_tools = make_card("m-2 d-print-none","p-0","<h6>Tools</h6><h6><small>Speedup, edit, simplifications, ...</small></h6>",tools,true,id_new_leftright);
 
-    let row = x.mapping == null ? $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools) :
-                                  $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),col_left_old,col_right_old,col_renaming,$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools);
+    let row = $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),col_mergeable, $('<div class="w-100"/>'),col_left_old,col_right_old,col_renaming,$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools);
     let result = $('<div class="card card-body m-2 p-2 bg-light"/>');
 
     let div = $('<div/>');
