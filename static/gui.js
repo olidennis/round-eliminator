@@ -108,7 +108,7 @@ function make_button_speedup(problem) {
     next.click(function(ev) {
         let spinner = make_spinner("Performing speedup...");
         append_generic(spinner);
-        api.api_speedup(blob, function(x){ spinner.remove(); return append_new_problem_or_error(x); } );
+        api.api_speedup(blob, function(x){ spinner.remove(); return append_new_problem_or_error(x, performed_speedup() ); } );
     });
     return next;
 }
@@ -138,7 +138,7 @@ function make_div_simplifications(problem){
             let bstr = sstr[0] + "→" + sstr[1];
             var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+escape(bstr)+'</button>');
             bsimpl.click(function(ev) {
-                api.api_simplify(blob, sblob, append_new_problem);
+                api.api_simplify(blob, sblob, function(x){return append_new_problem(x, performed_simplification(bstr));} );
             });
             simpls.append(bsimpl);
         }
@@ -163,7 +163,7 @@ function make_div_harden(problem){
         let entries = Array.from(checks.entries());
         let selected = entries.filter(([i,x]) => x.checked).map(([i,x]) => i);
         let selectedlabels = selected.map(i => labels[i]);
-        api.api_harden(blob,selectedlabels,append_new_problem_or_error);
+        api.api_harden(blob,selectedlabels,function(x){return append_new_problem_or_error(x, performed_harden(merge(selectedlabels)));} );
         
     });
     hard.append(hardbtn);
@@ -228,7 +228,7 @@ function make_div_autolb(problem){
                     }
                 }
                 problem = [step[0],step[2]];
-                append_new_problem_to(problem,toshow);
+                append_new_problem_to(problem,toshow,null);
             }
             divresult.html(toshow);
         }
@@ -302,7 +302,7 @@ function make_div_autoub(problem){
                     toshow.append(performed_harden(s));
                 }
                 problem = [step[0],step[2]];
-                append_new_problem_to(problem,toshow);
+                append_new_problem_to(problem,toshow,null);
             }
             divresult.html(toshow);
         }
@@ -366,7 +366,7 @@ function make_div_newrenaming(problem){
         let entries = Array.from(labels.entries());
         let newmapping = entries.map(([i,x]) => [problem[1].mapping[i][0],x]);
         console.log(newmapping);
-        api.api_rename(problem[0],newmapping,append_new_problem_or_error);
+        api.api_rename(problem[0],newmapping,function(x){return append_new_problem_or_error(x, make_performed_action("Renaming."));} );
     });
     div.append(rename);
     return div;
@@ -393,7 +393,7 @@ function make_card(classes1,classes2,title,content,defaultshow,id){
 }
 
 
-function generate_html_for_problem(problem) {
+function generate_html_for_problem(problem, reason) {
     let blob = problem[0];
     let x = problem[1];
     
@@ -455,16 +455,26 @@ function generate_html_for_problem(problem) {
 
     let row = x.mapping == null ? $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools) :
                                   $('<div class="row p-0 m-2"/>').append(col_trivial,$('<div class="w-100"/>'),col_left_old,col_right_old,col_renaming,$('<div class="w-100"/>'),col_left_new,col_right_new,col_diagram,col_tools);
-    let result = $('<div class="card card-body m-2 p-2 bg-light"/>').append(row);
+    let result = $('<div class="card card-body m-2 p-2 bg-light"/>');
+
+    let div = $('<div/>');
 
     let closediv = $('<div class="text-left"/>');
     let close = $('<button type="button" class="btn btn-secondary ml-3 mt-3">Close</button>');
     close.click(function(){
-        result.remove();
+        div.remove();
     });
     closediv.append(close);
+
+    result.append(row);
+
     result.prepend(closediv);
-    return result;
+
+    if( reason != null ){
+        div.append(reason);
+    }
+    div.append(result);
+    return div;
 }
 
 
@@ -472,21 +482,21 @@ function append_generic(x) {
     $("#steps").append(x);
 }
 
-function append_new_problem_to(x,to) {
-    let html = generate_html_for_problem(x);
+function append_new_problem_to(x,to, reason) {
+    let html = generate_html_for_problem(x,reason);
     to.append(html);
 }
 
-function append_new_problem(x) {
-    append_new_problem_to(x,$("#steps"))
+function append_new_problem(x, reason) {
+    append_new_problem_to(x,$("#steps"),reason)
 }
 
-function append_new_problem_or_error(x) {
+function append_new_problem_or_error(x, reason) {
     if( x.E != null ){
         alert(x.E);
         return;
     }
-    append_new_problem_to(x.P,$("#steps"))
+    append_new_problem_to(x.P,$("#steps"),reason)
 }
 
 
@@ -507,5 +517,5 @@ function on_input_click() {
         }
     }
     let b = text;
-    api.api_new_problem(a,b, append_new_problem_or_error);
+    api.api_new_problem(a,b, function(x){return append_new_problem_or_error(x, performed_initial());} );
 }
