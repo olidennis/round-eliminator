@@ -11,4 +11,4 @@ Todo soon:
 - gui: write on top of each rectangle what was the step that brought us to this rectangle from the previous one
 
 Bugs:
-in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors
+in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time)

@@ -176,7 +176,7 @@ function make_div_autolb(problem){
     let divautolb = $('<div/>');
     let iterlabel = $('<label>Maximum number of iterations:</label>');
     let labelslabel = $('<label>Maximum number of labels:</label>');
-    let maxiterlb = $('<input class="form-control"/>').attr({ type: 'number', value: '30' });
+    let maxiterlb = $('<input class="form-control"/>').attr({ type: 'number', value: '15' });
     let maxlabelslb = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
     let iterform = $('<div class="form-group"/>').append(iterlabel).append(maxiterlb);
     let labelsform = $('<div class="form-group"/>').append(labelslabel).append(maxlabelslb);
