@@ -11,7 +11,6 @@ Todo:
 - in autoub, do not generate strings to check for a fixpoint
 
 Todo soon:
-- check if the fixpoint detection in autoub is actually doing something
 
 Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time)

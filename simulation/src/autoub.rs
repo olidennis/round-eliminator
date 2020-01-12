@@ -74,6 +74,7 @@ impl Auto for AutoUb {
     /// We should continue trying if we did not reach the speedup steps limit, and
     /// the current solution is still not 0 rounds solvable, and
     /// either we still have no solutions or we can improve it by at least one round.
+    /// If the current problem is a fixpoint, we stop
     fn should_continue(
         &mut self,
         sol: &mut Sequence<Self>,
