@@ -1,11 +1,11 @@
 use crate::auto::Auto;
 use crate::auto::Sequence;
 use crate::auto::Step;
-use crate::problem::Problem;
 use crate::problem::DiagramType;
+use crate::problem::Problem;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct AutoLb {
@@ -15,7 +15,7 @@ pub struct AutoLb {
 impl Auto for AutoLb {
     type Simplification = (usize, usize);
 
-    fn new(_ : &[&str]) -> Self {
+    fn new(_: &[&str]) -> Self {
         Self {
             done: HashSet::new(),
         }
@@ -52,7 +52,7 @@ impl Auto for AutoLb {
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         _: usize,
-        colors: usize
+        colors: usize,
     ) -> bool {
         let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
         let best_is_trivial = best.current().is_trivial || best.current().coloring >= colors;
@@ -78,7 +78,7 @@ impl Auto for AutoLb {
         sol: &mut Sequence<Self>,
         _: &mut Sequence<Self>,
         maxiter: usize,
-        colors: usize
+        colors: usize,
     ) -> bool {
         let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
 
@@ -121,27 +121,27 @@ impl std::fmt::Display for Sequence<AutoLb> {
 }
 
 #[derive(Deserialize, Serialize)]
-pub enum ResultStep{
+pub enum ResultStep {
     Initial,
-    Simplified(Vec<(String,String)>),
-    Speedup
+    Simplified(Vec<(String, String)>),
+    Speedup,
 }
 
-pub struct ResultAutoLb{
-    pub steps : Vec<(ResultStep,Problem)>
+pub struct ResultAutoLb {
+    pub steps: Vec<(ResultStep, Problem)>,
 }
 
 impl Sequence<AutoLb> {
     pub fn as_result(&self) -> ResultAutoLb {
         let mut v = vec![];
         let mut simpls = vec![];
-        let mut lastp : Option<Problem> = None;
+        let mut lastp: Option<Problem> = None;
         let mut lastmap: Option<HashMap<usize, String>> = None;
 
         for step in self.steps.iter() {
             let p = match step {
                 Step::Initial(p) => {
-                    v.push((ResultStep::Initial,p.clone()));
+                    v.push((ResultStep::Initial, p.clone()));
                     p
                 }
                 Step::Simplify(((x, y), p)) => {
@@ -151,10 +151,13 @@ impl Sequence<AutoLb> {
                 }
                 Step::Speedup(p) => {
                     if !simpls.is_empty() {
-                        v.push((ResultStep::Simplified(simpls.clone()),lastp.take().unwrap()));
+                        v.push((
+                            ResultStep::Simplified(simpls.clone()),
+                            lastp.take().unwrap(),
+                        ));
                     }
                     simpls = vec![];
-                    v.push((ResultStep::Speedup,p.clone()));
+                    v.push((ResultStep::Speedup, p.clone()));
                     p
                 }
             };
@@ -162,6 +165,6 @@ impl Sequence<AutoLb> {
             lastp = Some(p.clone());
         }
 
-        ResultAutoLb{ steps : v }
+        ResultAutoLb { steps: v }
     }
 }

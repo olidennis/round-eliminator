@@ -1,5 +1,5 @@
-use crate::problem::Problem;
 use crate::problem::DiagramType;
+use crate::problem::Problem;
 
 /// A chain of simplifications.
 /// We start from an initial problem,
@@ -20,7 +20,7 @@ pub enum Step<T: Clone + std::fmt::Debug> {
 pub trait Auto: Sized + Clone {
     type Simplification: Copy + Clone + std::fmt::Debug;
     /// constructor
-    fn new(features : &[&str]) -> Self;
+    fn new(features: &[&str]) -> Self;
     /// given the current state and the maximum number of labels, returns an iterator over the possible simplifications that can be performed.
     fn simplifications(
         &mut self,
@@ -33,7 +33,7 @@ pub trait Auto: Sized + Clone {
         sequence: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         maxiter: usize,
-        colors: usize
+        colors: usize,
     ) -> bool;
     /// given the current state, the current best state, and the maximum number of speedup steps, returns true it makes sense to do more speedup steps.
     fn should_continue(
@@ -41,7 +41,7 @@ pub trait Auto: Sized + Clone {
         sequence: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         maxiter: usize,
-        colors: usize
+        colors: usize,
     ) -> bool;
     /// given a problem (sequence.current()) and a simplification, return a new problem where the simplification has been performed.
     /// If for some reason the simplification does not make sense anymore, return None.
@@ -118,7 +118,7 @@ where
     }
 
     #[must_use]
-    fn push_speedup(&mut self) -> Result<(),String> {
+    fn push_speedup(&mut self) -> Result<(), String> {
         self.speedups += 1;
         let last = self.current_mut();
         let new = last.speedup(DiagramType::Accurate)?;
@@ -149,7 +149,13 @@ pub struct AutomaticSimplifications<T: Auto> {
 }
 
 impl<T: Auto> AutomaticSimplifications<T> {
-    pub fn new(p: Problem, maxiter: usize, maxlabels: usize, colors : usize, features : &[&str]) -> Self {
+    pub fn new(
+        p: Problem,
+        maxiter: usize,
+        maxlabels: usize,
+        colors: usize,
+        features: &[&str],
+    ) -> Self {
         let sol = Sequence::new(p);
         let best = sol.clone();
         Self {
@@ -165,7 +171,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     /// internal iterator version of automatic simplification,
     /// each time a better result is found, the closure is called
     #[allow(dead_code)]
-    pub fn run<F>(&mut self, mut cb: F) -> Result<(),String>
+    pub fn run<F>(&mut self, mut cb: F) -> Result<(), String>
     where
         F: FnMut(&Sequence<T>),
     {
@@ -178,7 +184,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     }
 
     #[must_use]
-    fn problem<F>(&mut self, cb: &mut F) -> Result<(),String>
+    fn problem<F>(&mut self, cb: &mut F) -> Result<(), String>
     where
         F: FnMut(&Sequence<T>),
     {
@@ -192,7 +198,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
         }
         if self
             .auto
-            .should_continue(&mut self.sol, &mut self.best, self.maxiter,self.colors)
+            .should_continue(&mut self.sol, &mut self.best, self.maxiter, self.colors)
         {
             self.simplify(cb)?;
         }
@@ -200,7 +206,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     }
 
     #[must_use]
-    fn simplify<F>(&mut self, cb: &mut F) -> Result<(),String>
+    fn simplify<F>(&mut self, cb: &mut F) -> Result<(), String>
     where
         F: FnMut(&Sequence<T>),
     {
@@ -221,7 +227,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
 }
 
 impl<T: Auto> IntoIterator for AutomaticSimplifications<T> {
-    type Item = Result<Sequence<T>,String>;
+    type Item = Result<Sequence<T>, String>;
     type IntoIter = AutomaticSimplificationsIntoIterator<T>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -243,7 +249,7 @@ enum State<T: Auto> {
     SimplifyAfterProblemCall,
     SimplifyAfterSimplifyCall,
     SimplifySimplify(Box<dyn Iterator<Item = T::Simplification>>),
-    Error
+    Error,
 }
 
 pub struct AutomaticSimplificationsIntoIterator<T: Auto> {
@@ -252,7 +258,7 @@ pub struct AutomaticSimplificationsIntoIterator<T: Auto> {
 }
 
 impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
-    type Item = Result<Sequence<T>,String>;
+    type Item = Result<Sequence<T>, String>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.stack.is_empty() {
@@ -274,7 +280,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                         &mut self.auto.sol,
                         &mut self.auto.best,
                         self.auto.maxiter,
-                        self.auto.colors
+                        self.auto.colors,
                     ) {
                         self.auto.best = self.auto.sol.clone();
                         self.auto.best.make_printable();
@@ -287,7 +293,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                         &mut self.auto.sol,
                         &mut self.auto.best,
                         self.auto.maxiter,
-                        self.auto.colors
+                        self.auto.colors,
                     ) {
                         self.stack.push(State::Simplify);
                     }
@@ -295,7 +301,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                 State::Simplify => {
                     self.stack.pop();
                     if self.auto.sol.current().num_labels() <= self.auto.maxlabels {
-                        if let Err(s) = self.auto.sol.push_speedup(){
+                        if let Err(s) = self.auto.sol.push_speedup() {
                             self.stack.push(State::Error);
                             return Some(Err(s));
                         }

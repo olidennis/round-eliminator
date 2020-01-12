@@ -25,13 +25,13 @@ pub struct Problem {
     pub reachable: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
-    pub coloring : usize,
-    pub mergeable : Vec<BigNum>
+    pub coloring: usize,
+    pub mergeable: Vec<BigNum>,
 }
 
-pub enum DiagramType{
+pub enum DiagramType {
     Fast,
-    Accurate
+    Accurate,
 }
 
 impl Problem {
@@ -42,8 +42,8 @@ impl Problem {
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
         map_text_oldlabel: Option<Vec<(String, usize)>>,
-        diagramtype : DiagramType
-    ) -> Result<Self,String> {
+        diagramtype: DiagramType,
+    ) -> Result<Self, String> {
         if left.lines.len() == 0 || right.lines.len() == 0 {
             return Err("Empty constraints!".into());
         }
@@ -56,8 +56,8 @@ impl Problem {
             diagram: vec![],
             reachable: vec![],
             is_trivial: false,
-            coloring : 0,
-            mergeable : vec![]
+            coloring: 0,
+            mergeable: vec![],
         };
         if let Some(map) = map_text_label {
             p.map_text_label = map;
@@ -77,12 +77,12 @@ impl Problem {
     }
 
     /// Construct a problem starting from left and right constraints.
-    pub fn from_constraints(left: Constraint, right: Constraint) -> Result<Self,String> {
+    pub fn from_constraints(left: Constraint, right: Constraint) -> Result<Self, String> {
         Self::new(left, right, None, None, None, DiagramType::Accurate)
     }
 
     /// Construct a problem starting from a text representation (where there are left and right constraint separated by an empty line).
-    pub fn from_line_separated_text(text: &str) -> Result<Self,String> {
+    pub fn from_line_separated_text(text: &str) -> Result<Self, String> {
         let mut lines = text.lines();
         let left: String = lines
             .by_ref()
@@ -93,12 +93,19 @@ impl Problem {
     }
 
     /// Construct a problem starting from a text representation of the left and right constarints.
-    pub fn from_text(left: &str, right: &str) -> Result<Self,String> {
+    pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
         let map_text_label = Self::create_map_text_label(left, right);
         let hm = Self::map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm)?;
         let right = Constraint::from_text(right, &hm)?;
-        let problem = Self::new(left, right, Some(map_text_label), None, None, DiagramType::Accurate )?;
+        let problem = Self::new(
+            left,
+            right,
+            Some(map_text_label),
+            None,
+            None,
+            DiagramType::Accurate,
+        )?;
         if !problem.has_same_labels_left_right() {
             return Err("Left and right constraints have different sets of labels!".into());
         }
@@ -149,7 +156,7 @@ impl Problem {
 
     /// Returns a new problem where the label `from` has been replaced with label `to`.
     /// The new problem is strictly easier if there is a diagram edge from `from` to `to`.
-    pub fn replace(&self, from: usize, to: usize, diagramtype : DiagramType ) -> Problem {
+    pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem {
         let left = self.left.replace(from, to);
         let right = self.right.replace(from, to);
         let map_label_oldset = self
@@ -169,8 +176,9 @@ impl Problem {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            diagramtype
-        ).unwrap();
+            diagramtype,
+        )
+        .unwrap();
         p
     }
 
@@ -179,17 +187,21 @@ impl Problem {
     /// problem obtainable while removing a label
     /// diagramtype tells if we should recompute the diagram in an accurate manner, or if
     /// we should get an approximate one from the original problem
-    pub fn harden(&self, mut keepmask: BigNum, diagramtype : DiagramType, usepred : bool ) -> Option<Problem> {
-
+    pub fn harden(
+        &self,
+        mut keepmask: BigNum,
+        diagramtype: DiagramType,
+        usepred: bool,
+    ) -> Option<Problem> {
         let mut left = self.left.clone();
         if usepred {
             let remove = !keepmask & self.left.mask;
             for unrelax in remove.one_bits() {
                 let pred = self.predecessors(unrelax);
-                left = left.replace_with_group(unrelax,pred);
+                left = left.replace_with_group(unrelax, pred);
             }
         }
-        
+
         // if, by making the problem harder, we get different sets of labels on the two sides,
         // repeat the operation, until we get the same set of labels
         let mut right = self.right.clone();
@@ -227,16 +239,22 @@ impl Problem {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            diagramtype
-        ).unwrap();
+            diagramtype,
+        )
+        .unwrap();
 
         Some(p)
     }
 
     /// Computes all possible predecessors of a given label
-    pub fn predecessors(&self, lab : usize) -> BigNum {
-        self.reachable.iter().cloned().filter(|&(_,b)|b==lab).map(|(a,_)|BigNum::one() << a).fold(BigNum::zero(),|a,b|a|b)
-    } 
+    pub fn predecessors(&self, lab: usize) -> BigNum {
+        self.reachable
+            .iter()
+            .cloned()
+            .filter(|&(_, b)| b == lab)
+            .map(|(a, _)| BigNum::one() << a)
+            .fold(BigNum::zero(), |a, b| a | b)
+    }
 
     /// Computes if the current problem is 0 rounds solvable, saving the result
     pub fn compute_triviality(&mut self) {
@@ -258,7 +276,7 @@ impl Problem {
     }
 
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
-    pub fn compute_independent_lines(&mut self){
+    pub fn compute_independent_lines(&mut self) {
         let mut right = self.right.clone();
         right.add_permutations();
         assert!(self.left.bits == right.bits);
@@ -275,14 +293,14 @@ impl Problem {
                 let m2 = l2.mask();
                 for p1 in m1.one_bits() {
                     for p2 in m2.one_bits() {
-                        let num = ((BigNum::one() << p1) << bits) | (BigNum::one() << p2); 
+                        let num = ((BigNum::one() << p1) << bits) | (BigNum::one() << p2);
                         let line = Line::from(2, bits, num);
                         if !right.satisfies(&line) {
                             continue 'outer;
                         }
                     }
                 }
-                edges.push((l1,l2));
+                edges.push((l1, l2));
             }
         }
         if edges.is_empty() {
@@ -290,11 +308,19 @@ impl Problem {
             return;
         }
 
-        let map : HashMap<_,_> = edges.iter().cloned().chain(edges.iter().map(|&(a,b)|(b,a))).map(|(a,_)|a).unique().enumerate().map(|(i,x)|(x,i)).collect();
+        let map: HashMap<_, _> = edges
+            .iter()
+            .cloned()
+            .chain(edges.iter().map(|&(a, b)| (b, a)))
+            .map(|(a, _)| a)
+            .unique()
+            .enumerate()
+            .map(|(i, x)| (x, i))
+            .collect();
         let n = map.len();
-        let mut adj_l =  vec![vec![];n];
-        let mut adj_m = vec![vec![false;n];n];
-        for (a,b) in edges {
+        let mut adj_l = vec![vec![]; n];
+        let mut adj_m = vec![vec![false; n]; n];
+        for (a, b) in edges {
             let a = map[&a];
             let b = map[&b];
             adj_l[a].push(b);
@@ -303,7 +329,12 @@ impl Problem {
 
         self.coloring = 2;
         for sz in 3..=n {
-            let valid : Vec<_> = adj_l.iter().enumerate().filter(|(_,l)|{ l.len() >= sz-1 }).map(|(i,_)|i).collect();
+            let valid: Vec<_> = adj_l
+                .iter()
+                .enumerate()
+                .filter(|(_, l)| l.len() >= sz - 1)
+                .map(|(i, _)| i)
+                .collect();
             if valid.len() < sz {
                 break;
             }
@@ -323,14 +354,12 @@ impl Problem {
                 break;
             }
         }
-
     }
-
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
-    pub fn speedup(&self, diagramtype : DiagramType ) -> Result<Self,String> {
+    pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
         left.add_permutations();
@@ -359,16 +388,16 @@ impl Problem {
             None,
             Some(map_label_oldset),
             Some(self.map_text_label.clone()),
-            diagramtype
+            diagramtype,
         )
     }
 
     /// Computes the strength diagram for the labels on the right constraints.
     /// We put an edge from A to B if each time A can be used then also B can be used.
-    pub fn compute_diagram_edges(&mut self, diagramtype : DiagramType ) {
-        match (diagramtype,self.map_label_oldset.is_some()) {
+    pub fn compute_diagram_edges(&mut self, diagramtype: DiagramType) {
+        match (diagramtype, self.map_label_oldset.is_some()) {
             (DiagramType::Fast, true) => self.compute_diagram_edges_from_oldsets(),
-            _ => self.compute_diagram_edges_from_rightconstraints()
+            _ => self.compute_diagram_edges_from_rightconstraints(),
         }
     }
 
@@ -394,8 +423,8 @@ impl Problem {
             for (otherlabel, _) in right {
                 result.push((label, otherlabel));
             }
-            for (otherlabel,_) in candidates {
-                reachable.push((label,otherlabel));
+            for (otherlabel, _) in candidates {
+                reachable.push((label, otherlabel));
             }
         }
         self.reachable = reachable;
@@ -444,19 +473,24 @@ impl Problem {
         let mut reachable = vec![];
 
         let mut result = vec![];
-        let is_direct = |x:usize,y:usize|{ adj[y].iter().find(|&&t|x==t).is_none() };
+        let is_direct = |x: usize, y: usize| adj[y].iter().find(|&&t| x == t).is_none();
 
         for x in self.labels() {
             for &y in &adj[x] {
-                let should_keep = 
-                    adj[x]
-                        .iter()
-                        .filter(|&&t| t != y && is_direct(x,t))
-                        .all(|&t| adj[t].iter().filter(|&&w|is_direct(t,w)).find(|&&w| w == y).is_none());
+                let should_keep = adj[x]
+                    .iter()
+                    .filter(|&&t| t != y && is_direct(x, t))
+                    .all(|&t| {
+                        adj[t]
+                            .iter()
+                            .filter(|&&w| is_direct(t, w))
+                            .find(|&&w| w == y)
+                            .is_none()
+                    });
                 if should_keep {
                     result.push((x, y));
                 }
-                reachable.push((x,y));
+                reachable.push((x, y));
             }
         }
         self.reachable = reachable;
@@ -479,32 +513,36 @@ impl Problem {
     /// Returns an iterator over all possible sets of labels that are actually needed for the speedup step.
     /// This currently means all possible right closed subsets of the diagram plus all possible singletons.
     fn allowed_sets_for_speedup(&self) -> Vec<BigNum> {
-
         //let m = self.diagram_adj();
         //let test : Vec<_> = self.all_possible_sets().filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m)).unique().sorted().collect();
 
         let rcs = self.right_closed_subsets();
-        let result = self.labels().map(|i|BigNum::one() << i).chain(rcs.into_iter()).unique().sorted().collect();
+        let result = self
+            .labels()
+            .map(|i| BigNum::one() << i)
+            .chain(rcs.into_iter())
+            .unique()
+            .sorted()
+            .collect();
 
         //assert!(test == result);
         result
     }
 
-
-    fn rcs_helper(&self, right : &Vec<BigNum>, result : &mut Vec<BigNum>, added : BigNum, max : usize ){
+    fn rcs_helper(&self, right: &Vec<BigNum>, result: &mut Vec<BigNum>, added: BigNum, max: usize) {
         for x in self.labels() {
             let toadd = (BigNum::one() << x) | right[x];
-            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(added) ) {
+            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(added)) {
                 let new = added | toadd;
                 result.push(new);
-                self.rcs_helper(right, result, new, x+1);
+                self.rcs_helper(right, result, new, x + 1);
             }
         }
     }
 
     fn right_closed_subsets(&self) -> Vec<BigNum> {
-        let mut right = vec![BigNum::zero();self.max_label()+1];
-        for &(a,b) in self.reachable.iter() {
+        let mut right = vec![BigNum::zero(); self.max_label() + 1];
+        for &(a, b) in self.reachable.iter() {
             right[a] = right[a] | (BigNum::one() << b);
         }
         let mut result = vec![];
@@ -561,12 +599,18 @@ impl Problem {
     }
 
     pub fn compute_mergeable(&mut self) {
-        let adj : Vec<BigNum> = self.diagram_adj().iter().map(|v|
-            v.iter().map(|&c| BigNum::one() << c).fold(BigNum::zero(), |r, x| r | x)
-        ).collect();
+        let adj: Vec<BigNum> = self
+            .diagram_adj()
+            .iter()
+            .map(|v| {
+                v.iter()
+                    .map(|&c| BigNum::one() << c)
+                    .fold(BigNum::zero(), |r, x| r | x)
+            })
+            .collect();
 
         let mut result = vec![];
-        for i in 0..adj.len(){
+        for i in 0..adj.len() {
             let mut set = BigNum::zero();
             for j in adj[i].one_bits() {
                 if adj[j].bit(i) {
@@ -582,7 +626,6 @@ impl Problem {
         let result = result.into_iter().unique().sorted().collect();
         self.mergeable = result;
     }
-
 
     /// Returns a simple representation of the problem,
     /// where all possible optional things are computed (except of the mapping to the previous problem if it does not exist).
@@ -618,7 +661,11 @@ impl Problem {
         let is_trivial = self.is_trivial;
         let coloring = self.coloring;
 
-        let mergeable = self.mergeable.iter().map(|v|v.one_bits().map(|x|map[&x].to_owned()).collect()).collect();
+        let mergeable = self
+            .mergeable
+            .iter()
+            .map(|v| v.one_bits().map(|x| map[&x].to_owned()).collect())
+            .collect();
 
         ResultProblem {
             left,
@@ -627,7 +674,7 @@ impl Problem {
             diagram,
             is_trivial,
             coloring,
-            mergeable
+            mergeable,
         }
     }
 }
@@ -647,7 +694,7 @@ pub struct ResultProblem {
     pub diagram: Vec<(String, String)>,
     pub is_trivial: bool,
     pub coloring: usize,
-    pub mergeable: Vec<Vec<String>>
+    pub mergeable: Vec<Vec<String>>,
 }
 
 impl std::fmt::Display for ResultProblem {
@@ -689,7 +736,10 @@ impl std::fmt::Display for ResultProblem {
         r += "zero rounds solvable.\n";
 
         if self.coloring >= 2 {
-            r += &format!("\nThe problem is zero rounds solvable given a {} coloring.\n",self.coloring);
+            r += &format!(
+                "\nThe problem is zero rounds solvable given a {} coloring.\n",
+                self.coloring
+            );
         }
 
         if !self.mergeable.is_empty() {

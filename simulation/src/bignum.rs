@@ -14,15 +14,13 @@ impl Serialize for BigNum {
     }
 }
 
-
 impl<'de> Deserialize<'de> for BigNum {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let x = BigNum::from_dec_str(&s)
-            .map_err(|e|de::Error::custom(format!("{:?}",e)));
+        let x = BigNum::from_dec_str(&s).map_err(|e| de::Error::custom(format!("{:?}", e)));
         x
     }
 }

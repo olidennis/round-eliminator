@@ -61,7 +61,6 @@ impl Constraint {
         self.replace_with_group(from, BigNum::one() << to)
     }
 
-
     pub fn replace_with_group(&self, from: usize, to: BigNum) -> Constraint {
         let mut newlines = vec![];
         let delta = self.delta;
@@ -146,7 +145,7 @@ impl Constraint {
     }
 
     /// Create constraints starting from their text representation.
-    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Result<Constraint,String> {
+    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Result<Constraint, String> {
         let vec = Self::string_to_vec(text);
         Self::from_vec(&vec, mapping)
     }
@@ -163,7 +162,10 @@ impl Constraint {
     /// `mapping` needs to provide a map from string labels to group positions.
     /// For example, if 001 010 001 111 represents the line A B C ABC,
     /// then `mapping` must map `A to 0`, `B to 1`, and `C to 2`
-    pub fn from_vec(v: &Vec<Vec<Vec<String>>>, mapping: &HashMap<String, usize>) -> Result<Constraint,String> {
+    pub fn from_vec(
+        v: &Vec<Vec<Vec<String>>>,
+        mapping: &HashMap<String, usize>,
+    ) -> Result<Constraint, String> {
         if v.is_empty() {
             return Err("Constraints can not be empty!".into());
         }
@@ -290,10 +292,10 @@ impl Constraint {
     }
 
     /// Creates a mapping between a set and its position in the adj matrix of the graph described in `set_inclusion_adj`.
-    fn sets_adj_map(sets: &Vec<BigNum>, bits: usize) -> HashMap<BigNum,usize> {
+    fn sets_adj_map(sets: &Vec<BigNum>, bits: usize) -> HashMap<BigNum, usize> {
         let mut v = HashMap::new();
         for (i, x) in sets.iter().enumerate() {
-            v.insert(*x,i);
+            v.insert(*x, i);
         }
         v
     }
@@ -322,7 +324,7 @@ impl Constraint {
         h: &mut T,
         sets: &Vec<BigNum>,
         succ: &Vec<Vec<usize>>,
-        map: &HashMap<BigNum,usize>,
+        map: &HashMap<BigNum, usize>,
     ) where
         T: LineSet,
     {
