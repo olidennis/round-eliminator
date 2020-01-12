@@ -64,6 +64,10 @@ function performed_harden(s){
     return make_performed_action("Kept only labels "+escape(s));
 }
 
+function performed_harden2(s){
+    return make_performed_action("Removed label "+escape(s));
+}
+
 function performed_speedup() {
     return make_performed_action("Performed speedup.");
 }
@@ -168,6 +172,23 @@ function make_div_harden(problem){
     });
     hard.append(hardbtn);
     return hard;
+}
+
+function make_div_harden2(problem){
+    let blob = problem[0];
+    let x = problem[1];
+    let labels = get_labels(problem);
+    let simpls = $('<div/>');
+    simpls.append('<p>Click on the label that you want to remove</p>');
+    for (let simpl of labels ){
+        var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+escape(simpl)+'</button>');
+        bsimpl.click(function(ev) {
+            let others = labels.filter(x => x != simpl);
+            api.api_harden(blob, others, function(x){return append_new_problem_or_error(x, performed_harden2(simpl));} );
+        });
+        simpls.append(bsimpl);
+    }
+    return simpls;
 }
 
 function make_div_autolb(problem){
@@ -444,7 +465,9 @@ function generate_html_for_problem(problem, reason) {
     let simpls = make_div_simplifications(problem);
     let simpls_card = make_card("m-2","p-0","<h7>Simplifications</h7>",simpls,false,freeid());
     let hard = make_div_harden(problem);
-    let hard_card = make_card("m-2","p-0","<h7>Harden</h7>",hard,false,freeid());
+    let hard_card = make_card("m-2","p-0","<h7>Harden v1</h7>",hard,false,freeid());
+    let hard2 = make_div_harden2(problem);
+    let hard2_card = make_card("m-2","p-0","<h7>Harden v2</h7>",hard2,false,freeid());
     let divautolb = make_div_autolb(problem);
     let divautoub = make_div_autoub(problem);
     let autolb_card = make_card("m-2","p-0","<h7>Automatic Lower Bound</h7>",divautolb,false,freeid());
@@ -456,6 +479,7 @@ function generate_html_for_problem(problem, reason) {
     tools.append(edit);
     tools.append(simpls_card);
     tools.append(hard_card);
+    tools.append(hard2_card);
     tools.append(autolb_card);
     tools.append(autoub_card);
     if( x.mapping != null ){
