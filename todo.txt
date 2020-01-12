@@ -7,6 +7,7 @@ Todo:
 - It would help the automatic lb/ub if the bidirectional edges force a simplification before doing anything else.
 - gui: allow interrupting autolb autoub when the server is used 
 - after simplifications, remove lines on the left side that are not needed (there exists another line that allows strictly more)
+- add an option to avoid adding predecessors while hardening (it is harder for autoub to find an algorithm, but it makes it much faster)
 
 Todo soon:
 

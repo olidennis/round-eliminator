@@ -175,19 +175,25 @@ impl Problem {
     }
 
     /// Make the problem harder, by keeping only labels satisfying the bitmask `keepmask`.
-    /// if `fix_diagram` is true, the correct diagram is (slowly) computed,
-    /// otherwise the (possibly wrong) diagram given by set inclusion is computed.
-    /// For example, if the original right constraints are D A B | C AB AB,
-    /// and the mask keeps only ABC, the new constraints are only C AB AB,
-    /// and we should now get an arrow from A to B and vice versa.
+    /// All predecessors of a removed label are added, this is done in order to get the easiest possible
+    /// problem obtainable while removing a label
+    /// diagramtype tells if we should recompute the diagram in an accurate manner, or if
+    /// we should get an approximate one from the original problem
     pub fn harden(&self, mut keepmask: BigNum, diagramtype : DiagramType ) -> Option<Problem> {
+
+        let mut left = self.left.clone();
+        let remove = !keepmask & self.left.mask;
+        for unrelax in remove.one_bits() {
+            let pred = self.predecessors(unrelax);
+            left = left.replace_with_group(unrelax,pred);
+        }
+        
         // if, by making the problem harder, we get different sets of labels on the two sides,
         // repeat the operation, until we get the same set of labels
-        let mut left;
-        let mut right;
+        let mut right = self.right.clone();
         loop {
-            left = self.left.harden(keepmask);
-            right = self.right.harden(keepmask);
+            left = left.harden(keepmask);
+            right = right.harden(keepmask);
             keepmask = left.real_mask() & right.real_mask();
             if left.real_mask() == keepmask && right.real_mask() == keepmask {
                 break;
@@ -224,6 +230,11 @@ impl Problem {
 
         Some(p)
     }
+
+    /// Computes all possible predecessors of a given label
+    pub fn predecessors(&self, lab : usize) -> BigNum {
+        self.reachable.iter().cloned().filter(|&(_,b)|b==lab).map(|(a,_)|BigNum::one() << a).fold(BigNum::zero(),|a,b|a|b)
+    } 
 
     /// Computes if the current problem is 0 rounds solvable, saving the result
     pub fn compute_triviality(&mut self) {

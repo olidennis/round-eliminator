@@ -87,9 +87,13 @@ impl Line {
 
     /// Creates a new line where the label `from` is replaced by the label `to`.
     pub fn replace(&self, from: usize, to: usize) -> Line {
+        self.replace_with_group(from, BigNum::one() << to)
+    }
+
+
+    pub fn replace_with_group(&self, from: usize, to: BigNum) -> Line {
         let one = BigNum::one();
         let from = one << from;
-        let to = one << to;
 
         self.edited(|group| {
             if !(group & from).is_zero() {

@@ -58,11 +58,16 @@ impl Constraint {
 
     /// Creates a new set of constraints, where for each line the label `from` is replaced by the label `to`.
     pub fn replace(&self, from: usize, to: usize) -> Constraint {
+        self.replace_with_group(from, BigNum::one() << to)
+    }
+
+
+    pub fn replace_with_group(&self, from: usize, to: BigNum) -> Constraint {
         let mut newlines = vec![];
         let delta = self.delta;
         let bits = self.bits;
         for line in self.lines.iter() {
-            let newline = line.replace(from, to);
+            let newline = line.replace_with_group(from, to);
             newlines.push(newline);
         }
         Self {
