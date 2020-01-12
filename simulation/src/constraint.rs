@@ -290,11 +290,10 @@ impl Constraint {
     }
 
     /// Creates a mapping between a set and its position in the adj matrix of the graph described in `set_inclusion_adj`.
-    /// A plain array is used instead of a HashMap to make things faster.
-    fn sets_adj_map(sets: &Vec<BigNum>, bits: usize) -> Vec<usize> {
-        let mut v = vec![0; 1 << bits];
+    fn sets_adj_map(sets: &Vec<BigNum>, bits: usize) -> HashMap<BigNum,usize> {
+        let mut v = HashMap::new();
         for (i, x) in sets.iter().enumerate() {
-            v[x.as_usize()] = i;
+            v.insert(*x,i);
         }
         v
     }
@@ -323,14 +322,13 @@ impl Constraint {
         h: &mut T,
         sets: &Vec<BigNum>,
         succ: &Vec<Vec<usize>>,
-        map: &Vec<usize>,
+        map: &HashMap<BigNum,usize>,
     ) where
         T: LineSet,
     {
         h.insert(line);
         for (i, group) in line.groups().enumerate() {
-            //this will panic if group can not fit an usize
-            let pos = map[group.as_usize()];
+            let pos = map[&group];
             for &sup in &succ[pos] {
                 let newgroup = sets[sup];
                 let newline = line.with_group(i, newgroup);

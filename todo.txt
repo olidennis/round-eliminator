@@ -9,6 +9,7 @@ Todo:
 - after simplifications, remove lines on the left side that are not needed (there exists another line that allows strictly more)
 - add an option to avoid adding predecessors while hardening/autoub (it is harder for autoub to find an algorithm, but it makes it much faster)
 - in autoub, do not generate strings to check for a fixpoint
+- check if using hashmap instead of vec didn't make things too slow
 
 Todo soon:
 
