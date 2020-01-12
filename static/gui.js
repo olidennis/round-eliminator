@@ -289,8 +289,10 @@ function make_div_autoub(problem){
     let labelsform = $('<div class="form-group"/>').append(labelslabel).append(maxlabelsub);
     divautoub.append(iterform);
     divautoub.append(labelsform);
-    let pred = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Add diagram predecessors</p></label></div>');
+    let pred = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Slow and Accurate</p></label></div>');
     divautoub.append(pred);
+    let det = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Test</p></label></div>');
+    divautoub.append(det);
 
     let collabel = $('<label>Input coloring:</label>');
     let colub = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
@@ -344,7 +346,8 @@ function make_div_autoub(problem){
         divdivresult.append(divresult);
         append_generic(divdivresult);
         let usepred = $('input[type=checkbox]',pred).is(':checked');
-        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10) , usepred, onresult, onend);
+        let usedet = $('input[type=checkbox]',det).is(':checked');
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10) , usepred, usedet, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

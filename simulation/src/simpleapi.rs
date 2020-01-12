@@ -94,10 +94,13 @@ pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize, colors:usize) ->
     })
 }
 
-pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize, colors : usize, usepred : bool) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
+pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize, colors : usize, usepred : bool, usedet : bool) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
     let mut features = vec![];
     if usepred {
         features.push("pred");
+    }
+    if usedet {
+        features.push("det");
     }
     let auto = AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels,colors, &features);
     auto.into_iter().map(move |r|{
@@ -120,7 +123,7 @@ pub enum Request{
     Harden(Problem,Keeping,bool),
     Rename(Problem,Renaming),
     AutoLb(Problem,usize,usize,usize),
-    AutoUb(Problem,usize,usize,usize,bool),
+    AutoUb(Problem,usize,usize,usize,bool,bool),
     Ping
 }
 
@@ -181,8 +184,8 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
                 }
             }
         }
-        Request::AutoUb(p,i,l,c,x) => {
-            for r in autoub(&p,i,l,c,x) {
+        Request::AutoUb(p,i,l,c,x,y) => {
+            for r in autoub(&p,i,l,c,x,y) {
                 match r {
                     Ok(r) =>  {f(Response::U(r))}
                     Err(s) => {f(Response::E(s))}

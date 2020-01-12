@@ -137,7 +137,7 @@ export function api_autolb(p,label,iter, col, result, end) {
     return request({ AutoLb : [p,label,iter,col] }, result , end ,true );
 }
 
-export function api_autoub(p,label,iter,col, usepred, result, end) {
-    return request({ AutoUb : [p,label,iter,col, usepred] }, result , end ,true);
+export function api_autoub(p,label,iter,col, usepred, usedet, result, end) {
+    return request({ AutoUb : [p,label,iter,col, usepred,usedet] }, result , end ,true);
 }
 

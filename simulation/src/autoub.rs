@@ -2,20 +2,24 @@ use crate::auto::Auto;
 use crate::auto::Sequence;
 use crate::auto::Step;
 use crate::bignum::BigNum;
-use crate::problem::Problem;
 use crate::problem::DiagramType;
-use std::collections::HashMap;
+use crate::problem::Problem;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Clone)]
-pub struct AutoUb{
-    usepred : bool
+pub struct AutoUb {
+    usepred: bool,
+    det: bool,
 }
 impl Auto for AutoUb {
     type Simplification = BigNum;
 
-    fn new(features : &[&str]) -> Self {
-        Self{ usepred : features.iter().any(|&x|x=="pred") }
+    fn new(features: &[&str]) -> Self {
+        Self {
+            usepred: features.iter().any(|&x| x == "pred"),
+            det: features.iter().any(|&x| x == "det"),
+        }
     }
     /// The possible simplifications are described by sets of labels,
     /// the valid ones are the sets containing at most `maxlabel` labels
@@ -24,11 +28,44 @@ impl Auto for AutoUb {
         sol: &mut Sequence<Self>,
         maxlabels: usize,
     ) -> Box<dyn Iterator<Item = Self::Simplification>> {
-        let iter = sol
-            .current()
-            .all_possible_sets()
-            .filter(move |x| x.count_ones() <= maxlabels as u32);
-        Box::new(iter)
+        if !self.det || sol.current().map_label_oldset.is_none() || sol.speedups == 0 {
+            let iter = sol
+                .current()
+                .all_possible_sets()
+                .filter(move |x| x.count_ones() == maxlabels as u32);
+            Box::new(iter)
+        } else {
+            let labels: Vec<usize> = sol
+                .current()
+                .map_text_oldlabel
+                .as_ref()
+                .unwrap()
+                .iter()
+                .cloned()
+                .map(|(_, x)| x)
+                .collect();
+            let map = sol.current().map_label_oldset.as_ref().unwrap();
+            let mut keep = vec![];
+            for lab in labels {
+                let mut good: Vec<_> = map
+                    .iter()
+                    .cloned()
+                    .filter(|&(_, oldset)| oldset.bit(lab))
+                    .collect();
+                good.sort_by_key(|&(_, oldset)| oldset.count_ones());
+                let sz = good[0].1.count_ones();
+                let min = good
+                    .into_iter()
+                    .take_while(|&(_, oldset)| oldset.count_ones() == sz);
+                keep.extend(min.map(|(lab, _)| lab));
+            }
+            //println!("KEEPING ONLY {:?}", keep);
+            let set = keep
+                .iter()
+                .fold(BigNum::zero(), |a, &b| a | (BigNum::one() << b));
+            let iter = std::iter::once(set);
+            Box::new(iter)
+        }
     }
 
     /// Here simplification means making the problem harder,
@@ -56,7 +93,7 @@ impl Auto for AutoUb {
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         _: usize,
-        colors:usize
+        colors: usize,
     ) -> bool {
         let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
         let best_is_trivial = best.current().is_trivial || best.current().coloring >= colors;
@@ -82,12 +119,12 @@ impl Auto for AutoUb {
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
         maxiter: usize,
-        colors : usize
+        colors: usize,
     ) -> bool {
-        if let Some((i,Step::Speedup(p))) = sol.steps.iter().enumerate().last() {
+        if let Some((i, Step::Speedup(p))) = sol.steps.iter().enumerate().last() {
             let t = p.as_result().to_string();
-            for (j,x) in sol.steps.iter().enumerate() {
-                if i == j  || j+4 < i {
+            for (j, x) in sol.steps.iter().enumerate() {
+                if i == j || j + 4 < i {
                     continue;
                 }
                 if let Step::Speedup(x) = x {
@@ -142,14 +179,14 @@ impl std::fmt::Display for Sequence<AutoUb> {
 }
 
 #[derive(Deserialize, Serialize)]
-pub enum ResultStep{
+pub enum ResultStep {
     Initial,
     Simplified(Vec<String>),
-    Speedup
+    Speedup,
 }
 
-pub struct ResultAutoUb{
-    pub steps : Vec<(ResultStep,Problem)>
+pub struct ResultAutoUb {
+    pub steps: Vec<(ResultStep, Problem)>,
 }
 
 impl Sequence<AutoUb> {
@@ -160,23 +197,23 @@ impl Sequence<AutoUb> {
         for step in self.steps.iter() {
             let p = match step {
                 Step::Initial(p) => {
-                    v.push((ResultStep::Initial,p.clone()));
+                    v.push((ResultStep::Initial, p.clone()));
                     p
                 }
                 Step::Simplify((mask, p)) => {
                     let map = lastmap.unwrap();
-                    let simpls = mask.one_bits().map(|x|map[&x].to_owned()).collect();
-                    v.push((ResultStep::Simplified(simpls),p.clone()));
+                    let simpls = mask.one_bits().map(|x| map[&x].to_owned()).collect();
+                    v.push((ResultStep::Simplified(simpls), p.clone()));
                     p
                 }
                 Step::Speedup(p) => {
-                    v.push((ResultStep::Speedup,p.clone()));
+                    v.push((ResultStep::Speedup, p.clone()));
                     p
                 }
             };
             lastmap = Some(p.map_label_text());
         }
 
-        ResultAutoUb{ steps : v }
+        ResultAutoUb { steps: v }
     }
 }
