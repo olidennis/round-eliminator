@@ -1,5 +1,5 @@
-M M M
-P U U
+M M M M M
+P U U U U
 
 M UP
 U U

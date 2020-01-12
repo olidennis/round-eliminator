@@ -81,6 +81,21 @@ impl Auto for AutoUb {
         maxiter: usize,
         colors : usize
     ) -> bool {
+        if let Some((i,Step::Speedup(p))) = sol.steps.iter().enumerate().last() {
+            let t = p.as_result().to_string();
+            for (j,x) in sol.steps.iter().enumerate() {
+                if i == j  || j+4 < i {
+                    continue;
+                }
+                if let Step::Speedup(x) = x {
+                    let t2 = x.as_result().to_string();
+                    if t == t2 {
+                        return false;
+                    }
+                }
+            }
+        }
+
         let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
         let best_is_trivial = best.current().is_trivial || best.current().coloring >= colors;
 
