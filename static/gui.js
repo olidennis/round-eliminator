@@ -156,19 +156,24 @@ function make_div_harden(problem){
     let labels = get_labels(problem);
 
     let hard = $('<div/>');
+    let choices = $('<div/>');
     hard.append('<p>Please choose which labels should be kept.</p>');
     for(let label of labels){
         let check = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">'+escape(label)+'</p></label></div>');
-        hard.append(check);
+        choices.append(check);
     }
+    let pred = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Add diagram predecessors</p></label></div>');
+    hard.append(choices);
+    hard.append('<hr/>');
+    hard.append(pred);
     let hardbtn = $('<button type="button" class="btn btn-primary">Harden</button>');
     hardbtn.click(function(ev) {
-        let checks = Array.from($('input[type=checkbox]',hard));
+        let checks = Array.from($('input[type=checkbox]',choices));
         let entries = Array.from(checks.entries());
         let selected = entries.filter(([i,x]) => x.checked).map(([i,x]) => i);
         let selectedlabels = selected.map(i => labels[i]);
-        api.api_harden(blob,selectedlabels,function(x){return append_new_problem_or_error(x, performed_harden(merge(selectedlabels)));} );
-        
+        let usepred = $('input[type=checkbox]',pred).is(':checked');
+        api.api_harden(blob,selectedlabels,usepred,function(x){return append_new_problem_or_error(x, performed_harden(merge(selectedlabels)));} );
     });
     hard.append(hardbtn);
     return hard;
@@ -180,14 +185,18 @@ function make_div_harden2(problem){
     let labels = get_labels(problem);
     let simpls = $('<div/>');
     simpls.append('<p>Click on the label that you want to remove</p>');
+    let pred = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Add diagram predecessors</p></label></div>');
     for (let simpl of labels ){
         var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+escape(simpl)+'</button>');
         bsimpl.click(function(ev) {
             let others = labels.filter(x => x != simpl);
-            api.api_harden(blob, others, function(x){return append_new_problem_or_error(x, performed_harden2(simpl));} );
+            let usepred = $('input[type=checkbox]',pred).is(':checked');
+            api.api_harden(blob, others, usepred, function(x){return append_new_problem_or_error(x, performed_harden2(simpl));} );
         });
         simpls.append(bsimpl);
     }
+    simpls.append('<hr/>');
+    simpls.append(pred);
     return simpls;
 }
 
@@ -280,6 +289,8 @@ function make_div_autoub(problem){
     let labelsform = $('<div class="form-group"/>').append(labelslabel).append(maxlabelsub);
     divautoub.append(iterform);
     divautoub.append(labelsform);
+    let pred = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Add diagram predecessors</p></label></div>');
+    divautoub.append(pred);
 
     let collabel = $('<label>Input coloring:</label>');
     let colub = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
@@ -332,7 +343,8 @@ function make_div_autoub(problem){
         }
         divdivresult.append(divresult);
         append_generic(divdivresult);
-        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10) , onresult, onend);
+        let usepred = $('input[type=checkbox]',pred).is(':checked');
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10) , usepred, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

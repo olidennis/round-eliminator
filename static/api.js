@@ -125,8 +125,8 @@ export function api_simplify(p, s, ready){
     return request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} , true);
 }
 
-export function api_harden(p, h, ready){
-    return request({ Harden : [p,h] }, ready , function(){} , true);
+export function api_harden(p, h, usepred, ready){
+    return request({ Harden : [p,h,usepred] }, ready , function(){} , true);
 }
 
 export function api_rename(p, v, ready){
@@ -137,7 +137,7 @@ export function api_autolb(p,label,iter, col, result, end) {
     return request({ AutoLb : [p,label,iter,col] }, result , end ,true );
 }
 
-export function api_autoub(p,label,iter,col, result, end) {
-    return request({ AutoUb : [p,label,iter,col] }, result , end ,true);
+export function api_autoub(p,label,iter,col, usepred, result, end) {
+    return request({ AutoUb : [p,label,iter,col, usepred] }, result , end ,true);
 }
 

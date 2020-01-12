@@ -44,11 +44,11 @@ pub fn simplify(p : &Problem, (a,b) : Simpl) -> RProblem  {
     (np,nr)
 }
 
-pub fn harden(p : &Problem, v : Keeping) -> Result<RProblem,String> {
+pub fn harden(p : &Problem, v : Keeping, usepred : bool) -> Result<RProblem,String> {
     let map = &p.map_text_label;
     let map = Problem::map_to_hashmap(map);
     let keep = v.iter().map(|x|BigNum::one()<<map[x]).fold(BigNum::zero(),|a,b|a|b);
-    let np = p.harden(keep, DiagramType::Accurate);
+    let np = p.harden(keep, DiagramType::Accurate, usepred);
     np.map(|np|{
         let nr = np.as_result();
         (np,nr)
@@ -83,7 +83,7 @@ pub fn rename(p : &Problem, v : Renaming) -> Result<RProblem,String> {
 }
 
 pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize, colors:usize) -> impl Iterator<Item=Result<RLowerBoundStep,String>>{
-    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, colors);
+    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, colors, &[]);
     auto.into_iter().map(move |r|{
         r.map(|seq|{
             seq.as_result().steps.into_iter().map(|s|{
@@ -94,8 +94,12 @@ pub fn autolb(p : &Problem, maxiter : usize, maxlabels : usize, colors:usize) ->
     })
 }
 
-pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize, colors : usize) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
-    let auto = AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels,colors);
+pub fn autoub(p : &Problem, maxiter : usize, maxlabels : usize, colors : usize, usepred : bool) -> impl Iterator<Item=Result<RUpperBoundStep,String>>{
+    let mut features = vec![];
+    if usepred {
+        features.push("pred");
+    }
+    let auto = AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels,colors, &features);
     auto.into_iter().map(move |r|{
         r.map(|seq|{
             seq.as_result().steps.into_iter().map(|s|{
@@ -113,10 +117,10 @@ pub enum Request{
     Speedup(Problem),
     PossibleSimplifications(Problem),
     Simplify(Problem,Simpl),
-    Harden(Problem,Keeping),
+    Harden(Problem,Keeping,bool),
     Rename(Problem,Renaming),
     AutoLb(Problem,usize,usize,usize),
-    AutoUb(Problem,usize,usize,usize),
+    AutoUb(Problem,usize,usize,usize,bool),
     Ping
 }
 
@@ -157,8 +161,8 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
             let r = simplify(&p,s);
             f(Response::P(r));
         }
-        Request::Harden(p,k) => {
-            match harden(&p, k) {
+        Request::Harden(p,k,x) => {
+            match harden(&p, k,x) {
                 Ok(r) =>  {f(Response::P(r))}
                 Err(s) => {f(Response::E(s))}
             }
@@ -177,8 +181,8 @@ pub fn request<F>(req : Request, mut f : F) where F : FnMut(Response) {
                 }
             }
         }
-        Request::AutoUb(p,i,l,c) => {
-            for r in autoub(&p,i,l,c) {
+        Request::AutoUb(p,i,l,c,x) => {
+            for r in autoub(&p,i,l,c,x) {
                 match r {
                     Ok(r) =>  {f(Response::U(r))}
                     Err(s) => {f(Response::E(s))}

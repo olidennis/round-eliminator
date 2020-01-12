@@ -15,7 +15,7 @@ pub struct AutoLb {
 impl Auto for AutoLb {
     type Simplification = (usize, usize);
 
-    fn new() -> Self {
+    fn new(_ : &[&str]) -> Self {
         Self {
             done: HashSet::new(),
         }

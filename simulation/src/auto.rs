@@ -20,7 +20,7 @@ pub enum Step<T: Clone + std::fmt::Debug> {
 pub trait Auto: Sized + Clone {
     type Simplification: Copy + Clone + std::fmt::Debug;
     /// constructor
-    fn new() -> Self;
+    fn new(features : &[&str]) -> Self;
     /// given the current state and the maximum number of labels, returns an iterator over the possible simplifications that can be performed.
     fn simplifications(
         &mut self,
@@ -149,7 +149,7 @@ pub struct AutomaticSimplifications<T: Auto> {
 }
 
 impl<T: Auto> AutomaticSimplifications<T> {
-    pub fn new(p: Problem, maxiter: usize, maxlabels: usize, colors : usize) -> Self {
+    pub fn new(p: Problem, maxiter: usize, maxlabels: usize, colors : usize, features : &[&str]) -> Self {
         let sol = Sequence::new(p);
         let best = sol.clone();
         Self {
@@ -158,7 +158,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
             maxiter,
             maxlabels,
             colors,
-            auto: T::new(),
+            auto: T::new(features),
         }
     }
 

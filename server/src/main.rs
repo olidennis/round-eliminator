@@ -109,6 +109,15 @@ fn main() {
                         .value_name("COL")
                         .required(false)
                         .help("size of input coloring (works only in the node-edge case)"),
+                )
+                .arg(
+                    Arg::with_name("pred")
+                        .short("p")
+                        .long("pred")
+                        .value_name("PRED")
+                        .required(false)
+                        .default_value("T")
+                        .help("replace label with predecessors while hardening (T/F)"),
                 ),
         )
         .setting(AppSettings::SubcommandRequired)
@@ -132,6 +141,7 @@ fn main() {
         let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
         let col : usize = f.value_of("col").unwrap_or("999").parse().unwrap();
-        cli::autoub(name, labels, iter,col);
+        let pred : bool = f.value_of("pred").unwrap_or("T") == "T";
+        cli::autoub(name, labels, iter,col,pred);
     }
 }

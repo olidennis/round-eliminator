@@ -179,13 +179,15 @@ impl Problem {
     /// problem obtainable while removing a label
     /// diagramtype tells if we should recompute the diagram in an accurate manner, or if
     /// we should get an approximate one from the original problem
-    pub fn harden(&self, mut keepmask: BigNum, diagramtype : DiagramType ) -> Option<Problem> {
+    pub fn harden(&self, mut keepmask: BigNum, diagramtype : DiagramType, usepred : bool ) -> Option<Problem> {
 
         let mut left = self.left.clone();
-        let remove = !keepmask & self.left.mask;
-        for unrelax in remove.one_bits() {
-            let pred = self.predecessors(unrelax);
-            left = left.replace_with_group(unrelax,pred);
+        if usepred {
+            let remove = !keepmask & self.left.mask;
+            for unrelax in remove.one_bits() {
+                let pred = self.predecessors(unrelax);
+                left = left.replace_with_group(unrelax,pred);
+            }
         }
         
         // if, by making the problem harder, we get different sets of labels on the two sides,

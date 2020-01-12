@@ -8,12 +8,14 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
-pub struct AutoUb;
+pub struct AutoUb{
+    usepred : bool
+}
 impl Auto for AutoUb {
     type Simplification = BigNum;
 
-    fn new() -> Self {
-        Self
+    fn new(features : &[&str]) -> Self {
+        Self{ usepred : features.iter().any(|&x|x=="pred") }
     }
     /// The possible simplifications are described by sets of labels,
     /// the valid ones are the sets containing at most `maxlabel` labels
@@ -44,7 +46,7 @@ impl Auto for AutoUb {
         // but we still need to use this slower version, otherwise we would show the wrong diagram to the user
         // so we fix this by using the wrong diagram, that is still correct to use to do speedup, since it only misses edges,
         // and we recompute the correct only when we yield a solution.
-        p.harden(mask, DiagramType::Accurate)
+        p.harden(mask, DiagramType::Accurate, self.usepred)
     }
 
     /// A solution is better if the current problem is 0 rounds solvable and
