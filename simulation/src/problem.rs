@@ -196,8 +196,9 @@ impl Problem {
         let mut left = self.left.clone();
         if usepred {
             let remove = !keepmask & self.left.mask;
+            let ones = remove.count_ones();
             for unrelax in remove.one_bits() {
-                let pred = self.predecessors(unrelax);
+                let pred = self.predecessors(unrelax, ones == 1);
                 left = left.replace_with_group(unrelax, pred);
             }
         }
@@ -246,9 +247,10 @@ impl Problem {
         Some(p)
     }
 
-    /// Computes all possible predecessors of a given label
-    pub fn predecessors(&self, lab: usize) -> BigNum {
-        self.reachable
+    /// Computes all direct predecessors of a given label
+    pub fn predecessors(&self, lab: usize, immediate : bool) -> BigNum {
+        let what = if immediate { &self.diagram } else { &self.reachable };
+        what
             .iter()
             .cloned()
             .filter(|&(_, b)| b == lab)
