@@ -14,3 +14,4 @@ Todo soon:
 
 Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time)
+on safari autolb autoub threads are not interrupted
