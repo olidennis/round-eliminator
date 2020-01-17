@@ -4,3 +4,10 @@ members = [
     "server",
     "simulation",
 ]
+
+
+[profile.release]
+lto = true
+codegen-units = 1
+debug = true
+opt-level = 3

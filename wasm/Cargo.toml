@@ -22,5 +22,9 @@ js-sys = "0.3"
 version = "0.3"
 features = [ "console" ]
 
-#[profile.release]
+[profile.release]
+lto = true
+codegen-units = 1
+debug = true
+opt-level = 3
 #opt-level = "s"
