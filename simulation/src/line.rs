@@ -149,6 +149,21 @@ impl Line {
         Line::from_groups(self.delta, self.bits, newgroups)
     }
 
+    /// add the label to each time from is allowed
+    pub fn imply(&self, from : usize, to : usize) -> Line {
+        let one = BigNum::one();
+        let from = one << from;
+        let to = one << to;
+        self.edited(|group| {
+            if !(group & from).is_zero() {
+                group | to
+            } else {
+                group
+            }
+        })
+    }
+
+
     /// Returns an iterator over the groups of the line (starting from the least significant bits).
     /// The iterator will contain `delta` elements.
     pub fn groups(&self) -> impl Iterator<Item = BigNum> {

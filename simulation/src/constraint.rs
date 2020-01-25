@@ -292,7 +292,7 @@ impl Constraint {
     }
 
     /// Creates a mapping between a set and its position in the adj matrix of the graph described in `set_inclusion_adj`.
-    fn sets_adj_map(sets: &Vec<BigNum>, bits: usize) -> HashMap<BigNum, usize> {
+    fn sets_adj_map(sets: &Vec<BigNum>, _bits: usize) -> HashMap<BigNum, usize> {
         let mut v = HashMap::new();
         for (i, x) in sets.iter().enumerate() {
             v.insert(*x, i);
@@ -353,6 +353,25 @@ impl Constraint {
                 Line::forall_single(self.delta, self.bits, self.mask)
                     .filter(move |line| self.satisfies(line)),
             )
+        }
+    }
+
+    /// Add the label to each time from is allowed
+    pub fn imply(&self, from : usize, to : usize) -> Constraint {
+        let mut newlines = vec![];
+        let delta = self.delta;
+        let bits = self.bits;
+        let mask = self.mask;
+        for line in self.lines.iter() {
+            let newline = line.imply(from, to);
+            newlines.push(newline);
+        }
+        Self {
+            lines: newlines,
+            delta,
+            bits,
+            mask,
+            permutations: None,
         }
     }
 }

@@ -121,8 +121,16 @@ export function api_possible_simplifications(p, ready){
     return request({ PossibleSimplifications : p }, function(r){ready(r.S)} , function(){} , false);
 }
 
+export function api_possible_addarrow(p, ready){
+    return request({ PossibleAddarrow : p }, function(r){ready(r.S)} , function(){} , false);
+}
+
 export function api_simplify(p, s, ready){
     return request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} , true);
+}
+
+export function api_addarrow(p, s, ready){
+    return request({ Addarrow : [p,s] }, function(r){ready(r.P)} , function(){} , true);
 }
 
 export function api_harden(p, h, usepred, ready){

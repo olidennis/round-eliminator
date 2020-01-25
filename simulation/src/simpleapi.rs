@@ -11,6 +11,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 pub type Simpl = (usize, usize);
+pub type Addarrow = (usize, usize);
 pub type Renaming = Vec<(Vec<String>, String)>;
 pub type Keeping = Vec<String>;
 pub type RProblem = (Problem, ResultProblem);
@@ -37,8 +38,22 @@ pub fn possible_simplifications(p: &Problem) -> RSimplifications {
     pdiag.zip(rdiag).collect()
 }
 
+
+pub fn possible_addarrow(p: &Problem) -> RSimplifications {
+    let pdiag = p.unreachable_pairs().into_iter();
+    let map = p.map_label_text();
+    let rdiag = pdiag.clone().map(|(a,b)|(map[&a].to_owned(),map[&b].to_owned()));
+    pdiag.zip(rdiag).collect()
+}
+
 pub fn simplify(p: &Problem, (a, b): Simpl) -> RProblem {
     let np = p.replace(a, b, DiagramType::Accurate);
+    let nr = np.as_result();
+    (np, nr)
+}
+
+pub fn addarrow(p: &Problem, (a, b): Addarrow) -> RProblem {
+    let np = p.relax_add_arrow(a, b, DiagramType::Accurate);
     let nr = np.as_result();
     (np, nr)
 }
@@ -161,7 +176,9 @@ pub enum Request {
     NewProblem(String, String),
     Speedup(Problem),
     PossibleSimplifications(Problem),
+    PossibleAddarrow(Problem),
     Simplify(Problem, Simpl),
+    Addarrow(Problem, Addarrow),
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
     AutoLb(Problem, usize, usize, usize, bool),
@@ -201,8 +218,16 @@ where
             let r = possible_simplifications(&p);
             f(Response::S(r));
         }
+        Request::PossibleAddarrow(p) => {
+            let r = possible_addarrow(&p);
+            f(Response::S(r));
+        }
         Request::Simplify(p, s) => {
             let r = simplify(&p, s);
+            f(Response::P(r));
+        }
+        Request::Addarrow(p, s) => {
+            let r = addarrow(&p, s);
             f(Response::P(r));
         }
         Request::Harden(p, k, x) => match harden(&p, k, x) {

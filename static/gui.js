@@ -60,6 +60,10 @@ function performed_simplification(s){
     return make_performed_action("Performed simplification "+escape(s));
 }
 
+function performed_addarrow(s){
+    return make_performed_action("Added arrow "+escape(s));
+}
+
 function performed_harden(s){
     return make_performed_action("Kept only labels "+escape(s));
 }
@@ -143,6 +147,25 @@ function make_div_simplifications(problem){
             var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+escape(bstr)+'</button>');
             bsimpl.click(function(ev) {
                 api.api_simplify(blob, sblob, function(x){return append_new_problem(x, performed_simplification(bstr));} );
+            });
+            simpls.append(bsimpl);
+        }
+    });
+    return simpls;
+}
+
+function make_div_addarrow(problem){
+    let blob = problem[0];
+    let simpls = $('<div/>');
+    simpls.append('<p>Available simplifications:</p>');
+    api.api_possible_addarrow(blob,function(v){
+        for (let simpl of v ){
+            let sblob = simpl[0];
+            let sstr = simpl[1];
+            let bstr = sstr[0] + "→" + sstr[1];
+            var bsimpl = $('<button type="button" class="btn btn-primary m-2">'+escape(bstr)+'</button>');
+            bsimpl.click(function(ev) {
+                api.api_addarrow(blob, sblob, function(x){return append_new_problem(x, performed_addarrow(bstr));} );
             });
             simpls.append(bsimpl);
         }
@@ -483,6 +506,8 @@ function generate_html_for_problem(problem, reason) {
     let edit = make_button_edit(problem);
     let simpls = make_div_simplifications(problem);
     let simpls_card = make_card("m-2","p-0","<h7>Simplifications</h7>",simpls,false,freeid());
+    let addarrow = make_div_addarrow(problem);
+    let addarrow_card = make_card("m-2","p-0","<h7>Add arrows</h7>",addarrow,false,freeid());
     let hard = make_div_harden(problem);
     let hard_card = make_card("m-2","p-0","<h7>Harden v1</h7>",hard,false,freeid());
     let hard2 = make_div_harden2(problem);
@@ -497,6 +522,7 @@ function generate_html_for_problem(problem, reason) {
     tools.append(next);
     tools.append(edit);
     tools.append(simpls_card);
+    tools.append(addarrow_card);
     tools.append(hard_card);
     tools.append(hard2_card);
     tools.append(autolb_card);

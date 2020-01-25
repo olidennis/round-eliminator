@@ -182,6 +182,26 @@ impl Problem {
         p
     }
 
+    /// Allow the label `to` each time `from` is present, in the right constraints
+    /// The new problem is easier than the original one
+    /// This adds an arrow from `from` to `to` in the diagram
+    pub fn relax_add_arrow(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem {
+        let left = self.left.clone();
+        let right = self.right.imply(from, to);
+        let map_label_oldset = self.map_label_oldset.clone();
+        let map_text_oldlabel = self.map_text_oldlabel.clone();
+        let map_text_label = self.map_text_label.clone();
+        let p = Problem::new(
+            left,
+            right,
+            Some(map_text_label),
+            map_label_oldset,
+            map_text_oldlabel,
+            diagramtype,
+        ).unwrap();
+        p
+    }
+
     /// Make the problem harder, by keeping only labels satisfying the bitmask `keepmask`.
     /// All predecessors of a removed label are added, this is done in order to get the easiest possible
     /// problem obtainable while removing a label
