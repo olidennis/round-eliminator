@@ -220,6 +220,9 @@ function make_div_autolb(problem){
         divautolb.append(colform);
     }
 
+    let unreach = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge unreachable labels</p></label></div>');
+    divautolb.append(unreach);
+
     let autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
     autolb.click(function(ev) {
         let divdivresult = $('<div class="card m-2"/>');
@@ -267,7 +270,8 @@ function make_div_autolb(problem){
         }
         divdivresult.append(divresult);
         append_generic(divdivresult);
-        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) , onresult, onend);
+        let useunreach = $('input[type=checkbox]',unreach).is(':checked');
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) , useunreach, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

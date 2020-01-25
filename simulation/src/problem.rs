@@ -434,7 +434,7 @@ impl Problem {
     }
 
     /// Returns an iterator over the possible labels.
-    pub fn labels(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn labels(&self) -> impl Iterator<Item = usize> + Clone +  '_ {
         assert!(self.left.mask == self.right.mask);
         let mask = self.left.mask;
         (0..mask.bits()).filter(move |&i| mask.bit(i))
@@ -679,6 +679,15 @@ impl Problem {
             mergeable,
         }
     }
+
+    /// Return the pairs of labels that are not reachable one from the other on the diagram
+    pub fn unreachable_pairs(&self) -> Vec<(usize, usize)> {
+        let reachable : std::collections::HashSet<_> = self.reachable.iter().cloned().collect();
+        self.labels().cartesian_product(self.labels())
+            .filter(|&(a,b)|a != b)
+            .filter(|&(a,b)| !reachable.contains(&(a,b)) && !reachable.contains(&(b,a)) ).collect()
+    }
+
 }
 
 /// Simple representation of the problem.
@@ -754,4 +763,5 @@ impl std::fmt::Display for ResultProblem {
 
         write!(f, "{}", r)
     }
+
 }

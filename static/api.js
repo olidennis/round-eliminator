@@ -133,8 +133,8 @@ export function api_rename(p, v, ready){
     return request({ Rename : [p,v] }, ready , function(){} , true);
 }
 
-export function api_autolb(p,label,iter, col, result, end) {
-    return request({ AutoLb : [p,label,iter,col] }, result , end ,true );
+export function api_autolb(p,label,iter, col, useunreach, result, end) {
+    return request({ AutoLb : [p,label,iter,col,useunreach] }, result , end ,true );
 }
 
 export function api_autoub(p,label,iter,col, usepred, usedet, result, end) {

@@ -10,14 +10,16 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct AutoLb {
     done: HashSet<(usize, Problem)>,
+    simplifications_merge_unreachable : bool
 }
 
 impl Auto for AutoLb {
     type Simplification = (usize, usize);
 
-    fn new(_: &[&str]) -> Self {
+    fn new(features: &[&str]) -> Self {
         Self {
             done: HashSet::new(),
+            simplifications_merge_unreachable: features.iter().any(|&x| x == "unreach"),
         }
     }
 
@@ -27,8 +29,12 @@ impl Auto for AutoLb {
         sol: &mut Sequence<Self>,
         _: usize,
     ) -> Box<dyn Iterator<Item = Self::Simplification>> {
-        let simpl = sol.current().diagram.clone();
-        Box::new(simpl.into_iter())
+        let diag = sol.current().diagram.clone().into_iter();
+        if !self.simplifications_merge_unreachable {
+            Box::new(diag)
+        } else {
+            Box::new(sol.current().unreachable_pairs().into_iter().chain(diag))
+        }
     }
 
     /// Here simplifying means replacing label A with label B, where in the diagram there is an arrow from A to B.

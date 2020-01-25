@@ -31,9 +31,9 @@ pub fn speedup(p: &Problem) -> Result<RProblem, String> {
 }
 
 pub fn possible_simplifications(p: &Problem) -> RSimplifications {
-    let r = p.as_result();
-    let pdiag = p.diagram.iter().cloned();
-    let rdiag = r.diagram.iter().cloned();
+    let pdiag = p.diagram.iter().cloned().chain(p.unreachable_pairs());
+    let map = p.map_label_text();
+    let rdiag = pdiag.clone().map(|(a,b)|(map[&a].to_owned(),map[&b].to_owned()));
     pdiag.zip(rdiag).collect()
 }
 
@@ -104,8 +104,13 @@ pub fn autolb(
     maxiter: usize,
     maxlabels: usize,
     colors: usize,
+    unreach : bool
 ) -> impl Iterator<Item = Result<RLowerBoundStep, String>> {
-    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, colors, &[]);
+    let mut features = vec![];
+    if unreach {
+        features.push("unreach");
+    }
+    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, colors, &features);
     auto.into_iter().map(move |r| {
         r.map(|seq| {
             seq.as_result()
@@ -159,7 +164,7 @@ pub enum Request {
     Simplify(Problem, Simpl),
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
-    AutoLb(Problem, usize, usize, usize),
+    AutoLb(Problem, usize, usize, usize, bool),
     AutoUb(Problem, usize, usize, usize, bool, bool),
     Ping,
 }
@@ -208,8 +213,8 @@ where
             Ok(r) => f(Response::P(r)),
             Err(s) => f(Response::E(s)),
         },
-        Request::AutoLb(p, i, l, c) => {
-            for r in autolb(&p, i, l, c) {
+        Request::AutoLb(p, i, l, c, u) => {
+            for r in autolb(&p, i, l, c, u) {
                 match r {
                     Ok(r) => f(Response::L(r)),
                     Err(s) => f(Response::E(s)),
