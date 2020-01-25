@@ -144,6 +144,7 @@ pub struct AutomaticSimplifications<T: Auto> {
     pub best: Sequence<T>,
     pub maxiter: usize,
     pub maxlabels: usize,
+    pub maxrcs: usize,
     pub colors: usize,
     auto: T,
 }
@@ -153,6 +154,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
         p: Problem,
         maxiter: usize,
         maxlabels: usize,
+        maxrcs: usize,
         colors: usize,
         features: &[&str],
     ) -> Self {
@@ -163,6 +165,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
             best,
             maxiter,
             maxlabels,
+            maxrcs,
             colors,
             auto: T::new(features),
         }
@@ -210,7 +213,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     where
         F: FnMut(&Sequence<T>),
     {
-        if self.sol.current().num_labels() <= self.maxlabels {
+        if self.sol.current().num_labels() <= self.maxlabels && self.sol.current().right_closed_subsets().len() <= self.maxrcs {
             self.sol.push_speedup()?;
             self.problem(cb)?;
             self.sol.pop_speedup();
@@ -300,7 +303,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                 }
                 State::Simplify => {
                     self.stack.pop();
-                    if self.auto.sol.current().num_labels() <= self.auto.maxlabels {
+                    if self.auto.sol.current().num_labels() <= self.auto.maxlabels && self.auto.sol.current().right_closed_subsets().len() <= self.auto.maxrcs {
                         if let Err(s) = self.auto.sol.push_speedup() {
                             self.stack.push(State::Error);
                             return Some(Err(s));

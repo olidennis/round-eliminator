@@ -229,12 +229,20 @@ function make_div_autolb(problem){
     let divautolb = $('<div/>');
     let iterlabel = $('<label>Maximum number of iterations:</label>');
     let labelslabel = $('<label>Maximum number of labels:</label>');
+    let rcslabel = $('<label>Maximum number of right closed subsets:</label>');
+
     let maxiterlb = $('<input class="form-control"/>').attr({ type: 'number', value: '15' });
     let maxlabelslb = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
+    let maxrcslb = $('<input class="form-control"/>').attr({ type: 'number', value: '20' });
+
     let iterform = $('<div class="form-group"/>').append(iterlabel).append(maxiterlb);
     let labelsform = $('<div class="form-group"/>').append(labelslabel).append(maxlabelslb);
+    let rcsform = $('<div class="form-group"/>').append(rcslabel).append(maxrcslb);
+
     divautolb.append(iterform);
     divautolb.append(labelsform);
+    divautolb.append(rcsform);
+
 
     let collabel = $('<label>Input coloring:</label>');
     let collb = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
@@ -245,6 +253,10 @@ function make_div_autolb(problem){
 
     let unreach = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge unreachable labels</p></label></div>');
     divautolb.append(unreach);
+    let diagram = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Try to merge diagram neighbors</p></label></div>');
+    divautolb.append(diagram);
+    let arrows = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Try to add diagram edges</p></label></div>');
+    divautolb.append(arrows);
 
     let autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
     autolb.click(function(ev) {
@@ -279,8 +291,11 @@ function make_div_autolb(problem){
                 else if( what == "Speedup" )toshow.append(performed_speedup());
                 else if( what.Simplified != null ){
                     for(let simpl of what.Simplified ){
-                        let ssimpl = simpl[0] + "→" + simpl[1];
-                        toshow.append(performed_simplification(ssimpl));
+                        let action = simpl[0];
+                        let ssimpl = simpl[1] + "→" + simpl[2];
+                        if( action == "merge" )toshow.append(performed_simplification(ssimpl));
+                        else if(action == "addarrow")toshow.append(performed_addarrow(ssimpl));
+                        else alert("this should not happen");
                     }
                 }
                 problem = [step[0],step[2]];
@@ -294,7 +309,10 @@ function make_div_autolb(problem){
         divdivresult.append(divresult);
         append_generic(divdivresult);
         let useunreach = $('input[type=checkbox]',unreach).is(':checked');
-        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) , useunreach, onresult, onend);
+        let usediag = $('input[type=checkbox]',diagram).is(':checked');
+        let useaddarrow = $('input[type=checkbox]',arrows).is(':checked');
+
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();
@@ -310,12 +328,19 @@ function make_div_autoub(problem){
     let divautoub = $('<div/>');
     let iterlabel = $('<label>Maximum number of iterations:</label>');
     let labelslabel = $('<label>Maximum number of labels:</label>');
+    let rcslabel = $('<label>Maximum number of right closed subsets:</label>');
+
     let maxiterub = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
     let maxlabelsub = $('<input class="form-control"/>').attr({ type: 'number', value: '4' });
+    let maxrcsub = $('<input class="form-control"/>').attr({ type: 'number', value: '20' });
+
     let iterform = $('<div class="form-group"/>').append(iterlabel).append(maxiterub);
     let labelsform = $('<div class="form-group"/>').append(labelslabel).append(maxlabelsub);
+    let rcsform = $('<div class="form-group"/>').append(rcslabel).append(maxrcsub);
+
     divautoub.append(iterform);
     divautoub.append(labelsform);
+    divautoub.append(rcsform);
 
     let collabel = $('<label>Input coloring:</label>');
     let colub = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
@@ -374,7 +399,7 @@ function make_div_autoub(problem){
         append_generic(divdivresult);
         let usepred = $('input[type=checkbox]',pred).is(':checked');
         let usedet = $('input[type=checkbox]',det).is(':checked');
-        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10) , usepred, usedet, onresult, onend);
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10),parseInt(maxrcsub.val(),10) , usepred, usedet, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

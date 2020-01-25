@@ -119,13 +119,22 @@ pub fn autolb(
     maxiter: usize,
     maxlabels: usize,
     colors: usize,
-    unreach : bool
+    maxrcs : usize,
+    unreach : bool,
+    diagram : bool,
+    addarrow : bool
 ) -> impl Iterator<Item = Result<RLowerBoundStep, String>> {
     let mut features = vec![];
     if unreach {
         features.push("unreach");
     }
-    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, colors, &features);
+    if diagram {
+        features.push("diag");
+    }
+    if addarrow {
+        features.push("addarrow");
+    }
+    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, maxrcs, colors, &features);
     auto.into_iter().map(move |r| {
         r.map(|seq| {
             seq.as_result()
@@ -145,6 +154,7 @@ pub fn autoub(
     maxiter: usize,
     maxlabels: usize,
     colors: usize,
+    maxrcs : usize,
     usepred: bool,
     usedet: bool,
 ) -> impl Iterator<Item = Result<RUpperBoundStep, String>> {
@@ -156,7 +166,7 @@ pub fn autoub(
         features.push("det");
     }
     let auto =
-        AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels, colors, &features);
+        AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels, maxrcs, colors, &features);
     auto.into_iter().map(move |r| {
         r.map(|seq| {
             seq.as_result()
@@ -181,8 +191,8 @@ pub enum Request {
     Addarrow(Problem, Addarrow),
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
-    AutoLb(Problem, usize, usize, usize, bool),
-    AutoUb(Problem, usize, usize, usize, bool, bool),
+    AutoLb(Problem, usize, usize, usize, usize, bool, bool, bool),
+    AutoUb(Problem, usize, usize, usize, usize, bool, bool),
     Ping,
 }
 
@@ -238,16 +248,16 @@ where
             Ok(r) => f(Response::P(r)),
             Err(s) => f(Response::E(s)),
         },
-        Request::AutoLb(p, i, l, c, u) => {
-            for r in autolb(&p, i, l, c, u) {
+        Request::AutoLb(p, i, l, c, rcs, u, d, a) => {
+            for r in autolb(&p, i, l, c, rcs, u,d,a) {
                 match r {
                     Ok(r) => f(Response::L(r)),
                     Err(s) => f(Response::E(s)),
                 }
             }
         }
-        Request::AutoUb(p, i, l, c, x, y) => {
-            for r in autoub(&p, i, l, c, x, y) {
+        Request::AutoUb(p, i, l, c, rcs, x, y) => {
+            for r in autoub(&p, i, l, c, rcs, x, y) {
                 match r {
                     Ok(r) => f(Response::U(r)),
                     Err(s) => f(Response::E(s)),

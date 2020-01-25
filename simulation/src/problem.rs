@@ -562,7 +562,7 @@ impl Problem {
         }
     }
 
-    fn right_closed_subsets(&self) -> Vec<BigNum> {
+    pub fn right_closed_subsets(&self) -> Vec<BigNum> {
         let mut right = vec![BigNum::zero(); self.max_label() + 1];
         for &(a, b) in self.reachable.iter() {
             right[a] = right[a] | (BigNum::one() << b);

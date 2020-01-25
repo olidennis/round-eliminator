@@ -10,16 +10,27 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct AutoLb {
     done: HashSet<(usize, Problem)>,
-    simplifications_merge_unreachable : bool
+    merge_unreachable : bool,
+    merge_diagram : bool,
+    addarrow : bool
+}
+
+#[derive(Copy,Clone,Debug)]
+pub enum Simplification{
+    Merge((usize,usize)),
+    Addarrow((usize,usize))
 }
 
 impl Auto for AutoLb {
-    type Simplification = (usize, usize);
+    type Simplification = Simplification;
 
     fn new(features: &[&str]) -> Self {
         Self {
             done: HashSet::new(),
-            simplifications_merge_unreachable: features.iter().any(|&x| x == "unreach"),
+            merge_unreachable: features.iter().any(|&x| x == "unreach"),
+            merge_diagram: features.iter().any(|&x| x == "diag"),
+            addarrow: features.iter().any(|&x| x == "addarrow"),
+
         }
     }
 
@@ -29,23 +40,31 @@ impl Auto for AutoLb {
         sol: &mut Sequence<Self>,
         _: usize,
     ) -> Box<dyn Iterator<Item = Self::Simplification>> {
-        let diag = sol.current().diagram.clone().into_iter();
-        if !self.simplifications_merge_unreachable {
-            Box::new(diag)
-        } else {
-            Box::new(sol.current().unreachable_pairs().into_iter().chain(diag))
+        let mut v = vec![];
+        if self.merge_unreachable {
+            v.extend(sol.current().unreachable_pairs().into_iter().map(|x|Simplification::Merge(x)));
         }
+        if self.merge_diagram {
+            v.extend(sol.current().diagram.clone().into_iter().map(|x|Simplification::Merge(x)));
+        }
+        if self.addarrow {
+            v.extend(sol.current().unreachable_pairs().into_iter().map(|x|Simplification::Addarrow(x)));
+        }
+        Box::new(v.into_iter())
     }
 
     /// Here simplifying means replacing label A with label B, where in the diagram there is an arrow from A to B.
     fn simplify(
         &mut self,
         sequence: &mut Sequence<Self>,
-        (c1, c2): Self::Simplification,
+        x: Self::Simplification,
     ) -> Option<Problem> {
         let speedups = sequence.speedups;
         let p = sequence.current_mut();
-        let np = p.replace(c1, c2, DiagramType::Accurate);
+        let np = match x {
+            Simplification::Merge((c1,c2)) => p.replace(c1, c2, DiagramType::Accurate),
+            Simplification::Addarrow((c1,c2)) => p.relax_add_arrow(c1, c2, DiagramType::Accurate),
+        };
         if np.is_trivial || !self.done.insert((speedups, np.clone())) {
             return None;
         }
@@ -109,9 +128,12 @@ impl std::fmt::Display for Sequence<AutoLb> {
                     writeln!(f, "\nInitial problem\n{}\n", p.as_result())?;
                     p
                 }
-                Step::Simplify(((x, y), p)) => {
+                Step::Simplify((simpl, p)) => {
                     let map = lastmap.unwrap();
-                    writeln!(f, "Relax {} -> {}\n", map[x], map[y])?;
+                    match simpl {
+                        Simplification::Merge((x,y)) => writeln!(f, "Relax {} -> {}\n", map[x], map[y])?,
+                        Simplification::Addarrow((x,y)) => writeln!(f, "AddArrow {} -> {}\n", map[x], map[y])?
+                    }
                     writeln!(f, "{}\n", p.as_result())?;
                     p
                 }
@@ -129,9 +151,10 @@ impl std::fmt::Display for Sequence<AutoLb> {
 #[derive(Deserialize, Serialize)]
 pub enum ResultStep {
     Initial,
-    Simplified(Vec<(String, String)>),
+    Simplified(Vec<(String,String,String)>),
     Speedup,
 }
+
 
 pub struct ResultAutoLb {
     pub steps: Vec<(ResultStep, Problem)>,
@@ -150,9 +173,14 @@ impl Sequence<AutoLb> {
                     v.push((ResultStep::Initial, p.clone()));
                     p
                 }
-                Step::Simplify(((x, y), p)) => {
+                Step::Simplify((Simplification::Merge((x, y)), p)) => {
                     let map = lastmap.unwrap();
-                    simpls.push((map[x].clone(), map[y].clone()));
+                    simpls.push(("merge".into(),map[x].clone(), map[y].clone()));
+                    p
+                }
+                Step::Simplify((Simplification::Addarrow((x, y)), p)) => {
+                    let map = lastmap.unwrap();
+                    simpls.push(("addarrow".into(),map[x].clone(), map[y].clone()));
                     p
                 }
                 Step::Speedup(p) => {
