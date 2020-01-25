@@ -155,7 +155,7 @@ impl Problem {
     }
 
     /// Returns a new problem where the label `from` has been replaced with label `to`.
-    /// The new problem is strictly easier if there is a diagram edge from `from` to `to`.
+    /// The new problem is easier than the original one
     pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem {
         let left = self.left.replace(from, to);
         let right = self.right.replace(from, to);

@@ -23,7 +23,7 @@ impl Auto for AutoLb {
         }
     }
 
-    /// The possible simplifications are given by following the arrows of the diagram.
+    /// The possible simplifications are given by following the arrows of the diagram, or by considering unreachable labels
     fn simplifications(
         &mut self,
         sol: &mut Sequence<Self>,
