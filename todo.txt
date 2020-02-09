@@ -13,6 +13,7 @@ Todo:
 Todo soon:
 autoub autolb: add rcs parameter to cli, add new options to cli
 do simplifications even if it is possible to perform speedup
+highlight what gives 0 rounds solvability
 
 Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time)
