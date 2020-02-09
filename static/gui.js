@@ -80,7 +80,7 @@ function performed_speedup() {
 function make_div_diagram(problem){
     let x = problem[1];
     let id = freeid();
-    let nodes = [...new Set([].concat.apply([], x.diagram))];
+    let nodes = get_labels(problem);//[...new Set([].concat.apply([], x.diagram))];
     let visnodes = [];
     for (let node of nodes ) {
         visnodes.push({id: node, label: node});
