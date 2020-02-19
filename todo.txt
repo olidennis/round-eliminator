@@ -20,3 +20,4 @@ in server mode, sourceless and sinkless orientation Delta=3, automatic lower bou
 on safari autolb autoub threads are not interrupted
 handle spaces in multicharacter labels
 escaping in performed simplification
+constraint.rs from_vec remove the assert and return an error
