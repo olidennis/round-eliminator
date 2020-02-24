@@ -12,6 +12,7 @@ pub struct AutoLb {
     done: HashSet<(usize, Problem)>,
     merge_unreachable : bool,
     merge_diagram : bool,
+    merge_indirect : bool,
     addarrow : bool
 }
 
@@ -30,7 +31,7 @@ impl Auto for AutoLb {
             merge_unreachable: features.iter().any(|&x| x == "unreach"),
             merge_diagram: features.iter().any(|&x| x == "diag"),
             addarrow: features.iter().any(|&x| x == "addarrow"),
-
+            merge_indirect : features.iter().any(|&x| x == "indirect"),
         }
     }
 
@@ -44,8 +45,11 @@ impl Auto for AutoLb {
         if self.merge_unreachable {
             v.extend(sol.current().unreachable_pairs().into_iter().map(|x|Simplification::Merge(x)));
         }
-        if self.merge_diagram {
+        if self.merge_diagram && ! self.merge_indirect {
             v.extend(sol.current().diagram.clone().into_iter().map(|x|Simplification::Merge(x)));
+        }
+        if self.merge_indirect {
+            v.extend(sol.current().reachable.clone().into_iter().map(|x|Simplification::Merge(x)));
         }
         if self.addarrow {
             v.extend(sol.current().unreachable_pairs().into_iter().map(|x|Simplification::Addarrow(x)));

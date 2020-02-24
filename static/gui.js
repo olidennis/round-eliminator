@@ -255,6 +255,8 @@ function make_div_autolb(problem){
     divautolb.append(unreach);
     let diagram = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Try to merge diagram neighbors</p></label></div>');
     divautolb.append(diagram);
+    let indirect = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge indirect neighbors</p></label></div>');
+    divautolb.append(indirect);
     let arrows = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Try to add diagram edges</p></label></div>');
     divautolb.append(arrows);
 
@@ -311,8 +313,10 @@ function make_div_autolb(problem){
         let useunreach = $('input[type=checkbox]',unreach).is(':checked');
         let usediag = $('input[type=checkbox]',diagram).is(':checked');
         let useaddarrow = $('input[type=checkbox]',arrows).is(':checked');
+        let useindirect = $('input[type=checkbox]',indirect).is(':checked');
 
-        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, onresult, onend);
+
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, useindirect, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

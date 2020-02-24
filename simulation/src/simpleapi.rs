@@ -11,6 +11,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 pub type Simpl = (usize, usize);
+pub type SimplS = (String, String);
 pub type Addarrow = (usize, usize);
 pub type Renaming = Vec<(Vec<String>, String)>;
 pub type Keeping = Vec<String>;
@@ -46,7 +47,18 @@ pub fn possible_addarrow(p: &Problem) -> RSimplifications {
     pdiag.zip(rdiag).collect()
 }
 
+
 pub fn simplify(p: &Problem, (a, b): Simpl) -> RProblem {
+    let np = p.replace(a, b, DiagramType::Accurate);
+    let nr = np.as_result();
+    (np, nr)
+}
+
+pub fn simplify_s(p: &Problem, (a, b): SimplS) -> RProblem {
+    let map = &p.map_text_label;
+    let map = Problem::map_to_hashmap(map);
+    let a = map[&a];
+    let b = map[&b];
     let np = p.replace(a, b, DiagramType::Accurate);
     let nr = np.as_result();
     (np, nr)
@@ -122,7 +134,8 @@ pub fn autolb(
     maxrcs : usize,
     unreach : bool,
     diagram : bool,
-    addarrow : bool
+    addarrow : bool,
+    indirect : bool
 ) -> impl Iterator<Item = Result<RLowerBoundStep, String>> {
     let mut features = vec![];
     if unreach {
@@ -133,6 +146,9 @@ pub fn autolb(
     }
     if addarrow {
         features.push("addarrow");
+    }
+    if indirect {
+        features.push("indirect");
     }
     let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, maxrcs, colors, &features);
     auto.into_iter().map(move |r| {
@@ -188,10 +204,11 @@ pub enum Request {
     PossibleSimplifications(Problem),
     PossibleAddarrow(Problem),
     Simplify(Problem, Simpl),
+    SimplifyS(Problem, SimplS),
     Addarrow(Problem, Addarrow),
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
-    AutoLb(Problem, usize, usize, usize, usize, bool, bool, bool),
+    AutoLb(Problem, usize, usize, usize, usize, bool, bool, bool, bool),
     AutoUb(Problem, usize, usize, usize, usize, bool, bool),
     Ping,
 }
@@ -236,6 +253,10 @@ where
             let r = simplify(&p, s);
             f(Response::P(r));
         }
+        Request::SimplifyS(p, s) => {
+            let r = simplify_s(&p, s);
+            f(Response::P(r));
+        }
         Request::Addarrow(p, s) => {
             let r = addarrow(&p, s);
             f(Response::P(r));
@@ -248,8 +269,8 @@ where
             Ok(r) => f(Response::P(r)),
             Err(s) => f(Response::E(s)),
         },
-        Request::AutoLb(p, i, l, c, rcs, u, d, a) => {
-            for r in autolb(&p, i, l, c, rcs, u,d,a) {
+        Request::AutoLb(p, i, l, c, rcs, u, d, a, ind) => {
+            for r in autolb(&p, i, l, c, rcs, u,d,a, ind) {
                 match r {
                     Ok(r) => f(Response::L(r)),
                     Err(s) => f(Response::E(s)),

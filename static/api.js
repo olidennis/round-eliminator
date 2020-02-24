@@ -129,6 +129,10 @@ export function api_simplify(p, s, ready){
     return request({ Simplify : [p,s] }, function(r){ready(r.P)} , function(){} , true);
 }
 
+export function api_simplify_s(p, s, ready){
+    return request({ SimplifyS : [p,s] }, function(r){ready(r.P)} , function(){} , true);
+}
+
 export function api_addarrow(p, s, ready){
     return request({ Addarrow : [p,s] }, function(r){ready(r.P)} , function(){} , true);
 }
@@ -141,8 +145,8 @@ export function api_rename(p, v, ready){
     return request({ Rename : [p,v] }, ready , function(){} , true);
 }
 
-export function api_autolb(p,label,iter, col, rcs, useunreach, usediag, useaddarrow, result, end) {
-    return request({ AutoLb : [p,label,iter,col,rcs, useunreach, usediag, useaddarrow] }, result , end ,true );
+export function api_autolb(p,label,iter, col, rcs, useunreach, usediag, useaddarrow, useindirect, result, end) {
+    return request({ AutoLb : [p,label,iter,col,rcs, useunreach, usediag, useaddarrow, useindirect] }, result , end ,true );
 }
 
 export function api_autoub(p,label,iter,col, rcs, usepred, usedet, result, end) {
