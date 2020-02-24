@@ -135,6 +135,7 @@ function make_button_edit(problem){
     return edit;
 }
 
+/*
 function make_div_simplifications(problem){
     let blob = problem[0];
     let simpls = $('<div/>');
@@ -151,6 +152,54 @@ function make_div_simplifications(problem){
             simpls.append(bsimpl);
         }
     });
+    return simpls;
+}*/
+function make_div_simplifications(problem){
+    let blob = problem[0];
+    let labels = get_labels(problem);
+    let simpls = $('<div/>');
+    let g1 = "g"+freeid();
+    let g2 = "h"+freeid();
+    simpls.append('<p>Choose the label to replace</p>');
+    {
+        let i = 0;
+        let gridid = g1;
+        for(let label of labels) {
+            let newid = "i"+freeid();
+            let input = $('<input class="form-check-input" type="radio" name="'+gridid+'" id="'+newid+'" '+ (i==0?"checked":"")+'></input>').val(label);
+            let lab = $('<label class="form-check-label" for="'+newid+'"/>').text(label);
+            let div = $('<div class="form-check form-check-inline"/>').append(input).append(lab);
+            simpls.append(div);
+            i++;
+        }
+        simpls.append('<p/>');
+    }{
+        simpls.append('<p>Choose the replacement</p>');
+        let i = 0;
+        let gridid = g2;
+        for(let label of labels) {
+            let newid = "j"+freeid();
+            let input = $('<input class="form-check-input" type="radio" name="'+gridid+'" id="'+newid+'" '+ (i==1?"checked":"")+'></input>').val(label);
+            let lab = $('<label class="form-check-label" for="'+newid+'"/>').text(label);
+            let div = $('<div class="form-check form-check-inline"/>').append(input).append(lab);
+            simpls.append(div);
+            i++;
+        }
+        simpls.append('<p/>');
+    }
+    var bsimpl = $('<button type="button" class="btn btn-primary m-2">Simplify</button>');
+    bsimpl.click(function(ev) {
+        let choice1 = $("input[name='"+g1+"']:checked").val();
+        console.log(choice1);
+        let choice2 = $("input[name='"+g2+"']:checked").val();
+        let bstr = choice1 + "→" + choice2;
+        if( choice1 != choice2 ){
+            api.api_simplify_s(blob, [choice1,choice2], function(x){return append_new_problem(x, performed_simplification(bstr));} );
+        }else{
+            alert("Please choose different labels");
+        }
+    });
+    simpls.append(bsimpl);
     return simpls;
 }
 
