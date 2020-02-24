@@ -190,7 +190,6 @@ function make_div_simplifications(problem){
     var bsimpl = $('<button type="button" class="btn btn-primary m-2">Simplify</button>');
     bsimpl.click(function(ev) {
         let choice1 = $("input[name='"+g1+"']:checked").val();
-        console.log(choice1);
         let choice2 = $("input[name='"+g2+"']:checked").val();
         let bstr = choice1 + "→" + choice2;
         if( choice1 != choice2 ){
