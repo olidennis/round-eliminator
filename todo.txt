@@ -9,6 +9,8 @@ Todo:
 - after simplifications, remove lines on the left side that are not needed (there exists another line that allows strictly more)
 - in autoub, do not generate strings to check for a fixpoint
 - check if using hashmap instead of vec didn't make things too slow
+- check for solvability given a weak coloring
+- use the tree decidability results for binary lcls
 
 Todo soon:
 autoub autolb: add rcs parameter to cli, add new options to cli
