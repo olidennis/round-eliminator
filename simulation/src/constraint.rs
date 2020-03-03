@@ -442,6 +442,13 @@ impl Constraint {
         }
     }
 
+    /// Returns an iterator over all possible choices over the constraint that contains the label x at least once
+    pub fn choices_iter_containing(&self,x : usize) -> impl Iterator<Item = Line> + '_ {
+        Line::forall_single(self.delta-1, self.bits, self.mask)
+                    .map(move |line|line.add_column(x))
+                    .filter(move |line| self.satisfies(line))
+    }
+
     /// Returns an iterator over all possible choices over the constraints.
     pub fn choices_iter(&self) -> impl Iterator<Item = Line> + '_ {
         // If the current constraints are the left side of the result of a speedup, things can be made fast

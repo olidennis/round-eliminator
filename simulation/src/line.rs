@@ -308,11 +308,18 @@ impl Line {
     }
 
 
-    pub fn sorted(&self) -> Line{
+    pub fn sorted(&self) -> Self {
         let sg = self.groups().sorted();
         let delta = self.delta;
         let bits = self.bits;
-        Line::from_groups(delta, bits, sg)
+        Self::from_groups(delta, bits, sg)
+    }
+
+    pub fn add_column(&self, x : usize) -> Self {
+        let delta = self.delta+1;
+        let bits = self.bits;
+        let inner = (self.inner << bits ) | (BigNum::one() << x);
+        Self { delta, bits, inner }
     }
 }
 

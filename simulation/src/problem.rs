@@ -438,6 +438,7 @@ println!("computed exists");
 
     /// One way to compute the diagram is using set inclusion,
     /// if this problem is the result of a speedup.
+    /// With this method, some edges may be missing.
     fn compute_diagram_edges_from_oldsets(&mut self) {
         let mut result = vec![];
         let mut reachable = vec![];
@@ -485,7 +486,7 @@ println!("computed exists");
         self.labels().max().unwrap()
     }
 
-    /// If this problem is not the result of a speedup,
+    /// If this problem is not the result of a speedup, or if we really want all edges,
     /// we need to compute the diagram by looking at the right constraints.
     /// We put an edge from A to B if each time A can be used also B can be used.
     pub fn compute_diagram_edges_from_rightconstraints(&mut self) {
@@ -497,7 +498,7 @@ println!("computed exists");
             for y in self.labels() {
                 let is_left = x != y
                     && right
-                        .choices_iter()
+                        .choices_iter_containing(x)
                         .flat_map(|line| line.replace_one_fast(x, y))
                         .all(|line| right.satisfies(&line));
                 if is_left {
