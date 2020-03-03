@@ -291,7 +291,7 @@ impl Constraint {
         let delta = init.delta;
         let bits = init.bits;
         let mut v = Constraint::new(delta, bits);
-        let mut seen = HashSet::new();
+        let mut nodup = HashSet::new();
 
         v.add(init);
 
@@ -307,7 +307,8 @@ impl Constraint {
                 if !line.includes(&r) {
                     new.add(line);
                 } else {
-                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()).filter(|x|seen.insert(x.sorted()) ) {
+                    nodup.remove(&line.sorted());
+                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()).filter(|x|nodup.insert(x.sorted()) ) {
                         toadd.push(x);
                     }
                 }
