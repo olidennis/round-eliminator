@@ -247,9 +247,14 @@ impl Constraint {
         let bits = self.bits;
 
         let mut bad = Constraint::new(delta, bits);
-        for line in Line::forall_single(delta, bits, self.mask).filter(|line| !self.satisfies(line))
-        {
-            bad.add(line);
+        let total = (bits as usize).pow(delta as u32);
+        for (i,line) in Line::forall_single(delta, bits, self.mask).enumerate(){
+            if i%1000 == 0 {
+                println!("{} / {}",i,total);
+            }
+            if !self.satisfies(&line){
+                bad.add(line);
+            }
         }
 
         let mut newconstraints = Constraint::new(delta, bits);
