@@ -290,22 +290,22 @@ impl Constraint {
     fn test<T : LineSet>(init : Line, toremove : &[Line], visited : &mut T, result : &mut Constraint, pred : &HashMap<usize,BigNum>) {
         let delta = init.delta;
         let bits = init.bits;
-        let mut v = Constraint::new(delta, bits);
+        let mut v = vec![];
         let mut nodup = HashSet::new();
 
-        v.add(init);
+        v.push(init);
 
         let sz = toremove.len();
         for (i,r) in toremove.iter().rev().cloned().enumerate() {
-            let sz2 = v.lines.len();
+            let sz2 = v.len();
             if i%1000 == 0 { println!("{} {} {}",i,sz,sz2); }
 
-            let mut new = Constraint::new(delta, bits);
+            let mut new = vec![];
             let mut toadd = vec![];
 
-            for line in v.lines {
+            for line in v {
                 if !line.includes(&r) {
-                    new.add(line);
+                    new.push(line);
                 } else {
                     nodup.remove(&line.sorted());
                     for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()).filter(|x|nodup.insert(x.sorted()) ) {
@@ -314,14 +314,28 @@ impl Constraint {
                 }
             }
 
-            for x in toadd {
-                new.add_reduce(x);
+            for newline in toadd {
+                // bug: here something may get removed from new, but it remains in nodup
+                let l1 = new.len();
+                new.retain(|oldline|{
+                    let keep = !newline.includes(oldline);
+                    if !keep {
+                        nodup.remove(&oldline.sorted());
+                    }
+                    keep
+                });
+                let l2 = new.len();
+                if l1 != l2 || new.iter().all(|oldline| !oldline.includes(&newline)) {
+                    new.push(newline);
+                } else {
+                    nodup.remove(&newline.sorted());
+                }
             }
 
             v = new;
         }
 
-        for x in v.lines {
+        for x in v {
             result.add(x);
         }
     }
