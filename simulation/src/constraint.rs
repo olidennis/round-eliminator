@@ -291,21 +291,27 @@ impl Constraint {
             let mut new = vec![];
             let sz2 = v.len();
             println!("{} {} {}",i,sz,sz2);
+            let mut changed = false;
             for line in v {
                 if !line.includes(&r) {
                     new.push(line);
                 } else {
+                    changed = true;
                     for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()) {
                         new.push(x);
                     }
                 }
 
             }
-            let mut kept = HashSet::new();
-            v = vec![];
-            for x in new {
-                if kept.insert(x.sorted()) {
-                    v.push(x);
+            if !changed {
+                v = new;
+            } else {
+                let mut kept = HashSet::new();
+                v = vec![];
+                for x in new {
+                    if kept.insert(x.sorted()) {
+                        v.push(x);
+                    }
                 }
             }
         }
