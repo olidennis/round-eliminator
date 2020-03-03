@@ -65,11 +65,11 @@ impl Problem {
             p.assign_chars();
         }
         println!("computing triviality");
-        p.compute_triviality();
+        //p.compute_triviality();
         println!("computing independent lines");
         p.compute_independent_lines();
         println!("computing diagram");
-        p.compute_diagram_edges(diagramtype);
+        p.compute_diagram_edges(DiagramType::Fast);
         println!("computing mergeable");
         p.compute_mergeable();
         Ok(p)
