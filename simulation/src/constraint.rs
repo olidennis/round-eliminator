@@ -226,17 +226,112 @@ impl Constraint {
     /// `sets` contains the allowed sets for the new constraints,
     /// that is, not all possible sets of labels are tested,
     /// but only the ones contained in `sets`.
-    pub fn new_constraint_forall(&self, sets: &Vec<BigNum>) -> Constraint {
+    pub fn new_constraint_forall(&self, sets: &Vec<BigNum>, pred : &HashMap<usize,BigNum> ) -> Constraint {
         let delta = self.delta as usize;
         let bits = self.bits as usize;
 
         let limit = if cfg!(feature = "littlemem") { 31 } else { 32 };
         // either use a bitset or a hashset, depending on the size of the problem
         if delta * bits > limit {
-            self.new_constraint_forall_best::<HashSet<BigNum>>(sets)
+            self.new_constraint_forall_best::<HashSet<BigNum>>(sets,pred)
         } else {
-            self.new_constraint_forall_best::<BigBitSet>(sets)
+            self.new_constraint_forall_best::<BigBitSet>(sets,pred)
         }
+    }
+
+    fn new_constraint_forall_best<T>(&self, sets: &Vec<BigNum>,pred : &HashMap<usize,BigNum> ) -> Constraint
+    where
+        T: LineSet,
+    {
+        let delta = self.delta;
+        let bits = self.bits;
+
+        let mut bad = Constraint::new(delta, bits);
+        for line in Line::forall_single(delta, bits, self.mask).filter(|line| !self.satisfies(line))
+        {
+            bad.add(line);
+        }
+
+        let mut newconstraints = Constraint::new(delta, bits);
+        newconstraints.permutations = None;
+
+        let mut visited = T::new(delta, bits);
+        let start = Line::from_groups(delta, bits, std::iter::repeat(self.mask).take(delta));
+        Self::test(start,&bad.lines,&mut visited,&mut newconstraints, pred);
+
+        newconstraints
+    }
+
+    /*
+    fn test_rec<T : LineSet>(line : Line, toremove : &[Line], visited : &mut T, result : &mut Constraint) {
+        if toremove.is_empty() {
+            result.add_reduce(line);
+            return;
+        }
+        let r = toremove[0];
+        if !line.includes(&r) {
+            return Self::test(line,&toremove[1..],visited,result);
+        }
+
+        for x in Self::without_bad(line, r).filter(|x|!x.contains_empty_group()) {
+            let sx = x.sorted();
+            if ! visited.contains(sx) {
+                visited.insert(sx);
+                Self::test_rec(x,&toremove[1..], visited, result);
+            }
+        }
+    }*/
+
+    fn test<T : LineSet>(init : Line, toremove : &[Line], visited : &mut T, result : &mut Constraint, pred : &HashMap<usize,BigNum>) {
+        let mut v = vec![init];
+
+        let sz = toremove.len();
+
+        for (i,r) in toremove.iter().rev().cloned().enumerate() {
+            let mut new = vec![];
+            let sz2 = v.len();
+            println!("{} {} {}",i,sz,sz2);
+            for line in v {
+                if !line.includes(&r) {
+                    new.push(line);
+                } else {
+                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()) {
+                        new.push(x);
+                    }
+                }
+
+            }
+            let mut kept = HashSet::new();
+            v = vec![];
+            for x in new {
+                if kept.insert(x.sorted()) {
+                    v.push(x);
+                }
+            }
+        }
+
+        for x in v {
+            result.add(x);
+        }
+    }
+
+    fn without_bad(line : Line, bad : Line, pred : &HashMap<usize,BigNum>) -> impl Iterator<Item=Line> + '_ {
+        let one = BigNum::one();
+        let bits = line.bits;
+        bad.inner.one_bits().map(move |x|{
+            let label = x % bits;
+            let pos = x / bits;
+            let mask = ((one << label) | pred[&label]) << (pos * bits); 
+            let mask = !mask;
+            Line{ inner : line.inner & mask, ..line }
+        })
+    }
+
+    fn without_bad_old(line : Line, bad : Line, pred : &HashMap<usize,BigNum>) -> impl Iterator<Item=Line> {
+        let one = BigNum::one();
+        bad.inner.one_bits().map(move |x|{
+            Line{ inner : line.inner & !(one << x), ..line }
+        })
     }
 
     /// Compute the new constraints.
@@ -247,7 +342,7 @@ impl Constraint {
     /// and then taking the complement.
     /// `sets` indicates which sets are allowed as a result, that is, not all possible sets of labels are tested,
     /// but only the ones contained in `sets`.
-    fn new_constraint_forall_best<T>(&self, sets: &Vec<BigNum>) -> Constraint
+    fn new_constraint_forall_best_old<T>(&self, sets: &Vec<BigNum>) -> Constraint
     where
         T: LineSet,
     {
