@@ -295,8 +295,21 @@ impl Constraint {
 
         v.push(init);
 
+        let mut prev : Option<Line> = None;
+
+        let pred2 : HashMap<BigNum,BigNum> = pred.iter().map(|(&a,&b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
+
         let sz = toremove.len();
         for (i,r) in toremove.iter().rev().cloned().enumerate() {
+            if let Some(prev) = prev{
+                let prevandpred = prev.edited(|g|{
+                    pred2[&g]
+                });
+                if prevandpred.includes(&r) {
+                    continue;
+                }
+            }
+
             let sz2 = v.len();
             if i%1000 == 0 { println!("{} {} {}",i,sz,sz2); }
 
@@ -330,9 +343,11 @@ impl Constraint {
                 } else {
                     nodup.remove(&newline.sorted());
                 }
+
             }
 
             v = new;
+            prev = Some(r);
         }
 
         for x in v {
