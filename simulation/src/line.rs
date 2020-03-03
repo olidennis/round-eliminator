@@ -306,6 +306,14 @@ impl Line {
         // that works if we assume that the line is well formed (no empty group)
         self.groups().all(|group| group.count_ones() == 1)
     }
+
+
+    pub fn sorted(&self) -> Line{
+        let sg = self.groups().sorted();
+        let delta = self.delta;
+        let bits = self.bits;
+        Line::from_groups(delta, bits, sg)
+    }
 }
 
 pub struct LinePermutationIter {

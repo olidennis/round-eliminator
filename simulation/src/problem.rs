@@ -64,9 +64,13 @@ impl Problem {
         } else {
             p.assign_chars();
         }
+        println!("computing triviality");
         p.compute_triviality();
+        println!("computing independent lines");
         p.compute_independent_lines();
+        println!("computing diagram");
         p.compute_diagram_edges(diagramtype);
+        println!("computing mergeable");
         p.compute_mergeable();
         Ok(p)
     }
@@ -267,6 +271,10 @@ impl Problem {
         Some(p)
     }
 
+    pub fn map_label_predecesors(&self) -> HashMap<usize,BigNum> {
+        self.labels().map(|x|(x,self.predecessors(x, false))).collect()
+    }
+
     /// Computes all direct predecessors of a given label
     pub fn predecessors(&self, lab: usize, immediate : bool) -> BigNum {
         let what = if immediate { &self.diagram } else { &self.reachable };
@@ -384,12 +392,16 @@ impl Problem {
     pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
+println!("adding permutations");
         left.add_permutations();
         right.add_permutations();
         let allowed_sets = self.allowed_sets_for_speedup();
-
-        let newleft_before_renaming = right.new_constraint_forall(&allowed_sets);
-
+println!("start forall");
+        let mut newleft_before_renaming = right.new_constraint_forall(&allowed_sets, &self.map_label_predecesors());
+println!("end forall");
+        newleft_before_renaming.add_permutations();
+        newleft_before_renaming.remove_permutations();
+println!("permutations");
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = Self::map_to_inv_hashmap(&map_label_oldset);
 
@@ -400,9 +412,10 @@ impl Problem {
 
         let mut newleft = newleft_before_renaming.renamed(&hm_oldset_label);
         let mut newright = left.new_constraint_exist(&hm_oldset_label);
-
-        newleft.remove_permutations();
+println!("computed exists");
+        //newleft.remove_permutations();
         newright.remove_permutations();
+        println!("permutations");
 
         Self::new(
             newleft,

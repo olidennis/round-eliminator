@@ -31,7 +31,7 @@ pub fn file(name: &str, iter: usize) {
 pub fn autolb(name: &str, labels: usize, iter: usize, colors:usize) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
     let p = Problem::from_line_separated_text(&data).unwrap();
-    let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels,1000,colors,&[]);
+    let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels,1000,colors,&["diag"]);
     //auto.run(|x|println!("{}",x));
     for x in auto {
         println!("{}", x.unwrap());
