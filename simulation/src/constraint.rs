@@ -285,35 +285,25 @@ impl Constraint {
     fn test<T : LineSet>(init : Line, toremove : &[Line], visited : &mut T, result : &mut Constraint, pred : &HashMap<usize,BigNum>) {
         let mut v = vec![init];
 
-        let sz = toremove.len();
+        let mut seen = HashSet::new();
 
+        let sz = toremove.len();
         for (i,r) in toremove.iter().rev().cloned().enumerate() {
-            let mut new = vec![];
             let sz2 = v.len();
             println!("{} {} {}",i,sz,sz2);
-            let mut changed = false;
+
+            let mut new = vec![];
+
             for line in v {
                 if !line.includes(&r) {
                     new.push(line);
                 } else {
-                    changed = true;
-                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()) {
+                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()).filter(|x|seen.insert(x.sorted()) ) {
                         new.push(x);
                     }
                 }
-
             }
-            if !changed {
-                v = new;
-            } else {
-                let mut kept = HashSet::new();
-                v = vec![];
-                for x in new {
-                    if kept.insert(x.sorted()) {
-                        v.push(x);
-                    }
-                }
-            }
+            v = new;
         }
 
         for x in v {
