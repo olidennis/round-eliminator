@@ -7,6 +7,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
+use log::trace;
 
 /// A problem is represented by its left and right constraints, where left is the active side.
 /// All the following is then optional.
@@ -64,14 +65,15 @@ impl Problem {
         } else {
             p.assign_chars();
         }
-        println!("computing triviality");
+        trace!("computing triviality");
         p.compute_triviality();
-        println!("computing independent lines");
+        trace!("computing independent lines");
         p.compute_independent_lines();
-        println!("computing diagram");
+        trace!("computing diagram");
         p.compute_diagram_edges(diagramtype);
-        println!("computing mergeable");
+        trace!("computing mergeable");
         p.compute_mergeable();
+        trace!("done");
         Ok(p)
     }
 
@@ -397,28 +399,35 @@ impl Problem {
     pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
-println!("adding permutations");
+
+        trace!("1) adding permutations");
         left.add_permutations();
         right.add_permutations();
-println!("start forall");
+
+        trace!("2) starting forall");
         let mut newleft_before_renaming = right.new_constraint_forall(&self.map_label_predecesors());
-println!("end forall");
+
+        trace!("3) removing permutations forall");
         newleft_before_renaming.add_permutations();
         newleft_before_renaming.remove_permutations();
-println!("permutations");
+
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = Self::map_to_inv_hashmap(&map_label_oldset);
+
+        trace!("4) checking size");
 
         let newbits = hm_oldset_label.len();
         if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::MAX.bits() {
             return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::MAX.bits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
         }
 
+        trace!("5) starting exists");
         let newleft = newleft_before_renaming.renamed(&hm_oldset_label);
         let mut newright = left.new_constraint_exist(&hm_oldset_label);
-println!("computed exists");
+
+        trace!("6) removing permutations exists");
         newright.remove_permutations();
-        println!("permutations");
+        trace!("7) creating new problem");
 
         Self::new(
             newleft,
@@ -497,7 +506,8 @@ println!("computed exists");
         right.add_permutations();
         let num_labels = self.max_label() + 1;
         let mut adj = vec![vec![]; num_labels];
-        for x in self.labels() {
+        for (i,x) in self.labels().enumerate() {
+            trace!("diagram edges label {}/{}",i+1,num_labels);
             for y in self.labels() {
                 let is_left = x != y
                     && right

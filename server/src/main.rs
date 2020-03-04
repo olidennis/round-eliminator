@@ -5,6 +5,8 @@ use clap::{App as ClApp, AppSettings, Arg, SubCommand};
 
 
 fn main() {
+    env_logger::init();
+
     let matches = ClApp::new("Sim")
         .version("0.1")
         .about("...")

@@ -6,6 +6,8 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use log::trace;
+
 
 /// This struct represents a set of constraints.
 /// It is represented by a set of lines.
@@ -230,8 +232,8 @@ impl Constraint {
         let mut bad = Constraint::new(delta, bits);
         let total = (bits as usize).pow(delta as u32);
         for (i,line) in Line::forall_single(delta, bits, self.mask).enumerate(){
-            if i%1000 == 0 {
-                println!("{} / {}",i,total);
+            if i%10000 == 0 {
+                trace!("enumerating configurations {} / {}",i,total);
             }
             if !self.satisfies(&line){
                 bad.add(line);
@@ -261,7 +263,7 @@ impl Constraint {
             }
 
             let sz2 = v.len();
-            if i%1000 == 0 { println!("{} {} {}",i,sz,sz2); }
+            if i%10000 == 0 { trace!("Enumerating bad configurations: {} / {} (good candidates: {})",i,sz,sz2); }
 
             let mut new = vec![];
             let mut toadd = vec![];

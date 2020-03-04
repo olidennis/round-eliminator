@@ -125,6 +125,20 @@ __exports.request_json = function(req, f) {
     }
 };
 
+/**
+*/
+__exports.main = function() {
+    wasm.main();
+};
+
+let cachegetInt32Memory0 = null;
+function getInt32Memory0() {
+    if (cachegetInt32Memory0 === null || cachegetInt32Memory0.buffer !== wasm.memory.buffer) {
+        cachegetInt32Memory0 = new Int32Array(wasm.memory.buffer);
+    }
+    return cachegetInt32Memory0;
+}
+
 function handleError(e) {
     wasm.__wbindgen_exn_store(addHeapObject(e));
 }
@@ -148,6 +162,39 @@ function init(module) {
     };
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
+    };
+    imports.wbg.__wbg_new_59cb74e423758ede = function() {
+        var ret = new Error();
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_stack_558ba5917b466edd = function(arg0, arg1) {
+        var ret = getObject(arg1).stack;
+        var ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        getInt32Memory0()[arg0 / 4 + 1] = len0;
+        getInt32Memory0()[arg0 / 4 + 0] = ptr0;
+    };
+    imports.wbg.__wbg_error_4bb6c2a97407129a = function(arg0, arg1) {
+        try {
+            console.error(getStringFromWasm0(arg0, arg1));
+        } finally {
+            wasm.__wbindgen_free(arg0, arg1);
+        }
+    };
+    imports.wbg.__widl_f_debug_1_ = function(arg0) {
+        console.debug(getObject(arg0));
+    };
+    imports.wbg.__widl_f_error_1_ = function(arg0) {
+        console.error(getObject(arg0));
+    };
+    imports.wbg.__widl_f_info_1_ = function(arg0) {
+        console.info(getObject(arg0));
+    };
+    imports.wbg.__widl_f_log_1_ = function(arg0) {
+        console.log(getObject(arg0));
+    };
+    imports.wbg.__widl_f_warn_1_ = function(arg0) {
+        console.warn(getObject(arg0));
     };
     imports.wbg.__wbg_call_ce7cf17fc6380443 = function(arg0, arg1, arg2) {
         try {
@@ -197,7 +244,7 @@ function init(module) {
     return result.then(({instance, module}) => {
         wasm = instance.exports;
         init.__wbindgen_wasm_module = module;
-
+        wasm.__wbindgen_start();
         return wasm;
     });
 }
