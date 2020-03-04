@@ -4,7 +4,6 @@ mod autoub;
 mod bignum;
 mod constraint;
 mod line;
-mod lineset;
 mod problem;
 mod simpleapi;
 

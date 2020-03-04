@@ -1,7 +1,5 @@
 use crate::bignum::BigNum;
 use crate::line::Line;
-use crate::lineset::BigBitSet;
-use crate::lineset::LineSet;
 
 use either::Either;
 use itertools::Itertools;
@@ -122,8 +120,9 @@ impl Constraint {
                     continue 'outer;
                 }
             }
-            self.add_reduce(oldline);
+            self.add_reduce(oldline.sorted());
         }
+        self.lines.sort();
         self.permutations = Some(false);
     }
 
@@ -223,26 +222,8 @@ impl Constraint {
     }
 
     /// Performs the universal step on the current constraints.
-    /// `sets` contains the allowed sets for the new constraints,
-    /// that is, not all possible sets of labels are tested,
-    /// but only the ones contained in `sets`.
-    pub fn new_constraint_forall(&self, sets: &Vec<BigNum>, pred : &HashMap<usize,BigNum> ) -> Constraint {
-        let delta = self.delta as usize;
-        let bits = self.bits as usize;
-
-        let limit = if cfg!(feature = "littlemem") { 31 } else { 32 };
-        // either use a bitset or a hashset, depending on the size of the problem
-        if delta * bits > limit {
-            self.new_constraint_forall_best::<HashSet<BigNum>>(sets,pred)
-        } else {
-            self.new_constraint_forall_best::<BigBitSet>(sets,pred)
-        }
-    }
-
-    fn new_constraint_forall_best<T>(&self, sets: &Vec<BigNum>,pred : &HashMap<usize,BigNum> ) -> Constraint
-    where
-        T: LineSet,
-    {
+    /// `pred` contains, for each label, all its (direct and indirect) predecessors
+    pub fn new_constraint_forall(&self, pred : &[BigNum] ) -> Constraint {
         let delta = self.delta;
         let bits = self.bits;
 
@@ -257,50 +238,19 @@ impl Constraint {
             }
         }
 
-        let mut newconstraints = Constraint::new(delta, bits);
-        newconstraints.permutations = None;
-
-        let mut visited = T::new(delta, bits);
-        let start = Line::from_groups(delta, bits, std::iter::repeat(self.mask).take(delta));
-        Self::test(start,&bad.lines,&mut visited,&mut newconstraints, pred);
-
-        newconstraints
-    }
-
-    /*
-    fn test_rec<T : LineSet>(line : Line, toremove : &[Line], visited : &mut T, result : &mut Constraint) {
-        if toremove.is_empty() {
-            result.add_reduce(line);
-            return;
-        }
-        let r = toremove[0];
-        if !line.includes(&r) {
-            return Self::test(line,&toremove[1..],visited,result);
-        }
-
-        for x in Self::without_bad(line, r).filter(|x|!x.contains_empty_group()) {
-            let sx = x.sorted();
-            if ! visited.contains(sx) {
-                visited.insert(sx);
-                Self::test_rec(x,&toremove[1..], visited, result);
-            }
-        }
-    }*/
-
-    fn test<T : LineSet>(init : Line, toremove : &[Line], visited : &mut T, result : &mut Constraint, pred : &HashMap<usize,BigNum>) {
-        let delta = init.delta;
-        let bits = init.bits;
+        
         let mut v = vec![];
         let mut nodup = HashSet::new();
 
+        let init = Line::from_groups(delta, bits, std::iter::repeat(self.mask).take(delta));
         v.push(init);
 
         let mut prev : Option<Line> = None;
 
-        let pred2 : HashMap<BigNum,BigNum> = pred.iter().map(|(&a,&b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
+        let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,&b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
 
-        let sz = toremove.len();
-        for (i,r) in toremove.iter().rev().cloned().enumerate() {
+        let sz = bad.lines.len();
+        for (i,r) in bad.lines.iter().rev().cloned().enumerate() {
             if let Some(prev) = prev{
                 let prevandpred = prev.edited(|g|{
                     pred2[&g]
@@ -328,7 +278,6 @@ impl Constraint {
             }
 
             for newline in toadd {
-                // bug: here something may get removed from new, but it remains in nodup
                 let l1 = new.len();
                 new.retain(|oldline|{
                     let keep = !newline.includes(oldline);
@@ -350,130 +299,27 @@ impl Constraint {
             prev = Some(r);
         }
 
+        let mut result = Constraint::new(delta, bits);
+        result.permutations = None;
+
         for x in v {
             result.add(x);
         }
+
+        result
     }
 
-    fn without_bad(line : Line, bad : Line, pred : &HashMap<usize,BigNum>) -> impl Iterator<Item=Line> + '_ {
+
+    fn without_bad(line : Line, bad : Line, pred : &[BigNum]) -> impl Iterator<Item=Line> + '_ {
         let one = BigNum::one();
         let bits = line.bits;
         bad.inner.one_bits().map(move |x|{
             let label = x % bits;
             let pos = x / bits;
-            let mask = ((one << label) | pred[&label]) << (pos * bits); 
+            let mask = ((one << label) | pred[label]) << (pos * bits); 
             let mask = !mask;
             Line{ inner : line.inner & mask, ..line }
         })
-    }
-
-    fn without_bad_old(line : Line, bad : Line, pred : &HashMap<usize,BigNum>) -> impl Iterator<Item=Line> {
-        let one = BigNum::one();
-        bad.inner.one_bits().map(move |x|{
-            Line{ inner : line.inner & !(one << x), ..line }
-        })
-    }
-
-    /// Compute the new constraints.
-    /// Each new line group now represents a set.
-    /// The obtained constraints are the maximal constraints satisfying that
-    /// any choice over the sets is satisfied by the original constraints.
-    /// New constraints are computed by enumerating all non-allowed lines and taking all possible supersets of them,
-    /// and then taking the complement.
-    /// `sets` indicates which sets are allowed as a result, that is, not all possible sets of labels are tested,
-    /// but only the ones contained in `sets`.
-    fn new_constraint_forall_best_old<T>(&self, sets: &Vec<BigNum>) -> Constraint
-    where
-        T: LineSet,
-    {
-        let delta = self.delta;
-        let bits = self.bits;
-
-        let mut bad = Constraint::new(delta, bits);
-        for line in Line::forall_single(delta, bits, self.mask).filter(|line| !self.satisfies(line))
-        {
-            bad.add(line);
-        }
-        let bad: T = bad.superlines_over(sets);
-
-        let mut newconstraints = Constraint::new(delta, bits);
-        if self.permutations == Some(true) {
-            newconstraints.permutations = Some(true);
-        } else {
-            newconstraints.permutations = None;
-        }
-
-        for line in Line::forall_over(delta, bits, sets) {
-            if !bad.contains(line) {
-                newconstraints.add_reduce(line);
-            }
-        }
-        newconstraints
-    }
-
-    /// Given some sets,
-    /// computes the adjacency matrix of the graph obtained by putting an edge from A to B
-    /// if B strictly includes A
-    fn set_inclusion_adj(sets: &Vec<BigNum>) -> Vec<Vec<usize>> {
-        let mut v = vec![vec![]; sets.len()];
-        for (i, &r) in sets.iter().enumerate() {
-            for (j, &x) in sets.iter().enumerate() {
-                if x != r && x.is_superset(r) {
-                    v[i].push(j);
-                }
-            }
-        }
-        v
-    }
-
-    /// Creates a mapping between a set and its position in the adj matrix of the graph described in `set_inclusion_adj`.
-    fn sets_adj_map(sets: &Vec<BigNum>, _bits: usize) -> HashMap<BigNum, usize> {
-        let mut v = HashMap::new();
-        for (i, x) in sets.iter().enumerate() {
-            v.insert(*x, i);
-        }
-        v
-    }
-
-    /// Given some lines and some allowed sets,
-    /// it computes a set of all possible lines that include at least one given line.
-    /// The groups of the new lines should be contained in the allowed sets.
-    fn superlines_over<T>(&self, sets: &Vec<BigNum>) -> T
-    where
-        T: LineSet,
-    {
-        let succ = Self::set_inclusion_adj(sets);
-        let map = Self::sets_adj_map(sets, self.bits);
-        let mut h = T::new(self.delta, self.bits);
-        for &line in self.lines.iter() {
-            if !h.contains(line) {
-                Self::superlines_add(line, &mut h, sets, &succ, &map);
-            }
-        }
-        h
-    }
-
-    /// Recursive helper for `superlines_over`.
-    fn superlines_add<T>(
-        line: Line,
-        h: &mut T,
-        sets: &Vec<BigNum>,
-        succ: &Vec<Vec<usize>>,
-        map: &HashMap<BigNum, usize>,
-    ) where
-        T: LineSet,
-    {
-        h.insert(line);
-        for (i, group) in line.groups().enumerate() {
-            let pos = map[&group];
-            for &sup in &succ[pos] {
-                let newgroup = sets[sup];
-                let newline = line.with_group(i, newgroup);
-                if !h.contains(newline) {
-                    Self::superlines_add(newline, h, sets, &succ, &map);
-                }
-            }
-        }
     }
 
     /// Returns an iterator over all possible choices over the constraint that contains the label x at least once

@@ -271,8 +271,13 @@ impl Problem {
         Some(p)
     }
 
-    pub fn map_label_predecesors(&self) -> HashMap<usize,BigNum> {
-        self.labels().map(|x|(x,self.predecessors(x, false))).collect()
+    /// computes a map from a label to its (direct and indirect) predecessors
+    pub fn map_label_predecesors(&self) -> Vec<BigNum> {
+        let mut v = vec![BigNum::zero();self.max_label()+1];
+        for x in self.labels() {
+            v[x] = self.predecessors(x, false);
+        }
+        v
     }
 
     /// Computes all direct predecessors of a given label
@@ -395,9 +400,8 @@ impl Problem {
 println!("adding permutations");
         left.add_permutations();
         right.add_permutations();
-        let allowed_sets = self.allowed_sets_for_speedup();
 println!("start forall");
-        let mut newleft_before_renaming = right.new_constraint_forall(&allowed_sets, &self.map_label_predecesors());
+        let mut newleft_before_renaming = right.new_constraint_forall(&self.map_label_predecesors());
 println!("end forall");
         newleft_before_renaming.add_permutations();
         newleft_before_renaming.remove_permutations();
@@ -410,10 +414,9 @@ println!("permutations");
             return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::MAX.bits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
         }
 
-        let mut newleft = newleft_before_renaming.renamed(&hm_oldset_label);
+        let newleft = newleft_before_renaming.renamed(&hm_oldset_label);
         let mut newright = left.new_constraint_exist(&hm_oldset_label);
 println!("computed exists");
-        //newleft.remove_permutations();
         newright.remove_permutations();
         println!("permutations");
 
