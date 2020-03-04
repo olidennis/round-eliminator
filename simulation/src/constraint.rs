@@ -229,18 +229,10 @@ impl Constraint {
         let delta = self.delta;
         let bits = self.bits;
 
-        let mut bad = Constraint::new(delta, bits);
-        let total = (bits as usize).pow(delta as u32);
-        for (i,line) in Line::forall_single(delta, bits, self.mask).enumerate(){
-            if i%10000 == 0 {
-                trace!("enumerating configurations {} / {}",i,total);
-            }
-            if !self.satisfies(&line){
-                bad.add(line);
-            }
-        }
+        let bad = Line::forall_single(delta, bits, self.mask).filter(
+            |line|!self.satisfies(&line)
+        );
 
-        
         let mut v = vec![];
         let mut nodup = HashSet::new();
 
@@ -251,8 +243,9 @@ impl Constraint {
 
         let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,&b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
 
-        let sz = bad.lines.len();
-        for (i,r) in bad.lines.iter().rev().cloned().enumerate() {
+        trace!("counting bad configurations");
+        let sz = bad.clone().count();
+        for (i,r) in bad.rev().enumerate() {
             if let Some(prev) = prev{
                 let prevandpred = prev.edited(|g|{
                     pred2[&g]

@@ -65,7 +65,7 @@ impl Line {
     /// This functions produces an iterator that iterates over all possible Lines that can be created by
     /// allowing only a single element for each group.
     /// `mask` is a bit vector that specifies which elements are allowed.
-    pub fn forall_single(delta: usize, bits: usize, mask: BigNum) -> impl Iterator<Item = Self> {
+    pub fn forall_single(delta: usize, bits: usize, mask: BigNum) -> impl Clone + DoubleEndedIterator<Item = Self> {
         //in case of overflow, just abort
         //iterating over more than 2^64 requires too much time anyway
         (bits as usize).checked_pow(delta as u32).unwrap();

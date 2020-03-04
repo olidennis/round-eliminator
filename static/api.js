@@ -53,6 +53,8 @@ if( use_wasm ){
     });
 }
 
+let dontgc = [];
+
 function request_wasm(req, onresult, oncomplete, worker) {
     let r = JSON.stringify(req);
     let t0 = performance.now();
@@ -91,12 +93,15 @@ function request_wasm(req, onresult, oncomplete, worker) {
             console.log("Computation took "+(t1-t0)+" ms.");
             oncomplete();
             w.terminate();
+            dontgc.splice(dontgc.indexOf(w),1);
         }
     }
     let terminate = function(){
         console.log("terminating worker!");
         w.terminate();
+        dontgc.splice(dontgc.indexOf(w),1);
     }
+    dontgc.push(w);
     return terminate;
 }
 
