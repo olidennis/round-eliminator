@@ -505,28 +505,14 @@ impl Problem {
         let mut right = self.right.clone();
         right.add_permutations();
 
-
-        /*
         let num_labels = self.max_label() + 1;
-        let mut adj = vec![vec![]; num_labels];
-        for (i,x) in self.labels().enumerate() {
-            trace!("diagram edges label {}/{}",i+1,num_labels);
+        let mut mat = vec![vec![false; num_labels]; num_labels];
+        for x in self.labels() {
             for y in self.labels() {
-                let is_left = x != y
-                    && right
-                        .choices_iter_containing(x)
-                        .flat_map(|line| line.replace_one_fast(x, y))
-                        .all(|line| right.satisfies(&line));
-                if is_left {
-                    adj[x].push(y);
+                if x != y {
+                    mat[x][y] = true;
                 }
             }
-        }*/
-
-        let num_labels = self.max_label() + 1;
-        let mut mat = vec![vec![true; num_labels]; num_labels];
-        for i in 0..num_labels {
-            mat[i][i] = false;
         }
         //self.right does not contain permutations, right contains permutations
         for valid in self.right.choices_iter() {
@@ -550,7 +536,6 @@ impl Problem {
         }
 
         let adj : Vec<Vec<usize>> = mat.into_iter().map(|v|v.into_iter().enumerate().filter(|&(_,x)|x).map(|(i,_)|i).collect()).collect();
-
 
         let mut reachable = vec![];
 
