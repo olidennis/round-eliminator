@@ -504,6 +504,9 @@ impl Problem {
     pub fn compute_diagram_edges_from_rightconstraints(&mut self) {
         let mut right = self.right.clone();
         right.add_permutations();
+
+
+        /*
         let num_labels = self.max_label() + 1;
         let mut adj = vec![vec![]; num_labels];
         for (i,x) in self.labels().enumerate() {
@@ -518,7 +521,37 @@ impl Problem {
                     adj[x].push(y);
                 }
             }
+        }*/
+
+        let num_labels = self.max_label() + 1;
+        let mut mat = vec![vec![true; num_labels]; num_labels];
+        for i in 0..num_labels {
+            mat[i][i] = false;
         }
+        //self.right does not contain permutations, right contains permutations
+        for valid in self.right.choices_iter() {
+            let mut done = vec![false;num_labels];
+            for i in 0..self.right.delta {
+                let label = valid.group(i).one_bits().next().unwrap();
+                if done[label] {
+                    continue;
+                }
+                done[label] = true;
+                for x in self.labels() {
+                    if !mat[label][x] {
+                        continue;
+                    }
+                    let test = valid.with_group(i,BigNum::one()<<x);
+                    if !right.satisfies(&test) {
+                        mat[label][x] = false;
+                    }
+                }
+            }
+        }
+
+        let adj : Vec<Vec<usize>> = mat.into_iter().map(|v|v.into_iter().enumerate().filter(|&(_,x)|x).map(|(i,_)|i).collect()).collect();
+
+
         let mut reachable = vec![];
 
         let mut result = vec![];

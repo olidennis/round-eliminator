@@ -180,6 +180,13 @@ impl Line {
         })
     }
 
+    /// Returns the ith group
+    pub fn group(&self, i : usize) -> BigNum {
+        let bits = self.bits;
+        let one = BigNum::one();
+        (self.inner >> (i * bits)) & ((one << bits) - one)
+    }
+
     /// Replaces the i-th group with the new value `group` (starting to count from the least significant bits).
     pub fn with_group(&self, i: usize, group: BigNum) -> Line {
         let one = BigNum::one();
