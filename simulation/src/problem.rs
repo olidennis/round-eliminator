@@ -295,9 +295,6 @@ impl Problem {
 
     /// Computes if the current problem is 0 rounds solvable, saving the result
     pub fn compute_triviality(&mut self) {
-        // add_permutations should be a no-op if this is called from speedup()
-        // and in this way it always works
-        // and cloning right makes this function side-effect free on the constraints
         let mut right = self.right.clone();
         right.add_permutations();
         assert!(self.left.bits == right.bits);
