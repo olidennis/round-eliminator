@@ -311,6 +311,7 @@ impl Problem {
 
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
     pub fn compute_independent_lines(&mut self) {
+        trace!("    computing graph");
         let mut right = self.right.clone();
         right.add_permutations();
         assert!(self.left.bits == right.bits);
@@ -360,6 +361,8 @@ impl Problem {
             adj_l[a].push(b);
             adj_m[a][b] = true;
         }
+
+        trace!("    computing largest clique");
 
         self.coloring = 2;
         for sz in 3..=n {
