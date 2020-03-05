@@ -68,20 +68,18 @@ impl Line {
     pub fn forall_single(delta: usize, bits: usize, mask: BigNum) -> impl Clone + DoubleEndedIterator<Item = Self> {
         //in case of overflow, just abort
         //iterating over more than 2^64 requires too much time anyway
-        (bits as usize).checked_pow(delta as u32).unwrap();
+        let mbits = mask.count_ones();
+        mbits.checked_pow(delta as u32).unwrap();
 
-        // it could be optimized by iterating over mask.count_ones() to the delta instead of bits to the delta
-        (0..(bits as usize).pow(delta as u32)).filter_map(move |mut x| {
+        let ones : Vec<_> = mask.one_bits().collect();
+
+        (0..mbits.pow(delta as u32)).map(move |mut x| {
             let groups = (0..delta).map(|_| {
-                let cur = BigNum::one() << (x % bits as usize);
-                x /= bits as usize;
+                let cur = BigNum::one() << ones[(x % mbits) as usize];
+                x /= mbits;
                 cur
             });
-            let line = Self::from_groups(delta, bits, groups);
-            if line.groups().any(|g| (g & mask).is_zero()) {
-                return None;
-            }
-            Some(line)
+            Self::from_groups(delta, bits, groups)
         })
     }
 
