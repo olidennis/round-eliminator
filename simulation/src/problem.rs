@@ -353,44 +353,17 @@ impl Problem {
             .map(|(i, x)| (x, i))
             .collect();
         let n = map.len();
-        let mut adj_l = vec![vec![]; n];
-        let mut adj_m = vec![vec![false; n]; n];
+        let mut adj = vec![vec![]; n];
         for (a, b) in edges {
             let a = map[&a];
             let b = map[&b];
-            adj_l[a].push(b);
-            adj_m[a][b] = true;
+            adj[a].push(b);
+            adj[b].push(a);
         }
 
+        let g = crate::maxclique::Graph::from_adj(adj);
         trace!("    computing largest clique");
-
-        self.coloring = 2;
-        for sz in 3..=n {
-            let valid: Vec<_> = adj_l
-                .iter()
-                .enumerate()
-                .filter(|(_, l)| l.len() >= sz - 1)
-                .map(|(i, _)| i)
-                .collect();
-            if valid.len() < sz {
-                break;
-            }
-            use permutator::copy::Combination;
-            'search: for set in valid.combination(sz) {
-                for &x in &set {
-                    for &y in &set {
-                        if x != y && !adj_m[x][y] {
-                            continue 'search;
-                        }
-                    }
-                }
-                self.coloring = sz;
-                break;
-            }
-            if self.coloring != sz {
-                break;
-            }
-        }
+        self.coloring = g.max_clique();
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
