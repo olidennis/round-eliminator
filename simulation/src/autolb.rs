@@ -69,7 +69,7 @@ impl Auto for AutoLb {
             Simplification::Merge((c1,c2)) => p.replace(c1, c2, DiagramType::Accurate),
             Simplification::Addarrow((c1,c2)) => p.relax_add_arrow(c1, c2, DiagramType::Accurate),
         };
-        if np.is_trivial || !self.done.insert((speedups, np.clone())) {
+        if np.is_trivial() || !self.done.insert((speedups, np.clone())) {
             return None;
         }
         Some(np)
@@ -83,8 +83,8 @@ impl Auto for AutoLb {
         _: usize,
         colors: usize,
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
-        let best_is_trivial = best.current().is_trivial || best.current().coloring >= colors;
+        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring >= colors;
+        let best_is_trivial = best.current().is_trivial() || best.current().coloring >= colors;
 
         let should_yield = sol.speedups > best.speedups
             || (sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial);
@@ -109,7 +109,7 @@ impl Auto for AutoLb {
         maxiter: usize,
         colors: usize,
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial || sol.current().coloring >= colors;
+        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring >= colors;
 
         sol.speedups < maxiter && !sol_is_trivial
     }
@@ -121,7 +121,7 @@ impl std::fmt::Display for Sequence<AutoLb> {
         writeln!(
             f,
             "\nLower bound of {} rounds.\n",
-            self.speedups + if self.current().is_trivial { 0 } else { 1 }
+            self.speedups + if self.current().is_trivial() { 0 } else { 1 }
         )?;
 
         let mut lastmap: Option<HashMap<_, _>> = None;

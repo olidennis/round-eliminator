@@ -178,7 +178,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     where
         F: FnMut(&Sequence<T>),
     {
-        if self.sol.current().is_trivial {
+        if self.sol.current().is_trivial() {
             self.sol.make_printable();
             cb(&self.sol);
         }
@@ -270,7 +270,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
             match self.stack.last_mut().unwrap() {
                 State::Start => {
                     self.stack.pop();
-                    if self.auto.sol.current().is_trivial {
+                    if self.auto.sol.current().is_trivial() {
                         self.auto.sol.make_printable();
                         return Some(Ok(self.auto.sol.clone()));
                     }
