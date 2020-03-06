@@ -526,7 +526,6 @@ function make_div_newrenaming(problem){
 function make_table(v,f, shouldcolor = function(){ return false; }){
     let s = '<table class="table">';
     for (let line of v) {
-        console.log(shouldcolor(line));
         if( shouldcolor(line) ){
             s += '<tr class="text-info font-weight-bold">'
         } else {
@@ -558,12 +557,18 @@ function generate_html_for_problem(problem, reason) {
     let col_trivial = $('<div class="col-auto m-2 p-0">').append(trivial);
 
     let col_left_old = $("<div/>");
-    let col_right_old = $("<div/>");;
-    let col_renaming = $("<div/>");;
+    let col_right_old = $("<div/>");
+    let col_renaming = $("<div/>");
+
+    let trivials = new Set(x.trivial_lines.map(v => JSON.stringify(v)));
+    let colors = new Set(x.coloring_lines.map(v => JSON.stringify(v)));
+    let set_to_use = x.is_trivial ? trivials : colors;
+    let highlight = function(v){ let t = JSON.stringify(v); return set_to_use.has(t); };
+
     if( x.mapping != null ){
         let id = freeid();
         let cur_to_old = get_renaming(problem);
-        let left_old = make_table(x.left,  function(v){return make_oldlabel(v,cur_to_old);});
+        let left_old = make_table(x.left,  function(v){return make_oldlabel(v,cur_to_old);}, highlight);
         let right_old = make_table(x.right, function(v){return make_oldlabel(v,cur_to_old);});
         let renaming = make_div_renaming(problem);
         col_left_old = make_card("m-2","p-0","<h6>Active (Before Renaming)</h6><h6><small>Any choice satisfies previous Passive</small></h6>",left_old,false,id);
@@ -572,10 +577,6 @@ function generate_html_for_problem(problem, reason) {
     }
     
     let id_new_leftright = freeid();
-    let trivials = new Set(x.trivial_lines.map(v => JSON.stringify(v)));
-    let colors = new Set(x.coloring_lines.map(v => JSON.stringify(v)));
-    let set_to_use = x.is_trivial ? trivials : colors;
-    let highlight = function(v){ let t = JSON.stringify(v); return set_to_use.has(t); };
     let left_new = make_table(x.left,function(x){return merge(x.map(y => escape(y)))}, highlight);
     let right_new = make_table(x.right,function(x){return merge(x.map(y => escape(y)))});
     let col_left_new = make_card("m-2","p-0","<h6>Active</h6><h6><small>Any choice satisfies previous Passive</small></h6>",left_new,true,id_new_leftright);
