@@ -222,7 +222,7 @@ impl Line {
     /// Each resulting vector represents a single group of the line.
     /// Each group is represented by a vector of strings.
     pub fn string_to_vec(line: &str) -> Vec<Vec<String>> {
-        line.split_whitespace()
+        line.split_whitespace().rev()
             .map(|w| {
                 w.chars()
                     .batching(|it| match it.next() {

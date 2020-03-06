@@ -1,21 +1,15 @@
-Minor/performance:
-- The order of labels changes strangely
-
 Todo:
 - hardening by keeping lines instead of labels
-- relax by making the diagram a path (guaranteed fixpoint), in general allow "add arrow" relaxation. Even better: automatic lower bound thing where one specifies the "maximum amount of non comparable labels on the diagram"
 - It would help the automatic lb/ub if the bidirectional edges force a simplification before doing anything else.
 - gui: allow interrupting autolb autoub when the server is used 
 - after simplifications, remove lines on the left side that are not needed (there exists another line that allows strictly more)
 - in autoub, do not generate strings to check for a fixpoint
-- check if using hashmap instead of vec didn't make things too slow
 - check for solvability given a weak coloring
 - use the tree decidability results for binary lcls
 
 Todo soon:
 autoub autolb: add rcs parameter to cli, add new options to cli
 do simplifications even if it is possible to perform speedup
-highlight what gives 0 rounds solvability
 
 Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time). It is caused by https://bugzilla.mozilla.org/show_bug.cgi?id=1052398
