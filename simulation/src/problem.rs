@@ -21,7 +21,7 @@ pub struct Problem {
     pub left: Constraint,
     pub right: Constraint,
     pub map_text_label: Vec<(String, usize)>,
-    pub is_trivial: bool,
+    pub trivial_lines: Vec<Line>,
     pub diagram: Vec<(usize, usize)>,
     pub reachable: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
@@ -56,7 +56,7 @@ impl Problem {
             map_text_oldlabel,
             diagram: vec![],
             reachable: vec![],
-            is_trivial: false,
+            trivial_lines: vec![],
             coloring: 0,
             mergeable: vec![],
         };
@@ -301,12 +301,14 @@ impl Problem {
         let bits = self.left.bits;
         let delta_r = right.delta;
 
-        let is_trivial = self.left.choices_iter().any(|action| {
+        self.trivial_lines = self.left.choices_iter().filter(|action| {
             let mask = action.mask();
             Line::forall_single(delta_r, bits, mask).all(|x| right.satisfies(&x))
-        });
+        }).collect();
+    }
 
-        self.is_trivial = is_trivial;
+    pub fn is_trivial(&self) -> bool {
+        !self.trivial_lines.is_empty()
     }
 
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
@@ -698,7 +700,8 @@ impl Problem {
             .map(|(a, b)| (map[a].to_owned(), map[b].to_owned()))
             .collect();
 
-        let is_trivial = self.is_trivial;
+        let is_trivial = self.is_trivial();
+        let trivial_lines = self.trivial_lines.iter().map(|line|line.to_vec(&map)).collect();
         let coloring = self.coloring;
 
         let mergeable = self
@@ -713,6 +716,7 @@ impl Problem {
             mapping,
             diagram,
             is_trivial,
+            trivial_lines,
             coloring,
             mergeable,
         }
@@ -742,6 +746,7 @@ pub struct ResultProblem {
     pub mapping: Option<Vec<(Vec<String>, String)>>,
     pub diagram: Vec<(String, String)>,
     pub is_trivial: bool,
+    pub trivial_lines: Vec<Vec<Vec<String>>>,
     pub coloring: usize,
     pub mergeable: Vec<Vec<String>>,
 }
@@ -783,6 +788,14 @@ impl std::fmt::Display for ResultProblem {
             r += "NOT ";
         }
         r += "zero rounds solvable.\n";
+        if !self.is_trivial {
+            r += "Zero rounds solvability is given by the following configurations:\n";
+            let trivial = self.trivial_lines
+                .iter()
+                .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+                .join("\n");
+            r += &format!("{}\n", trivial);
+        }
 
         if self.coloring >= 2 {
             r += &format!(

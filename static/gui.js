@@ -523,10 +523,15 @@ function make_div_newrenaming(problem){
     return div;
 }
 
-function make_table(v,f){
+function make_table(v,f, shouldcolor = function(){ return false; }){
     let s = '<table class="table">';
     for (let line of v) {
-        s += '<tr>';
+        console.log(shouldcolor(line));
+        if( shouldcolor(line) ){
+            s += '<tr class="text-info font-weight-bold">'
+        } else {
+            s += '<tr>';
+        }
         for (let elem of line) {
             s += '<td>'+f(elem)+'</td>';
         }
@@ -567,7 +572,8 @@ function generate_html_for_problem(problem, reason) {
     }
     
     let id_new_leftright = freeid();
-    let left_new = make_table(x.left,function(x){return merge(x.map(y => escape(y)))});
+    let trivials = new Set(x.trivial_lines.map(v => JSON.stringify(v)));
+    let left_new = make_table(x.left,function(x){return merge(x.map(y => escape(y)))}, function(v){ return trivials.has(JSON.stringify(v)); });
     let right_new = make_table(x.right,function(x){return merge(x.map(y => escape(y)))});
     let col_left_new = make_card("m-2","p-0","<h6>Active</h6><h6><small>Any choice satisfies previous Passive</small></h6>",left_new,true,id_new_leftright);
     let col_right_new = make_card("m-2","p-0","<h6>Passive</h6><h6><small>Exists choice satisfying previous Active</small></h6>",right_new,true,id_new_leftright);
