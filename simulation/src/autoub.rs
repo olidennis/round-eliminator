@@ -95,8 +95,8 @@ impl Auto for AutoUb {
         _: usize,
         colors: usize,
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring >= colors;
-        let best_is_trivial = best.current().is_trivial() || best.current().coloring >= colors;
+        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring() >= colors;
+        let best_is_trivial = best.current().is_trivial() || best.current().coloring() >= colors;
 
         let should_yield = sol_is_trivial && (!best_is_trivial || sol.speedups < best.speedups);
         /*
@@ -136,8 +136,8 @@ impl Auto for AutoUb {
             }
         }
 
-        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring >= colors;
-        let best_is_trivial = best.current().is_trivial() || best.current().coloring >= colors;
+        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring() >= colors;
+        let best_is_trivial = best.current().is_trivial() || best.current().coloring() >= colors;
 
         sol.speedups < maxiter
             && !sol_is_trivial

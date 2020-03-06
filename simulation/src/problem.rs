@@ -26,7 +26,7 @@ pub struct Problem {
     pub reachable: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
-    pub coloring: usize,
+    pub coloring_lines: Vec<Line>,
     pub mergeable: Vec<BigNum>,
 }
 
@@ -57,7 +57,7 @@ impl Problem {
             diagram: vec![],
             reachable: vec![],
             trivial_lines: vec![],
-            coloring: 0,
+            coloring_lines: vec![],
             mergeable: vec![],
         };
         if let Some(map) = map_text_label {
@@ -311,6 +311,11 @@ impl Problem {
         !self.trivial_lines.is_empty()
     }
 
+
+    pub fn coloring(&self) -> usize {
+        self.coloring_lines.len()
+    }
+
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
     pub fn compute_independent_lines(&mut self) {
         trace!("    computing graph");
@@ -341,7 +346,6 @@ impl Problem {
             }
         }
         if edges.is_empty() {
-            self.coloring = 1;
             return;
         }
 
@@ -365,7 +369,8 @@ impl Problem {
 
         let g = crate::maxclique::Graph::from_adj(adj);
         trace!("    computing largest clique");
-        self.coloring = g.max_clique();
+        let invmap : HashMap<_,_> = map.iter().map(|(a,b)|(b,a)).collect();
+        self.coloring_lines = g.max_clique().into_iter().map(|x|*invmap[&x]).collect();
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
@@ -702,7 +707,9 @@ impl Problem {
 
         let is_trivial = self.is_trivial();
         let trivial_lines = self.trivial_lines.iter().map(|line|line.to_vec(&map)).collect();
-        let coloring = self.coloring;
+        let coloring = self.coloring();
+        let coloring_lines = self.coloring_lines.iter().map(|line|line.to_vec(&map)).collect();
+
 
         let mergeable = self
             .mergeable
@@ -718,6 +725,7 @@ impl Problem {
             is_trivial,
             trivial_lines,
             coloring,
+            coloring_lines,
             mergeable,
         }
     }
@@ -748,6 +756,7 @@ pub struct ResultProblem {
     pub is_trivial: bool,
     pub trivial_lines: Vec<Vec<Vec<String>>>,
     pub coloring: usize,
+    pub coloring_lines: Vec<Vec<Vec<String>>>,
     pub mergeable: Vec<Vec<String>>,
 }
 
@@ -797,11 +806,17 @@ impl std::fmt::Display for ResultProblem {
             r += &format!("{}\n", trivial);
         }
 
-        if self.coloring >= 2 {
+        if self.coloring >= 2 && !self.is_trivial {
             r += &format!(
                 "\nThe problem is zero rounds solvable given a {} coloring.\n",
                 self.coloring
             );
+            r += "Lines that can be mapped to colors are:\n";
+            let coloring = self.coloring_lines
+                .iter()
+                .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+                .join("\n");
+            r += &format!("{}\n", coloring);
         }
 
         if !self.mergeable.is_empty() {

@@ -83,8 +83,8 @@ impl Auto for AutoLb {
         _: usize,
         colors: usize,
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring >= colors;
-        let best_is_trivial = best.current().is_trivial() || best.current().coloring >= colors;
+        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring() >= colors;
+        let best_is_trivial = best.current().is_trivial() || best.current().coloring() >= colors;
 
         let should_yield = sol.speedups > best.speedups
             || (sol.speedups == best.speedups && !sol_is_trivial && best_is_trivial);
@@ -109,7 +109,7 @@ impl Auto for AutoLb {
         maxiter: usize,
         colors: usize,
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring >= colors;
+        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring() >= colors;
 
         sol.speedups < maxiter && !sol_is_trivial
     }

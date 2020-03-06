@@ -24,28 +24,33 @@ impl Graph{
         Self { n,adj,m }
     }
 
-    pub fn max_clique(&self) -> usize {
+    pub fn max_clique(&self) -> Vec<usize> {
         let n = self.n;
         let mut c = vec![0;n];
         let v = self.ordering();
         let mut max = 0;
+        let mut candidates = vec![];
+        let mut best = vec![];
         for i in (0..n).rev() {
             let vi = v[i];
             let si = v[i..].iter().cloned();
             let u : Vec<_> = si.filter(|&x|self.m[vi][x]).collect();
             let mut found = false;
-            self.clique_rec(&u, 1, &c, &mut max, &mut found);
+            candidates.push(vi);
+            self.clique_rec(&u, 1, &c, &mut max, &mut found, &mut candidates, &mut best);
+            candidates.pop();
             c[vi] = max;
         }
-        max
+        best
     }
 
 
-    fn clique_rec(&self, mut u : &[usize] , size : usize, c : &[usize], max : &mut usize, found : &mut bool) {
+    fn clique_rec(&self, mut u : &[usize] , size : usize, c : &[usize], max : &mut usize, found : &mut bool, candidates : &mut Vec<usize>, best : &mut Vec<usize>) {
         if u.is_empty() {
             if size > *max {
                 *max = size;
                 *found = true;
+                *best = candidates.clone();
             }
         }
         while ! u.is_empty() {
@@ -58,7 +63,9 @@ impl Graph{
             }
             u = &u[1..];
             let newu : Vec<_> = u.iter().cloned().filter(|&x|self.m[vi][x]).collect();
-            self.clique_rec(&newu, size+1, c, max, found);
+            candidates.push(vi);
+            self.clique_rec(&newu, size+1, c, max, found, candidates, best);
+            candidates.pop();
             if *found {
                 return;
             }
