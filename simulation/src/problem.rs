@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+//#![allow(dead_code)]
 
 use crate::bignum::BigNum;
 use crate::constraint::Constraint;
@@ -177,7 +177,7 @@ impl Problem {
             .cloned()
             .filter(|&(_, l)| l != from)
             .collect();
-        let p = Problem::new(
+        let mut p = Problem::new(
             left,
             right,
             Some(map_text_label),
@@ -186,7 +186,33 @@ impl Problem {
             diagramtype,
         )
         .unwrap();
+        p.remove_useless_lines();
         p
+    }
+
+    pub fn remove_useless_lines(&mut self) {
+        for line in self.left.lines.iter() {
+            if !line.is_action() {
+                return;
+            }
+        }
+        if !self.mergeable.is_empty() {
+            return;
+        }
+        let succ = self.map_label_successors();
+        let mut left = self.left.clone();
+        left.add_permutations();
+        let mut new = Constraint::new(left.delta, left.bits);
+        'outer: for &a in &left.lines {
+            for &b in &left.lines {
+                if a!=b && b.stronger(a,&succ) {
+                    continue 'outer;
+                }
+            }
+            new.add(a);
+        }
+        new.remove_permutations();
+        self.left.lines = new.lines;
     }
 
     pub fn merge_equal(&self) -> Problem {
@@ -201,6 +227,7 @@ impl Problem {
             }
         }
         p.compute_diagram_edges(DiagramType::Accurate);
+        p.remove_useless_lines();
         p
     }
 
@@ -213,7 +240,7 @@ impl Problem {
         let map_label_oldset = self.map_label_oldset.clone();
         let map_text_oldlabel = self.map_text_oldlabel.clone();
         let map_text_label = self.map_text_label.clone();
-        let p = Problem::new(
+        let mut p = Problem::new(
             left,
             right,
             Some(map_text_label),
@@ -221,6 +248,7 @@ impl Problem {
             map_text_oldlabel,
             diagramtype,
         ).unwrap();
+        p.remove_useless_lines();
         p
     }
 
@@ -298,7 +326,25 @@ impl Problem {
         v
     }
 
-    /// Computes all direct predecessors of a given label
+    /// computes a map from a label to its (direct and indirect) successors
+    pub fn map_label_successors(&self) -> Vec<BigNum> {
+        let mut v = vec![BigNum::zero();self.max_label()+1];
+        for x in self.labels() {
+            v[x] = self.successors(x, false);
+        }
+        v
+    }
+
+    pub fn successors(&self, lab: usize, immediate : bool) -> BigNum {
+        let what = if immediate { &self.diagram } else { &self.reachable };
+        what
+            .iter()
+            .cloned()
+            .filter(|&(a, _)| a == lab)
+            .map(|(_, b)| BigNum::one() << b)
+            .fold(BigNum::zero(), |a, b| a | b)
+    }
+
     pub fn predecessors(&self, lab: usize, immediate : bool) -> BigNum {
         let what = if immediate { &self.diagram } else { &self.reachable };
         what
@@ -574,24 +620,7 @@ impl Problem {
             .filter(move |&x| mask.is_superset(x))
     }
 
-    /// Returns an iterator over all possible sets of labels that are actually needed for the speedup step.
-    /// This currently means all possible right closed subsets of the diagram plus all possible singletons.
-    fn allowed_sets_for_speedup(&self) -> Vec<BigNum> {
-        //let m = self.diagram_adj();
-        //let test : Vec<_> = self.all_possible_sets().filter(|&x| x.count_ones() == 1 || Problem::is_rightclosed(x, &m)).unique().sorted().collect();
 
-        let rcs = self.right_closed_subsets();
-        let result = self
-            .labels()
-            .map(|i| BigNum::one() << i)
-            .chain(rcs.into_iter())
-            .unique()
-            .sorted()
-            .collect();
-
-        //assert!(test == result);
-        result
-    }
 
     fn rcs_helper(&self, right: &Vec<BigNum>, result: &mut Vec<BigNum>, added: BigNum, max: usize) {
         for x in self.labels() {
@@ -625,18 +654,6 @@ impl Problem {
             m[x].push(y);
         }
         m
-    }
-
-    /// Returns true if the given set of labels is a right closed subset of the diagram.
-    fn is_rightclosed(set: BigNum, m: &Vec<Vec<usize>>) -> bool {
-        for x in set.one_bits() {
-            for &t in &m[x] {
-                if !set.bit(t) {
-                    return false;
-                }
-            }
-        }
-        true
     }
 
     /// Assign a text representation to the labels.

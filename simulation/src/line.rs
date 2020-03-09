@@ -313,6 +313,17 @@ impl Line {
     }
 
 
+    pub fn stronger(&self, line: Line, succ: &[BigNum]) -> bool {
+        let g1 = self.groups();
+        let g2 = line.groups();
+        let mut pairs = g1.zip(g2);
+        pairs.all(|(a,b)|{
+            let a = a.one_bits().next().unwrap();
+            let b = b.one_bits().next().unwrap();
+            b==a || succ[b].bit(a)
+        })
+    }
+
     pub fn sorted(&self) -> Self {
         let sg = self.groups().sorted();
         let delta = self.delta;

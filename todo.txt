@@ -1,7 +1,6 @@
 Todo:
 - hardening by keeping lines instead of labels
 - gui: allow interrupting autolb autoub when the server is used 
-- after simplifications, remove lines on the left side that are not needed (there exists another line that allows strictly more)
 - in autoub, do not generate strings to check for a fixpoint
 - check for solvability given a weak coloring
 - use the tree decidability results for binary lcls
