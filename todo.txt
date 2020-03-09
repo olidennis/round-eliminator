@@ -12,4 +12,3 @@ do simplifications even if it is possible to perform speedup
 Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time). It is caused by https://bugzilla.mozilla.org/show_bug.cgi?id=1052398
 on safari autolb autoub threads are not interrupted
-if a new problem is created from text, and it does not fit the bits, it may create something wrong (should add a check that delta*labels is small enough)

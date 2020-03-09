@@ -174,6 +174,10 @@ impl Constraint {
         let delta = first.delta;
         let bits = first.bits;
 
+        if delta*bits > BigNum::MAX.bits() {
+            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent this problem a limit of {}*{} is required.",BigNum::MAX.bits(),bits,delta));
+        }
+
         let mut c = Constraint::new(delta, bits);
         for line in v {
             let line = Line::from_vec(line, mapping);
