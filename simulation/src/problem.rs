@@ -213,6 +213,9 @@ impl Problem {
         }
         new.remove_permutations();
         self.left.lines = new.lines;
+        let left_mask = self.left.real_mask();
+        let p = self.harden(left_mask, DiagramType::Accurate, false).unwrap();
+        *self = p;
     }
 
     pub fn merge_equal(&self) -> Problem {
