@@ -831,7 +831,7 @@ impl std::fmt::Display for ResultProblem {
             r += "NOT ";
         }
         r += "zero rounds solvable.\n";
-        if !self.is_trivial {
+        if self.is_trivial {
             r += "Zero rounds solvability is given by the following configurations:\n";
             let trivial = self.trivial_lines
                 .iter()

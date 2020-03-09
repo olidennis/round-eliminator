@@ -14,37 +14,39 @@ use futures01::sync::mpsc;
 use futures01::Future;
 use futures_cpupool::CpuPool;
 
-pub fn file(name: &str, iter: usize) {
+pub fn file(name: &str, iter: usize, merge : bool) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
     let mut p = Problem::from_line_separated_text(&data).unwrap();
-    p.compute_independent_lines();
     println!("{}", p.as_result());
 
     for _ in 0..iter {
         println!("-------------------------");
         p = p.speedup(DiagramType::Accurate).unwrap();
-        p.compute_independent_lines();
         println!("{}", p.as_result());
+        if merge && !p.mergeable.is_empty() {
+            p = p.merge_equal();
+            println!("Merged equivalent labels");
+            println!("{}", p.as_result());
+
+        }
     }
 }
 
-pub fn autolb(name: &str, labels: usize, iter: usize, colors:usize) {
+pub fn autolb(name: &str, labels: usize, iter: usize, colors:usize, features : &str) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
     let p = Problem::from_line_separated_text(&data).unwrap();
-    let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels,1000,colors,&["diag"]);
+    let features : Vec<_> = features.split(",").collect();
+    let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels,1000,colors,&features);
     //auto.run(|x|println!("{}",x));
     for x in auto {
         println!("{}", x.unwrap());
     }
 }
 
-pub fn autoub(name: &str, labels: usize, iter: usize, colors:usize, pred : bool) {
+pub fn autoub(name: &str, labels: usize, iter: usize, colors:usize, features : &str) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
     let p = Problem::from_line_separated_text(&data).unwrap();
-    let mut features = vec![];
-    if pred {
-        features.push("pred");
-    }
+    let features : Vec<_> = features.split(",").collect();
     let auto = AutomaticSimplifications::<AutoUb>::new(p, iter, labels,1000,colors,&features);
     //auto.run(|x|println!("{}",x));
     for x in auto {
