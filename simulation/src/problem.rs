@@ -31,6 +31,7 @@ pub struct Problem {
 }
 
 pub enum DiagramType {
+    None,
     Fast,
     Accurate,
 }
@@ -185,6 +186,21 @@ impl Problem {
             diagramtype,
         )
         .unwrap();
+        p
+    }
+
+    pub fn merge_equal(&self) -> Problem {
+        if self.mergeable.is_empty() {
+            return self.clone();
+        }
+        let mut p = self.clone();
+        for x in self.mergeable.iter() {
+            let to = x.one_bits().last().unwrap();
+            for from in x.one_bits().filter(|&y|y != to) {
+                p = p.replace(from,to,DiagramType::None);
+            }
+        }
+        p.compute_diagram_edges(DiagramType::Accurate);
         p
     }
 
@@ -423,6 +439,7 @@ impl Problem {
     /// We put an edge from A to B if each time A can be used then also B can be used.
     pub fn compute_diagram_edges(&mut self, diagramtype: DiagramType) {
         match (diagramtype, self.map_label_oldset.is_some()) {
+            (DiagramType::None, _) => {},
             (DiagramType::Fast, true) => self.compute_diagram_edges_from_oldsets(),
             _ => self.compute_diagram_edges_from_rightconstraints(),
         }

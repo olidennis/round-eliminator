@@ -10,6 +10,7 @@ pub enum Step<T: Clone + std::fmt::Debug> {
     Initial(Problem),
     Simplify((T, Problem)),
     Speedup(Problem),
+    MergeEqual(Problem)
 }
 
 /// A generic simplification strategy should implement this trait.
@@ -77,6 +78,7 @@ where
             Step::Initial(p) => p,
             Step::Simplify((_, p)) => p,
             Step::Speedup(p) => p,
+            Step::MergeEqual(p) => p
         }
     }
 
@@ -85,6 +87,7 @@ where
             Step::Initial(p) => p,
             Step::Simplify((_, p)) => p,
             Step::Speedup(p) => p,
+            Step::MergeEqual(p) => p
         }
     }
 
@@ -98,6 +101,9 @@ where
                     let _ = p.as_result();
                 }
                 Step::Speedup(p) => {
+                    let _ = p.as_result();
+                }
+                Step::MergeEqual(p) => {
                     let _ = p.as_result();
                 }
             }
@@ -114,6 +120,7 @@ where
 
     fn pop_speedup(&mut self) {
         self.speedups -= 1;
+        self.pop_mergeequal();
         self.pop();
     }
 
@@ -123,20 +130,38 @@ where
         let last = self.current_mut();
         let new = last.speedup(DiagramType::Accurate)?;
         self.push(Step::Speedup(new));
+        self.merge_equal();
         Ok(())
     }
 
     fn push_simplification(&mut self, simpl: T::Simplification, auto: &mut T) -> bool {
         if let Some(new) = auto.simplify(self, simpl) {
             self.push(Step::Simplify((simpl, new)));
+            self.merge_equal();
             return true;
         }
         false
     }
 
     fn pop_simplification(&mut self) {
+        self.pop_mergeequal();
         self.pop();
     }
+
+    fn merge_equal(&mut self){
+        let last = self.current();
+        if !last.mergeable.is_empty() {
+            let new = last.merge_equal();
+            self.push(Step::MergeEqual(new));
+        }
+    }
+
+    fn pop_mergeequal(&mut self){
+        if let Step::MergeEqual(_) = self.steps.last().unwrap() {
+            self.pop();
+        }
+    }
+
 }
 
 pub struct AutomaticSimplifications<T: Auto> {

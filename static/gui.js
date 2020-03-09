@@ -56,6 +56,10 @@ function performed_initial() {
     return make_performed_action("Initial problem.");
 }
 
+function performed_mergeequal() {
+    return make_performed_action("Merged equivalent labels.");
+}
+
 function performed_simplification(s){
     return make_performed_action("Performed simplification "+escape(s));
 }
@@ -117,6 +121,17 @@ function make_button_speedup(problem) {
         let spinner = make_spinner("Performing speedup...");
         append_generic(spinner);
         api.api_speedup(blob, function(x){ spinner.remove(); return append_new_problem_or_error(x, performed_speedup() ); } );
+    });
+    return next;
+}
+
+function make_button_mergeequal(problem) {
+    let blob = problem[0];
+    let x = problem[1];
+    if( x.mergeable.length == 0 )return $('');
+    let next = $('<button type="button" class="btn btn-primary ml-2">Merge Equal Labels</button>');
+    next.click(function(ev) {
+        api.api_merge_equal(blob, function(x){ return append_new_problem(x, performed_mergeequal() ); } );
     });
     return next;
 }
@@ -339,6 +354,7 @@ function make_div_autolb(problem){
                 let what = step[1];
                 if( what == "Initial" )toshow.append(performed_initial());
                 else if( what == "Speedup" )toshow.append(performed_speedup());
+                else if( what == "MergedEqual" )toshow.append(performed_mergeequal());
                 else if( what.Simplified != null ){
                     for(let simpl of what.Simplified ){
                         let action = simpl[0];
@@ -434,6 +450,7 @@ function make_div_autoub(problem){
             for(let step of result ) {
                 let what = step[1];
                 if( what == "Initial" )toshow.append(performed_initial());
+                else if( what == "MergedEqual" )toshow.append(performed_mergeequal());
                 else if( what == "Speedup" )toshow.append(performed_speedup());
                 else if( what.Simplified != null ){
                     let s = merge(what.Simplified);
@@ -590,6 +607,7 @@ function generate_html_for_problem(problem, reason) {
     let col_mergeable = divmergeable == null? $('<div/>') : $('<div class="col-auto m-2 p-0">').append(mergeable);
 
     let next = make_button_speedup(problem);
+    let mergeequal = make_button_mergeequal(problem);
     let edit = make_button_edit(problem);
     let simpls = make_div_simplifications(problem);
     let simpls_card = make_card("m-2","p-0","<h7>Simplifications</h7>",simpls,false,freeid());
@@ -607,6 +625,7 @@ function generate_html_for_problem(problem, reason) {
 
     let tools = $('<div/>');
     tools.append(next);
+    tools.append(mergeequal);
     tools.append(edit);
     tools.append(simpls_card);
     tools.append(addarrow_card);

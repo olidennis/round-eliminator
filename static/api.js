@@ -158,3 +158,6 @@ export function api_autoub(p,label,iter,col, rcs, usepred, usedet, result, end) 
     return request({ AutoUb : [p,label,iter,col, rcs, usepred,usedet] }, result , end ,true);
 }
 
+export function api_merge_equal(p, ready){
+    return request({ MergeEqual : p }, function(r){ready(r.P)} , function(){} , false);
+}

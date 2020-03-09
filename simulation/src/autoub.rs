@@ -171,6 +171,10 @@ impl std::fmt::Display for Sequence<AutoUb> {
                     writeln!(f, "\nSpeed up\n\n{}\n", p.as_result())?;
                     p
                 }
+                Step::MergeEqual(p) => {
+                    writeln!(f, "\nMerged equal labels\n\n{}\n", p.as_result())?;
+                    p
+                }
             };
             lastmap = Some(p.map_label_text());
         }
@@ -183,6 +187,7 @@ pub enum ResultStep {
     Initial,
     Simplified(Vec<String>),
     Speedup,
+    MergedEqual
 }
 
 pub struct ResultAutoUb {
@@ -208,6 +213,10 @@ impl Sequence<AutoUb> {
                 }
                 Step::Speedup(p) => {
                     v.push((ResultStep::Speedup, p.clone()));
+                    p
+                }
+                Step::MergeEqual(p) => {
+                    v.push((ResultStep::MergedEqual, p.clone()));
                     p
                 }
             };

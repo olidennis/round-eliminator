@@ -2,7 +2,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uint::*;
 
 construct_uint! {
-    pub struct BigNum(16);
+    pub struct BigNum(1);
 }
 
 impl Serialize for BigNum {
@@ -34,7 +34,7 @@ impl BigNum {
         (*self | other) == *self
     }
 
-    pub fn one_bits(&self) -> impl Iterator<Item = usize> + 'static {
+    pub fn one_bits(&self) -> impl DoubleEndedIterator<Item = usize> + 'static {
         let slf = *self;
         let bits = slf.bits();
         (0..bits).filter(move |&i| slf.bit(i))

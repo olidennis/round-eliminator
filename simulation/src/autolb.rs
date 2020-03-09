@@ -57,14 +57,13 @@ impl Auto for AutoLb {
         Box::new(v.into_iter())
     }
 
-    /// Here simplifying means replacing label A with label B, where in the diagram there is an arrow from A to B.
     fn simplify(
         &mut self,
         sequence: &mut Sequence<Self>,
         x: Self::Simplification,
     ) -> Option<Problem> {
         let speedups = sequence.speedups;
-        let p = sequence.current_mut();
+        let p = sequence.current();
         let np = match x {
             Simplification::Merge((c1,c2)) => p.replace(c1, c2, DiagramType::Accurate),
             Simplification::Addarrow((c1,c2)) => p.relax_add_arrow(c1, c2, DiagramType::Accurate),
@@ -145,6 +144,10 @@ impl std::fmt::Display for Sequence<AutoLb> {
                     writeln!(f, "\nSpeed up\n\n{}\n", p.as_result())?;
                     p
                 }
+                Step::MergeEqual(p) => {
+                    writeln!(f, "\nMerged equal labels\n\n{}\n", p.as_result())?;
+                    p
+                }
             };
             lastmap = Some(p.map_label_text());
         }
@@ -157,6 +160,7 @@ pub enum ResultStep {
     Initial,
     Simplified(Vec<(String,String,String)>),
     Speedup,
+    MergedEqual
 }
 
 
@@ -196,6 +200,17 @@ impl Sequence<AutoLb> {
                     }
                     simpls = vec![];
                     v.push((ResultStep::Speedup, p.clone()));
+                    p
+                }
+                Step::MergeEqual(p) => {
+                    if !simpls.is_empty() {
+                        v.push((
+                            ResultStep::Simplified(simpls.clone()),
+                            lastp.take().unwrap(),
+                        ));
+                    }
+                    simpls = vec![];
+                    v.push((ResultStep::MergedEqual, p.clone()));
                     p
                 }
             };

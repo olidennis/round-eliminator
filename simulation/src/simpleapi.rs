@@ -32,6 +32,12 @@ pub fn speedup(p: &Problem) -> Result<RProblem, String> {
     Ok((np, nr))
 }
 
+pub fn merge_equal(p: &Problem) -> RProblem {
+    let np = p.merge_equal();
+    let nr = np.as_result();
+    (np, nr)
+}
+
 pub fn possible_simplifications(p: &Problem) -> RSimplifications {
     let pdiag = p.diagram.iter().cloned().chain(p.unreachable_pairs());
     let map = p.map_label_text();
@@ -200,6 +206,7 @@ pub fn autoub(
 #[derive(Deserialize, Serialize, Debug)]
 pub enum Request {
     NewProblem(String, String),
+    MergeEqual(Problem),
     Speedup(Problem),
     PossibleSimplifications(Problem),
     PossibleAddarrow(Problem),
@@ -232,6 +239,10 @@ where
         Request::Ping => {
             f(Response::Pong);
             return;
+        }
+        Request::MergeEqual(p) => {
+            let r = merge_equal(&p);
+            f(Response::P(r));
         }
         Request::NewProblem(s1, s2) => match new_problem(&s1, &s2) {
             Ok(r) => f(Response::P(r)),
