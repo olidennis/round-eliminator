@@ -149,15 +149,14 @@ where
     }
 
     fn merge_equal(&mut self){
-        let last = self.current();
-        if !last.mergeable.is_empty() {
-            let new = last.merge_equal();
+        while !self.current().mergeable.is_empty() {
+            let new = self.current().merge_equal();
             self.push(Step::MergeEqual(new));
         }
     }
 
     fn pop_mergeequal(&mut self){
-        if let Step::MergeEqual(_) = self.steps.last().unwrap() {
+        while let Step::MergeEqual(_) = self.steps.last().unwrap() {
             self.pop();
         }
     }
