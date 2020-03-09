@@ -65,13 +65,17 @@ impl Line {
     /// This functions produces an iterator that iterates over all possible Lines that can be created by
     /// allowing only a single element for each group.
     /// `mask` is a bit vector that specifies which elements are allowed.
-    pub fn forall_single(delta: usize, bits: usize, mask: BigNum) -> impl Clone + DoubleEndedIterator<Item = Self> {
+    pub fn forall_single(
+        delta: usize,
+        bits: usize,
+        mask: BigNum,
+    ) -> impl Clone + DoubleEndedIterator<Item = Self> {
         //in case of overflow, just abort
         //iterating over more than 2^64 requires too much time anyway
         let mbits = mask.count_ones();
         mbits.checked_pow(delta as u32).unwrap();
 
-        let ones : Vec<_> = mask.one_bits().collect();
+        let ones: Vec<_> = mask.one_bits().collect();
 
         (0..mbits.pow(delta as u32)).map(move |mut x| {
             let groups = (0..delta).map(|_| {
@@ -148,7 +152,7 @@ impl Line {
     }
 
     /// add the label to each time from is allowed
-    pub fn imply(&self, from : usize, to : usize) -> Line {
+    pub fn imply(&self, from: usize, to: usize) -> Line {
         let one = BigNum::one();
         let from = one << from;
         let to = one << to;
@@ -160,7 +164,6 @@ impl Line {
             }
         })
     }
-
 
     /// Returns an iterator over the groups of the line (starting from the least significant bits).
     /// The iterator will contain `delta` elements.
@@ -179,7 +182,7 @@ impl Line {
     }
 
     /// Returns the ith group
-    pub fn group(&self, i : usize) -> BigNum {
+    pub fn group(&self, i: usize) -> BigNum {
         let bits = self.bits;
         let one = BigNum::one();
         (self.inner >> (i * bits)) & ((one << bits) - one)
@@ -221,16 +224,31 @@ impl Line {
     /// Given a string that represents a line, the string is parsed and split in a vector representation,
     /// Each resulting vector represents a single group of the line.
     /// Each group is represented by a vector of strings.
-    pub fn string_to_vec(line: &str) -> Vec<Vec<String>> {
-        line.split_whitespace().rev()
+    pub fn string_to_vec(line: &str) -> Result<Vec<Vec<String>>, String> {
+        line.split_whitespace()
+            .rev()
             .map(|w| {
                 w.chars()
                     .batching(|it| match it.next() {
-                        Some('(') => Some(format!(
-                            "({})",
-                            it.take_while(|&c| c != ')').collect::<String>()
-                        )),
-                        Some(c) => Some(format!("{}", c)),
+                        Some('(') => {
+                            let mut closed = false;
+                            let s = format!(
+                                "({})",
+                                it.take_while(|&c| {
+                                    if c == ')' {
+                                        closed = true;
+                                    }
+                                    c != ')'
+                                })
+                                .collect::<String>()
+                            );
+                            if !closed {
+                                Some(Err("Missing ')'!".into()))
+                            } else {
+                                Some(Ok(s))
+                            }
+                        }
+                        Some(c) => Some(Ok(format!("{}", c))),
                         None => None,
                     })
                     .collect()
@@ -312,15 +330,14 @@ impl Line {
         self.groups().all(|group| group.count_ones() == 1)
     }
 
-
     pub fn stronger(&self, line: Line, succ: &[BigNum]) -> bool {
         let g1 = self.groups();
         let g2 = line.groups();
         let mut pairs = g1.zip(g2);
-        pairs.all(|(a,b)|{
+        pairs.all(|(a, b)| {
             let a = a.one_bits().next().unwrap();
             let b = b.one_bits().next().unwrap();
-            b==a || succ[b].bit(a)
+            b == a || succ[b].bit(a)
         })
     }
 
@@ -331,10 +348,10 @@ impl Line {
         Self::from_groups(delta, bits, sg)
     }
 
-    pub fn add_column(&self, x : usize) -> Self {
-        let delta = self.delta+1;
+    pub fn add_column(&self, x: usize) -> Self {
+        let delta = self.delta + 1;
         let bits = self.bits;
-        let inner = (self.inner << bits ) | (BigNum::one() << x);
+        let inner = (self.inner << bits) | (BigNum::one() << x);
         Self { delta, bits, inner }
     }
 }

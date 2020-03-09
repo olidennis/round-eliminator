@@ -61,19 +61,19 @@ function performed_mergeequal() {
 }
 
 function performed_simplification(s){
-    return make_performed_action("Performed simplification "+escape(s));
+    return make_performed_action("Performed simplification "+s);
 }
 
 function performed_addarrow(s){
-    return make_performed_action("Added arrow "+escape(s));
+    return make_performed_action("Added arrow "+s);
 }
 
 function performed_harden(s){
-    return make_performed_action("Kept only labels "+escape(s));
+    return make_performed_action("Kept only labels "+s);
 }
 
 function performed_harden2(s){
-    return make_performed_action("Removed label "+escape(s));
+    return make_performed_action("Removed label "+s);
 }
 
 function performed_speedup() {

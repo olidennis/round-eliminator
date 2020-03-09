@@ -147,7 +147,7 @@ impl Constraint {
 
     /// Create constraints starting from their text representation.
     pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Result<Constraint, String> {
-        let vec = Self::string_to_vec(text);
+        let vec = Self::string_to_vec(text)?;
         Self::from_vec(&vec, mapping)
     }
 
@@ -155,7 +155,7 @@ impl Constraint {
     /// Each resulting vector represents a vector representation of a line, where
     /// each of its resulting vectors represents a single group of the line.
     /// Each group is represented by a vector of strings.
-    pub fn string_to_vec(text: &str) -> Vec<Vec<Vec<String>>> {
+    pub fn string_to_vec(text: &str) -> Result<Vec<Vec<Vec<String>>>,String> {
         text.lines().map(|line| Line::string_to_vec(line)).collect()
     }
 
@@ -177,8 +177,9 @@ impl Constraint {
         let mut c = Constraint::new(delta, bits);
         for line in v {
             let line = Line::from_vec(line, mapping);
-            assert!(line.delta == delta);
-            assert!(line.bits == bits);
+            if line.delta != delta || line.bits != bits {
+                return Err("Constraints (of the same side) have different degrees!".into());
+            }
             c.add_reduce(line);
         }
         Ok(c)

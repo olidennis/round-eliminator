@@ -101,7 +101,7 @@ impl Problem {
 
     /// Construct a problem starting from a text representation of the left and right constarints.
     pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
-        let map_text_label = Self::create_map_text_label(left, right);
+        let map_text_label = Self::create_map_text_label(left, right)?;
         let hm = Self::map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm)?;
         let right = Constraint::from_text(right, &hm)?;
@@ -122,11 +122,11 @@ impl Problem {
     /// Given a text representation of left and right constraints,
     /// extract the list of string labels, and create a list of pairs containing
     /// pairs `(s,x)` where `s` is the string representation of the label number `x`
-    fn create_map_text_label(left: &str, right: &str) -> Vec<(String, usize)> {
-        let pleft = Constraint::string_to_vec(left);
-        let pright = Constraint::string_to_vec(right);
+    fn create_map_text_label(left: &str, right: &str) -> Result<Vec<(String, usize)>,String> {
+        let pleft = Constraint::string_to_vec(left)?;
+        let pright = Constraint::string_to_vec(right)?;
 
-        pleft
+        Ok(pleft
             .into_iter()
             .chain(pright.into_iter())
             .flat_map(|v| v.into_iter())
@@ -135,7 +135,7 @@ impl Problem {
             .sorted()
             .enumerate()
             .map(|(i, c)| (c, i))
-            .collect()
+            .collect())
     }
 
     /// Creates a mapping from label numbers to their string representation
