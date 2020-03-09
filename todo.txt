@@ -6,7 +6,6 @@ Todo:
 - use the tree decidability results for binary lcls
 
 Todo soon:
-autoub autolb: add rcs parameter to cli, add new options to cli
 do simplifications even if it is possible to perform speedup
 
 Bugs:
