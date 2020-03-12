@@ -142,8 +142,6 @@ function make_button_edit(problem){
     edit.click(function(ev) {
         let tleft = x.left.map(v => v.map(t => t.join("")).join(" ")).join("\n");
         let tright = x.right.map(v => v.map(t => t.join("")).join(" ")).join("\n");
-        console.log(tleft);
-        console.log(tright);
         $('#inf1').val(tleft);
         $('#inf2').val(tright);
     });
@@ -533,7 +531,6 @@ function make_div_newrenaming(problem){
         let labels = Array.from($('input',table)).map(x => x.value);
         let entries = Array.from(labels.entries());
         let newmapping = entries.map(([i,x]) => [problem[1].mapping[i][0],x]);
-        console.log(newmapping);
         api.api_rename(problem[0],newmapping,function(x){return append_new_problem_or_error(x, make_performed_action("Renaming."));} );
     });
     div.append(rename);

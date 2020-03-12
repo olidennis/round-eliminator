@@ -75,6 +75,9 @@ impl Problem {
         trace!("computing mergeable");
         p.compute_mergeable();
         trace!("done");
+        if !p.diagram.is_empty() { 
+            trace!("Number of right closed subsets of the current diagram: {}",p.right_closed_subsets().len());
+        }
         Ok(p)
     }
 
@@ -105,7 +108,7 @@ impl Problem {
         let hm = Self::map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm)?;
         let right = Constraint::from_text(right, &hm)?;
-        let problem = Self::new(
+        let mut problem = Self::new(
             left,
             right,
             Some(map_text_label),
@@ -116,6 +119,7 @@ impl Problem {
         if !problem.has_same_labels_left_right() {
             return Err("Left and right constraints have different sets of labels!".into());
         }
+        problem.remove_useless_lines();
         Ok(problem)
     }
 
@@ -203,13 +207,18 @@ impl Problem {
         let mut left = self.left.clone();
         left.add_permutations();
         let mut new = Constraint::new(left.delta, left.bits);
+        let mut removed = false;
         'outer: for &a in &left.lines {
             for &b in &left.lines {
                 if a!=b && b.stronger(a,&succ) {
+                    removed = true;
                     continue 'outer;
                 }
             }
             new.add(a);
+        }
+        if !removed {
+            return;
         }
         new.remove_permutations();
         self.left.lines = new.lines;
@@ -223,7 +232,7 @@ impl Problem {
             return self.clone();
         }
         let mut p = self.clone();
-        for x in self.mergeable.iter() {
+        for (i,x) in self.mergeable.iter().enumerate() {
             let to = x.one_bits().last().unwrap();
             for from in x.one_bits().filter(|&y|y != to) {
                 p = p.replace(from,to,DiagramType::None);

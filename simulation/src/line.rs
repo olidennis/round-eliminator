@@ -72,8 +72,10 @@ impl Line {
     ) -> impl Clone + DoubleEndedIterator<Item = Self> {
         //in case of overflow, just abort
         //iterating over more than 2^64 requires too much time anyway
-        let mbits = mask.count_ones();
-        mbits.checked_pow(delta as u32).unwrap();
+        let mbits = mask.count_ones() as u64;
+        if mbits.checked_pow(delta as u32).is_none() {
+            panic!("This operation would require too much time");
+        }
 
         let ones: Vec<_> = mask.one_bits().collect();
 
