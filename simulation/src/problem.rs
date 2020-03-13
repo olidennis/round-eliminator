@@ -75,9 +75,6 @@ impl Problem {
         trace!("computing mergeable");
         p.compute_mergeable();
         trace!("done");
-        if !p.diagram.is_empty() { 
-            trace!("Number of right closed subsets of the current diagram: {}",p.right_closed_subsets().len());
-        }
         Ok(p)
     }
 
@@ -129,14 +126,18 @@ impl Problem {
     fn create_map_text_label(left: &str, right: &str) -> Result<Vec<(String, usize)>,String> {
         let pleft = Constraint::string_to_vec(left)?;
         let pright = Constraint::string_to_vec(right)?;
-
-        Ok(pleft
+        let labels : Vec<_> = pleft
             .into_iter()
             .chain(pright.into_iter())
             .flat_map(|v| v.into_iter())
             .flat_map(|v| v.into_iter())
             .unique()
-            .sorted()
+            .collect();
+        let maxlen = labels.iter().map(|x|x.len()).max().unwrap();
+        println!("{number:>width$}", number=1, width=6);
+
+        Ok(labels.into_iter()
+            .sorted_by_key(|x|format!("{:>1$}",x,maxlen))
             .enumerate()
             .map(|(i, c)| (c, i))
             .collect())
@@ -190,6 +191,7 @@ impl Problem {
             diagramtype,
         )
         .unwrap();
+        trace!("removing useless lines");
         p.remove_useless_lines();
         p
     }
@@ -205,10 +207,12 @@ impl Problem {
         }
         let succ = self.map_label_successors();
         let mut left = self.left.clone();
+        trace!("adding permutations");
         left.add_permutations();
         let mut new = Constraint::new(left.delta, left.bits);
         let mut removed = false;
-        'outer: for &a in &left.lines {
+        trace!("going through lines");
+        'outer: for &a in &self.left.lines {
             for &b in &left.lines {
                 if a!=b && b.stronger(a,&succ) {
                     removed = true;
@@ -218,11 +222,14 @@ impl Problem {
             new.add(a);
         }
         if !removed {
+            trace!("done");
             return;
         }
+        trace!("removing permutations");
         new.remove_permutations();
         self.left.lines = new.lines;
         let left_mask = self.left.real_mask();
+        trace!("removing unused labels");
         let p = self.harden(left_mask, DiagramType::Accurate, false).unwrap();
         *self = p;
     }
