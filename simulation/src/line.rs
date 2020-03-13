@@ -10,7 +10,7 @@ use std::collections::HashMap;
 /// For example, if Delta=3 and Bits=2, the bitvector 011111 represents
 /// the constraint where there are 3 groups, 01, 11, and 11, that if we call the first bit A and the second bit B,
 /// corresponds to a constraint like B AB AB.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Ord, PartialOrd)]
 pub struct Line {
     pub inner: BigNum,
     pub delta: usize,

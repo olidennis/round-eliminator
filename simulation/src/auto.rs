@@ -19,7 +19,7 @@ pub enum Step<T: Clone + std::fmt::Debug> {
 /// and if it makes sense to continue trying the current path.
 /// Also, it needs to provide a way to simplify the current problem, given the current simplification.
 pub trait Auto: Sized + Clone {
-    type Simplification: Copy + Clone + std::fmt::Debug;
+    type Simplification: Clone + std::fmt::Debug;
     /// constructor
     fn new(features: &[&str]) -> Self;
     /// given the current state and the maximum number of labels, returns an iterator over the possible simplifications that can be performed.

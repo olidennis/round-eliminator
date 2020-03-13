@@ -239,7 +239,7 @@ impl Problem {
             return self.clone();
         }
         let mut p = self.clone();
-        for (i,x) in self.mergeable.iter().enumerate() {
+        for x in self.mergeable.iter() {
             let to = x.one_bits().last().unwrap();
             for from in x.one_bits().filter(|&y|y != to) {
                 p = p.replace(from,to,DiagramType::None);
@@ -474,13 +474,6 @@ impl Problem {
 
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = Self::map_to_inv_hashmap(&map_label_oldset);
-
-        trace!("4) checking size");
-
-        let newbits = hm_oldset_label.len();
-        if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::MAX.bits() {
-            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::MAX.bits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
-        }
 
         trace!("5) starting exists");
         let newleft = newleft_before_renaming.renamed(&hm_oldset_label);
