@@ -135,7 +135,7 @@ where
     }
 
     fn push_simplification(&mut self, simpl: T::Simplification, auto: &mut T) -> bool {
-        if let Some(new) = auto.simplify(self, simpl) {
+        if let Some(new) = auto.simplify(self, simpl.clone()) {
             self.push(Step::Simplify((simpl, new)));
             self.merge_equal();
             return true;

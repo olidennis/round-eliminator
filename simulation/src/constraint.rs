@@ -43,7 +43,7 @@ impl Constraint {
         let delta = self.delta;
         let bits = self.bits;
         for line in self.lines.iter() {
-            if let Some(newline) = line.harden(keepmask) {
+            if let Some(newline) = line.harden(&keepmask) {
                 newlines.push(newline);
             }
         }
@@ -51,7 +51,7 @@ impl Constraint {
             lines: newlines,
             delta,
             bits,
-            mask: self.mask & keepmask,
+            mask: &self.mask & keepmask,
             permutations: None,
         }
     }
@@ -66,14 +66,14 @@ impl Constraint {
         let delta = self.delta;
         let bits = self.bits;
         for line in self.lines.iter() {
-            let newline = line.replace_with_group(from, to);
+            let newline = line.replace_with_group(from, to.clone());
             newlines.push(newline);
         }
         Self {
             lines: newlines,
             delta,
             bits,
-            mask: self.mask & !(BigNum::one() << from),
+            mask: &self.mask & !(BigNum::one() << from),
             permutations: None,
         }
     }
@@ -230,26 +230,26 @@ impl Constraint {
         let delta = self.delta;
         let bits = self.bits;
 
-        let bad = Line::forall_single(delta, bits, self.mask).filter(
+        let bad = Line::forall_single(delta, bits, &self.mask).filter(
             |line|!self.satisfies(&line)
         );
 
         let mut v = vec![];
         let mut nodup = HashSet::new();
 
-        let init = Line::from_groups(delta, bits, std::iter::repeat(self.mask).take(delta));
+        let init = Line::from_groups(delta, bits, std::iter::repeat(self.mask.clone()).take(delta));
         v.push(init);
 
         let mut prev : Option<Line> = None;
 
-        let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,&b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
+        let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
 
         trace!("counting bad configurations");
         let sz = bad.clone().count();
         for (i,r) in bad.rev().enumerate() {
-            if let Some(prev) = prev{
+            if let Some(prev) = prev.clone() {
                 let prevandpred = prev.edited(|g|{
-                    pred2[&g]
+                    pred2[&g].clone()
                 });
                 if prevandpred.includes(&r) {
                     continue;
@@ -267,7 +267,7 @@ impl Constraint {
                     new.push(line);
                 } else {
                     nodup.remove(&line.sorted());
-                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()).filter(|x|nodup.insert(x.sorted()) ) {
+                    for x in Self::without_bad(line, &r, pred).filter(|x|!x.contains_empty_group()).filter(|x|nodup.insert(x.sorted()) ) {
                         toadd.push(x);
                     }
                 }
@@ -306,21 +306,21 @@ impl Constraint {
     }
 
 
-    fn without_bad(line : Line, bad : Line, pred : &[BigNum]) -> impl Iterator<Item=Line> + '_ {
+    fn without_bad<'a>(line : Line, bad : &'a Line, pred : &'a [BigNum]) -> impl Iterator<Item=Line> + 'a {
         let one = BigNum::one();
         let bits = line.bits;
         bad.inner.one_bits().map(move |x|{
             let label = x % bits;
             let pos = x / bits;
-            let mask = ((one << label) | pred[label]) << (pos * bits); 
+            let mask = ((&one << label) | &pred[label]) << (pos * bits); 
             let mask = !mask;
-            Line{ inner : line.inner & mask, ..line }
+            Line{ inner : &line.inner & &mask, ..line }
         })
     }
 
     /// Returns an iterator over all possible choices over the constraint that contains the label x at least once
     pub fn choices_iter_containing(&self,x : usize) -> impl Iterator<Item = Line> + '_ {
-        Line::forall_single(self.delta-1, self.bits, self.mask)
+        Line::forall_single(self.delta-1, self.bits, &self.mask)
                     .map(move |line|line.add_column(x))
                     .filter(move |line| self.satisfies(line))
     }
@@ -334,7 +334,7 @@ impl Constraint {
             Either::Left(self.lines.iter().cloned())
         } else {
             Either::Right(
-                Line::forall_single(self.delta, self.bits, self.mask)
+                Line::forall_single(self.delta, self.bits, &self.mask)
                     .filter(move |line| self.satisfies(line)),
             )
         }
@@ -345,7 +345,7 @@ impl Constraint {
         let mut newlines = vec![];
         let delta = self.delta;
         let bits = self.bits;
-        let mask = self.mask;
+        let mask = self.mask.clone();
         for line in self.lines.iter() {
             let newline = line.imply(from, to);
             newlines.push(newline);

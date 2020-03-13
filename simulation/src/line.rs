@@ -54,9 +54,9 @@ impl Line {
 
         (0..set.len().pow(delta as u32)).map(move |mut x| {
             let groups = (0..delta).map(|_| {
-                let cur = set[x % set.len()];
+                let cur = &set[x % set.len()];
                 x /= set.len();
-                cur
+                cur.clone()
             });
             Self::from_groups(delta, bits, groups)
         })
@@ -68,7 +68,7 @@ impl Line {
     pub fn forall_single(
         delta: usize,
         bits: usize,
-        mask: BigNum,
+        mask: &BigNum,
     ) -> impl Clone + DoubleEndedIterator<Item = Self> {
         //in case of overflow, just abort
         //iterating over more than 2^64 requires too much time anyway
@@ -99,8 +99,8 @@ impl Line {
         let from = one << from;
 
         self.edited(|group| {
-            if !(group & from).is_zero() {
-                (group & (!from)) | to
+            if !(&group & &from).is_zero() {
+                (group & (!&from)) | &to
             } else {
                 group
             }
@@ -112,10 +112,10 @@ impl Line {
     #[allow(dead_code)]
     pub fn replace_fast(&self, from: usize, to: usize) -> Line {
         let one = BigNum::one();
-        let from = one << from;
+        let from = one.clone() << from;
         let to = one << to;
 
-        self.edited(|group| if group == from { to } else { group })
+        self.edited(|group| if group == from { to.clone() } else { group })
     }
 
     /// This method assumes that each group contains a single label.
@@ -123,23 +123,22 @@ impl Line {
     /// where at each step one additional appearence of `from` is replaced by `to`.
     /// For example, given A A C, where from=A and to=B, it returns B A C, B B C.
     pub fn replace_one_fast(&self, from: usize, to: usize) -> impl Iterator<Item = Line> {
-        let one = BigNum::one();
-        let from = one << from;
-        let to = one << to;
+        let from = BigNum::one() << from;
+        let to = BigNum::one() << to;
         let mut state = self.clone();
         self.groups()
             .enumerate()
-            .filter(move |&(_, x)| x == from)
+            .filter(move |(_, x)| x == &from)
             .map(move |(i, _)| {
-                state = state.with_group(i, to);
-                state
+                state = state.with_group(i, &to);
+                state.clone()
             })
     }
 
     /// Creates a new line where only labels allowed by the given mask are kept.
     /// If a group becomes empty, it returns None.
-    pub fn harden(&self, keepmask: BigNum) -> Option<Line> {
-        let newline = self.edited(|group| group & keepmask);
+    pub fn harden(&self, keepmask: &BigNum) -> Option<Line> {
+        let newline = self.edited(|group| &group & keepmask);
         if !newline.contains_empty_group() {
             Some(newline)
         } else {
@@ -156,11 +155,11 @@ impl Line {
     /// add the label to each time from is allowed
     pub fn imply(&self, from: usize, to: usize) -> Line {
         let one = BigNum::one();
-        let from = one << from;
+        let from = one.clone() << from;
         let to = one << to;
         self.edited(|group| {
-            if !(group & from).is_zero() {
-                group | to
+            if !(&group & &from).is_zero() {
+                group | &to
             } else {
                 group
             }
@@ -170,14 +169,14 @@ impl Line {
     /// Returns an iterator over the groups of the line (starting from the least significant bits).
     /// The iterator will contain `delta` elements.
     pub fn groups(&self) -> impl Iterator<Item = BigNum> {
-        let mut sets = self.inner;
+        let mut sets = self.inner.clone();
         let delta = self.delta;
         let bits = self.bits;
 
         let one = BigNum::one();
 
         (0..delta).map(move |_| {
-            let r = sets & ((one << bits) - one);
+            let r = &sets & &((&one << bits) - &one);
             sets >>= bits;
             r
         })
@@ -187,15 +186,15 @@ impl Line {
     pub fn group(&self, i: usize) -> BigNum {
         let bits = self.bits;
         let one = BigNum::one();
-        (self.inner >> (i * bits)) & ((one << bits) - one)
+        (&self.inner >> (i * bits)) & ((&one << bits) - one)
     }
 
     /// Replaces the i-th group with the new value `group` (starting to count from the least significant bits).
-    pub fn with_group(&self, i: usize, group: BigNum) -> Line {
+    pub fn with_group(&self, i: usize, group: &BigNum) -> Line {
         let one = BigNum::one();
         let bits = self.bits;
-        let inner = self.inner;
-        let innerzeroed = inner & (!(((one << bits) - one) << (bits as usize * i)));
+        let inner = &self.inner;
+        let innerzeroed = inner & (!(((&one << bits) - one) << (bits as usize * i)));
         let new = innerzeroed | (group << (bits as usize * i));
         Line::from(self.delta, bits, new)
     }
@@ -207,7 +206,7 @@ impl Line {
 
     /// Returns true if the current line allows at least what is allowed by `other` (with the same order).
     pub fn includes(&self, other: &Self) -> bool {
-        (self.inner | other.inner) == self.inner
+        (&self.inner | &other.inner) == self.inner
     }
 
     /// Returns an iterator over all the lines that can be obtained by permuting the groups of the current line.
@@ -312,7 +311,7 @@ impl Line {
         let newgroups = self.groups().map(|g| {
             mapping
                 .keys()
-                .filter(|&&t| !(g & t).is_zero())
+                .filter(|&t| !(&g & t).is_zero())
                 .map(|o| mapping[o])
                 .fold(BigNum::zero(), |r, x| r | (BigNum::one() << x))
         });
@@ -332,7 +331,7 @@ impl Line {
         self.groups().all(|group| group.count_ones() == 1)
     }
 
-    pub fn stronger(&self, line: Line, succ: &[BigNum]) -> bool {
+    pub fn stronger(&self, line: &Line, succ: &[BigNum]) -> bool {
         let g1 = self.groups();
         let g2 = line.groups();
         let mut pairs = g1.zip(g2);
@@ -353,7 +352,7 @@ impl Line {
     pub fn add_column(&self, x: usize) -> Self {
         let delta = self.delta + 1;
         let bits = self.bits;
-        let inner = (self.inner << bits) | (BigNum::one() << x);
+        let inner = (&self.inner << bits) | (BigNum::one() << x);
         Self { delta, bits, inner }
     }
 }

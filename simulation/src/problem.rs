@@ -212,14 +212,14 @@ impl Problem {
         let mut new = Constraint::new(left.delta, left.bits);
         let mut removed = false;
         trace!("going through lines");
-        'outer: for &a in &self.left.lines {
-            for &b in &left.lines {
+        'outer: for a in &self.left.lines {
+            for b in &left.lines {
                 if a!=b && b.stronger(a,&succ) {
                     removed = true;
                     continue 'outer;
                 }
             }
-            new.add(a);
+            new.add(a.clone());
         }
         if !removed {
             trace!("done");
@@ -284,7 +284,7 @@ impl Problem {
     ) -> Option<Problem> {
         let mut left = self.left.clone();
         if usepred {
-            let remove = !keepmask & self.left.mask;
+            let remove = &!&keepmask & &self.left.mask;
             let ones = remove.count_ones();
             for unrelax in remove.one_bits() {
                 let pred = self.predecessors(unrelax, ones == 1);
@@ -296,10 +296,10 @@ impl Problem {
         // repeat the operation, until we get the same set of labels
         let mut right = self.right.clone();
         loop {
-            left = left.harden(keepmask);
-            right = right.harden(keepmask);
+            left = left.harden(keepmask.clone());
+            right = right.harden(keepmask.clone());
             keepmask = left.real_mask() & right.real_mask();
-            if left.real_mask() == keepmask && right.real_mask() == keepmask {
+            if &left.real_mask() == &keepmask && &right.real_mask() == &keepmask {
                 break;
             }
         }
@@ -312,7 +312,7 @@ impl Problem {
         let map_label_oldset = self.map_label_oldset.as_ref().map(|map| {
             map.iter()
                 .cloned()
-                .filter(|&(l, _)| !((BigNum::one() << l) & keepmask).is_zero())
+                .filter(|&(l, _)| !(&(BigNum::one() << l) & &keepmask).is_zero())
                 .collect()
         });
         let map_text_oldlabel = self.map_text_oldlabel.clone();
@@ -320,7 +320,7 @@ impl Problem {
             .map_text_label
             .iter()
             .cloned()
-            .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
+            .filter(|&(_, l)| !(&(BigNum::one() << l) & &keepmask).is_zero())
             .collect();
 
         let p = Problem::new(
@@ -384,7 +384,7 @@ impl Problem {
 
         self.trivial_lines = self.left.choices_iter().filter(|action| {
             let mask = action.mask();
-            Line::forall_single(delta_r, bits, mask).all(|x| right.satisfies(&x))
+            Line::forall_single(delta_r, bits, &mask).all(|x| right.satisfies(&x))
         }).collect();
     }
 
@@ -423,7 +423,7 @@ impl Problem {
                         }
                     }
                 }
-                edges.push((l1, l2));
+                edges.push((l1.clone(), l2.clone()));
             }
         }
         if edges.is_empty() {
@@ -433,7 +433,7 @@ impl Problem {
         let map: HashMap<_, _> = edges
             .iter()
             .cloned()
-            .chain(edges.iter().map(|&(a, b)| (b, a)))
+            .chain(edges.iter().map(|(a, b)| (b.clone(), a.clone())))
             .map(|(a, _)| a)
             .unique()
             .enumerate()
@@ -451,7 +451,7 @@ impl Problem {
         let g = crate::maxclique::Graph::from_adj(adj);
         trace!("    computing largest clique");
         let invmap : HashMap<_,_> = map.iter().map(|(a,b)|(b,a)).collect();
-        self.coloring_lines = g.max_clique().into_iter().map(|x|*invmap[&x]).collect();
+        self.coloring_lines = g.max_clique().into_iter().map(|x|invmap[&x].clone()).collect();
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
@@ -511,23 +511,23 @@ impl Problem {
         let mut reachable = vec![];
         let map_label_oldset = self.map_label_oldset.as_ref().unwrap();
 
-        for &(label, oldset) in map_label_oldset.iter() {
+        for (label, oldset) in map_label_oldset.iter() {
             let candidates: Vec<_> = map_label_oldset
                 .iter()
                 .cloned()
-                .filter(|&(_, otheroldset)| {
-                    oldset != otheroldset && otheroldset.is_superset(oldset)
+                .filter(|(_, otheroldset)| {
+                    &oldset != &otheroldset && otheroldset.is_superset(&oldset)
                 })
                 .collect();
             let mut right = candidates.clone();
-            for &(_, set) in &candidates {
-                right.retain(|&(_, rset)| rset == set || !rset.is_superset(set));
+            for (_, set) in &candidates {
+                right.retain(|(_, rset)| &rset == &set || !rset.is_superset(&set));
             }
             for (otherlabel, _) in right {
-                result.push((label, otherlabel));
+                result.push((*label, otherlabel));
             }
             for (otherlabel, _) in candidates {
-                reachable.push((label, otherlabel));
+                reachable.push((*label, otherlabel));
             }
         }
         self.reachable = reachable;
@@ -537,14 +537,14 @@ impl Problem {
     /// Returns an iterator over the possible labels.
     pub fn labels(&self) -> impl Iterator<Item = usize> + Clone +  '_ {
         assert!(self.left.mask == self.right.mask);
-        let mask = self.left.mask;
+        let mask = &self.left.mask;
         (0..mask.bits()).filter(move |&i| mask.bit(i))
     }
 
     /// Returns the number of labels.
     pub fn num_labels(&self) -> usize {
         assert!(self.left.mask == self.right.mask);
-        let mask = self.left.mask;
+        let mask = &self.left.mask;
         mask.count_ones() as usize
     }
 
@@ -582,7 +582,7 @@ impl Problem {
                     if !mat[label][x] {
                         continue;
                     }
-                    let test = valid.with_group(i,BigNum::one()<<x);
+                    let test = valid.with_group(i,&(BigNum::one()<<x));
                     if !right.satisfies(&test) {
                         mat[label][x] = false;
                     }
@@ -624,22 +624,22 @@ impl Problem {
         assert!(self.left.bits == self.right.bits);
         assert!(self.left.mask == self.right.mask);
         let bits = self.left.bits;
-        let mask = self.left.mask;
+        let mask = self.left.mask.clone();
         // otherwise it's too slow anyway
         assert!(bits < 64);
         (1..(1u64 << bits))
             .map(|x| BigNum::from(x))
-            .filter(move |&x| mask.is_superset(x))
+            .filter(move |x| mask.is_superset(&x))
     }
 
 
 
     fn rcs_helper(&self, right: &Vec<BigNum>, result: &mut Vec<BigNum>, added: BigNum, max: usize) {
         for x in self.labels() {
-            let toadd = (BigNum::one() << x) | right[x];
-            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(added)) {
-                let new = added | toadd;
-                result.push(new);
+            let toadd = (BigNum::one() << x) | &right[x];
+            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(&added)) {
+                let new = &added | &toadd;
+                result.push(new.clone());
                 self.rcs_helper(right, result, new, x + 1);
             }
         }
@@ -648,7 +648,7 @@ impl Problem {
     pub fn right_closed_subsets(&self) -> Vec<BigNum> {
         let mut right = vec![BigNum::zero(); self.max_label() + 1];
         for &(a, b) in self.reachable.iter() {
-            right[a] = right[a] | (BigNum::one() << b);
+            right[a] = &right[a] | &(BigNum::one() << b);
         }
         let mut result = vec![];
         self.rcs_helper(&right, &mut result, BigNum::zero(), 0);
