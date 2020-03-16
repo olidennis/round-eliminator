@@ -4,6 +4,7 @@ use simulation::AutoLb;
 use simulation::AutoUb;
 use simulation::Problem;
 use simulation::DiagramType;
+use simulation::BigBigNum;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use futures::future::{FutureExt, TryFutureExt};
@@ -16,7 +17,7 @@ use futures_cpupool::CpuPool;
 
 pub fn file(name: &str, iter: usize, merge : bool) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
-    let mut p = Problem::from_line_separated_text(&data).unwrap();
+    let mut p = Problem::<BigBigNum>::from_line_separated_text(&data).unwrap();
     println!("{}", p.as_result());
 
     for _ in 0..iter {

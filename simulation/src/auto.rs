@@ -1,5 +1,5 @@
 use crate::problem::DiagramType;
-use crate::problem::Problem;
+type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
 
 /// A chain of simplifications.
 /// We start from an initial problem,
@@ -19,7 +19,7 @@ pub enum Step<T: Clone + std::fmt::Debug> {
 /// and if it makes sense to continue trying the current path.
 /// Also, it needs to provide a way to simplify the current problem, given the current simplification.
 pub trait Auto: Sized + Clone {
-    type Simplification: Copy + Clone + std::fmt::Debug;
+    type Simplification: Clone + std::fmt::Debug;
     /// constructor
     fn new(features: &[&str]) -> Self;
     /// given the current state and the maximum number of labels, returns an iterator over the possible simplifications that can be performed.
@@ -135,7 +135,7 @@ where
     }
 
     fn push_simplification(&mut self, simpl: T::Simplification, auto: &mut T) -> bool {
-        if let Some(new) = auto.simplify(self, simpl) {
+        if let Some(new) = auto.simplify(self, simpl.clone()) {
             self.push(Step::Simplify((simpl, new)));
             self.merge_equal();
             return true;

@@ -1,6 +1,5 @@
 //#![allow(dead_code)]
 
-use crate::bignum::BigNum;
 use crate::constraint::Constraint;
 use crate::line::Line;
 use itertools::Itertools;
@@ -17,16 +16,16 @@ use log::trace;
 /// We may have computed if the current problem is trivial.
 /// We may have computed the strength diagram for the labels on the right side, represented by a vector of directed edges.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash)]
-pub struct Problem {
-    pub left: Constraint,
-    pub right: Constraint,
+pub struct Problem<BigNum : crate::bignum::BigNum> {
+    pub left: Constraint<BigNum>,
+    pub right: Constraint<BigNum>,
     pub map_text_label: Vec<(String, usize)>,
-    pub trivial_lines: Vec<Line>,
+    pub trivial_lines: Vec<Line<BigNum>>,
     pub diagram: Vec<(usize, usize)>,
     pub reachable: Vec<(usize, usize)>,
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
-    pub coloring_lines: Vec<Line>,
+    pub coloring_lines: Vec<Line<BigNum>>,
     pub mergeable: Vec<BigNum>,
 }
 
@@ -36,11 +35,12 @@ pub enum DiagramType {
     Accurate,
 }
 
-impl Problem {
+
+impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     /// Constructor a problem.
     pub fn new(
-        left: Constraint,
-        right: Constraint,
+        left: Constraint<BigNum>,
+        right: Constraint<BigNum>,
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
         map_text_oldlabel: Option<Vec<(String, usize)>>,
@@ -84,7 +84,7 @@ impl Problem {
     }
 
     /// Construct a problem starting from left and right constraints.
-    pub fn from_constraints(left: Constraint, right: Constraint) -> Result<Self, String> {
+    pub fn from_constraints(left: Constraint<BigNum>, right: Constraint<BigNum>) -> Result<Self, String> {
         Self::new(left, right, None, None, None, DiagramType::Accurate)
     }
 
@@ -124,8 +124,8 @@ impl Problem {
     /// extract the list of string labels, and create a list of pairs containing
     /// pairs `(s,x)` where `s` is the string representation of the label number `x`
     fn create_map_text_label(left: &str, right: &str) -> Result<Vec<(String, usize)>,String> {
-        let pleft = Constraint::string_to_vec(left)?;
-        let pright = Constraint::string_to_vec(right)?;
+        let pleft = Constraint::<BigNum>::string_to_vec(left)?;
+        let pright = Constraint::<BigNum>::string_to_vec(right)?;
         let labels : Vec<_> = pleft
             .into_iter()
             .chain(pright.into_iter())
@@ -168,7 +168,7 @@ impl Problem {
 
     /// Returns a new problem where the label `from` has been replaced with label `to`.
     /// The new problem is easier than the original one
-    pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem {
+    pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem<BigNum> {
         let left = self.left.replace(from, to);
         let right = self.right.replace(from, to);
         let map_label_oldset = self
@@ -212,14 +212,14 @@ impl Problem {
         let mut new = Constraint::new(left.delta, left.bits);
         let mut removed = false;
         trace!("going through lines");
-        'outer: for &a in &self.left.lines {
-            for &b in &left.lines {
-                if a!=b && b.stronger(a,&succ) {
+        'outer: for a in &self.left.lines {
+            for b in &left.lines {
+                if a!=b && b.stronger(a.clone(),&succ) {
                     removed = true;
                     continue 'outer;
                 }
             }
-            new.add(a);
+            new.add(a.clone());
         }
         if !removed {
             trace!("done");
@@ -234,12 +234,12 @@ impl Problem {
         *self = p;
     }
 
-    pub fn merge_equal(&self) -> Problem {
+    pub fn merge_equal(&self) -> Problem<BigNum> {
         if self.mergeable.is_empty() {
             return self.clone();
         }
         let mut p = self.clone();
-        for (i,x) in self.mergeable.iter().enumerate() {
+        for x in self.mergeable.iter() {
             let to = x.one_bits().last().unwrap();
             for from in x.one_bits().filter(|&y|y != to) {
                 p = p.replace(from,to,DiagramType::None);
@@ -253,7 +253,7 @@ impl Problem {
     /// Allow the label `to` each time `from` is present, in the right constraints
     /// The new problem is easier than the original one
     /// This adds an arrow from `from` to `to` in the diagram
-    pub fn relax_add_arrow(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem {
+    pub fn relax_add_arrow(&self, from: usize, to: usize, diagramtype: DiagramType) -> Problem<BigNum> {
         let left = self.left.clone();
         let right = self.right.imply(from, to);
         let map_label_oldset = self.map_label_oldset.clone();
@@ -281,10 +281,10 @@ impl Problem {
         mut keepmask: BigNum,
         diagramtype: DiagramType,
         usepred: bool,
-    ) -> Option<Problem> {
+    ) -> Option<Problem<BigNum>> {
         let mut left = self.left.clone();
         if usepred {
-            let remove = !keepmask & self.left.mask;
+            let remove = !keepmask.clone() & self.left.mask.clone();
             let ones = remove.count_ones();
             for unrelax in remove.one_bits() {
                 let pred = self.predecessors(unrelax, ones == 1);
@@ -296,10 +296,10 @@ impl Problem {
         // repeat the operation, until we get the same set of labels
         let mut right = self.right.clone();
         loop {
-            left = left.harden(keepmask);
-            right = right.harden(keepmask);
+            left = left.harden(keepmask.clone());
+            right = right.harden(keepmask.clone());
             keepmask = left.real_mask() & right.real_mask();
-            if left.real_mask() == keepmask && right.real_mask() == keepmask {
+            if left.real_mask() == keepmask.clone() && right.real_mask() == keepmask.clone() {
                 break;
             }
         }
@@ -312,7 +312,7 @@ impl Problem {
         let map_label_oldset = self.map_label_oldset.as_ref().map(|map| {
             map.iter()
                 .cloned()
-                .filter(|&(l, _)| !((BigNum::one() << l) & keepmask).is_zero())
+                .filter(|&(l, _)| !((BigNum::one() << l) & keepmask.clone()).is_zero())
                 .collect()
         });
         let map_text_oldlabel = self.map_text_oldlabel.clone();
@@ -320,7 +320,7 @@ impl Problem {
             .map_text_label
             .iter()
             .cloned()
-            .filter(|&(_, l)| !((BigNum::one() << l) & keepmask).is_zero())
+            .filter(|&(_, l)| !((BigNum::one() << l) & keepmask.clone()).is_zero())
             .collect();
 
         let p = Problem::new(
@@ -423,7 +423,7 @@ impl Problem {
                         }
                     }
                 }
-                edges.push((l1, l2));
+                edges.push((l1.clone(), l2.clone()));
             }
         }
         if edges.is_empty() {
@@ -433,7 +433,7 @@ impl Problem {
         let map: HashMap<_, _> = edges
             .iter()
             .cloned()
-            .chain(edges.iter().map(|&(a, b)| (b, a)))
+            .chain(edges.iter().map(|(a, b)| (b.clone(), a.clone())))
             .map(|(a, _)| a)
             .unique()
             .enumerate()
@@ -451,7 +451,7 @@ impl Problem {
         let g = crate::maxclique::Graph::from_adj(adj);
         trace!("    computing largest clique");
         let invmap : HashMap<_,_> = map.iter().map(|(a,b)|(b,a)).collect();
-        self.coloring_lines = g.max_clique().into_iter().map(|x|*invmap[&x]).collect();
+        self.coloring_lines = g.max_clique().into_iter().map(|x|invmap[&x].clone()).collect();
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
@@ -478,8 +478,8 @@ impl Problem {
         trace!("4) checking size");
 
         let newbits = hm_oldset_label.len();
-        if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::MAX.bits() {
-            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::MAX.bits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
+        if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::maxbits() {
+            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::maxbits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
         }
 
         trace!("5) starting exists");
@@ -518,23 +518,23 @@ impl Problem {
         let mut reachable = vec![];
         let map_label_oldset = self.map_label_oldset.as_ref().unwrap();
 
-        for &(label, oldset) in map_label_oldset.iter() {
+        for (label, oldset) in map_label_oldset.iter() {
             let candidates: Vec<_> = map_label_oldset
                 .iter()
                 .cloned()
-                .filter(|&(_, otheroldset)| {
-                    oldset != otheroldset && otheroldset.is_superset(oldset)
+                .filter(|(_, otheroldset)| {
+                    oldset != otheroldset && otheroldset.is_superset(oldset.clone())
                 })
                 .collect();
             let mut right = candidates.clone();
-            for &(_, set) in &candidates {
-                right.retain(|&(_, rset)| rset == set || !rset.is_superset(set));
+            for (_, set) in &candidates {
+                right.retain(|(_, rset)| rset.clone() == set.clone() || !rset.is_superset(set.clone()));
             }
             for (otherlabel, _) in right {
-                result.push((label, otherlabel));
+                result.push((label.clone(), otherlabel));
             }
             for (otherlabel, _) in candidates {
-                reachable.push((label, otherlabel));
+                reachable.push((label.clone(), otherlabel));
             }
         }
         self.reachable = reachable;
@@ -544,14 +544,14 @@ impl Problem {
     /// Returns an iterator over the possible labels.
     pub fn labels(&self) -> impl Iterator<Item = usize> + Clone +  '_ {
         assert!(self.left.mask == self.right.mask);
-        let mask = self.left.mask;
+        let mask = self.left.mask.clone();
         (0..mask.bits()).filter(move |&i| mask.bit(i))
     }
 
     /// Returns the number of labels.
     pub fn num_labels(&self) -> usize {
         assert!(self.left.mask == self.right.mask);
-        let mask = self.left.mask;
+        let mask = self.left.mask.clone();
         mask.count_ones() as usize
     }
 
@@ -631,22 +631,22 @@ impl Problem {
         assert!(self.left.bits == self.right.bits);
         assert!(self.left.mask == self.right.mask);
         let bits = self.left.bits;
-        let mask = self.left.mask;
+        let mask = self.left.mask.clone();
         // otherwise it's too slow anyway
         assert!(bits < 64);
         (1..(1u64 << bits))
             .map(|x| BigNum::from(x))
-            .filter(move |&x| mask.is_superset(x))
+            .filter(move |x| mask.is_superset(x.clone()))
     }
 
 
 
     fn rcs_helper(&self, right: &Vec<BigNum>, result: &mut Vec<BigNum>, added: BigNum, max: usize) {
         for x in self.labels() {
-            let toadd = (BigNum::one() << x) | right[x];
-            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(added)) {
-                let new = added | toadd;
-                result.push(new);
+            let toadd = (BigNum::one() << x) | right[x].clone();
+            if x >= max && !added.bit(x) && (added.clone() == BigNum::zero() || !toadd.is_superset(added.clone())) {
+                let new = added.clone() | toadd;
+                result.push(new.clone());
                 self.rcs_helper(right, result, new, x + 1);
             }
         }
@@ -655,7 +655,7 @@ impl Problem {
     pub fn right_closed_subsets(&self) -> Vec<BigNum> {
         let mut right = vec![BigNum::zero(); self.max_label() + 1];
         for &(a, b) in self.reachable.iter() {
-            right[a] = right[a] | (BigNum::one() << b);
+            right[a] = right[a].clone() | (BigNum::one() << b);
         }
         let mut result = vec![];
         self.rcs_helper(&right, &mut result, BigNum::zero(), 0);
@@ -884,3 +884,6 @@ impl std::fmt::Display for ResultProblem {
     }
 
 }
+
+
+

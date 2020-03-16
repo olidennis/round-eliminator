@@ -1,11 +1,13 @@
 use crate::auto::Auto;
 use crate::auto::Sequence;
 use crate::auto::Step;
-use crate::bignum::BigNum;
 use crate::problem::DiagramType;
-use crate::problem::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::bignum::BigNum as _;
+use crate::bignum::BigBigNum as BigNum;
+type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
+
 
 #[derive(Clone)]
 pub struct AutoUb {
@@ -50,13 +52,13 @@ impl Auto for AutoUb {
                 let mut good: Vec<_> = map
                     .iter()
                     .cloned()
-                    .filter(|&(_, oldset)| oldset.bit(lab))
+                    .filter(|(_, oldset)| oldset.bit(lab))
                     .collect();
-                good.sort_by_key(|&(_, oldset)| oldset.count_ones());
+                good.sort_by_key(|(_, oldset)| oldset.count_ones());
                 let sz = good[0].1.count_ones();
                 let min = good
                     .into_iter()
-                    .take_while(|&(_, oldset)| oldset.count_ones() == sz);
+                    .take_while(|(_, oldset)| oldset.count_ones() == sz);
                 keep.extend(min.map(|(lab, _)| lab));
             }
             //println!("KEEPING ONLY {:?}", keep);

@@ -1,4 +1,3 @@
-use crate::bignum::BigNum;
 use crate::line::Line;
 
 use either::Either;
@@ -17,15 +16,15 @@ use log::trace;
 /// where true indicates that they are, false indicates that the lines have been minimized by removing permutations,
 /// and none indicates that the constraints are arbitrary.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash)]
-pub struct Constraint {
-    pub lines: Vec<Line>,
+pub struct Constraint<BigNum : crate::bignum::BigNum> {
+    pub lines: Vec<Line<BigNum>>,
     pub delta: usize,
     pub bits: usize,
     pub mask: BigNum,
     permutations: Option<bool>,
 }
 
-impl Constraint {
+impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
     /// Creates an empty set of constraints, where each line has `delta` groups of `bits` bits.
     pub fn new(delta: usize, bits: usize) -> Self {
         Constraint {
@@ -38,12 +37,12 @@ impl Constraint {
     }
 
     /// Make the constraints harder, by keeping only labels satisfying the bitmask `keepmask`.
-    pub fn harden(&self, keepmask: BigNum) -> Constraint {
+    pub fn harden(&self, keepmask: BigNum) -> Constraint<BigNum> {
         let mut newlines = vec![];
         let delta = self.delta;
         let bits = self.bits;
         for line in self.lines.iter() {
-            if let Some(newline) = line.harden(keepmask) {
+            if let Some(newline) = line.harden(keepmask.clone()) {
                 newlines.push(newline);
             }
         }
@@ -51,29 +50,29 @@ impl Constraint {
             lines: newlines,
             delta,
             bits,
-            mask: self.mask & keepmask,
+            mask: self.mask.clone() & keepmask,
             permutations: None,
         }
     }
 
     /// Creates a new set of constraints, where for each line the label `from` is replaced by the label `to`.
-    pub fn replace(&self, from: usize, to: usize) -> Constraint {
+    pub fn replace(&self, from: usize, to: usize) -> Constraint<BigNum> {
         self.replace_with_group(from, BigNum::one() << to)
     }
 
-    pub fn replace_with_group(&self, from: usize, to: BigNum) -> Constraint {
+    pub fn replace_with_group(&self, from: usize, to: BigNum) -> Constraint<BigNum> {
         let mut newlines = vec![];
         let delta = self.delta;
         let bits = self.bits;
         for line in self.lines.iter() {
-            let newline = line.replace_with_group(from, to);
+            let newline = line.replace_with_group(from, to.clone());
             newlines.push(newline);
         }
         Self {
             lines: newlines,
             delta,
             bits,
-            mask: self.mask & !(BigNum::one() << from),
+            mask: self.mask.clone() & !(BigNum::one() << from),
             permutations: None,
         }
     }
@@ -82,7 +81,7 @@ impl Constraint {
     /// If some old line is included in the current one, remove the old one.
     /// If some old line includes the current one, do nothing.
     /// Does not change self.permutations.
-    pub fn add_reduce(&mut self, newline: Line) {
+    pub fn add_reduce(&mut self, newline: Line<BigNum>) {
         let l1 = self.lines.len();
         self.lines.retain(|oldline| !newline.includes(oldline));
         let l2 = self.lines.len();
@@ -92,7 +91,7 @@ impl Constraint {
     }
 
     /// Add a line to the constraints, no check is performed.
-    pub fn add(&mut self, newline: Line) {
+    pub fn add(&mut self, newline: Line<BigNum>) {
         self.lines.push(newline);
     }
 
@@ -129,14 +128,14 @@ impl Constraint {
     }
 
     /// Returns true if `v` is included in at least one line of the constraints.
-    pub fn satisfies(&self, v: &Line) -> bool {
+    pub fn satisfies(&self, v: &Line<BigNum>) -> bool {
         self.lines.iter().any(|line| line.includes(v))
     }
 
     /// Rename the labels, that is, for each line, each possible group value gets a single bit in the new line.
     /// `mapping` indicates how to map groups to labels.
     /// For example, if 011010 should be mapped to 1000, then mapping should map `011010` to 3 (the position of the unique bit with value 1).
-    pub fn renamed(&self, mapping: &HashMap<BigNum, usize>) -> Constraint {
+    pub fn renamed(&self, mapping: &HashMap<BigNum, usize>) -> Constraint<BigNum> {
         let newbits = mapping.len();
         let mut new = Constraint::new(self.delta, newbits);
         for line in self.lines.iter() {
@@ -146,7 +145,7 @@ impl Constraint {
     }
 
     /// Create constraints starting from their text representation.
-    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Result<Constraint, String> {
+    pub fn from_text(text: &str, mapping: &HashMap<String, usize>) -> Result<Constraint<BigNum>, String> {
         let vec = Self::string_to_vec(text)?;
         Self::from_vec(&vec, mapping)
     }
@@ -156,7 +155,7 @@ impl Constraint {
     /// each of its resulting vectors represents a single group of the line.
     /// Each group is represented by a vector of strings.
     pub fn string_to_vec(text: &str) -> Result<Vec<Vec<Vec<String>>>,String> {
-        text.lines().map(|line| Line::string_to_vec(line)).collect()
+        text.lines().map(|line| crate::line::string_to_vec(line)).collect()
     }
 
     /// Creates a set of constraints starting from its vector representation.
@@ -166,16 +165,16 @@ impl Constraint {
     pub fn from_vec(
         v: &Vec<Vec<Vec<String>>>,
         mapping: &HashMap<String, usize>,
-    ) -> Result<Constraint, String> {
+    ) -> Result<Constraint<BigNum>, String> {
         if v.is_empty() {
             return Err("Constraints can not be empty!".into());
         }
-        let first = Line::from_vec(&v[0], mapping);
+        let first = Line::<BigNum>::from_vec(&v[0], mapping);
         let delta = first.delta;
         let bits = first.bits;
 
-        if delta*bits > BigNum::MAX.bits() {
-            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent this problem a limit of {}*{} is required.",BigNum::MAX.bits(),bits,delta));
+        if delta*bits > BigNum::maxbits() {
+            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent this problem a limit of {}*{} is required.",BigNum::maxbits(),bits,delta));
         }
 
         let mut c = Constraint::new(delta, bits);
@@ -216,7 +215,7 @@ impl Constraint {
 
     /// Performs the existential step on the current constraints.
     /// `mapping` maps old sets to the new labels.
-    pub fn new_constraint_exist(&self, mapping: &HashMap<BigNum, usize>) -> Constraint {
+    pub fn new_constraint_exist(&self, mapping: &HashMap<BigNum, usize>) -> Constraint<BigNum> {
         let newbits = mapping.len();
         let mut new = Constraint::new(self.delta, newbits);
         for line in &self.lines {
@@ -230,30 +229,30 @@ impl Constraint {
 
     /// Performs the universal step on the current constraints.
     /// `pred` contains, for each label, all its (direct and indirect) predecessors
-    pub fn new_constraint_forall(&self, pred : &[BigNum] ) -> Constraint {
+    pub fn new_constraint_forall(&self, pred : &[BigNum] ) -> Constraint<BigNum> {
         let delta = self.delta;
         let bits = self.bits;
 
-        let bad = Line::forall_single(delta, bits, self.mask).filter(
+        let bad = Line::forall_single(delta, bits, self.mask.clone()).filter(
             |line|!self.satisfies(&line)
         );
 
         let mut v = vec![];
         let mut nodup = HashSet::new();
 
-        let init = Line::from_groups(delta, bits, std::iter::repeat(self.mask).take(delta));
+        let init = Line::from_groups(delta, bits, std::iter::repeat(self.mask.clone()).take(delta));
         v.push(init);
 
-        let mut prev : Option<Line> = None;
+        let mut prev : Option<Line<BigNum>> = None;
 
-        let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,&b)|(BigNum::one() << a, (BigNum::one() << a)|b)).collect();
+        let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,b)|(BigNum::one() << a, (BigNum::one() << a)|b.clone())).collect();
 
         trace!("counting bad configurations");
         let sz = bad.clone().count();
         for (i,r) in bad.rev().enumerate() {
-            if let Some(prev) = prev{
+            if let Some(prev) = prev.clone() {
                 let prevandpred = prev.edited(|g|{
-                    pred2[&g]
+                    pred2[&g].clone()
                 });
                 if prevandpred.includes(&r) {
                     continue;
@@ -271,7 +270,7 @@ impl Constraint {
                     new.push(line);
                 } else {
                     nodup.remove(&line.sorted());
-                    for x in Self::without_bad(line, r, pred).filter(|x|!x.contains_empty_group()).filter(|x|nodup.insert(x.sorted()) ) {
+                    for x in Self::without_bad(line, r.clone(), pred).filter(|x|!x.contains_empty_group()).filter(|x|nodup.insert(x.sorted()) ) {
                         toadd.push(x);
                     }
                 }
@@ -310,27 +309,27 @@ impl Constraint {
     }
 
 
-    fn without_bad(line : Line, bad : Line, pred : &[BigNum]) -> impl Iterator<Item=Line> + '_ {
+    fn without_bad(line : Line<BigNum>, bad : Line<BigNum>, pred : &[BigNum]) -> impl Iterator<Item=Line<BigNum>> + '_ {
         let one = BigNum::one();
         let bits = line.bits;
         bad.inner.one_bits().map(move |x|{
             let label = x % bits;
             let pos = x / bits;
-            let mask = ((one << label) | pred[label]) << (pos * bits); 
+            let mask = ((one.clone() << label) | pred[label].clone()) << (pos * bits); 
             let mask = !mask;
-            Line{ inner : line.inner & mask, ..line }
+            Line{ inner : line.inner.clone() & mask, ..line }
         })
     }
 
     /// Returns an iterator over all possible choices over the constraint that contains the label x at least once
-    pub fn choices_iter_containing(&self,x : usize) -> impl Iterator<Item = Line> + '_ {
-        Line::forall_single(self.delta-1, self.bits, self.mask)
+    pub fn choices_iter_containing(&self,x : usize) -> impl Iterator<Item = Line<BigNum>> + '_ {
+        Line::forall_single(self.delta-1, self.bits, self.mask.clone())
                     .map(move |line|line.add_column(x))
                     .filter(move |line| self.satisfies(line))
     }
 
     /// Returns an iterator over all possible choices over the constraints.
-    pub fn choices_iter(&self) -> impl Iterator<Item = Line> + '_ {
+    pub fn choices_iter(&self) -> impl Iterator<Item = Line<BigNum>> + '_ {
         // If the current constraints are the left side of the result of a speedup, things can be made fast
         // otherwise, just do forall and check for sat
         let is_easy = self.lines.iter().all(|line| line.is_action());
@@ -338,18 +337,18 @@ impl Constraint {
             Either::Left(self.lines.iter().cloned())
         } else {
             Either::Right(
-                Line::forall_single(self.delta, self.bits, self.mask)
+                Line::forall_single(self.delta, self.bits, self.mask.clone())
                     .filter(move |line| self.satisfies(line)),
             )
         }
     }
 
     /// Add the label to each time from is allowed
-    pub fn imply(&self, from : usize, to : usize) -> Constraint {
+    pub fn imply(&self, from : usize, to : usize) -> Constraint<BigNum> {
         let mut newlines = vec![];
         let delta = self.delta;
         let bits = self.bits;
-        let mask = self.mask;
+        let mask = self.mask.clone();
         for line in self.lines.iter() {
             let newline = line.imply(from, to);
             newlines.push(newline);

@@ -3,12 +3,14 @@
 use crate::auto::AutomaticSimplifications;
 use crate::autolb::AutoLb;
 use crate::autoub::AutoUb;
-use crate::bignum::BigNum;
+use crate::bignum::BigNum as _;
+use crate::bignum::BigBigNum as BigNum;
 use crate::problem::DiagramType;
-use crate::problem::Problem;
 use crate::problem::ResultProblem;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
+
 
 pub type Simpl = (usize, usize);
 pub type SimplS = (String, String);

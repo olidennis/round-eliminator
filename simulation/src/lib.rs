@@ -14,3 +14,4 @@ pub use crate::autoub::AutoUb;
 pub use crate::problem::DiagramType;
 pub use crate::problem::Problem;
 pub use crate::simpleapi::request_json;
+pub use crate::bignum::BigBigNum;

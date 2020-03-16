@@ -1,4 +1,3 @@
-use crate::bignum::BigNum;
 use itertools::Itertools;
 use permutator::Permutation;
 use serde::{Deserialize, Serialize};
@@ -11,13 +10,13 @@ use std::collections::HashMap;
 /// the constraint where there are 3 groups, 01, 11, and 11, that if we call the first bit A and the second bit B,
 /// corresponds to a constraint like B AB AB.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Ord, PartialOrd)]
-pub struct Line {
+pub struct Line<BigNum : crate::bignum::BigNum> {
     pub inner: BigNum,
     pub delta: usize,
     pub bits: usize,
 }
 
-impl Line {
+impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
     /// Creates a new line, with `delta` groups of `bits` bits, where the bits are initialized
     /// using the given `num` value.
     pub fn from(delta: usize, bits: usize, num: BigNum) -> Self {
@@ -31,7 +30,7 @@ impl Line {
     /// Creates a new line, with `delta` groups of `bits` bits,
     /// where the bits are set to what the `groups` iterator gives.
     /// It is assumed that `groups` is an iterator returning `delta` elements.
-    pub fn from_groups(delta: usize, bits: usize, groups: impl Iterator<Item = BigNum>) -> Line {
+    pub fn from_groups(delta: usize, bits: usize, groups: impl Iterator<Item = BigNum>) -> Line<BigNum> {
         let mut new = BigNum::zero();
         let mut shift = 0;
         for group in groups {
@@ -54,7 +53,7 @@ impl Line {
 
         (0..set.len().pow(delta as u32)).map(move |mut x| {
             let groups = (0..delta).map(|_| {
-                let cur = set[x % set.len()];
+                let cur = set[x % set.len()].clone();
                 x /= set.len();
                 cur
             });
@@ -90,17 +89,17 @@ impl Line {
     }
 
     /// Creates a new line where the label `from` is replaced by the label `to`.
-    pub fn replace(&self, from: usize, to: usize) -> Line {
+    pub fn replace(&self, from: usize, to: usize) -> Line<BigNum> {
         self.replace_with_group(from, BigNum::one() << to)
     }
 
-    pub fn replace_with_group(&self, from: usize, to: BigNum) -> Line {
+    pub fn replace_with_group(&self, from: usize, to: BigNum) -> Line<BigNum> {
         let one = BigNum::one();
         let from = one << from;
 
         self.edited(|group| {
-            if !(group & from).is_zero() {
-                (group & (!from)) | to
+            if !(group.clone() & from.clone()).is_zero() {
+                (group & (!from.clone())) | to.clone()
             } else {
                 group
             }
@@ -110,36 +109,36 @@ impl Line {
     /// Creates a new line where the label `from` is replaced by the label `to`,
     /// assuming that each group contains a single label.
     #[allow(dead_code)]
-    pub fn replace_fast(&self, from: usize, to: usize) -> Line {
+    pub fn replace_fast(&self, from: usize, to: usize) -> Line<BigNum> {
         let one = BigNum::one();
-        let from = one << from;
+        let from = one.clone() << from;
         let to = one << to;
 
-        self.edited(|group| if group == from { to } else { group })
+        self.edited(|group| if group == from { to.clone() } else { group })
     }
 
     /// This method assumes that each group contains a single label.
     /// Given a line where `from` may appear multiple times, it returns an iterator of lines
     /// where at each step one additional appearence of `from` is replaced by `to`.
     /// For example, given A A C, where from=A and to=B, it returns B A C, B B C.
-    pub fn replace_one_fast(&self, from: usize, to: usize) -> impl Iterator<Item = Line> {
+    pub fn replace_one_fast(&self, from: usize, to: usize) -> impl Iterator<Item = Line<BigNum>> {
         let one = BigNum::one();
-        let from = one << from;
+        let from = one.clone() << from;
         let to = one << to;
         let mut state = self.clone();
         self.groups()
             .enumerate()
-            .filter(move |&(_, x)| x == from)
+            .filter(move |(_, x)| x == &from)
             .map(move |(i, _)| {
-                state = state.with_group(i, to);
-                state
+                state = state.with_group(i, to.clone());
+                state.clone()
             })
     }
 
     /// Creates a new line where only labels allowed by the given mask are kept.
     /// If a group becomes empty, it returns None.
-    pub fn harden(&self, keepmask: BigNum) -> Option<Line> {
-        let newline = self.edited(|group| group & keepmask);
+    pub fn harden(&self, keepmask: BigNum) -> Option<Line<BigNum>> {
+        let newline = self.edited(|group| group & keepmask.clone());
         if !newline.contains_empty_group() {
             Some(newline)
         } else {
@@ -148,19 +147,19 @@ impl Line {
     }
 
     /// Creates a new line where each group is replaced by the result of `f`.
-    pub fn edited(&self, f: impl FnMut(BigNum) -> BigNum) -> Line {
+    pub fn edited(&self, f: impl FnMut(BigNum) -> BigNum) -> Line<BigNum> {
         let newgroups = self.groups().map(f);
         Line::from_groups(self.delta, self.bits, newgroups)
     }
 
     /// add the label to each time from is allowed
-    pub fn imply(&self, from: usize, to: usize) -> Line {
+    pub fn imply(&self, from: usize, to: usize) -> Line<BigNum> {
         let one = BigNum::one();
-        let from = one << from;
+        let from = one.clone() << from;
         let to = one << to;
         self.edited(|group| {
-            if !(group & from).is_zero() {
-                group | to
+            if !(group.clone() & from.clone()).is_zero() {
+                group | to.clone()
             } else {
                 group
             }
@@ -170,14 +169,14 @@ impl Line {
     /// Returns an iterator over the groups of the line (starting from the least significant bits).
     /// The iterator will contain `delta` elements.
     pub fn groups(&self) -> impl Iterator<Item = BigNum> {
-        let mut sets = self.inner;
+        let mut sets = self.inner.clone();
         let delta = self.delta;
         let bits = self.bits;
 
         let one = BigNum::one();
 
         (0..delta).map(move |_| {
-            let r = sets & ((one << bits) - one);
+            let r = sets.clone() & ((one.clone() << bits) - one.clone());
             sets >>= bits;
             r
         })
@@ -187,15 +186,15 @@ impl Line {
     pub fn group(&self, i: usize) -> BigNum {
         let bits = self.bits;
         let one = BigNum::one();
-        (self.inner >> (i * bits)) & ((one << bits) - one)
+        (self.inner.clone() >> (i * bits)) & ((one.clone() << bits) - one)
     }
 
     /// Replaces the i-th group with the new value `group` (starting to count from the least significant bits).
-    pub fn with_group(&self, i: usize, group: BigNum) -> Line {
+    pub fn with_group(&self, i: usize, group: BigNum) -> Line<BigNum> {
         let one = BigNum::one();
         let bits = self.bits;
-        let inner = self.inner;
-        let innerzeroed = inner & (!(((one << bits) - one) << (bits as usize * i)));
+        let inner = self.inner.clone();
+        let innerzeroed = inner & (!(((one.clone() << bits) - one) << (bits as usize * i)));
         let new = innerzeroed | (group << (bits as usize * i));
         Line::from(self.delta, bits, new)
     }
@@ -207,11 +206,11 @@ impl Line {
 
     /// Returns true if the current line allows at least what is allowed by `other` (with the same order).
     pub fn includes(&self, other: &Self) -> bool {
-        (self.inner | other.inner) == self.inner
+        (self.inner.clone() | other.inner.clone()) == self.inner
     }
 
     /// Returns an iterator over all the lines that can be obtained by permuting the groups of the current line.
-    pub fn permutations(&self) -> LinePermutationIter {
+    pub fn permutations(&self) -> LinePermutationIter<BigNum> {
         let g: Vec<_> = self.groups().collect();
         let bits = self.bits;
         let delta = self.delta;
@@ -223,40 +222,6 @@ impl Line {
         }
     }
 
-    /// Given a string that represents a line, the string is parsed and split in a vector representation,
-    /// Each resulting vector represents a single group of the line.
-    /// Each group is represented by a vector of strings.
-    pub fn string_to_vec(line: &str) -> Result<Vec<Vec<String>>, String> {
-        line.split_whitespace()
-            .rev()
-            .map(|w| {
-                w.chars()
-                    .batching(|it| match it.next() {
-                        Some('(') => {
-                            let mut closed = false;
-                            let s = format!(
-                                "({})",
-                                it.take_while(|&c| {
-                                    if c == ')' {
-                                        closed = true;
-                                    }
-                                    c != ')'
-                                })
-                                .collect::<String>()
-                            );
-                            if !closed {
-                                Some(Err("Missing ')'!".into()))
-                            } else {
-                                Some(Ok(s))
-                            }
-                        }
-                        Some(c) => Some(Ok(format!("{}", c))),
-                        None => None,
-                    })
-                    .collect()
-            })
-            .collect()
-    }
 
     /// Creates a line starting from its vector representation.
     /// `mapping` needs to provide a map from string labels to group positions.
@@ -307,12 +272,12 @@ impl Line {
 
     /// Given a line, for each group, consider all sets (the keys in `mapping`) that contain at least one label of the group.
     /// This function creates a new line where the renamed label (given by `mapping`) of each set is allowed.
-    pub fn anymap(&self, mapping: &HashMap<BigNum, usize>) -> Line {
+    pub fn anymap(&self, mapping: &HashMap<BigNum, usize>) -> Line<BigNum> {
         let newbits = mapping.len();
         let newgroups = self.groups().map(|g| {
             mapping
                 .keys()
-                .filter(|&&t| !(g & t).is_zero())
+                .filter(|&t| !(g.clone() & t.clone()).is_zero())
                 .map(|o| mapping[o])
                 .fold(BigNum::zero(), |r, x| r | (BigNum::one() << x))
         });
@@ -332,7 +297,7 @@ impl Line {
         self.groups().all(|group| group.count_ones() == 1)
     }
 
-    pub fn stronger(&self, line: Line, succ: &[BigNum]) -> bool {
+    pub fn stronger(&self, line: Line<BigNum>, succ: &[BigNum]) -> bool {
         let g1 = self.groups();
         let g2 = line.groups();
         let mut pairs = g1.zip(g2);
@@ -353,19 +318,19 @@ impl Line {
     pub fn add_column(&self, x: usize) -> Self {
         let delta = self.delta + 1;
         let bits = self.bits;
-        let inner = (self.inner << bits) | (BigNum::one() << x);
+        let inner = (self.inner.clone() << bits) | (BigNum::one() << x);
         Self { delta, bits, inner }
     }
 }
 
-pub struct LinePermutationIter {
+pub struct LinePermutationIter<BigNum : crate::bignum::BigNum> {
     groups: Vec<BigNum>,
     bits: usize,
     delta: usize,
 }
 
-impl LinePermutationIter {
-    pub fn iter<'a>(&'a mut self) -> impl Iterator<Item = Line> + 'a {
+impl<BigNum : crate::bignum::BigNum> LinePermutationIter<BigNum> {
+    pub fn iter<'a>(&'a mut self) -> impl Iterator<Item = Line<BigNum>> + 'a {
         let delta = self.delta;
         let bits = self.bits;
         std::iter::once(self.groups.clone())
@@ -373,3 +338,40 @@ impl LinePermutationIter {
             .map(move |p| Line::from_groups(delta, bits, p.into_iter()))
     }
 }
+
+
+
+    /// Given a string that represents a line, the string is parsed and split in a vector representation,
+    /// Each resulting vector represents a single group of the line.
+    /// Each group is represented by a vector of strings.
+    pub fn string_to_vec(line: &str) -> Result<Vec<Vec<String>>, String> {
+        line.split_whitespace()
+            .rev()
+            .map(|w| {
+                w.chars()
+                    .batching(|it| match it.next() {
+                        Some('(') => {
+                            let mut closed = false;
+                            let s = format!(
+                                "({})",
+                                it.take_while(|&c| {
+                                    if c == ')' {
+                                        closed = true;
+                                    }
+                                    c != ')'
+                                })
+                                .collect::<String>()
+                            );
+                            if !closed {
+                                Some(Err("Missing ')'!".into()))
+                            } else {
+                                Some(Ok(s))
+                            }
+                        }
+                        Some(c) => Some(Ok(format!("{}", c))),
+                        None => None,
+                    })
+                    .collect()
+            })
+            .collect()
+    }
