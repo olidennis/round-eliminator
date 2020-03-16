@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use log::trace;
-use crate::bignum::BigBigNum;
+use crate::bignum::{BigNum1,BigNum2,BigBigNum};
 use std::ops::{Deref,DerefMut};
+use crate::bignum::BigNum;
 
 /// A problem is represented by its left and right constraints, where left is the active side.
 /// All the following is then optional.
@@ -136,7 +137,6 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             .unique()
             .collect();
         let maxlen = labels.iter().map(|x|x.len()).max().unwrap();
-        println!("{number:>width$}", number=1, width=6);
 
         Ok(labels.into_iter()
             .sorted_by_key(|x|format!("{:>1$}",x,maxlen))
@@ -775,6 +775,27 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             .filter(|&(a,b)| !reachable.contains(&(a,b)) && !reachable.contains(&(b,a)) ).collect()
     }
 
+    pub fn required_size(&self) -> usize {
+        std::cmp::max(self.left.delta, self.right.delta) * self.left.bits
+    }
+
+
+    pub fn shrink_to<T:crate::bignum::BigNum>(&self) -> Option<Problem<T>> {
+        let left = self.left.intoo();
+        let right = self.right.intoo();
+        let map_text_label = self.map_text_label.clone();
+        let trivial_lines = self.trivial_lines.iter().map(|x|x.intoo()).collect();
+        let diagram = self.diagram.clone();
+        let reachable = self.reachable.clone();
+        let map_label_oldset = self.map_label_oldset.as_ref().map(|v|{
+            v.iter().cloned().map(|(u,b)|(u,b.intoo())).collect()
+        });
+        let map_text_oldlabel = self.map_text_oldlabel.clone();
+        let coloring_lines = self.coloring_lines.iter().map(|x|x.intoo()).collect();
+        let mergeable = self.mergeable.iter().map(|x|x.intoo()).collect();
+        Some(Problem{ left, right, map_text_label, trivial_lines, diagram, reachable, map_label_oldset, map_text_oldlabel, coloring_lines, mergeable })
+    }
+
 }
 
 /// Simple representation of the problem.
@@ -908,26 +929,47 @@ impl DerefMut for GenericProblem {
     }
 }
 
+impl<T : crate::bignum::BigNum> From<Problem<T>> for GenericProblem {
+    fn from(p: Problem<T>) -> Self {
+        Self{ inner : p.shrink_to::<BigBigNum>().unwrap() }
+    }
+}
+
+macro_rules! shrink {
+    ( $p:expr, $q:ident, $code:tt ) => {
+        match $p.required_size() {
+            0..=64 => {  let $q = $p.shrink_to::<BigNum1>().unwrap(); $code },
+            65..=128 => {  let $q = $p.shrink_to::<BigNum2>().unwrap(); $code },
+            _ => { let $q = $p.clone(); $code }
+        }
+    };
+}
+
 impl GenericProblem {
     pub fn merge_equal(&self) -> GenericProblem {
-        let new = self.inner.merge_equal();
-        GenericProblem{ inner : new }
+        shrink!(self.inner,q,{
+            q.merge_equal().into()
+        })
     }
     pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
+        //unimplemented!();
         let new = self.inner.speedup(diagramtype)?;
         Ok(GenericProblem{ inner : new })
     }
     pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> GenericProblem {
-        let new = self.inner.replace(from,to,diagramtype);
-        GenericProblem{ inner : new }
+        shrink!(self.inner,q,{
+            q.replace(from,to,diagramtype).into()
+        })
     }
     pub fn relax_add_arrow(&self, from: usize, to: usize, diagramtype: DiagramType) -> GenericProblem {
-        let new = self.inner.relax_add_arrow(from,to,diagramtype);
-        GenericProblem{ inner : new }
+        shrink!(self.inner,q,{
+            q.relax_add_arrow(from,to,diagramtype).into()
+        })
     }
     pub fn harden(&self, keepmask: BigBigNum, diagramtype: DiagramType, usepred: bool) -> Option<GenericProblem> {
-        let new = self.inner.harden(keepmask,diagramtype,usepred)?;
-        Some(GenericProblem{ inner : new })
+        Some(shrink!(self.inner,q,{
+            q.harden(keepmask.intoo(),diagramtype,usepred)?.into()
+        }))
     }
     pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
         let new = Problem::<BigBigNum>::from_text(left,right)?;

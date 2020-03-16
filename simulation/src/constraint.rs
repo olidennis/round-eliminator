@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use log::trace;
+use crate::bignum::BigBigNum;
+
 
 
 /// This struct represents a set of constraints.
@@ -361,4 +363,15 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             permutations: None,
         }
     }
+
+    pub fn intoo<T:crate::bignum::BigNum>(&self) -> Constraint<T> {
+            let lines = self.lines.iter().map(|x|x.intoo()).collect();
+            let delta = self.delta;
+            let bits = self.bits;
+            let mask = self.mask.intoo();
+            let permutations = self.permutations;
+            Constraint::<T>{ lines, delta, bits, mask, permutations }
+    }
+
 }
+

@@ -2,6 +2,7 @@ use itertools::Itertools;
 use permutator::Permutation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::bignum::BigBigNum;
 
 /// This struct represent a single line of the constraints of a problem.
 /// It is internally represented by a vector of bits of type BigNum,
@@ -320,6 +321,13 @@ impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
         let bits = self.bits;
         let inner = (self.inner.clone() << bits) | (BigNum::one() << x);
         Self { delta, bits, inner }
+    }
+
+    pub fn intoo<T: crate::bignum::BigNum>(&self) -> Line<T> {
+            let delta = self.delta;
+            let bits = self.bits;
+            let inner = self.inner.intoo();
+            Line::<T>{ inner, delta, bits }
     }
 }
 

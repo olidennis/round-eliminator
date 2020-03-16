@@ -1,6 +1,7 @@
 use serde::{de,Deserializer,Deserialize, Serialize, Serializer};
 use uint::*;
 
+
 pub trait BigNum : Clone + std::fmt::Debug + Eq + PartialEq + std::hash::Hash + Ord + PartialOrd
         + std::ops::Shr<usize,Output=Self> 
         + std::ops::Shl<usize,Output=Self> 
@@ -23,6 +24,17 @@ pub trait BigNum : Clone + std::fmt::Debug + Eq + PartialEq + std::hash::Hash + 
     fn zero() -> Self;
     fn is_zero(&self) -> bool;
     fn maxbits() -> usize;
+    fn intoo<T:BigNum>(&self) -> T {
+        let ones = self.one_bits();
+        let mut r = T::zero();
+        for x in ones {
+            if x >= T::maxbits() {
+                panic!("bad conversion");
+            }
+            r = r | (T::one() << x);
+        }
+        r
+    }
 }
 
 
@@ -52,6 +64,7 @@ macro_rules! uint_with_size {
                 x
             }
         }
+
 
         impl BigNum for $bn {
             fn count_ones(&self) -> u32 {
@@ -112,6 +125,7 @@ macro_rules! uint_with_size {
 }
 
 uint_with_size!(BigNum1,BigNum1BitsIterator,1);
+uint_with_size!(BigNum2,BigNum2BitsIterator,2);
 
 
 #[derive(Clone,Debug,Eq,PartialEq,Hash,Ord,PartialOrd)]
@@ -137,6 +151,7 @@ impl<'de> Deserialize<'de> for BigBigNum {
         x.map(|x|BigBigNum(x))
     }
 }
+
 
 impl BigNum for BigBigNum {
     fn count_ones(&self) -> u32 {
