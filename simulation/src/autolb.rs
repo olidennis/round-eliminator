@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
+type Problem = crate::problem::GenericProblem;
 
 #[derive(Clone)]
 pub struct AutoLb {

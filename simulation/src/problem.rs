@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use log::trace;
+use crate::bignum::BigBigNum;
+use std::ops::{Deref,DerefMut};
 
 /// A problem is represented by its left and right constraints, where left is the active side.
 /// All the following is then optional.
@@ -102,7 +104,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     /// Construct a problem starting from a text representation of the left and right constarints.
     pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
         let map_text_label = Self::create_map_text_label(left, right)?;
-        let hm = Self::map_to_hashmap(&map_text_label);
+        let hm = map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm)?;
         let right = Constraint::from_text(right, &hm)?;
         let mut problem = Self::new(
@@ -145,25 +147,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
 
     /// Creates a mapping from label numbers to their string representation
     pub fn map_label_text(&self) -> HashMap<usize, String> {
-        Self::map_to_inv_hashmap(&self.map_text_label)
-    }
-
-    /// Accessory function to convert a list of pairs `(a,b)` to a map mapping `a` to `b`
-    pub fn map_to_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<A, B>
-    where
-        A: Hash + Eq + Clone,
-        B: Clone,
-    {
-        map.iter().map(|(a, b)| (a.clone(), b.clone())).collect()
-    }
-
-    /// Accessory function to convert a list of pairs `(a,b)` to a map mapping `b` to `a`
-    pub fn map_to_inv_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<B, A>
-    where
-        B: Hash + Eq + Clone,
-        A: Clone,
-    {
-        map.iter().map(|(a, b)| (b.clone(), a.clone())).collect()
+        map_to_inv_hashmap(&self.map_text_label)
     }
 
     /// Returns a new problem where the label `from` has been replaced with label `to`.
@@ -473,7 +457,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         newleft_before_renaming.remove_permutations();
 
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
-        let hm_oldset_label = Self::map_to_inv_hashmap(&map_label_oldset);
+        let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);
 
         trace!("4) checking size");
 
@@ -740,7 +724,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             self.map_text_oldlabel.as_ref(),
         ) {
             (Some(lo), Some(to)) => {
-                let oldmap = Self::map_to_inv_hashmap(to);
+                let oldmap = map_to_inv_hashmap(to);
                 let mut v = vec![];
                 for (l, o) in lo {
                     let old = o.one_bits().map(|x| oldmap[&x].to_owned()).collect();
@@ -886,4 +870,71 @@ impl std::fmt::Display for ResultProblem {
 }
 
 
+/// Accessory function to convert a list of pairs `(a,b)` to a map mapping `a` to `b`
+pub fn map_to_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<A, B>
+    where
+        A: Hash + Eq + Clone,
+        B: Clone,
+{
+    map.iter().map(|(a, b)| (a.clone(), b.clone())).collect()
+}
 
+/// Accessory function to convert a list of pairs `(a,b)` to a map mapping `b` to `a`
+pub fn map_to_inv_hashmap<A, B>(map: &Vec<(A, B)>) -> HashMap<B, A>
+    where
+        B: Hash + Eq + Clone,
+        A: Clone,
+{
+    map.iter().map(|(a, b)| (b.clone(), a.clone())).collect()
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash)]
+#[serde(transparent)]
+pub struct GenericProblem{
+    inner : Problem<BigBigNum>
+}
+
+impl Deref for GenericProblem {
+    type Target = Problem<BigBigNum>;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for GenericProblem {    
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl GenericProblem {
+    pub fn merge_equal(&self) -> GenericProblem {
+        let new = self.inner.merge_equal();
+        GenericProblem{ inner : new }
+    }
+    pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
+        let new = self.inner.speedup(diagramtype)?;
+        Ok(GenericProblem{ inner : new })
+    }
+    pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> GenericProblem {
+        let new = self.inner.replace(from,to,diagramtype);
+        GenericProblem{ inner : new }
+    }
+    pub fn relax_add_arrow(&self, from: usize, to: usize, diagramtype: DiagramType) -> GenericProblem {
+        let new = self.inner.relax_add_arrow(from,to,diagramtype);
+        GenericProblem{ inner : new }
+    }
+    pub fn harden(&self, keepmask: BigBigNum, diagramtype: DiagramType, usepred: bool) -> Option<GenericProblem> {
+        let new = self.inner.harden(keepmask,diagramtype,usepred)?;
+        Some(GenericProblem{ inner : new })
+    }
+    pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
+        let new = Problem::<BigBigNum>::from_text(left,right)?;
+        Ok(GenericProblem{ inner : new })
+    }
+    pub fn from_line_separated_text(text: &str) -> Result<Self, String> {
+        let new = Problem::<BigBigNum>::from_line_separated_text(text)?;
+        Ok(GenericProblem{ inner : new })
+    }
+}

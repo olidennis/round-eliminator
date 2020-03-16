@@ -1,5 +1,5 @@
 use crate::problem::DiagramType;
-type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
+type Problem = crate::problem::GenericProblem;
 
 /// A chain of simplifications.
 /// We start from an initial problem,

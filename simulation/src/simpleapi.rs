@@ -9,7 +9,7 @@ use crate::problem::DiagramType;
 use crate::problem::ResultProblem;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
+type Problem = crate::problem::GenericProblem;
 
 
 pub type Simpl = (usize, usize);
@@ -64,7 +64,7 @@ pub fn simplify(p: &Problem, (a, b): Simpl) -> RProblem {
 
 pub fn simplify_s(p: &Problem, (a, b): SimplS) -> RProblem {
     let map = &p.map_text_label;
-    let map = Problem::map_to_hashmap(map);
+    let map = crate::problem::map_to_hashmap(map);
     let a = map[&a];
     let b = map[&b];
     let np = p.replace(a, b, DiagramType::Accurate);
@@ -80,7 +80,7 @@ pub fn addarrow(p: &Problem, (a, b): Addarrow) -> RProblem {
 
 pub fn harden(p: &Problem, v: Keeping, usepred: bool) -> Result<RProblem, String> {
     let map = &p.map_text_label;
-    let map = Problem::map_to_hashmap(map);
+    let map = crate::problem::map_to_hashmap(map);
     let keep = v
         .iter()
         .map(|x| BigNum::one() << map[x])
@@ -112,8 +112,8 @@ pub fn rename(p: &Problem, v: Renaming) -> Result<RProblem, String> {
     let map_text_oldlabel = p.map_text_oldlabel.as_ref().unwrap();
     let map_label_oldset = p.map_label_oldset.as_ref().unwrap();
 
-    let text_to_oldlabel = Problem::map_to_hashmap(map_text_oldlabel);
-    let oldset_to_label = Problem::map_to_inv_hashmap(map_label_oldset);
+    let text_to_oldlabel = crate::problem::map_to_hashmap(map_text_oldlabel);
+    let oldset_to_label = crate::problem::map_to_inv_hashmap(map_label_oldset);
 
     let oldlabelset_to_oldset = |v: Vec<String>| {
         v.into_iter()

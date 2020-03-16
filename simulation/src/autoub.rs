@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use crate::bignum::BigNum as _;
 use crate::bignum::BigBigNum as BigNum;
-type Problem = crate::problem::Problem<crate::bignum::BigBigNum>;
+type Problem = crate::problem::GenericProblem;
 
 
 #[derive(Clone)]
