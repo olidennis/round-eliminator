@@ -8,6 +8,7 @@ Todo:
 Todo soon:
 do simplifications even if it is possible to perform speedup
 if removing lines did not change anything, it is not needed to recompute the diagram
+When pressing start, computing the diagram is slow because it uses the slow version
 
 Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time). It is caused by https://bugzilla.mozilla.org/show_bug.cgi?id=1052398
