@@ -126,6 +126,10 @@ macro_rules! uint_with_size {
 
 uint_with_size!(BigNum1,BigNum1BitsIterator,1);
 uint_with_size!(BigNum2,BigNum2BitsIterator,2);
+uint_with_size!(BigNum3,BigNum3BitsIterator,3);
+uint_with_size!(BigNum4,BigNum4BitsIterator,4);
+uint_with_size!(BigNum8,BigNum8BitsIterator,8);
+uint_with_size!(BigNum16,BigNum16BitsIterator,16);
 
 
 #[derive(Clone,Debug,Eq,PartialEq,Hash,Ord,PartialOrd)]

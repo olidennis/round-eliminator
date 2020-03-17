@@ -2,7 +2,6 @@ use itertools::Itertools;
 use permutator::Permutation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::bignum::BigBigNum;
 
 /// This struct represent a single line of the constraints of a problem.
 /// It is internally represented by a vector of bits of type BigNum,

@@ -7,9 +7,30 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use log::trace;
-use crate::bignum::{BigNum1,BigNum2,BigBigNum};
+use crate::bignum::{BigNum1,BigNum2,BigNum3,BigNum4,BigNum8,BigNum16,BigBigNum};
 use std::ops::{Deref,DerefMut};
 use crate::bignum::BigNum;
+
+macro_rules! gettype {
+    ( $sz:expr, $q:ident, $code:tt ) => {
+        match $sz {
+            0..=64 => {  use BigNum1 as $q; $code },
+            0..=128 => {  use BigNum2 as $q; $code },
+            0..=192 => {  use BigNum3 as $q; $code },
+            0..=256 => {  use BigNum4 as $q; $code },
+            0..=512 => {  use BigNum8 as $q; $code },
+            0..=1024 => {  use BigNum16 as $q; $code },
+            _ => { use BigBigNum as $q; $code }
+        }
+    };
+}
+
+macro_rules! shrink {
+    ( $p:expr, $q:ident, $code:tt ) => {
+        gettype!($p.required_size(), BN ,{let $q = $p.shrink_to::<BN>().unwrap(); $code})
+    };
+}
+
 
 /// A problem is represented by its left and right constraints, where left is the active side.
 /// All the following is then optional.
@@ -441,7 +462,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
-    pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
+    pub fn speedup(&self, diagramtype: DiagramType) -> Result<Problem<BigBigNum>, String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
 
@@ -458,30 +479,40 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
 
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);
-
-        trace!("4) checking size");
-
         let newbits = hm_oldset_label.len();
-        if newbits * std::cmp::max(self.left.delta, self.right.delta) > BigNum::maxbits() {
-            return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::maxbits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
-        }
+        let newsize = newbits * std::cmp::max(self.left.delta, self.right.delta);
 
-        trace!("5) starting exists");
-        let newleft = newleft_before_renaming.renamed(&hm_oldset_label);
-        let mut newright = left.new_constraint_exist(&hm_oldset_label);
+        gettype!(newsize, BN ,{
 
-        trace!("6) removing permutations exists");
-        newright.remove_permutations();
-        trace!("7) creating new problem");
+            let map_label_oldset: Vec<_> = newleft_before_renaming.sets().map(|x|x.intoo()).enumerate().collect();
+            let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);
+    
+            trace!("4) checking size");
+    
+            let newbits = hm_oldset_label.len();
+            let newsize = newbits * std::cmp::max(self.left.delta, self.right.delta);
+    
+            if newsize > BN::maxbits() {
+                return Err(format!("The currently configured limit for delta*labels is {}, but in order to represent the result of this speedup a limit of {}*{} is required.",BigNum::maxbits(),newbits,std::cmp::max(self.left.delta, self.right.delta)));
+            }
 
-        Self::new(
-            newleft,
-            newright,
-            None,
-            Some(map_label_oldset),
-            Some(self.map_text_label.clone()),
-            diagramtype,
-        )
+            trace!("5) starting exists");
+            let newleft = newleft_before_renaming.intoo().renamed(&hm_oldset_label);
+            let mut newright = left.intoo().new_constraint_exist(&hm_oldset_label);
+
+            trace!("6) removing permutations exists");
+            newright.remove_permutations();
+            trace!("7) creating new problem");
+
+            Ok(Problem::<BN>::new(
+                newleft,
+                newright,
+                None,
+                Some(map_label_oldset),
+                Some(self.map_text_label.clone()),
+                diagramtype,
+            )?.shrink_to::<BigBigNum>().unwrap())
+        })
     }
 
     /// Computes the strength diagram for the labels on the right constraints.
@@ -935,15 +966,22 @@ impl<T : crate::bignum::BigNum> From<Problem<T>> for GenericProblem {
     }
 }
 
+
+
+/*
 macro_rules! shrink {
     ( $p:expr, $q:ident, $code:tt ) => {
         match $p.required_size() {
             0..=64 => {  let $q = $p.shrink_to::<BigNum1>().unwrap(); $code },
-            65..=128 => {  let $q = $p.shrink_to::<BigNum2>().unwrap(); $code },
+            0..=128 => {  let $q = $p.shrink_to::<BigNum2>().unwrap(); $code },
+            0..=192 => {  let $q = $p.shrink_to::<BigNum3>().unwrap(); $code },
+            0..=256 => {  let $q = $p.shrink_to::<BigNum4>().unwrap(); $code },
+            0..=512 => {  let $q = $p.shrink_to::<BigNum8>().unwrap(); $code },
+            0..=1024 => {  let $q = $p.shrink_to::<BigNum16>().unwrap(); $code },
             _ => { let $q = $p.clone(); $code }
         }
     };
-}
+}*/
 
 impl GenericProblem {
     pub fn merge_equal(&self) -> GenericProblem {
@@ -952,9 +990,9 @@ impl GenericProblem {
         })
     }
     pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
-        //unimplemented!();
-        let new = self.inner.speedup(diagramtype)?;
-        Ok(GenericProblem{ inner : new })
+        Ok(shrink!(self.inner,q,{
+            q.speedup(diagramtype)?.into()
+        }))
     }
     pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> GenericProblem {
         shrink!(self.inner,q,{
