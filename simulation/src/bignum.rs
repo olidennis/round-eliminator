@@ -1,6 +1,6 @@
 use serde::{de,Deserializer,Deserialize, Serialize, Serializer};
 use uint::*;
-
+use num_bigint::BigInt;
 
 pub trait BigNum : Clone + std::fmt::Debug + Eq + PartialEq + std::hash::Hash + Ord + PartialOrd
         + std::ops::Shr<usize,Output=Self> 
@@ -133,7 +133,7 @@ uint_with_size!(BigNum16,BigNum16BitsIterator,16);
 
 
 #[derive(Clone,Debug,Eq,PartialEq,Hash,Ord,PartialOrd)]
-pub struct BigBigNum(ramp::Int);
+pub struct BigBigNum(BigInt);
 
 
 impl Serialize for BigBigNum {
@@ -141,7 +141,7 @@ impl Serialize for BigBigNum {
     where
         S: Serializer,
     {
-        serializer.collect_str(&self.0.to_str_radix(16,true))
+        serializer.collect_str(&self.0.to_str_radix(16))
     }
 }
 
@@ -151,7 +151,7 @@ impl<'de> Deserialize<'de> for BigBigNum {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let x = ramp::Int::from_str_radix(&s,16).map_err(|e| de::Error::custom(format!("{:?}", e)));
+        let x = BigInt::parse_bytes(s.as_bytes(),16).ok_or_else(||de::Error::custom(format!("error parsing number")));
         x.map(|x|BigBigNum(x))
     }
 }
@@ -159,7 +159,7 @@ impl<'de> Deserialize<'de> for BigBigNum {
 
 impl BigNum for BigBigNum {
     fn count_ones(&self) -> u32 {
-        self.0.count_ones() as u32
+        self.one_bits().count() as u32
     }
 
     fn is_superset(&self, other: BigBigNum) -> bool {
@@ -175,23 +175,23 @@ impl BigNum for BigBigNum {
     }
 
     fn bits(&self) -> usize {
-        self.0.bit_length() as usize
+        self.0.bits()
     }
 
     fn bit(&self, i : usize) -> bool {
-        self.0.bit(i as u32)
+        ((self.0.clone() >> i) & Self::one().0) != Self::zero().0
     }
     
     fn one() -> Self {
-        Self( ramp::Int::from(1) )
+        Self(1.into())
     }
 
     fn zero() -> Self {
-        Self( ramp::Int::from(0) )
+        Self(0.into())
     }
 
     fn is_zero(&self) -> bool {
-        self.0 == 0
+        self.0 == Self::zero().0
     }
 
     fn maxbits() -> usize {
@@ -251,7 +251,7 @@ impl std::ops::Not for BigBigNum {
     type Output = Self;
 
     fn not(self) -> Self{
-        BigBigNum(-self.0 -1)
+        BigBigNum(!self.0)
     }
 }
 
@@ -284,7 +284,7 @@ impl std::ops::ShlAssign<usize> for BigBigNum {
     }
 }
 
-impl<T> From<T> for BigBigNum  where T : Into<ramp::Int>{
+impl<T> From<T> for BigBigNum  where T : Into<BigInt>{
     fn from(x: T) -> Self {
         Self(x.into())
     }
