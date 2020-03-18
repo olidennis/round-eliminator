@@ -481,8 +481,10 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);
         let newbits = hm_oldset_label.len();
         let newsize = newbits * std::cmp::max(self.left.delta, self.right.delta);
+        let oldsize = self.left.bits * std::cmp::max(self.left.delta, self.right.delta);
 
-        gettype!(newsize, BN ,{
+        
+        gettype!(std::cmp::max(newsize,oldsize), BN ,{
 
             let map_label_oldset: Vec<_> = newleft_before_renaming.sets().map(|x|x.intoo()).enumerate().collect();
             let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);
