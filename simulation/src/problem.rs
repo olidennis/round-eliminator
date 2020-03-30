@@ -92,6 +92,9 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         }
         trace!("computing triviality");
         p.compute_triviality();
+
+        trace!("{}",p.as_result());
+
         trace!("computing independent lines");
         p.compute_independent_lines();
         trace!("computing diagram");
@@ -499,6 +502,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             }
 
             trace!("5) starting exists");
+            trace!("newsize={} newleft_lines={} newlabels={}",newsize,newleft_before_renaming.lines.len(),hm_oldset_label.len());
             let newleft = newleft_before_renaming.intoo().renamed(&hm_oldset_label);
             let mut newright = left.intoo().new_constraint_exist(&hm_oldset_label);
 
