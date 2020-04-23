@@ -410,6 +410,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         trace!("    computing graph");
         let mut right = self.right.clone();
         right.add_permutations();
+        trace!("        added permutations");
         assert!(self.left.bits == right.bits);
         let bits = self.left.bits;
         let delta_r = right.delta;
@@ -418,9 +419,12 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         }
         let mut edges = vec![];
         // it could be improved by a factor 2 (also later)...
-        for l1 in self.left.choices_iter() {
+        let tot = self.left.choices_iter().count();
+
+        for (i,l1) in self.left.choices_iter().enumerate() {
             let m1 = l1.mask();
-            'outer: for l2 in self.left.choices_iter() {
+            'outer: for (j,l2) in self.left.choices_iter().enumerate() {
+                trace!("        {} {} / {}",i,j,tot);
                 let m2 = l2.mask();
                 for p1 in m1.one_bits() {
                     for p2 in m2.one_bits() {
@@ -460,6 +464,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         trace!("    computing largest clique");
         let invmap : HashMap<_,_> = map.iter().map(|(a,b)|(b,a)).collect();
         self.coloring_lines = g.max_clique().into_iter().map(|x|invmap[&x].clone()).collect();
+        trace!("largest clique size is {}",self.coloring_lines.len());
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,

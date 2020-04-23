@@ -29,7 +29,7 @@ pub fn new_problem(left: &str, right: &str) -> Result<RProblem, String> {
 }
 
 pub fn speedup(p: &Problem) -> Result<RProblem, String> {
-    let np = p.speedup(DiagramType::Fast)?;
+    let np = p.speedup(DiagramType::Accurate)?;
     let nr = np.as_result();
     Ok((np, nr))
 }
