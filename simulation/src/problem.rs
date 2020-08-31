@@ -10,6 +10,10 @@ use log::trace;
 use crate::bignum::{BigNum1,BigNum2,BigNum3,BigNum4,BigNum8,BigNum16,BigBigNum};
 use std::ops::{Deref,DerefMut};
 use crate::bignum::BigNum;
+use permutator::Permutation;
+
+type Normalized = (Constraint<BigBigNum>,Constraint<BigBigNum>);
+
 
 macro_rules! gettype {
     ( $sz:expr, $q:ident, $code:tt ) => {
@@ -103,6 +107,25 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         p.compute_mergeable();
         trace!("done");
         Ok(p)
+    }
+
+
+    // Normalize the problem, that is, two equivalent problems may be different, but their normalized versions would be the same. Useful to detect fixed points.
+    pub fn normalize(&self) -> Normalized {
+        let num_labels = self.num_labels();
+        let mut nums : Vec<_> = (0..num_labels).collect();
+        let normalized = std::iter::once(nums.clone()).chain(nums.permutation()).map(|perm|{
+            let mut renaming = vec![0;self.max_label()+1];
+            assert!(self.labels().count() == perm.len());
+            for (x,&y) in self.labels().zip(perm.iter()) {
+                renaming[x] = y;
+            }
+            let newleft = self.left.permute_normalize(&renaming);
+            let newright = self.right.permute_normalize(&renaming);
+            let newproblem = (newleft,newright);
+            newproblem
+        }).sorted().next().unwrap();
+        normalized
     }
 
     /// Check if the constraints are well formed, that is, the same set of labels appears on both sides
@@ -1028,4 +1051,37 @@ impl GenericProblem {
         let new = Problem::<BigBigNum>::from_line_separated_text(text)?;
         Ok(GenericProblem{ inner : new })
     }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_normalize() {
+        let p1 : Problem<BigNum1> = Problem::from_text("M U U U\nP P P P\n","M UP UP UP\nU U U U\n").unwrap();
+        let p2 : Problem<BigNum1> = Problem::from_text("Z U U U\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX").unwrap();
+        let p3 : Problem<BigNum1> = Problem::from_text("Z U U X\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX").unwrap();
+        let p4 : Problem<BigNum2> = Problem::from_text("Z U U U\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX").unwrap();
+
+        assert!(p1.left != p2.left);
+        assert!(p1.right != p2.right);
+        assert!(p1.normalize() == p2.normalize());
+        assert!(p1.as_result().to_string() != p2.as_result().to_string());
+        assert!(p1.normalize() != p3.normalize());
+        assert!(p1.normalize() == p4.normalize());
+
+        let p1 = p1.normalize();
+        let p2 = p2.normalize();
+        let p1 = Problem::from_constraints(p1.0,p1.1).unwrap();
+        let p2 = Problem::from_constraints(p2.0,p2.1).unwrap();
+        println!("{}",p1.as_result().to_string());
+        assert!(p1.as_result().to_string() == p2.as_result().to_string());
+
+
+    }
+
 }

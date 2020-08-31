@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use log::trace;
+use crate::bignum::BigBigNum;
 
 
 
@@ -16,7 +17,7 @@ use log::trace;
 /// Permutations indicates whether all permutations of each line are also included,
 /// where true indicates that they are, false indicates that the lines have been minimized by removing permutations,
 /// and none indicates that the constraints are arbitrary.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Ord, PartialOrd)]
 pub struct Constraint<BigNum : crate::bignum::BigNum> {
     pub lines: Vec<Line<BigNum>>,
     pub delta: usize,
@@ -370,6 +371,28 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             let mask = self.mask.intoo();
             let permutations = self.permutations;
             Constraint::<T>{ lines, delta, bits, mask, permutations }
+    }
+
+    pub fn permute_normalize(&self, renaming : &Vec<usize>) -> Constraint<BigBigNum> {
+        use crate::bignum::BigNum;
+        let newbits = renaming.len();
+        let newlines = self.choices_iter().map(|line|{
+            let newgroups = line.groups().map(|group|{
+                let pos = group.one_bits().next().unwrap();
+                let newpos = renaming[pos];
+                let newgroup = BigBigNum::one() << newpos;
+                newgroup
+            });
+            let newline = Line::from_groups(line.delta,newbits,newgroups.sorted());
+            newline
+        }).unique().sorted().collect();
+        Constraint::<BigBigNum>{
+            lines : newlines,
+            delta : self.delta,
+            bits : newbits,
+            mask : (BigBigNum::one() << newbits) - BigBigNum::one(),
+            permutations : None
+        }
     }
 
 }
