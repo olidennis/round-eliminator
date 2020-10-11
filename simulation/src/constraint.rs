@@ -33,7 +33,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             lines: vec![],
             delta,
             bits,
-            mask: (BigNum::one() << bits) - BigNum::one(),
+            mask: BigNum::create_mask(bits),
             permutations: None,
         }
     }
@@ -74,7 +74,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             lines: newlines,
             delta,
             bits,
-            mask: self.mask.clone() & !(BigNum::one() << from),
+            mask: self.mask.clone().remove(&(BigNum::one() << from)),
             permutations: None,
         }
     }
@@ -92,6 +92,15 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
         }
     }
 
+    pub fn add_reduce_bulk(&mut self, newlines: impl Iterator<Item=Line<BigNum>>) {
+        //let mut newlines : Vec<_> = newlines.enumerate().map(|(i,line)|(line.inner.count_ones(),line,i)).collect();
+        //newlines.sort_unstable_by_key(|x|x.0);
+        //for (i,(_,line,_)) in newlines.into_iter().rev().enumerate() {
+        for line in newlines {
+            self.add_reduce(line);
+        }
+    }
+
     /// Add a line to the constraints, no check is performed.
     pub fn add(&mut self, newline: Line<BigNum>) {
         self.lines.push(newline);
@@ -103,11 +112,9 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             return;
         }
         let old = std::mem::replace(&mut self.lines, vec![]);
-        for oldline in old {
-            for newline in oldline.permutations().iter() {
-                self.add_reduce(newline);
-            }
-        }
+        let mut perms : Vec<_> = old.into_iter().map(|oldline|oldline.permutations()).collect();
+        let newlines = perms.iter_mut().flat_map(|perm|perm.iter());
+        self.add_reduce_bulk(newlines);
         self.permutations = Some(true);
     }
 
@@ -140,8 +147,11 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
     pub fn renamed(&self, mapping: &HashMap<BigNum, usize>) -> Constraint<BigNum> {
         let newbits = mapping.len();
         let mut new = Constraint::new(self.delta, newbits);
+        //let newlines = self.lines.iter().map(|line|line.renamed(mapping));
+        //new.add_reduce_bulk(newlines);
         for line in self.lines.iter() {
-            new.add_reduce(line.renamed(mapping));
+            let newline = line.renamed(mapping);
+            new.add(newline);
         }
         new
     }
@@ -180,13 +190,16 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
         }
 
         let mut c = Constraint::new(delta, bits);
+
+        let mut toadd = vec![];
         for line in v {
             let line = Line::from_vec(line, mapping);
             if line.delta != delta || line.bits != bits {
                 return Err("Constraints (of the same side) have different degrees!".into());
             }
-            c.add_reduce(line);
+            toadd.push(line);
         }
+        c.add_reduce_bulk(toadd.into_iter());
         Ok(c)
     }
 
@@ -220,12 +233,8 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
     pub fn new_constraint_exist(&self, mapping: &HashMap<BigNum, usize>) -> Constraint<BigNum> {
         let newbits = mapping.len();
         let mut new = Constraint::new(self.delta, newbits);
-        for line in &self.lines {
-            let newline = line.anymap(mapping);
-            if !newline.contains_empty_group() {
-                new.add_reduce(newline);
-            }
-        }
+        let newlines = self.lines.iter().map(|line|line.anymap(mapping)).filter(|newline|!newline.contains_empty_group());
+        new.add_reduce_bulk(newlines);
         new
     }
 
@@ -262,7 +271,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             }
 
             let sz2 = v.len();
-            if i%10000 == 0 { trace!("Enumerating bad configurations: {} / {} (good candidates: {})",i,sz,sz2); }
+            /*if i%10000 == 0*/ { trace!("Enumerating bad configurations: {} / {} (good candidates: {})",i,sz,sz2); }
 
             let mut new = vec![];
             let mut toadd = vec![];
@@ -318,8 +327,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             let label = x % bits;
             let pos = x / bits;
             let mask = ((one.clone() << label) | pred[label].clone()) << (pos * bits); 
-            let mask = !mask;
-            Line{ inner : line.inner.clone() & mask, ..line }
+            Line{ inner : line.inner.clone().remove(&mask), ..line }
         })
     }
 
@@ -390,7 +398,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             lines : newlines,
             delta : self.delta,
             bits : newbits,
-            mask : (BigBigNum::one() << newbits) - BigBigNum::one(),
+            mask : BigBigNum::create_mask(newbits),
             permutations : None
         }
     }

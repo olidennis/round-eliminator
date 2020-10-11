@@ -88,6 +88,27 @@ impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
         })
     }
 
+    /// This functions produces an iterator that iterates over all possible Lines that can be created by
+    /// allowing only a single element for each group.
+    /// It only returns unique lines up to permutations.
+    /// `mask` is a bit vector that specifies which elements are allowed.
+    pub fn forall_single_noperm(
+        delta: usize,
+        bits: usize,
+        mask: BigNum,
+    ) -> impl Clone + DoubleEndedIterator<Item = Self> {
+        Self::forall_single(delta,bits,mask).filter(|line|{
+            let mut prev = BigNum::zero();
+            for g in line.groups() {
+                if g < prev {
+                    return false;
+                }
+                prev = g;
+            }
+            true
+        })
+    }
+
     /// Creates a new line where the label `from` is replaced by the label `to`.
     pub fn replace(&self, from: usize, to: usize) -> Line<BigNum> {
         self.replace_with_group(from, BigNum::one() << to)
@@ -99,7 +120,7 @@ impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
 
         self.edited(|group| {
             if !(group.clone() & from.clone()).is_zero() {
-                (group & (!from.clone())) | to.clone()
+                group.remove(&from) | to.clone()
             } else {
                 group
             }
@@ -173,10 +194,8 @@ impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
         let delta = self.delta;
         let bits = self.bits;
 
-        let one = BigNum::one();
-
         (0..delta).map(move |_| {
-            let r = sets.clone() & ((one.clone() << bits) - one.clone());
+            let r = sets.clone() & BigNum::create_mask(bits);
             sets >>= bits;
             r
         })
@@ -185,16 +204,14 @@ impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
     /// Returns the ith group
     pub fn group(&self, i: usize) -> BigNum {
         let bits = self.bits;
-        let one = BigNum::one();
-        (self.inner.clone() >> (i * bits)) & ((one.clone() << bits) - one)
+        (self.inner.clone() >> (i * bits)) & BigNum::create_mask(bits)
     }
 
     /// Replaces the i-th group with the new value `group` (starting to count from the least significant bits).
     pub fn with_group(&self, i: usize, group: BigNum) -> Line<BigNum> {
-        let one = BigNum::one();
         let bits = self.bits;
         let inner = self.inner.clone();
-        let innerzeroed = inner & (!(((one.clone() << bits) - one) << (bits as usize * i)));
+        let innerzeroed = inner.remove(&(BigNum::create_mask(bits) << (bits as usize * i)));
         let new = innerzeroed | (group << (bits as usize * i));
         Line::from(self.delta, bits, new)
     }
@@ -206,7 +223,8 @@ impl<BigNum : crate::bignum::BigNum> Line<BigNum> {
 
     /// Returns true if the current line allows at least what is allowed by `other` (with the same order).
     pub fn includes(&self, other: &Self) -> bool {
-        (self.inner.clone() | other.inner.clone()) == self.inner
+        self.inner.is_superset(&other.inner)
+        //(self.inner.clone() | other.inner.clone()) == self.inner
     }
 
     /// Returns an iterator over all the lines that can be obtained by permuting the groups of the current line.

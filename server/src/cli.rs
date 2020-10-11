@@ -23,7 +23,7 @@ pub fn file(name: &str, iter: usize, merge : bool) {
 
     for _ in 0..iter {
         println!("-------------------------");
-        p = p.speedup(DiagramType::Accurate).unwrap();
+        p = p.speedup(DiagramType::Fast).unwrap();
         println!("{}", p.as_result());
         if merge && !p.mergeable.is_empty() {
             p = p.merge_equal();

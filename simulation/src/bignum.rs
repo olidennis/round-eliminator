@@ -7,16 +7,16 @@ pub trait BigNum : Clone + std::fmt::Debug + Eq + PartialEq + std::hash::Hash + 
         + std::ops::Shl<usize,Output=Self> 
         + std::ops::BitOr<Self,Output=Self> 
         + std::ops::BitAnd<Self,Output=Self> 
-        + std::ops::Sub<Self,Output=Self> 
-        + std::ops::Not<Output=Self>
         + std::ops::ShrAssign<usize>
         + std::ops::ShlAssign<usize>
         + From<u64>
         {
     type OneBitsOutput : DoubleEndedIterator<Item = usize> + 'static;
 
+    fn remove(&self, other: &Self) -> Self;
+    fn create_mask(bits : usize) -> Self;
     fn count_ones(&self) -> u32;
-    fn is_superset(&self, other: Self) -> bool;
+    fn is_superset(&self, other: &Self) -> bool;
     fn one_bits(&self) -> Self::OneBitsOutput;
     fn bits(&self) -> usize;
     fn bit(&self, i : usize) -> bool ;
@@ -67,11 +67,17 @@ macro_rules! uint_with_size {
 
 
         impl BigNum for $bn {
+            fn remove(&self, other : &Self) -> Self {
+                *self & !*other
+            }
+            fn create_mask(bits: usize) -> Self {
+                ($bn::one() << bits) - $bn::one()
+            }
             fn count_ones(&self) -> u32 {
                 self.0.iter().map(|x| x.count_ones()).sum()
             }
-            fn is_superset(&self, other: Self) -> bool{
-                (*self | other) == *self
+            fn is_superset(&self, other: &Self) -> bool{
+                (*self | *other) == *self
             }
             type OneBitsOutput = $bni;
             fn one_bits(&self) -> Self::OneBitsOutput {
@@ -133,8 +139,14 @@ uint_with_size!(BigNum16,BigNum16BitsIterator,16);
 
 
 #[derive(Clone,Debug,Eq,PartialEq,Hash,Ord,PartialOrd)]
-pub struct BigBigNum(BigInt);
+pub struct BigBigNum(BigInt,(num_bigint::Sign,Vec<u32>));
 
+impl BigBigNum{
+    pub fn new(x : BigInt) -> Self {
+        let data = x.clone().to_u32_digits();
+        Self(x,data)
+    }
+}
 
 impl Serialize for BigBigNum {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -152,18 +164,38 @@ impl<'de> Deserialize<'de> for BigBigNum {
     {
         let s = String::deserialize(deserializer)?;
         let x = BigInt::parse_bytes(s.as_bytes(),16).ok_or_else(||de::Error::custom(format!("error parsing number")));
-        x.map(|x|BigBigNum(x))
+        x.map(|x|BigBigNum::new(x))
     }
 }
 
 
 impl BigNum for BigBigNum {
-    fn count_ones(&self) -> u32 {
-        self.one_bits().count() as u32
+    fn remove(&self, other : &Self) -> Self {
+        self & !other
+    }
+    fn create_mask(bits: usize) -> Self {
+        (Self::one() << bits) - Self::one()
     }
 
-    fn is_superset(&self, other: BigBigNum) -> bool {
-        (self.0.clone() | other.0) == self.0
+    fn count_ones(&self) -> u32 {
+        (self.1).1.iter().map(|x|x.count_ones()).sum()
+        //self.one_bits().count() as u32
+    }
+
+    fn is_superset(&self, other: &BigBigNum) -> bool {
+        let (sign1,data1) = &self.1;
+        let (sign2,data2) = &other.1;
+        assert!(*sign1 != num_bigint::Sign::Minus);
+        assert!(*sign2 != num_bigint::Sign::Minus);
+        let len1 = data1.len();
+        let len2 = data2.len();
+        if len2 > len1 && data2[len1..len2].iter().any(|&x|x!=0) {
+            return false;
+        }
+        if data1.iter().zip(data2.iter()).any(|(&a,&b)| a|b != a ) {
+            return false;
+        }
+        return true;
     }
 
     type OneBitsOutput = BigBigNumBitsIterator;
@@ -179,15 +211,25 @@ impl BigNum for BigBigNum {
     }
 
     fn bit(&self, i : usize) -> bool {
-        ((self.0.clone() >> i) & Self::one().0) != Self::zero().0
+        let a = i / 32;
+        let b = i % 32;
+        let target = if a < ((self.1).1).len() { (self.1).1[a] } else { 0 };
+        let bit = (target >> b) & 1;
+        let sign = match (self.1).0 {
+            num_bigint::Sign::Minus => {1}
+            num_bigint::Sign::Plus => {0}
+            num_bigint::Sign::NoSign => {0}
+        };
+        bit != sign
+        //((self.0.clone() >> i) & Self::one().0) != Self::zero().0
     }
     
     fn one() -> Self {
-        Self(1.into())
+        Self::new(1.into())
     }
 
     fn zero() -> Self {
-        Self(0.into())
+        Self::new(0.into())
     }
 
     fn is_zero(&self) -> bool {
@@ -225,7 +267,7 @@ impl std::ops::Shl<usize> for BigBigNum {
     type Output = Self;
 
     fn shl(self, x : usize) -> Self {
-        Self(self.0 << x)
+        Self::new(self.0 << x)
     }
 }
 
@@ -233,7 +275,7 @@ impl std::ops::Shr<usize> for BigBigNum {
     type Output = Self;
 
     fn shr(self, x : usize) -> Self {
-        Self(self.0 >> x)
+        Self::new(self.0 >> x)
     }
 }
 
@@ -242,7 +284,7 @@ impl std::ops::BitOr<BigBigNum> for BigBigNum {
     type Output = Self;
 
     fn bitor(self, x : BigBigNum) -> Self {
-        Self(self.0 | x.0)
+        Self::new(self.0 | x.0)
     }
 }
 
@@ -251,7 +293,15 @@ impl std::ops::Not for BigBigNum {
     type Output = Self;
 
     fn not(self) -> Self{
-        BigBigNum(!self.0)
+        Self::new(!self.0)
+    }
+}
+
+impl std::ops::Not for &BigBigNum {
+    type Output = BigBigNum;
+
+    fn not(self) -> BigBigNum{
+        BigBigNum::new(!&self.0)
     }
 }
 
@@ -259,7 +309,15 @@ impl std::ops::BitAnd<BigBigNum> for BigBigNum {
     type Output = Self;
 
     fn bitand(self, x : BigBigNum) -> Self {
-        Self(self.0 & x.0)
+        Self::new(self.0 & x.0)
+    }
+}
+
+impl std::ops::BitAnd<BigBigNum> for &BigBigNum {
+    type Output = BigBigNum;
+
+    fn bitand(self, x : BigBigNum) -> BigBigNum {
+        BigBigNum::new(&self.0 & x.0)
     }
 }
 
@@ -267,7 +325,7 @@ impl std::ops::Sub<BigBigNum> for BigBigNum {
     type Output = Self;
 
     fn sub(self, x : BigBigNum) -> Self {
-        BigBigNum(self.0 - x.0)
+        Self::new(self.0 - x.0)
     }
 }
 
@@ -275,18 +333,20 @@ impl std::ops::Sub<BigBigNum> for BigBigNum {
 impl std::ops::ShrAssign<usize> for BigBigNum {
     fn shr_assign(&mut self, x : usize){
         self.0 >>= x;
+        self.1 = self.0.to_u32_digits();
     }
 }
 
 impl std::ops::ShlAssign<usize> for BigBigNum {
     fn shl_assign(&mut self, x : usize){
         self.0 <<= x;
+        self.1 = self.0.to_u32_digits();
     }
 }
 
 impl<T> From<T> for BigBigNum  where T : Into<BigInt>{
     fn from(x: T) -> Self {
-        Self(x.into())
+        Self::new(x.into())
     }
 }
 

@@ -97,6 +97,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         trace!("computing triviality");
         p.compute_triviality();
 
+        trace!("computing result");
         trace!("{}",p.as_result());
 
         trace!("computing independent lines");
@@ -315,7 +316,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     ) -> Option<Problem<BigNum>> {
         let mut left = self.left.clone();
         if usepred {
-            let remove = !keepmask.clone() & self.left.mask.clone();
+            let remove = self.left.mask.clone().remove(&keepmask);
             let ones = remove.count_ones();
             for unrelax in remove.one_bits() {
                 let pred = self.predecessors(unrelax, ones == 1);
@@ -408,15 +409,16 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     /// Computes if the current problem is 0 rounds solvable, saving the result
     pub fn compute_triviality(&mut self) {
         let mut right = self.right.clone();
+
         right.add_permutations();
         assert!(self.left.bits == right.bits);
         let bits = self.left.bits;
         let delta_r = right.delta;
 
-        self.trivial_lines = self.left.choices_iter().filter(|action| {
+        self.trivial_lines = self.left.choices_iter().enumerate().filter(|(_,action)| {
             let mask = action.mask();
-            Line::forall_single(delta_r, bits, mask).all(|x| right.satisfies(&x))
-        }).collect();
+            Line::forall_single_noperm(delta_r, bits, mask).all(|x| right.satisfies(&x))
+        }).map(|(_,x)|x).collect();
     }
 
     pub fn is_trivial(&self) -> bool {
@@ -532,6 +534,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             trace!("5) starting exists");
             trace!("newsize={} newleft_lines={} newlabels={}",newsize,newleft_before_renaming.lines.len(),hm_oldset_label.len());
             let newleft = newleft_before_renaming.intoo().renamed(&hm_oldset_label);
+            trace!("renamed");
             let mut newright = left.intoo().new_constraint_exist(&hm_oldset_label);
 
             trace!("6) removing permutations exists");
@@ -563,21 +566,27 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     /// if this problem is the result of a speedup.
     /// With this method, some edges may be missing.
     fn compute_diagram_edges_from_oldsets(&mut self) {
+        
         let mut result = vec![];
         let mut reachable = vec![];
         let map_label_oldset = self.map_label_oldset.as_ref().unwrap();
 
+        if map_label_oldset.len() >= 30000 {
+            trace!("not computing the diagram, there are too many labels");
+            return;
+        }
+
         for (label, oldset) in map_label_oldset.iter() {
             let candidates: Vec<_> = map_label_oldset
                 .iter()
-                .cloned()
                 .filter(|(_, otheroldset)| {
-                    oldset != otheroldset && otheroldset.is_superset(oldset.clone())
+                    oldset != otheroldset && otheroldset.is_superset(oldset)
                 })
+                .cloned()
                 .collect();
             let mut right = candidates.clone();
             for (_, set) in &candidates {
-                right.retain(|(_, rset)| rset.clone() == set.clone() || !rset.is_superset(set.clone()));
+                right.retain(|(_, rset)| rset == set || !rset.is_superset(set));
             }
             for (otherlabel, _) in right {
                 result.push((label.clone(), otherlabel));
@@ -685,7 +694,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         assert!(bits < 64);
         (1..(1u64 << bits))
             .map(|x| BigNum::from(x))
-            .filter(move |x| mask.is_superset(x.clone()))
+            .filter(move |x| mask.is_superset(x))
     }
 
 
@@ -693,7 +702,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     fn rcs_helper(&self, right: &Vec<BigNum>, result: &mut Vec<BigNum>, added: BigNum, max: usize) {
         for x in self.labels() {
             let toadd = (BigNum::one() << x) | right[x].clone();
-            if x >= max && !added.bit(x) && (added.clone() == BigNum::zero() || !toadd.is_superset(added.clone())) {
+            if x >= max && !added.bit(x) && (added == BigNum::zero() || !toadd.is_superset(&added)) {
                 let new = added.clone() | toadd;
                 result.push(new.clone());
                 self.rcs_helper(right, result, new, x + 1);
