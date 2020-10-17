@@ -92,13 +92,88 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
         }
     }
 
-    pub fn add_reduce_bulk(&mut self, newlines: impl Iterator<Item=Line<BigNum>>) {
+    pub fn add_reduce_bulk(&mut self, newlines: impl Iterator<Item=Line<BigNum>>) -> Vec<Line<BigNum>> {
         //let mut newlines : Vec<_> = newlines.enumerate().map(|(i,line)|(line.inner.count_ones(),line,i)).collect();
         //newlines.sort_unstable_by_key(|x|x.0);
         //for (i,(_,line,_)) in newlines.into_iter().rev().enumerate() {
-        for line in newlines {
+        /*for line in newlines {
             self.add_reduce(line);
+        }*/
+        let newlines : Vec<_> = newlines.collect();
+
+        if self.delta * self.bits <= 64*8 || newlines.len() < 128 {
+            let mut removed = vec![];
+            for newline in newlines {
+                let l1 = self.lines.len();
+                self.lines.retain(|oldline|{
+                    let keep = !newline.includes(oldline);
+                    if !keep {
+                        removed.push(oldline.clone());
+                    }
+                    keep
+                });
+                let l2 = self.lines.len();
+                if l1 != l2 || self.lines.iter().all(|oldline| !oldline.includes(&newline)) {
+                    self.add(newline);
+                } else {
+                    removed.push(newline);
+                }
+            }
+            return removed;
         }
+
+        trace!("extracting bits");
+
+        let old = std::mem::replace(&mut self.lines, vec![]);
+        let mut sets = vec![];
+        for (line,is_new) in old.into_iter().map(|x|(x,false)).chain(newlines.into_iter().map(|x|(x,true))) {
+            let set : Vec<usize> = line.inner.one_bits().collect();
+            sets.push((set,line,is_new));
+        }
+
+
+        if sets.is_empty() {
+            return vec![];
+        }
+
+        trace!("counting");
+        let k = self.delta * self.bits;
+        let mut counts = vec![0;k];
+        for (set,_,_) in &sets {
+            for &x in set {
+                counts[x] += 1;
+            }
+        }
+
+        trace!("permuting");
+
+        let mut pairs : Vec<_> = counts.into_iter().enumerate().map(|(a,b)|(b,a)).collect();
+        pairs.sort();
+        let map : HashMap<usize,usize> = pairs.iter().enumerate().map(|(newpos,&(_count,oldpos))|(oldpos,newpos)).collect();
+
+        let mut new_to_old = HashMap::new();
+
+        let mut sorted = vec![];
+        for (set,line,is_new) in sets {
+            let mut set : Vec<usize> = set.into_iter().map(|x|map[&x]).collect();
+            set.sort();
+            new_to_old.insert(set.clone(),line);
+            sorted.push(crate::extremalsets::Elem{set,is_new,keep:true});
+        }
+
+
+        crate::extremalsets::find_maximal(&mut sorted);
+
+        let mut removed = vec![];
+        for crate::extremalsets::Elem{set,keep,..} in sorted {
+            if keep {
+                self.add(new_to_old[&set].clone());
+            } else {
+                removed.push(new_to_old[&set].clone());
+            }
+        }
+        
+        removed
     }
 
     /// Add a line to the constraints, no check is performed.
@@ -240,7 +315,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
 
     /// Performs the universal step on the current constraints.
     /// `pred` contains, for each label, all its (direct and indirect) predecessors
-    pub fn new_constraint_forall(&self, pred : &[BigNum] ) -> Constraint<BigNum> {
+    pub fn new_constraint_forall(&self, pred : &[BigNum], diagram : &[(usize,usize)] ) -> Constraint<BigNum> {
         let delta = self.delta;
         let bits = self.bits;
 
@@ -248,27 +323,38 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             |line|!self.satisfies(&line)
         );
 
+        let mut successors = vec![vec![];bits];
+        for &(a,b) in diagram {
+            successors[a].push(b);
+        }
+
+        trace!("reducing bad configurations");
+        let bads : HashSet<_> = bad.clone().collect();
+        let mut maxbads = vec![];
+        'outer: for b in bad {
+            for (i,p) in b.inner.one_bits().enumerate() {
+                let p = p - (i * bits);
+                for &s in &successors[p] {
+                    if bads.contains(&b.with_group(i,BigNum::one() << s)) {
+                        continue 'outer;
+                    }
+                }
+            }
+            maxbads.push(b);
+        }
+
+        trace!("starting to compute solution");
+
         let mut v = vec![];
         let mut nodup = HashSet::new();
 
         let init = Line::from_groups(delta, bits, std::iter::repeat(self.mask.clone()).take(delta));
         v.push(init);
 
-        let mut prev : Option<Line<BigNum>> = None;
 
-        let pred2 : HashMap<BigNum,BigNum> = pred.iter().enumerate().map(|(a,b)|(BigNum::one() << a, (BigNum::one() << a)|b.clone())).collect();
+        let sz = maxbads.len();
+        for (i,r) in maxbads.into_iter().enumerate() {
 
-        trace!("counting bad configurations");
-        let sz = bad.clone().count();
-        for (i,r) in bad.rev().enumerate() {
-            if let Some(prev) = prev.clone() {
-                let prevandpred = prev.edited(|g|{
-                    pred2[&g].clone()
-                });
-                if prevandpred.includes(&r) {
-                    continue;
-                }
-            }
 
             let sz2 = v.len();
             /*if i%10000 == 0*/ { trace!("Enumerating bad configurations: {} / {} (good candidates: {})",i,sz,sz2); }
@@ -276,6 +362,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             let mut new = vec![];
             let mut toadd = vec![];
 
+            trace!("generating new lines");
             for line in v {
                 if !line.includes(&r) {
                     new.push(line);
@@ -287,26 +374,19 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
                 }
             }
 
-            for newline in toadd {
-                let l1 = new.len();
-                new.retain(|oldline|{
-                    let keep = !newline.includes(oldline);
-                    if !keep {
-                        nodup.remove(&oldline.sorted());
-                    }
-                    keep
-                });
-                let l2 = new.len();
-                if l1 != l2 || new.iter().all(|oldline| !oldline.includes(&newline)) {
-                    new.push(newline);
-                } else {
-                    nodup.remove(&newline.sorted());
-                }
+            trace!("reducing new lines ({} {} {})",new.len(),toadd.len(),new.len()+toadd.len());
 
+            let mut c = Constraint::new(delta,bits);
+            c.lines = new;
+            let removed = c.add_reduce_bulk(toadd.iter().cloned());
+            for line in removed {
+                nodup.remove(&line.sorted());
             }
 
+            let new = c.lines;
+            trace!("obtained {} lines",new.len());
+
             v = new;
-            prev = Some(r);
         }
 
         let mut result = Constraint::new(delta, bits);

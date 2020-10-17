@@ -192,9 +192,16 @@ impl BigNum for BigBigNum {
         if len2 > len1 && data2[len1..len2].iter().any(|&x|x!=0) {
             return false;
         }
-        if data1.iter().zip(data2.iter()).any(|(&a,&b)| a|b != a ) {
-            return false;
+        for x in 0..std::cmp::min(len1,len2) {
+            let a = data1[x];
+            let b = data2[x];
+            if a|b != a {
+                return false;
+            }
         }
+        //if data1.iter().zip(data2.iter()).any(|(&a,&b)| a|b != a ) {
+        //    return false;
+        //}
         return true;
     }
 

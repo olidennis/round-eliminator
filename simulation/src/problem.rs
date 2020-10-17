@@ -504,7 +504,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         right.add_permutations();
 
         trace!("2) starting forall");
-        let mut newleft_before_renaming = right.new_constraint_forall(&self.map_label_predecesors());
+        let mut newleft_before_renaming = right.new_constraint_forall(&self.map_label_predecesors(),&self.diagram);
 
         trace!("3) removing permutations forall");
         newleft_before_renaming.add_permutations();
