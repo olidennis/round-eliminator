@@ -444,12 +444,12 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         }
         let mut edges = vec![];
         // it could be improved by a factor 2 (also later)...
-        let tot = self.left.choices_iter().count();
+        //let tot = self.left.choices_iter().count();
 
-        for (i,l1) in self.left.choices_iter().enumerate() {
+        for (_i,l1) in self.left.choices_iter().enumerate() {
             let m1 = l1.mask();
-            'outer: for (j,l2) in self.left.choices_iter().enumerate() {
-                trace!("        {} {} / {}",i,j,tot);
+            'outer: for (_j,l2) in self.left.choices_iter().enumerate() {
+                //trace!("        {} {} / {}",i,j,tot);
                 let m2 = l2.mask();
                 for p1 in m1.one_bits() {
                     for p2 in m2.one_bits() {

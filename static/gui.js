@@ -442,7 +442,7 @@ function make_div_autoub(problem){
 
             let rounds = result.filter(step => step[1] == "Speedup" ).length;
             let nt = result[result.length-1][2].is_trivial;
-            if ( !nt )rounds += 1;
+            //if ( !nt )rounds += 1;
             toshow.append(make_performed_action("Upper bound of " + rounds + " rounds."));
 
             for(let step of result ) {

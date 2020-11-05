@@ -18,3 +18,4 @@ pub use crate::problem::Problem;
 pub use crate::simpleapi::request_json;
 pub use crate::bignum::BigBigNum;
 pub use crate::problem::GenericProblem;
+pub use crate::bignum::BigNum1;

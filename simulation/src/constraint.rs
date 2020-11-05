@@ -329,9 +329,11 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
         }
 
         trace!("reducing bad configurations");
+        trace!("total bad: {}",bad.clone().count());
         let bads : HashSet<_> = bad.clone().collect();
+        trace!("computed bads");
         let mut maxbads = vec![];
-        'outer: for b in bad {
+        'outer: for (_,b) in bad.enumerate() {
             for (i,p) in b.inner.one_bits().enumerate() {
                 let p = p - (i * bits);
                 for &s in &successors[p] {
@@ -357,12 +359,12 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
 
 
             let sz2 = v.len();
-            /*if i%10000 == 0*/ { trace!("Enumerating bad configurations: {} / {} (good candidates: {})",i,sz,sz2); }
+            /*if i%100 == 0*/ { trace!("Enumerating bad configurations: {} / {} (good candidates: {})",i,sz,sz2); }
 
             let mut new = vec![];
             let mut toadd = vec![];
 
-            trace!("generating new lines");
+            //trace!("generating new lines");
             for line in v {
                 if !line.includes(&r) {
                     new.push(line);
@@ -374,7 +376,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
                 }
             }
 
-            trace!("reducing new lines ({} {} {})",new.len(),toadd.len(),new.len()+toadd.len());
+            //trace!("reducing new lines ({} {} {})",new.len(),toadd.len(),new.len()+toadd.len());
 
             let mut c = Constraint::new(delta,bits);
             c.lines = new;
@@ -384,7 +386,7 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             }
 
             let new = c.lines;
-            trace!("obtained {} lines",new.len());
+            //trace!("obtained {} lines",new.len());
 
             v = new;
         }
