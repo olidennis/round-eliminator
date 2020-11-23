@@ -4,6 +4,7 @@ Todo:
 - in autoub, do not generate strings to check for a fixpoint
 - check for solvability given a weak coloring
 - use the tree decidability results for binary lcls
+- gui: add the number of performed speedup steps
 
 Todo soon:
 do simplifications even if it is possible to perform speedup
