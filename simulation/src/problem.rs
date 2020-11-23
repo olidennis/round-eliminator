@@ -184,7 +184,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             .flat_map(|v| v.into_iter())
             .unique()
             .collect();
-        let maxlen = labels.iter().map(|x|x.len()).max().unwrap();
+        let maxlen = labels.iter().map(|x|x.len()).max().ok_or_else(||"empty constraints!")?;
 
         Ok(labels.into_iter()
             .sorted_by_key(|x|format!("{:>1$}",x,maxlen))
