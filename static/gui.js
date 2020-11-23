@@ -669,8 +669,11 @@ function generate_html_for_problem(problem, reason) {
     let col_right_new = make_card("m-2","p-0","<h6>Passive</h6><h6><small>Exists choice satisfying previous Active</small></h6>",right_new,true,id_new_leftright);
 
     let show_diagram = $('input[type=checkbox]',$('#showdiag')).is(':checked');
-    let diagram = make_div_diagram(problem);
-    let col_diagram = !show_diagram ? $('<div/>') : make_card("m-2","p-0","<h6>Diagram</h6><h6><small>Strength of right side labels</small></h6>",diagram,true,id_new_leftright);
+    let col_diagram = $('<div/>');
+    if ( show_diagram ){
+        let diagram = make_div_diagram(problem);
+        col_diagram =  make_card("m-2","p-0","<h6>Diagram</h6><h6><small>Strength of right side labels</small></h6>",diagram,true,id_new_leftright);
+    }
 
     let col_mergeable = make_div_mergeable(problem);
 

@@ -324,8 +324,11 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
         );
 
         let mut successors = vec![vec![];bits];
+        let hs : HashSet<(usize,usize)> = diagram.iter().cloned().collect();
         for &(a,b) in diagram {
-            successors[a].push(b);
+            if !hs.contains(&(b,a)) {
+                successors[a].push(b);
+            }
         }
 
         trace!("reducing bad configurations");
