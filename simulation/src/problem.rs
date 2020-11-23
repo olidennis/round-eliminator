@@ -53,6 +53,7 @@ pub struct Problem<BigNum : crate::bignum::BigNum> {
     pub map_label_oldset: Option<Vec<(usize, BigNum)>>,  
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
     pub coloring_lines: Option<Vec<Line<BigNum>>>,
+    pub orientation_lines: Option<Vec<Line<BigNum>>>,
     pub mergeable: Option<Vec<BigNum>>,
     pub trivial_lines: Option<Vec<Line<BigNum>>>,
     pub config : Config
@@ -66,7 +67,9 @@ pub struct Config {
     pub given_coloring : Option<usize>,
     pub given_coloring_passive : Option<usize>,
     pub compute_mergeable : bool,
-    pub diagramtype : DiagramType
+    pub diagramtype : DiagramType,
+    pub fixed_orientation : Option<usize>,
+    pub fixed_orientation_passive : Option<usize>,
 }
 
 #[derive(Copy,Clone,Debug,Serialize,Deserialize,Hash,Eq,PartialEq)]
@@ -91,6 +94,9 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         if config.compute_color_triviality {
             config.compute_triviality = true;
         }
+        if config.fixed_orientation.is_some() {
+            config.compute_triviality = true;
+        }
 
         if left.lines.len() == 0 || right.lines.len() == 0 {
             return Err("Empty constraints!".into());
@@ -105,6 +111,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             reachable: vec![],
             trivial_lines: None,
             coloring_lines: None,
+            orientation_lines : None,
             mergeable: None,
             config
         };
@@ -116,6 +123,10 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         if config.compute_triviality {
             trace!("computing triviality");
             p.compute_triviality();
+        }
+        if config.fixed_orientation.is_some() {
+            trace!("computing orientation triviality");
+            p.compute_orientation_triviality();
         }
 
         trace!("computing result");
@@ -440,6 +451,51 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             .fold(BigNum::zero(), |a, b| a | b)
     }
 
+    pub fn compute_orientation_triviality(&mut self) {
+        let outgoing = self.config.fixed_orientation.unwrap();
+        if self.right.delta != 2 {
+            return;
+        }
+        let mut right = self.right.clone();
+        right.add_permutations();
+        assert!(self.left.bits == right.bits);
+        let bits = self.left.bits;        
+
+        let orientation_lines = self.left.choices_iter().enumerate().filter(|(_,action)| {
+            let labels : Vec<usize> = action.groups().map(|g|g.one_bits().next().unwrap()).collect();
+            let mut outlabels = vec![];
+            let mut inlabels = vec![];
+            'outer: for subset in (0..self.left.delta).combinations(outgoing) {
+                let mut x = 0;
+                let mut y = 0;
+                while x < self.left.delta {
+                    if y >= subset.len() || x < subset[y] {
+                        inlabels.push(labels[x]);
+                        x += 1;
+                    } else if x == subset[y] {
+                        outlabels.push(labels[x]);
+                        x += 1;
+                        y += 1;
+                    }
+                }
+                for &p1 in &inlabels {
+                    for &p2 in &outlabels {
+                        let num = ((BigNum::one() << p1) << bits) | (BigNum::one() << p2);
+                        let line = Line::from(2, bits, num);
+                        if !right.satisfies(&line) {
+                            continue 'outer;
+                        }
+                    }
+                }
+                return true;
+            }
+            false
+        }).map(|(_,x)|x).collect();
+
+        self.orientation_lines = Some(orientation_lines);
+    }
+
+
     /// Computes if the current problem is 0 rounds solvable, saving the result
     pub fn compute_triviality(&mut self) {
         let mut right = self.right.clone();
@@ -461,13 +517,22 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         self.trivial_lines.as_ref().map(|t|!t.is_empty())
     }
 
+    pub fn is_trivial_orientation(&self) -> Option<bool> {
+        self.orientation_lines.as_ref().map(|t|!t.is_empty())
+    }
+
     pub fn is_zero_rounds(&self) -> bool {
         let mut r = self.is_trivial().unwrap_or(false);
         if let Some(gc) = self.config.given_coloring {
             if let Some(c) = self.coloring() {
                 if c >= gc {
-                    r = true
+                    r = true;
                 }
+            }
+        }
+        if let Some(_) = self.config.fixed_orientation {
+            if self.is_trivial_orientation().unwrap_or(false) {
+                r = true;
             }
         }
         r
@@ -480,16 +545,16 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
 
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
     pub fn compute_independent_lines(&mut self) {
+        if self.right.delta != 2 {
+            return;
+        }
         trace!("    computing graph");
         let mut right = self.right.clone();
         right.add_permutations();
         trace!("        added permutations");
         assert!(self.left.bits == right.bits);
         let bits = self.left.bits;
-        let delta_r = right.delta;
-        if delta_r != 2 {
-            return;
-        }
+
         let mut edges = vec![];
         // it could be improved by a factor 2 (also later)...
         //let tot = self.left.choices_iter().count();
@@ -593,6 +658,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             let mut config = self.config;
             std::mem::swap(&mut config.given_coloring,&mut config.given_coloring_passive);
             std::mem::swap(&mut config.compute_color_triviality,&mut config.compute_color_triviality_passive);
+            std::mem::swap(&mut config.fixed_orientation,&mut config.fixed_orientation_passive);
 
             Ok(Problem::<BN>::new(
                 newleft,
@@ -874,6 +940,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         let trivial_lines = self.trivial_lines.as_ref().map(|t|t.iter().map(|line|line.to_vec(&map)).collect());
         let coloring = self.coloring();
         let coloring_lines = self.coloring_lines.as_ref().map(|t|t.iter().map(|line|line.to_vec(&map)).collect());
+        let is_trivial_orientation = self.is_trivial_orientation();
+        let orientation_lines = self.orientation_lines.as_ref().map(|t|t.iter().map(|line|line.to_vec(&map)).collect());
 
 
         let mergeable = self
@@ -893,6 +961,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             trivial_lines,
             coloring,
             coloring_lines,
+            is_trivial_orientation,
+            orientation_lines,
             mergeable,
             config : self.config
         }
@@ -923,9 +993,10 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         });
         let map_text_oldlabel = self.map_text_oldlabel.clone();
         let coloring_lines = self.coloring_lines.as_ref().map(|t|t.iter().map(|x|x.intoo()).collect());
+        let orientation_lines = self.orientation_lines.as_ref().map(|t|t.iter().map(|x|x.intoo()).collect());
         let mergeable = self.mergeable.as_ref().map(|t|t.iter().map(|x|x.intoo()).collect());
         let config = self.config;
-        Some(Problem{ left, right, map_text_label, trivial_lines, diagram, reachable, map_label_oldset, map_text_oldlabel, coloring_lines, mergeable, config })
+        Some(Problem{ left, right, map_text_label, trivial_lines, diagram, reachable, map_label_oldset, map_text_oldlabel, coloring_lines, mergeable, orientation_lines, config })
     }
 
 }
@@ -945,6 +1016,8 @@ pub struct ResultProblem {
     pub diagram: Vec<(String, String)>,
     pub is_trivial: Option<bool>,
     pub trivial_lines: Option<Vec<Vec<Vec<String>>>>,
+    pub is_trivial_orientation: Option<bool>,
+    pub orientation_lines: Option<Vec<Vec<Vec<String>>>>,
     pub coloring: Option<usize>,
     pub coloring_lines: Option<Vec<Vec<Vec<String>>>>,
     pub mergeable: Option<Vec<Vec<String>>>,
@@ -999,6 +1072,23 @@ impl std::fmt::Display for ResultProblem {
             }
         }
 
+
+        if let Some(is_trivial_orientation) = self.is_trivial_orientation {
+            r += "\nThe problem is ";
+            if !is_trivial_orientation {
+                r += "NOT ";
+            }
+            r += "zero rounds solvable assuming the given orientation.\n";
+            if is_trivial_orientation {
+                r += "Zero rounds solvability is given by the following configurations:\n";
+                let trivial = self.orientation_lines.as_ref().unwrap()
+                    .iter()
+                    .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+                    .join("\n");
+                r += &format!("{}\n", trivial);
+            }
+        }
+
         if let Some(coloring) = self.coloring {
             if coloring >= 2 && !self.is_trivial.unwrap_or(false) {
                 r += &format!(
@@ -1013,6 +1103,7 @@ impl std::fmt::Display for ResultProblem {
                 r += &format!("{}\n", coloring);
             }
         }
+
 
         if let Some(mergeable) = self.mergeable.as_ref() {
             r += "The following labels could be merged without changing the complexity of the problem:\n";

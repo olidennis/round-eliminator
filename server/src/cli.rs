@@ -26,6 +26,8 @@ pub fn file(name: &str, iter: usize, merge : bool) {
         given_coloring : None,
         given_coloring_passive : None,
         compute_mergeable : true,
+        fixed_orientation : None,
+        fixed_orientation_passive : None,
         diagramtype : DiagramType::Accurate
     };
     let mut p = Problem::from_line_separated_text(&data, config).unwrap();
@@ -53,6 +55,8 @@ pub fn autolb(name: &str, labels: usize, iter: usize, colors:Option<usize>, feat
         given_coloring : colors,
         given_coloring_passive : None,
         compute_mergeable : true,
+        fixed_orientation : None,
+        fixed_orientation_passive : None,
         diagramtype : DiagramType::Accurate
     };
     let p = Problem::from_line_separated_text(&data,config).unwrap();
@@ -73,6 +77,8 @@ pub fn autoub(name: &str, labels: usize, iter: usize, colors:Option<usize>, feat
         given_coloring : colors,
         given_coloring_passive : None,
         compute_mergeable : true,
+        fixed_orientation : None,
+        fixed_orientation_passive : None,
         diagramtype : DiagramType::Accurate
     };
     let p = Problem::from_line_separated_text(&data,config).unwrap();

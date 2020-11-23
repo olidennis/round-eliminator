@@ -19,7 +19,7 @@ pub type SimplS = (String, String);
 pub type Addarrow = (usize, usize);
 pub type Renaming = Vec<(Vec<String>, String)>;
 pub type Keeping = Vec<String>;
-pub type Cfg = (bool, bool, bool, usize,  bool, bool, usize,  bool, bool);
+pub type Cfg = (bool, bool, bool, usize,  bool, bool, usize,  bool, bool, bool, usize, bool, usize);
 pub type RProblem = (Problem, ResultProblem);
 pub type RSimplifications = Vec<(Simpl, (String, String))>;
 pub type RLowerBoundStep = Vec<(Problem, crate::autolb::ResultStep, ResultProblem)>;
@@ -44,6 +44,17 @@ pub fn new_problem(left: &str, right: &str, config : Cfg) -> Result<RProblem, St
     };
     let compute_mergeable = config.7;
     let diagramtype = if config.8 { DiagramType::Accurate } else {DiagramType::Fast};
+    let fixed_orientation = if config.9 {
+        Some(config.10)
+    } else {
+        None
+    };
+    let fixed_orientation_passive = if config.11 {
+        Some(config.12)
+    } else {
+        None
+    };
+
     let config = Config {
         compute_triviality,
         compute_color_triviality,
@@ -51,8 +62,11 @@ pub fn new_problem(left: &str, right: &str, config : Cfg) -> Result<RProblem, St
         given_coloring,
         given_coloring_passive,
         compute_mergeable,
-        diagramtype
+        diagramtype,
+        fixed_orientation,
+        fixed_orientation_passive
     };
+
 
     let p = Problem::from_text(left, right, config)?;
     let r = p.as_result();
@@ -234,7 +248,7 @@ pub fn autoub(
     })
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize)]
 pub enum Request {
     NewProblem(String, String, Cfg),
     MergeEqual(Problem),

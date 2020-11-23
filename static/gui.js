@@ -21,15 +21,25 @@ $(document).ready(function(){
     let givencolors = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
     let givencolorsform = $('<div class="form-group"/>').append(givencolors);
     div.append(givencolorsform);
+    let orientation = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Assume a fixed orientation is given (only works if the passive side has degree 2). Number of outgoing edges:</p></label></div>');
+    div.append(orientation);
+    let outgoing = $('<input class="form-control"/>').attr({ type: 'number', value: '1' });
+    let outgoingform = $('<div class="form-group"/>').append(outgoing);
+    div.append(outgoingform);
     div.append('<hr/>');
     div.append($('<label>Current passive side</label>'));
-    let zerocol2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute coloring solvability (only works if the active side has degree 2)</p></label></div>');
+    let zerocol2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Compute coloring solvability (only works if the active side has degree 2)</p></label></div>');
     div.append(zerocol2);
-    let assumecol2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Assume a coloring is given</p></label></div>');
+    let assumecol2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Assume a coloring is given</p></label></div>');
     div.append(assumecol2);
     let givencolors2 = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
     let givencolorsform2 = $('<div class="form-group"/>').append(givencolors2);
     div.append(givencolorsform2);
+    let orientation2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Assume a fixed orientation is given (only works if the active side has degree 2). Number of outgoing edges:</p></label></div>');
+    div.append(orientation2);
+    let outgoing2 = $('<input class="form-control"/>').attr({ type: 'number', value: '1' });
+    let outgoingform2 = $('<div class="form-group"/>').append(outgoing2);
+    div.append(outgoingform2);
 
     let configcard = make_card("mb-2","p-0","<h6>Config</h6>",div,true,freeid());
     $('#config').append(configcard);
@@ -61,7 +71,11 @@ $(document).ready(function(){
         let ifulldiag = $('input[type=checkbox]',fulldiag).is(':checked');
         let igivencol = parseInt(givencolors.val(),10);
         let igivencol2 = parseInt(givencolors2.val(),10);
-        api.api_new_problem(a,b, [izero,izerocol,iassumecol,igivencol,izerocol2,iassumecol2,igivencol2,imergeable,ifulldiag], function(x){return append_new_problem_or_error(x, performed_initial());} );
+        let iorientation = $('input[type=checkbox]',orientation).is(':checked');
+        let ioutgoing = parseInt(outgoing.val(),10);
+        let iorientation2 = $('input[type=checkbox]',orientation2).is(':checked');
+        let ioutgoing2 = parseInt(outgoing2.val(),10);
+        api.api_new_problem(a,b, [izero,izerocol,iassumecol,igivencol,izerocol2,iassumecol2,igivencol2,imergeable,ifulldiag,iorientation,ioutgoing,iorientation2,ioutgoing2], function(x){return append_new_problem_or_error(x, performed_initial());} );
     });
 
     $( "#btnclear" ).click(function(ev) {
@@ -525,6 +539,9 @@ function make_div_triviality(problem){
     if ( x.is_trivial != null ) {
         trivial += "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
     }
+    if( ! x.is_trivial && x.is_trivial_orientation ){
+        trivial += " The problem can be solved in zero rounds given the assumed orientation.";
+    }
     if( ! x.is_trivial && x.coloring != null && x.coloring > 1 ){
         trivial += " The problem can be solved in zero rounds given a " + x.coloring + " coloring.";
     }
@@ -626,8 +643,9 @@ function generate_html_for_problem(problem, reason) {
     let col_renaming = $("<div/>");
 
     let trivials = new Set((x.trivial_lines != null ? x.trivial_lines : []).map(v => JSON.stringify(v)));
+    let orientations = new Set((x.orientation_lines != null ? x.orientation_lines : []).map(v => JSON.stringify(v)));
     let colors = new Set((x.coloring_lines != null ? x.coloring_lines : []).map(v => JSON.stringify(v)));
-    let set_to_use = x.is_trivial ? trivials : colors;
+    let set_to_use = x.is_trivial ? trivials : x.is_trivial_orientation ? orientations : colors;
     let highlight = function(v){ let t = JSON.stringify(v); return set_to_use.has(t); };
 
     if( x.mapping != null ){
