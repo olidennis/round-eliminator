@@ -47,16 +47,27 @@ macro_rules! shrink {
 pub struct Problem<BigNum : crate::bignum::BigNum> {
     pub left: Constraint<BigNum>,
     pub right: Constraint<BigNum>,
-    pub map_text_label: Vec<(String, usize)>,
-    pub trivial_lines: Vec<Line<BigNum>>,
     pub diagram: Vec<(usize, usize)>,
     pub reachable: Vec<(usize, usize)>,
-    pub map_label_oldset: Option<Vec<(usize, BigNum)>>,
+    pub map_text_label: Vec<(String, usize)>,
+    pub map_label_oldset: Option<Vec<(usize, BigNum)>>,  
     pub map_text_oldlabel: Option<Vec<(String, usize)>>,
-    pub coloring_lines: Vec<Line<BigNum>>,
-    pub mergeable: Vec<BigNum>,
+    pub coloring_lines: Option<Vec<Line<BigNum>>>,
+    pub mergeable: Option<Vec<BigNum>>,
+    pub trivial_lines: Option<Vec<Line<BigNum>>>,
+    pub config : Config
 }
 
+#[derive(Copy,Clone,Debug,Serialize,Deserialize,Hash,Eq,PartialEq)]
+pub struct Config {
+    pub compute_triviality : bool,
+    pub compute_color_triviality : bool,
+    pub given_coloring : Option<usize>,
+    pub compute_mergeable : bool,
+    pub diagramtype : DiagramType
+}
+
+#[derive(Copy,Clone,Debug,Serialize,Deserialize,Hash,Eq,PartialEq)]
 pub enum DiagramType {
     None,
     Fast,
@@ -72,8 +83,13 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         map_text_label: Option<Vec<(String, usize)>>,
         map_label_oldset: Option<Vec<(usize, BigNum)>>,
         map_text_oldlabel: Option<Vec<(String, usize)>>,
-        diagramtype: DiagramType,
+        mut config : Config,
+        mut override_diagramtype : Option<DiagramType>
     ) -> Result<Self, String> {
+        if config.compute_color_triviality {
+            config.compute_triviality = true;
+        }
+
         if left.lines.len() == 0 || right.lines.len() == 0 {
             return Err("Empty constraints!".into());
         }
@@ -85,27 +101,39 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             map_text_oldlabel,
             diagram: vec![],
             reachable: vec![],
-            trivial_lines: vec![],
-            coloring_lines: vec![],
-            mergeable: vec![],
+            trivial_lines: None,
+            coloring_lines: None,
+            mergeable: None,
+            config
         };
         if let Some(map) = map_text_label {
             p.map_text_label = map;
         } else {
             p.assign_chars();
         }
-        trace!("computing triviality");
-        p.compute_triviality();
+        if config.compute_triviality {
+            trace!("computing triviality");
+            p.compute_triviality();
+        }
 
         trace!("computing result");
         trace!("{}",p.as_result());
 
-        trace!("computing independent lines");
-        p.compute_independent_lines();
+        if config.compute_color_triviality {
+            trace!("computing independent lines");
+            p.compute_independent_lines();
+        }
+
         trace!("computing diagram");
+        if p.map_label_oldset.is_none() {
+            override_diagramtype = Some(DiagramType::Accurate);
+        }
+        let diagramtype = if let Some(diagramtype) = override_diagramtype { diagramtype } else { config.diagramtype };
         p.compute_diagram_edges(diagramtype);
-        trace!("computing mergeable");
-        p.compute_mergeable();
+        if config.compute_mergeable {
+            trace!("computing mergeable");
+            p.compute_mergeable();
+        }
         trace!("done");
         Ok(p)
     }
@@ -135,23 +163,23 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     }
 
     /// Construct a problem starting from left and right constraints.
-    pub fn from_constraints(left: Constraint<BigNum>, right: Constraint<BigNum>) -> Result<Self, String> {
-        Self::new(left, right, None, None, None, DiagramType::Accurate)
+    pub fn from_constraints(left: Constraint<BigNum>, right: Constraint<BigNum>, config : Config) -> Result<Self, String> {
+        Self::new(left, right, None, None, None, config, None)
     }
 
     /// Construct a problem starting from a text representation (where there are left and right constraint separated by an empty line).
-    pub fn from_line_separated_text(text: &str) -> Result<Self, String> {
+    pub fn from_line_separated_text(text: &str, config : Config) -> Result<Self, String> {
         let mut lines = text.lines();
         let left: String = lines
             .by_ref()
             .take_while(|line| !line.is_empty())
             .join("\n");
         let right: String = lines.join("\n");
-        Self::from_text(&left, &right)
+        Self::from_text(&left, &right, config)
     }
 
     /// Construct a problem starting from a text representation of the left and right constarints.
-    pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
+    pub fn from_text(left: &str, right: &str, config : Config) -> Result<Self, String> {
         let map_text_label = Self::create_map_text_label(left, right)?;
         let hm = map_to_hashmap(&map_text_label);
         let left = Constraint::from_text(left, &hm)?;
@@ -162,7 +190,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             Some(map_text_label),
             None,
             None,
-            DiagramType::Accurate,
+            config,
+            None
         )?;
         if !problem.has_same_labels_left_right() {
             return Err("Left and right constraints have different sets of labels!".into());
@@ -220,7 +249,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            diagramtype,
+            self.config,
+            Some(diagramtype)
         )
         .unwrap();
         trace!("removing useless lines");
@@ -234,7 +264,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
                 return;
             }
         }
-        if !self.mergeable.is_empty() {
+        if self.mergeable.is_none() || !self.mergeable.as_ref().unwrap().is_empty() {
             return;
         }
         let succ = self.map_label_successors();
@@ -267,11 +297,11 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     }
 
     pub fn merge_equal(&self) -> Problem<BigNum> {
-        if self.mergeable.is_empty() {
+        if self.mergeable.is_none() || self.mergeable.as_ref().unwrap().is_empty() {
             return self.clone();
         }
         let mut p = self.clone();
-        for x in self.mergeable.iter() {
+        for x in self.mergeable.as_ref().unwrap().iter() {
             let to = x.one_bits().last().unwrap();
             for from in x.one_bits().filter(|&y|y != to) {
                 p = p.replace(from,to,DiagramType::None);
@@ -297,7 +327,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            diagramtype,
+            self.config,
+            Some(diagramtype)
         ).unwrap();
         p.remove_useless_lines();
         p
@@ -361,7 +392,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             Some(map_text_label),
             map_label_oldset,
             map_text_oldlabel,
-            diagramtype,
+            self.config,
+            Some(diagramtype)
         )
         .unwrap();
 
@@ -415,19 +447,33 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         let bits = self.left.bits;
         let delta_r = right.delta;
 
-        self.trivial_lines = self.left.choices_iter().enumerate().filter(|(_,action)| {
+        let trivial_lines = self.left.choices_iter().enumerate().filter(|(_,action)| {
             let mask = action.mask();
             Line::forall_single_noperm(delta_r, bits, mask).all(|x| right.satisfies(&x))
         }).map(|(_,x)|x).collect();
+
+        self.trivial_lines = Some(trivial_lines);
     }
 
-    pub fn is_trivial(&self) -> bool {
-        !self.trivial_lines.is_empty()
+    pub fn is_trivial(&self) -> Option<bool> {
+        self.trivial_lines.as_ref().map(|t|!t.is_empty())
+    }
+
+    pub fn is_zero_rounds(&self) -> bool {
+        let mut r = self.is_trivial().unwrap_or(false);
+        if let Some(gc) = self.config.given_coloring {
+            if let Some(c) = self.coloring() {
+                if c >= gc {
+                    r = true
+                }
+            }
+        }
+        r
     }
 
 
-    pub fn coloring(&self) -> usize {
-        self.coloring_lines.len()
+    pub fn coloring(&self) -> Option<usize> {
+        self.coloring_lines.as_ref().map(|c|c.len())
     }
 
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
@@ -488,14 +534,15 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         let g = crate::maxclique::Graph::from_adj(adj);
         trace!("    computing largest clique");
         let invmap : HashMap<_,_> = map.iter().map(|(a,b)|(b,a)).collect();
-        self.coloring_lines = g.max_clique().into_iter().map(|x|invmap[&x].clone()).collect();
-        trace!("largest clique size is {}",self.coloring_lines.len());
+        let coloring_lines : Vec<_> = g.max_clique().into_iter().map(|x|invmap[&x].clone()).collect();
+        trace!("largest clique size is {}",coloring_lines.len());
+        self.coloring_lines = Some(coloring_lines);
     }
 
     /// If the current problem is T >0 rounds solvable, return a problem that is exactly T-1 rounds solvable,
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
-    pub fn speedup(&self, diagramtype: DiagramType) -> Result<Problem<BigBigNum>, String> {
+    pub fn speedup(&self) -> Result<Problem<BigBigNum>, String> {
         let mut left = self.left.clone();
         let mut right = self.right.clone();
 
@@ -547,7 +594,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
                 None,
                 Some(map_label_oldset),
                 Some(self.map_text_label.clone()),
-                diagramtype,
+                self.config,
+                None
             )?.shrink_to::<BigBigNum>().unwrap())
         })
     }
@@ -782,7 +830,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         }
 
         let result = result.into_iter().unique().sorted().collect();
-        self.mergeable = result;
+        self.mergeable = Some(result);
     }
 
     /// Returns a simple representation of the problem,
@@ -817,16 +865,18 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             .collect();
 
         let is_trivial = self.is_trivial();
-        let trivial_lines = self.trivial_lines.iter().map(|line|line.to_vec(&map)).collect();
+        let trivial_lines = self.trivial_lines.as_ref().map(|t|t.iter().map(|line|line.to_vec(&map)).collect());
         let coloring = self.coloring();
-        let coloring_lines = self.coloring_lines.iter().map(|line|line.to_vec(&map)).collect();
+        let coloring_lines = self.coloring_lines.as_ref().map(|t|t.iter().map(|line|line.to_vec(&map)).collect());
 
 
         let mergeable = self
             .mergeable
+            .as_ref()
+            .map(|t|t
             .iter()
             .map(|v| v.one_bits().map(|x| map[&x].to_owned()).collect())
-            .collect();
+            .collect());
 
         ResultProblem {
             left,
@@ -838,6 +888,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             coloring,
             coloring_lines,
             mergeable,
+            config : self.config
         }
     }
 
@@ -858,16 +909,17 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         let left = self.left.intoo();
         let right = self.right.intoo();
         let map_text_label = self.map_text_label.clone();
-        let trivial_lines = self.trivial_lines.iter().map(|x|x.intoo()).collect();
+        let trivial_lines = self.trivial_lines.as_ref().map(|t|t.iter().map(|x|x.intoo()).collect());
         let diagram = self.diagram.clone();
         let reachable = self.reachable.clone();
         let map_label_oldset = self.map_label_oldset.as_ref().map(|v|{
             v.iter().cloned().map(|(u,b)|(u,b.intoo())).collect()
         });
         let map_text_oldlabel = self.map_text_oldlabel.clone();
-        let coloring_lines = self.coloring_lines.iter().map(|x|x.intoo()).collect();
-        let mergeable = self.mergeable.iter().map(|x|x.intoo()).collect();
-        Some(Problem{ left, right, map_text_label, trivial_lines, diagram, reachable, map_label_oldset, map_text_oldlabel, coloring_lines, mergeable })
+        let coloring_lines = self.coloring_lines.as_ref().map(|t|t.iter().map(|x|x.intoo()).collect());
+        let mergeable = self.mergeable.as_ref().map(|t|t.iter().map(|x|x.intoo()).collect());
+        let config = self.config;
+        Some(Problem{ left, right, map_text_label, trivial_lines, diagram, reachable, map_label_oldset, map_text_oldlabel, coloring_lines, mergeable, config })
     }
 
 }
@@ -885,11 +937,12 @@ pub struct ResultProblem {
     pub right: Vec<Vec<Vec<String>>>,
     pub mapping: Option<Vec<(Vec<String>, String)>>,
     pub diagram: Vec<(String, String)>,
-    pub is_trivial: bool,
-    pub trivial_lines: Vec<Vec<Vec<String>>>,
-    pub coloring: usize,
-    pub coloring_lines: Vec<Vec<Vec<String>>>,
-    pub mergeable: Vec<Vec<String>>,
+    pub is_trivial: Option<bool>,
+    pub trivial_lines: Option<Vec<Vec<Vec<String>>>>,
+    pub coloring: Option<usize>,
+    pub coloring_lines: Option<Vec<Vec<Vec<String>>>>,
+    pub mergeable: Option<Vec<Vec<String>>>,
+    pub config : Config
 }
 
 impl std::fmt::Display for ResultProblem {
@@ -924,36 +977,40 @@ impl std::fmt::Display for ResultProblem {
             r += &format!("{} -> {}\n", s1, s2);
         }
 
-        r += "\nThe problem is ";
-        if !self.is_trivial {
-            r += "NOT ";
-        }
-        r += "zero rounds solvable.\n";
-        if self.is_trivial {
-            r += "Zero rounds solvability is given by the following configurations:\n";
-            let trivial = self.trivial_lines
-                .iter()
-                .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
-                .join("\n");
-            r += &format!("{}\n", trivial);
-        }
-
-        if self.coloring >= 2 && !self.is_trivial {
-            r += &format!(
-                "\nThe problem is zero rounds solvable given a {} coloring.\n",
-                self.coloring
-            );
-            r += "Lines that can be mapped to colors are:\n";
-            let coloring = self.coloring_lines
-                .iter()
-                .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
-                .join("\n");
-            r += &format!("{}\n", coloring);
+        if let Some(is_trivial) = self.is_trivial {
+            r += "\nThe problem is ";
+            if !is_trivial {
+                r += "NOT ";
+            }
+            r += "zero rounds solvable.\n";
+            if is_trivial {
+                r += "Zero rounds solvability is given by the following configurations:\n";
+                let trivial = self.trivial_lines.as_ref().unwrap()
+                    .iter()
+                    .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+                    .join("\n");
+                r += &format!("{}\n", trivial);
+            }
         }
 
-        if !self.mergeable.is_empty() {
+        if let Some(coloring) = self.coloring {
+            if coloring >= 2 && !self.is_trivial.unwrap_or(false) {
+                r += &format!(
+                    "\nThe problem is zero rounds solvable given a {} coloring.\n",
+                    coloring
+                );
+                r += "Lines that can be mapped to colors are:\n";
+                let coloring = self.coloring_lines.as_ref().unwrap()
+                    .iter()
+                    .map(|x| x.iter().map(|t| t.iter().join("")).join(" "))
+                    .join("\n");
+                r += &format!("{}\n", coloring);
+            }
+        }
+
+        if let Some(mergeable) = self.mergeable.as_ref() {
             r += "The following labels could be merged without changing the complexity of the problem:\n";
-            for v in self.mergeable.iter() {
+            for v in mergeable.iter() {
                 r += &v.join(" ");
                 r += "\n";
             }
@@ -1032,9 +1089,9 @@ impl GenericProblem {
             q.merge_equal().into()
         })
     }
-    pub fn speedup(&self, diagramtype: DiagramType) -> Result<Self, String> {
+    pub fn speedup(&self) -> Result<Self, String> {
         Ok(shrink!(self.inner,q,{
-            q.speedup(diagramtype)?.into()
+            q.speedup()?.into()
         }))
     }
     pub fn replace(&self, from: usize, to: usize, diagramtype: DiagramType) -> GenericProblem {
@@ -1052,12 +1109,12 @@ impl GenericProblem {
             q.harden(keepmask.intoo(),diagramtype,usepred)?.into()
         }))
     }
-    pub fn from_text(left: &str, right: &str) -> Result<Self, String> {
-        let new = Problem::<BigBigNum>::from_text(left,right)?;
+    pub fn from_text(left: &str, right: &str, config : Config) -> Result<Self, String> {
+        let new = Problem::<BigBigNum>::from_text(left,right, config)?;
         Ok(GenericProblem{ inner : new })
     }
-    pub fn from_line_separated_text(text: &str) -> Result<Self, String> {
-        let new = Problem::<BigBigNum>::from_line_separated_text(text)?;
+    pub fn from_line_separated_text(text: &str, config : Config) -> Result<Self, String> {
+        let new = Problem::<BigBigNum>::from_line_separated_text(text, config)?;
         Ok(GenericProblem{ inner : new })
     }
 }

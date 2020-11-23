@@ -94,11 +94,10 @@ impl Auto for AutoUb {
         &mut self,
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
-        _: usize,
-        colors: usize,
+        _: usize
     ) -> bool {
-        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring() >= colors;
-        let best_is_trivial = best.current().is_trivial() || best.current().coloring() >= colors;
+        let sol_is_trivial = sol.current().is_zero_rounds();
+        let best_is_trivial = best.current().is_zero_rounds();
 
         let should_yield = sol_is_trivial && (!best_is_trivial || sol.speedups < best.speedups);
         /*
@@ -120,8 +119,7 @@ impl Auto for AutoUb {
         &mut self,
         sol: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
-        maxiter: usize,
-        colors: usize,
+        maxiter: usize
     ) -> bool {
         if let Some((i, Step::Speedup(p))) = sol.steps.iter().enumerate().last() {
             let t = p.as_result().to_string();
@@ -138,8 +136,8 @@ impl Auto for AutoUb {
             }
         }
 
-        let sol_is_trivial = sol.current().is_trivial() || sol.current().coloring() >= colors;
-        let best_is_trivial = best.current().is_trivial() || best.current().coloring() >= colors;
+        let sol_is_trivial = sol.current().is_zero_rounds();
+        let best_is_trivial = best.current().is_zero_rounds();
 
         sol.speedups < maxiter
             && !sol_is_trivial

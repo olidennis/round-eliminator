@@ -1,4 +1,3 @@
-use crate::problem::DiagramType;
 type Problem = crate::problem::GenericProblem;
 
 /// A chain of simplifications.
@@ -33,16 +32,14 @@ pub trait Auto: Sized + Clone {
         &mut self,
         sequence: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
-        maxiter: usize,
-        colors: usize,
+        maxiter: usize
     ) -> bool;
     /// given the current state, the current best state, and the maximum number of speedup steps, returns true it makes sense to do more speedup steps.
     fn should_continue(
         &mut self,
         sequence: &mut Sequence<Self>,
         best: &mut Sequence<Self>,
-        maxiter: usize,
-        colors: usize,
+        maxiter: usize
     ) -> bool;
     /// given a problem (sequence.current()) and a simplification, return a new problem where the simplification has been performed.
     /// If for some reason the simplification does not make sense anymore, return None.
@@ -128,7 +125,7 @@ where
     fn push_speedup(&mut self) -> Result<(), String> {
         self.speedups += 1;
         let last = self.current_mut();
-        let new = last.speedup(DiagramType::Accurate)?;
+        let new = last.speedup()?;
         self.push(Step::Speedup(new));
         self.merge_equal();
         Ok(())
@@ -149,7 +146,7 @@ where
     }
 
     fn merge_equal(&mut self){
-        while !self.current().mergeable.is_empty() {
+        while !self.current().mergeable.as_ref().map(|t|t.is_empty()).unwrap_or(true) {
             let new = self.current().merge_equal();
             self.push(Step::MergeEqual(new));
         }
@@ -169,7 +166,6 @@ pub struct AutomaticSimplifications<T: Auto> {
     pub maxiter: usize,
     pub maxlabels: usize,
     pub maxrcs: usize,
-    pub colors: usize,
     auto: T,
 }
 
@@ -179,7 +175,6 @@ impl<T: Auto> AutomaticSimplifications<T> {
         maxiter: usize,
         maxlabels: usize,
         maxrcs: usize,
-        colors: usize,
         features: &[&str],
     ) -> Self {
         let sol = Sequence::new(p);
@@ -190,7 +185,6 @@ impl<T: Auto> AutomaticSimplifications<T> {
             maxiter,
             maxlabels,
             maxrcs,
-            colors,
             auto: T::new(features),
         }
     }
@@ -202,7 +196,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     where
         F: FnMut(&Sequence<T>),
     {
-        if self.sol.current().is_trivial() {
+        if self.sol.current().is_zero_rounds() {
             self.sol.make_printable();
             cb(&self.sol);
         }
@@ -217,7 +211,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
     {
         if self
             .auto
-            .should_yield(&mut self.sol, &mut self.best, self.maxiter, self.colors)
+            .should_yield(&mut self.sol, &mut self.best, self.maxiter)
         {
             self.best = self.sol.clone();
             self.best.make_printable();
@@ -225,7 +219,7 @@ impl<T: Auto> AutomaticSimplifications<T> {
         }
         if self
             .auto
-            .should_continue(&mut self.sol, &mut self.best, self.maxiter, self.colors)
+            .should_continue(&mut self.sol, &mut self.best, self.maxiter)
         {
             self.simplify(cb)?;
         }
@@ -294,7 +288,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
             match self.stack.last_mut().unwrap() {
                 State::Start => {
                     self.stack.pop();
-                    if self.auto.sol.current().is_trivial() {
+                    if self.auto.sol.current().is_zero_rounds() {
                         self.auto.sol.make_printable();
                         return Some(Ok(self.auto.sol.clone()));
                     }
@@ -306,8 +300,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                     if self.auto.auto.should_yield(
                         &mut self.auto.sol,
                         &mut self.auto.best,
-                        self.auto.maxiter,
-                        self.auto.colors,
+                        self.auto.maxiter
                     ) {
                         self.auto.best = self.auto.sol.clone();
                         self.auto.best.make_printable();
@@ -319,8 +312,7 @@ impl<T: Auto> Iterator for AutomaticSimplificationsIntoIterator<T> {
                     if self.auto.auto.should_continue(
                         &mut self.auto.sol,
                         &mut self.auto.best,
-                        self.auto.maxiter,
-                        self.auto.colors,
+                        self.auto.maxiter
                     ) {
                         self.stack.push(State::Simplify);
                     }

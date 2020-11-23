@@ -3,6 +3,7 @@ use simulation::AutomaticSimplifications;
 use simulation::AutoLb;
 use simulation::AutoUb;
 use simulation::DiagramType;
+use simulation::Config;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use futures::future::{FutureExt, TryFutureExt};
@@ -18,14 +19,21 @@ type Problem = simulation::GenericProblem;
 
 pub fn file(name: &str, iter: usize, merge : bool) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
-    let mut p = Problem::from_line_separated_text(&data).unwrap();
+    let config = Config {
+        compute_triviality : true,
+        compute_color_triviality : true,
+        given_coloring : None,
+        compute_mergeable : true,
+        diagramtype : DiagramType::Accurate
+    };
+    let mut p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
     for _ in 0..iter {
         println!("-------------------------");
-        p = p.speedup(DiagramType::Fast).unwrap();
+        p = p.speedup().unwrap();
         println!("{}", p.as_result());
-        if merge && !p.mergeable.is_empty() {
+        if merge && !p.mergeable.as_ref().unwrap().is_empty() {
             p = p.merge_equal();
             println!("Merged equivalent labels");
             println!("{}", p.as_result());
@@ -34,22 +42,36 @@ pub fn file(name: &str, iter: usize, merge : bool) {
     }
 }
 
-pub fn autolb(name: &str, labels: usize, iter: usize, colors:usize, features : &str) {
+pub fn autolb(name: &str, labels: usize, iter: usize, colors:Option<usize>, features : &str) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
-    let p = Problem::from_line_separated_text(&data).unwrap();
+    let config = Config {
+        compute_triviality : true,
+        compute_color_triviality : true,
+        given_coloring : colors,
+        compute_mergeable : true,
+        diagramtype : DiagramType::Accurate
+    };
+    let p = Problem::from_line_separated_text(&data,config).unwrap();
     let features : Vec<_> = features.split(",").collect();
-    let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels,1000,colors,&features);
+    let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels,1000,&features);
     //auto.run(|x|println!("{}",x));
     for x in auto {
         println!("{}", x.unwrap());
     }
 }
 
-pub fn autoub(name: &str, labels: usize, iter: usize, colors:usize, features : &str) {
+pub fn autoub(name: &str, labels: usize, iter: usize, colors:Option<usize>, features : &str) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
-    let p = Problem::from_line_separated_text(&data).unwrap();
+    let config = Config {
+        compute_triviality : true,
+        compute_color_triviality : true,
+        given_coloring : colors,
+        compute_mergeable : true,
+        diagramtype : DiagramType::Accurate
+    };
+    let p = Problem::from_line_separated_text(&data,config).unwrap();
     let features : Vec<_> = features.split(",").collect();
-    let auto = AutomaticSimplifications::<AutoUb>::new(p, iter, labels,1000,colors,&features);
+    let auto = AutomaticSimplifications::<AutoUb>::new(p, iter, labels,1000,&features);
     //auto.run(|x|println!("{}",x));
     for x in auto {
         println!("{}", x.unwrap());

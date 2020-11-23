@@ -151,14 +151,14 @@ fn main() {
         let name = f.value_of("file").unwrap();
         let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
-        let col : usize = f.value_of("col").unwrap_or("999").parse().unwrap();
+        let col : Option<usize> = f.value_of("col").map(|x|x.parse().unwrap());
         let features = f.value_of("features").unwrap_or("diag,addarrow");
         cli::autolb(name, labels, iter,col,features);
     } else if let Some(f) = matches.subcommand_matches("autoub") {
         let name = f.value_of("file").unwrap();
         let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
-        let col : usize = f.value_of("col").unwrap_or("999").parse().unwrap();
+        let col : Option<usize> = f.value_of("col").map(|x|x.parse().unwrap());
         let features = f.value_of("features").unwrap_or("pred");
         cli::autoub(name, labels, iter,col,features);
     }

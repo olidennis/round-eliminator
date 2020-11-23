@@ -4,8 +4,47 @@ let ctr = 0;
 
 $(document).ready(function(){
 
+    let div = $('<div/>');
+    let zero = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute zero rounds solvability</p></label></div>');
+    div.append(zero);
+    let zerocol = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute coloring solvability</p></label></div>');
+    div.append(zerocol);
+    let assumecol = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Assume a coloring is given</p></label></div>');
+    div.append(assumecol);
+    let givencolors = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
+    let givencolorsform = $('<div class="form-group"/>').append(givencolors);
+    div.append(givencolorsform);
+    let mergeable = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute mergeable labels</p></label></div>');
+    div.append(mergeable);
+    let fulldiag = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute full diagram</p></label></div>');
+    div.append(fulldiag);
+    let configcard = make_card("mb-2","p-0","<h6>Config</h6>",div,true,freeid());
+    $('#config').append(configcard);
+
     $( "#btn0" ).click(function(ev) {
-        on_input_click();
+        let f1 = $('#inf1').val();
+        let f2 = $('#inf2').val();
+        let text = "";
+        for(let line of f1.split("\n")) {
+            if( line != "" ){
+                text += line + "\n";
+            }
+        }
+        let a = text;
+        text = "";
+        for(let line of f2.split("\n")) {
+            if( line != "" ){
+                text += line + "\n";
+            }
+        }
+        let b = text;
+    
+        let izero = $('input[type=checkbox]',zero).is(':checked');
+        let izerocol = $('input[type=checkbox]',zerocol).is(':checked');
+        let iassumecol = $('input[type=checkbox]',assumecol).is(':checked');
+        let imergeable = $('input[type=checkbox]',mergeable).is(':checked');
+        let ifulldiag = $('input[type=checkbox]',fulldiag).is(':checked');
+        api.api_new_problem(a,b, [izero,izerocol,iassumecol,parseInt(givencolors.val(),10),imergeable,ifulldiag], function(x){return append_new_problem_or_error(x, performed_initial());} );
     });
 
     $( "#btnclear" ).click(function(ev) {
@@ -128,7 +167,7 @@ function make_button_speedup(problem) {
 function make_button_mergeequal(problem) {
     let blob = problem[0];
     let x = problem[1];
-    if( x.mergeable.length == 0 )return $('');
+    if( (x.mergeable != null? x.mergeable : []).length == 0 )return $('');
     let next = $('<button type="button" class="btn btn-primary ml-2">Merge Equal Labels</button>');
     next.click(function(ev) {
         api.api_merge_equal(blob, function(x){ return append_new_problem(x, performed_mergeequal() ); } );
@@ -284,6 +323,7 @@ function make_div_harden2(problem){
     return simpls;
 }
 
+
 function make_div_autolb(problem){
     let blob = problem[0];
     let x = problem[1];
@@ -303,14 +343,6 @@ function make_div_autolb(problem){
     divautolb.append(iterform);
     divautolb.append(labelsform);
     divautolb.append(rcsform);
-
-
-    let collabel = $('<label>Input coloring:</label>');
-    let collb = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
-    let colform = $('<div class="form-group"/>').append(collabel).append(collb);
-    if( x.left[0].length == 2 || x.right[0].length == 2 ){
-        divautolb.append(colform);
-    }
 
     let unreach = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge unreachable labels</p></label></div>');
     divautolb.append(unreach);
@@ -378,7 +410,7 @@ function make_div_autolb(problem){
         let useindirect = $('input[type=checkbox]',indirect).is(':checked');
 
 
-        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) , parseInt(collb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, useindirect, onresult, onend);
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, useindirect, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();
@@ -408,12 +440,6 @@ function make_div_autoub(problem){
     divautoub.append(labelsform);
     divautoub.append(rcsform);
 
-    let collabel = $('<label>Input coloring:</label>');
-    let colub = $('<input class="form-control"/>').attr({ type: 'number', value: '99' });
-    let colform = $('<div class="form-group"/>').append(collabel).append(colub);
-    if( x.left[0].length == 2 || x.right[0].length == 2 ){
-        divautoub.append(colform);
-    }
     let pred = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Slow and Accurate</p></label></div>');
     divautoub.append(pred);
     let det = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Test</p></label></div>');
@@ -466,7 +492,7 @@ function make_div_autoub(problem){
         append_generic(divdivresult);
         let usepred = $('input[type=checkbox]',pred).is(':checked');
         let usedet = $('input[type=checkbox]',det).is(':checked');
-        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10), parseInt(colub.val(),10),parseInt(maxrcsub.val(),10) , usepred, usedet, onresult, onend);
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10),parseInt(maxrcsub.val(),10) , usepred, usedet, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();
@@ -478,23 +504,33 @@ function make_div_autoub(problem){
 
 function make_div_triviality(problem){
     let x = problem[1];
-    let trivial = "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
-    if( ! x.is_trivial && x.coloring > 1 ){
-        trivial += " It can be solved in zero rounds given a " + x.coloring + " coloring.";
+    let trivial = "";
+    if ( x.is_trivial != null ) {
+        trivial += "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
     }
-    let div = $('<div/>').append(trivial);
-    return div;
+    if( ! x.is_trivial && x.coloring != null && x.coloring > 1 ){
+        trivial += " The problem can be solved in zero rounds given a " + x.coloring + " coloring.";
+    }
+    if( trivial != "" ){
+        let div = $('<div/>').append(trivial);
+        let card = $('<div class="card card-body m-0 p-2"/>').append(div);
+        return $('<div class="col-auto m-2 p-0">').append(card);
+    } else {
+        return $('<div/>');
+    }
 }
 
 function make_div_mergeable(problem) {
     let x = problem[1];
-    let div = null;
-    if( x.mergeable.length > 0 ){
+    if( (x.mergeable != null ? x.mergeable : []).length > 0 ){
         let groups = x.mergeable.map( v => merge(v));
         let mergeable = groups.join(", ");
-        div = $('<div/>').append("The following labels could be merged without changing the complexity of the problem: " + escape(mergeable))
+        let div = $('<div/>').append("The following labels could be merged without changing the complexity of the problem: " + escape(mergeable))
+        let card = $('<div class="card card-body m-0 p-2"/>').append(div);
+        return $('<div class="col-auto m-2 p-0">').append(card);
     }
-    return div;
+    return $('<div/>');
+
 }
 
 function make_oldlabel(v,cur_to_old) {
@@ -566,16 +602,14 @@ function generate_html_for_problem(problem, reason) {
     let blob = problem[0];
     let x = problem[1];
     
-    let divtrivial = make_div_triviality(problem);
-    let trivial = $('<div class="card card-body m-0 p-2"/>').append(divtrivial);
-    let col_trivial = $('<div class="col-auto m-2 p-0">').append(trivial);
+    let col_trivial = make_div_triviality(problem);
 
     let col_left_old = $("<div/>");
     let col_right_old = $("<div/>");
     let col_renaming = $("<div/>");
 
-    let trivials = new Set(x.trivial_lines.map(v => JSON.stringify(v)));
-    let colors = new Set(x.coloring_lines.map(v => JSON.stringify(v)));
+    let trivials = new Set((x.trivial_lines != null ? x.trivial_lines : []).map(v => JSON.stringify(v)));
+    let colors = new Set((x.coloring_lines != null ? x.coloring_lines : []).map(v => JSON.stringify(v)));
     let set_to_use = x.is_trivial ? trivials : colors;
     let highlight = function(v){ let t = JSON.stringify(v); return set_to_use.has(t); };
 
@@ -599,9 +633,7 @@ function generate_html_for_problem(problem, reason) {
     let diagram = make_div_diagram(problem);
     let col_diagram = make_card("m-2","p-0","<h6>Diagram</h6><h6><small>Strength of right side labels</small></h6>",diagram,true,id_new_leftright);
 
-    let divmergeable = make_div_mergeable(problem);
-    let mergeable = $('<div class="card card-body m-0 p-2"/>').append(divmergeable);
-    let col_mergeable = divmergeable == null? $('<div/>') : $('<div class="col-auto m-2 p-0">').append(mergeable);
+    let col_mergeable = make_div_mergeable(problem);
 
     let next = make_button_speedup(problem);
     let mergeequal = make_button_mergeequal(problem);
@@ -616,9 +648,12 @@ function generate_html_for_problem(problem, reason) {
     let hard2_card = make_card("m-2","p-0","<h7>Harden v2</h7>",hard2,false,freeid());
     let divautolb = make_div_autolb(problem);
     let divautoub = make_div_autoub(problem);
-    let autolb_card = make_card("m-2","p-0","<h7>Automatic Lower Bound</h7>",divautolb,false,freeid());
-    let autoub_card = make_card("m-2","p-0","<h7>Automatic Upper Bound</h7>",divautoub,false,freeid());
-
+    let autolb_card = $('<div/>');
+    let autoub_card = $('<div/>');
+    if( x.config.compute_triviality ){
+        autolb_card = make_card("m-2","p-0","<h7>Automatic Lower Bound</h7>",divautolb,false,freeid());
+        autoub_card = make_card("m-2","p-0","<h7>Automatic Upper Bound</h7>",divautoub,false,freeid());
+    } 
 
     let tools = $('<div/>');
     tools.append(next);
@@ -684,22 +719,3 @@ function append_new_problem_or_error(x, reason) {
 }
 
 
-function on_input_click() {
-    let f1 = $('#inf1').val();
-    let f2 = $('#inf2').val();
-    let text = "";
-    for(let line of f1.split("\n")) {
-        if( line != "" ){
-            text += line + "\n";
-        }
-    }
-    let a = text;
-    text = "";
-    for(let line of f2.split("\n")) {
-        if( line != "" ){
-            text += line + "\n";
-        }
-    }
-    let b = text;
-    api.api_new_problem(a,b, function(x){return append_new_problem_or_error(x, performed_initial());} );
-}

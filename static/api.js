@@ -114,8 +114,8 @@ function request(req, onresult, oncomplete, worker) {
 }
 
 
-export function api_new_problem(s1,s2, ready) {
-    return request({ NewProblem : [s1,s2] }, ready , function(){} , true);
+export function api_new_problem(s1,s2, config, ready) {
+    return request({ NewProblem : [s1,s2, config] }, ready , function(){} , true);
 }
 
 export function api_speedup(p, ready){
@@ -150,12 +150,12 @@ export function api_rename(p, v, ready){
     return request({ Rename : [p,v] }, ready , function(){} , true);
 }
 
-export function api_autolb(p,label,iter, col, rcs, useunreach, usediag, useaddarrow, useindirect, result, end) {
-    return request({ AutoLb : [p,label,iter,col,rcs, useunreach, usediag, useaddarrow, useindirect] }, result , end ,true );
+export function api_autolb(p,label,iter, rcs, useunreach, usediag, useaddarrow, useindirect, result, end) {
+    return request({ AutoLb : [p,label,iter,rcs, useunreach, usediag, useaddarrow, useindirect] }, result , end ,true );
 }
 
-export function api_autoub(p,label,iter,col, rcs, usepred, usedet, result, end) {
-    return request({ AutoUb : [p,label,iter,col, rcs, usepred,usedet] }, result , end ,true);
+export function api_autoub(p,label,iter, rcs, usepred, usedet, result, end) {
+    return request({ AutoUb : [p,label,iter, rcs, usepred,usedet] }, result , end ,true);
 }
 
 export function api_merge_equal(p, ready){

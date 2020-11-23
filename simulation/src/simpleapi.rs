@@ -7,6 +7,8 @@ use crate::bignum::BigNum as _;
 use crate::bignum::BigBigNum as BigNum;
 use crate::problem::DiagramType;
 use crate::problem::ResultProblem;
+use crate::problem::Config;
+
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 type Problem = crate::problem::GenericProblem;
@@ -17,19 +19,39 @@ pub type SimplS = (String, String);
 pub type Addarrow = (usize, usize);
 pub type Renaming = Vec<(Vec<String>, String)>;
 pub type Keeping = Vec<String>;
+pub type Cfg = (bool, bool, bool, usize, bool, bool);
 pub type RProblem = (Problem, ResultProblem);
 pub type RSimplifications = Vec<(Simpl, (String, String))>;
 pub type RLowerBoundStep = Vec<(Problem, crate::autolb::ResultStep, ResultProblem)>;
 pub type RUpperBoundStep = Vec<(Problem, crate::autoub::ResultStep, ResultProblem)>;
 
-pub fn new_problem(left: &str, right: &str) -> Result<RProblem, String> {
-    let p = Problem::from_text(left, right)?;
+
+pub fn new_problem(left: &str, right: &str, config : Cfg) -> Result<RProblem, String> {
+
+    let compute_triviality = config.0;
+    let compute_color_triviality = config.1;
+    let given_coloring = if config.2 {
+        Some(config.3)
+    } else {
+        None
+    };
+    let compute_mergeable = config.4;
+    let diagramtype = if config.5 { DiagramType::Accurate } else {DiagramType::Fast};
+    let config = Config {
+        compute_triviality,
+        compute_color_triviality,
+        given_coloring,
+        compute_mergeable,
+        diagramtype
+    };
+
+    let p = Problem::from_text(left, right, config)?;
     let r = p.as_result();
     Ok((p, r))
 }
 
 pub fn speedup(p: &Problem) -> Result<RProblem, String> {
-    let np = p.speedup(DiagramType::Fast)?;
+    let np = p.speedup()?;
     let nr = np.as_result();
     Ok((np, nr))
 }
@@ -138,7 +160,6 @@ pub fn autolb(
     p: &Problem,
     maxiter: usize,
     maxlabels: usize,
-    colors: usize,
     maxrcs : usize,
     unreach : bool,
     diagram : bool,
@@ -158,7 +179,7 @@ pub fn autolb(
     if indirect {
         features.push("indirect");
     }
-    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, maxrcs, colors, &features);
+    let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, maxrcs, &features);
     auto.into_iter().map(move |r| {
         r.map(|seq| {
             seq.as_result()
@@ -177,7 +198,6 @@ pub fn autoub(
     p: &Problem,
     maxiter: usize,
     maxlabels: usize,
-    colors: usize,
     maxrcs : usize,
     usepred: bool,
     usedet: bool,
@@ -190,7 +210,7 @@ pub fn autoub(
         features.push("det");
     }
     let auto =
-        AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels, maxrcs, colors, &features);
+        AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels, maxrcs, &features);
     auto.into_iter().map(move |r| {
         r.map(|seq| {
             seq.as_result()
@@ -207,7 +227,7 @@ pub fn autoub(
 
 #[derive(Deserialize, Serialize, Debug)]
 pub enum Request {
-    NewProblem(String, String),
+    NewProblem(String, String, Cfg),
     MergeEqual(Problem),
     Speedup(Problem),
     PossibleSimplifications(Problem),
@@ -217,8 +237,8 @@ pub enum Request {
     Addarrow(Problem, Addarrow),
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
-    AutoLb(Problem, usize, usize, usize, usize, bool, bool, bool, bool),
-    AutoUb(Problem, usize, usize, usize, usize, bool, bool),
+    AutoLb(Problem, usize, usize, usize, bool, bool, bool, bool),
+    AutoUb(Problem, usize, usize, usize, bool, bool),
     Ping,
 }
 
@@ -246,7 +266,7 @@ where
             let r = merge_equal(&p);
             f(Response::P(r));
         }
-        Request::NewProblem(s1, s2) => match new_problem(&s1, &s2) {
+        Request::NewProblem(s1, s2, c) => match new_problem(&s1, &s2, c) {
             Ok(r) => f(Response::P(r)),
             Err(s) => f(Response::E(s)),
         },
@@ -282,16 +302,16 @@ where
             Ok(r) => f(Response::P(r)),
             Err(s) => f(Response::E(s)),
         },
-        Request::AutoLb(p, i, l, c, rcs, u, d, a, ind) => {
-            for r in autolb(&p, i, l, c, rcs, u,d,a, ind) {
+        Request::AutoLb(p, i, l, rcs, u, d, a, ind) => {
+            for r in autolb(&p, i, l, rcs, u,d,a, ind) {
                 match r {
                     Ok(r) => f(Response::L(r)),
                     Err(s) => f(Response::E(s)),
                 }
             }
         }
-        Request::AutoUb(p, i, l, c, rcs, x, y) => {
-            for r in autoub(&p, i, l, c, rcs, x, y) {
+        Request::AutoUb(p, i, l, rcs, x, y) => {
+            for r in autoub(&p, i, l, rcs, x, y) {
                 match r {
                     Ok(r) => f(Response::U(r)),
                     Err(s) => f(Response::E(s)),
