@@ -44,6 +44,9 @@ $(document).ready(function(){
     let configcard = make_card("mb-2","p-0","<h6>Config</h6>",div,true,freeid());
     $('#config').append(configcard);
 
+    let diag = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Generate diagrams</p></label></div>');
+    $('#showdiag').append(diag);
+
     $( "#btn0" ).click(function(ev) {
         let f1 = $('#inf1').val();
         let f2 = $('#inf2').val();
@@ -535,9 +538,9 @@ function make_div_autoub(problem){
 
 function make_div_triviality(problem){
     let x = problem[1];
-    let trivial = "";
+    let trivial = "" + get_labels(problem).length + " labels.";
     if ( x.is_trivial != null ) {
-        trivial += "The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
+        trivial += " The problem is " + (x.is_trivial? "" : "NOT ") + "zero rounds solvable.";
     }
     if( ! x.is_trivial && x.is_trivial_orientation ){
         trivial += " The problem can be solved in zero rounds given the assumed orientation.";
@@ -665,8 +668,9 @@ function generate_html_for_problem(problem, reason) {
     let col_left_new = make_card("m-2","p-0","<h6>Active</h6><h6><small>Any choice satisfies previous Passive</small></h6>",left_new,true,id_new_leftright);
     let col_right_new = make_card("m-2","p-0","<h6>Passive</h6><h6><small>Exists choice satisfying previous Active</small></h6>",right_new,true,id_new_leftright);
 
+    let show_diagram = $('input[type=checkbox]',$('#showdiag')).is(':checked');
     let diagram = make_div_diagram(problem);
-    let col_diagram = make_card("m-2","p-0","<h6>Diagram</h6><h6><small>Strength of right side labels</small></h6>",diagram,true,id_new_leftright);
+    let col_diagram = !show_diagram ? $('<div/>') : make_card("m-2","p-0","<h6>Diagram</h6><h6><small>Strength of right side labels</small></h6>",diagram,true,id_new_leftright);
 
     let col_mergeable = make_div_mergeable(problem);
 
