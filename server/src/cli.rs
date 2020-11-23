@@ -22,7 +22,9 @@ pub fn file(name: &str, iter: usize, merge : bool) {
     let config = Config {
         compute_triviality : true,
         compute_color_triviality : true,
+        compute_color_triviality_passive : false,
         given_coloring : None,
+        given_coloring_passive : None,
         compute_mergeable : true,
         diagramtype : DiagramType::Accurate
     };
@@ -47,7 +49,9 @@ pub fn autolb(name: &str, labels: usize, iter: usize, colors:Option<usize>, feat
     let config = Config {
         compute_triviality : true,
         compute_color_triviality : true,
+        compute_color_triviality_passive : false,
         given_coloring : colors,
+        given_coloring_passive : None,
         compute_mergeable : true,
         diagramtype : DiagramType::Accurate
     };
@@ -65,7 +69,9 @@ pub fn autoub(name: &str, labels: usize, iter: usize, colors:Option<usize>, feat
     let config = Config {
         compute_triviality : true,
         compute_color_triviality : true,
+        compute_color_triviality_passive : false,
         given_coloring : colors,
+        given_coloring_passive : None,
         compute_mergeable : true,
         diagramtype : DiagramType::Accurate
     };

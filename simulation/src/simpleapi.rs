@@ -19,7 +19,7 @@ pub type SimplS = (String, String);
 pub type Addarrow = (usize, usize);
 pub type Renaming = Vec<(Vec<String>, String)>;
 pub type Keeping = Vec<String>;
-pub type Cfg = (bool, bool, bool, usize, bool, bool);
+pub type Cfg = (bool, bool, bool, usize,  bool, bool, usize,  bool, bool);
 pub type RProblem = (Problem, ResultProblem);
 pub type RSimplifications = Vec<(Simpl, (String, String))>;
 pub type RLowerBoundStep = Vec<(Problem, crate::autolb::ResultStep, ResultProblem)>;
@@ -29,18 +29,27 @@ pub type RUpperBoundStep = Vec<(Problem, crate::autoub::ResultStep, ResultProble
 pub fn new_problem(left: &str, right: &str, config : Cfg) -> Result<RProblem, String> {
 
     let compute_triviality = config.0;
+
     let compute_color_triviality = config.1;
     let given_coloring = if config.2 {
         Some(config.3)
     } else {
         None
     };
-    let compute_mergeable = config.4;
-    let diagramtype = if config.5 { DiagramType::Accurate } else {DiagramType::Fast};
+    let compute_color_triviality_passive = config.4;
+    let given_coloring_passive = if config.5 {
+        Some(config.6)
+    } else {
+        None
+    };
+    let compute_mergeable = config.7;
+    let diagramtype = if config.8 { DiagramType::Accurate } else {DiagramType::Fast};
     let config = Config {
         compute_triviality,
         compute_color_triviality,
+        compute_color_triviality_passive,
         given_coloring,
+        given_coloring_passive,
         compute_mergeable,
         diagramtype
     };

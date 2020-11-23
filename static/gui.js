@@ -5,19 +5,32 @@ let ctr = 0;
 $(document).ready(function(){
 
     let div = $('<div/>');
+    div.append($('<label>General Options</label>'));
+    let mergeable = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute mergeable labels</p></label></div>');
+    div.append(mergeable);
+    let fulldiag = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute full diagram</p></label></div>');
+    div.append(fulldiag);
     let zero = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute zero rounds solvability</p></label></div>');
     div.append(zero);
-    let zerocol = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute coloring solvability</p></label></div>');
+    div.append('<hr/>');
+    div.append($('<label>Current active side</label>'));
+    let zerocol = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute coloring solvability (only works if the passive side has degree 2)</p></label></div>');
     div.append(zerocol);
     let assumecol = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Assume a coloring is given</p></label></div>');
     div.append(assumecol);
     let givencolors = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
     let givencolorsform = $('<div class="form-group"/>').append(givencolors);
     div.append(givencolorsform);
-    let mergeable = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute mergeable labels</p></label></div>');
-    div.append(mergeable);
-    let fulldiag = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute full diagram</p></label></div>');
-    div.append(fulldiag);
+    div.append('<hr/>');
+    div.append($('<label>Current passive side</label>'));
+    let zerocol2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Compute coloring solvability (only works if the active side has degree 2)</p></label></div>');
+    div.append(zerocol2);
+    let assumecol2 = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Assume a coloring is given</p></label></div>');
+    div.append(assumecol2);
+    let givencolors2 = $('<input class="form-control"/>').attr({ type: 'number', value: '5' });
+    let givencolorsform2 = $('<div class="form-group"/>').append(givencolors2);
+    div.append(givencolorsform2);
+
     let configcard = make_card("mb-2","p-0","<h6>Config</h6>",div,true,freeid());
     $('#config').append(configcard);
 
@@ -41,10 +54,14 @@ $(document).ready(function(){
     
         let izero = $('input[type=checkbox]',zero).is(':checked');
         let izerocol = $('input[type=checkbox]',zerocol).is(':checked');
+        let izerocol2 = $('input[type=checkbox]',zerocol2).is(':checked');
         let iassumecol = $('input[type=checkbox]',assumecol).is(':checked');
+        let iassumecol2 = $('input[type=checkbox]',assumecol2).is(':checked');
         let imergeable = $('input[type=checkbox]',mergeable).is(':checked');
         let ifulldiag = $('input[type=checkbox]',fulldiag).is(':checked');
-        api.api_new_problem(a,b, [izero,izerocol,iassumecol,parseInt(givencolors.val(),10),imergeable,ifulldiag], function(x){return append_new_problem_or_error(x, performed_initial());} );
+        let igivencol = parseInt(givencolors.val(),10);
+        let igivencol2 = parseInt(givencolors2.val(),10);
+        api.api_new_problem(a,b, [izero,izerocol,iassumecol,igivencol,izerocol2,iassumecol2,igivencol2,imergeable,ifulldiag], function(x){return append_new_problem_or_error(x, performed_initial());} );
     });
 
     $( "#btnclear" ).click(function(ev) {

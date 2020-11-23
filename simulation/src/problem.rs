@@ -62,7 +62,9 @@ pub struct Problem<BigNum : crate::bignum::BigNum> {
 pub struct Config {
     pub compute_triviality : bool,
     pub compute_color_triviality : bool,
+    pub compute_color_triviality_passive : bool,
     pub given_coloring : Option<usize>,
+    pub given_coloring_passive : Option<usize>,
     pub compute_mergeable : bool,
     pub diagramtype : DiagramType
 }
@@ -588,13 +590,17 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             newright.remove_permutations();
             trace!("7) creating new problem");
 
+            let mut config = self.config;
+            std::mem::swap(&mut config.given_coloring,&mut config.given_coloring_passive);
+            std::mem::swap(&mut config.compute_color_triviality,&mut config.compute_color_triviality_passive);
+
             Ok(Problem::<BN>::new(
                 newleft,
                 newright,
                 None,
                 Some(map_label_oldset),
                 Some(self.map_text_label.clone()),
-                self.config,
+                config,
                 None
             )?.shrink_to::<BigBigNum>().unwrap())
         })
