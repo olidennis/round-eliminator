@@ -409,7 +409,7 @@ function make_div_autolb(problem){
             let toshow = $('<div/>')
 
             let rounds = result.filter(step => step[1] == "Speedup" ).length;
-            let nt = result[result.length-1][2].is_trivial;
+            let nt = result[result.length-1][2].is_trivial || result[result.length-1][2].is_trivial_orientation;
             if ( !nt )rounds += 1;
             toshow.append(make_performed_action("Lower bound of " + rounds + " rounds."));
 

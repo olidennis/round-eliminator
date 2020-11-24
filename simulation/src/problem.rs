@@ -463,9 +463,9 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
 
         let orientation_lines = self.left.choices_iter().enumerate().filter(|(_,action)| {
             let labels : Vec<usize> = action.groups().map(|g|g.one_bits().next().unwrap()).collect();
-            let mut outlabels = vec![];
-            let mut inlabels = vec![];
             'outer: for subset in (0..self.left.delta).combinations(outgoing) {
+                let mut outlabels = vec![];
+                let mut inlabels = vec![];
                 let mut x = 0;
                 let mut y = 0;
                 while x < self.left.delta {
