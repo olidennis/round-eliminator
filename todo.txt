@@ -15,3 +15,4 @@ Bugs:
 in server mode, sourceless and sinkless orientation Delta=3, automatic lower bound, gives errors (only on firefox, it seems that it does not like when many connections are opened at the same time). It is caused by https://bugzilla.mozilla.org/show_bug.cgi?id=1052398
 on safari autolb autoub threads are not interrupted
 renaming is broken if it is done multiple times
+shrink_to: if the new problem after speedup is smaller than the old one, the mapping of map_label_oldset fails
