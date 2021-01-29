@@ -20,4 +20,5 @@ pub use crate::bignum::BigBigNum;
 pub use crate::problem::GenericProblem;
 pub use crate::bignum::BigNum1;
 pub use crate::problem::Config;
+pub use crate::problem::Normalized;
 pub use crate::bignum::BigNum;
