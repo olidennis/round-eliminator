@@ -4,6 +4,7 @@ use simulation::AutoLb;
 use simulation::AutoUb;
 use simulation::DiagramType;
 use simulation::Config;
+use simulation::Normalized;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use futures::future::{FutureExt, TryFutureExt};
@@ -16,9 +17,12 @@ use futures_cpupool::CpuPool;
 
 type Problem = simulation::GenericProblem;
 
-fn has_periodic_point(curr_problem: &Problem, prev_problems: &mut Vec<Problem>) -> bool {
-    for prev_problem in prev_problems {
-        if curr_problem.normalize() == prev_problem.normalize() {
+fn has_periodic_point(
+    curr_normalized_problem: &Normalized,
+    prev_normalized_problems: &Vec<Normalized>
+) -> bool {
+    for prev_problem in prev_normalized_problems {
+        if curr_normalized_problem == prev_problem {
             return true;
         }
     }
@@ -41,11 +45,11 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
     let mut p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
-    // Save problems derived on each iteration.
+    // Save normalized representations of problems derived on each iteration.
     // Used to search for periodic points later on.
-    let mut derived_problems = Vec::new();
+    let mut derived_normalized_problems = Vec::new();
     if find_periodic_point {
-        derived_problems.push(p.clone());
+        derived_normalized_problems.push(p.normalize());
     }
 
     for _ in 0..iter {
@@ -58,11 +62,13 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
             println!("{}", p.as_result());
         }
 
-        if find_periodic_point && has_periodic_point(&p, &mut derived_problems) {
-            println!("Periodic point encountered");
-        }
         if find_periodic_point {
-            derived_problems.push(p.clone());
+            let normalized_p = p.normalize();
+            if has_periodic_point(&normalized_p, &derived_normalized_problems) {
+                println!("Periodic point encountered");
+            }
+
+            derived_normalized_problems.push(normalized_p);
         }
     }
 }
