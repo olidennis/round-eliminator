@@ -16,8 +16,16 @@ use futures_cpupool::CpuPool;
 
 type Problem = simulation::GenericProblem;
 
+fn has_periodic_point(curr_problem: &Problem, prev_problems: &mut Vec<Problem>) -> bool {
+    for prev_problem in prev_problems {
+        if curr_problem.normalize() == prev_problem.normalize() {
+            return true;
+        }
+    }
+    return false;
+}
 
-pub fn file(name: &str, iter: usize, merge : bool) {
+pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
     let config = Config {
         compute_triviality : true,
@@ -33,6 +41,13 @@ pub fn file(name: &str, iter: usize, merge : bool) {
     let mut p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
+    // Save problems derived on each iteration.
+    // Used to search for periodic points later on.
+    let mut derived_problems = Vec::new();
+    if find_periodic_point {
+        derived_problems.push(p.clone());
+    }
+
     for _ in 0..iter {
         println!("-------------------------");
         p = p.speedup().unwrap();
@@ -41,7 +56,13 @@ pub fn file(name: &str, iter: usize, merge : bool) {
             p = p.merge_equal();
             println!("Merged equivalent labels");
             println!("{}", p.as_result());
+        }
 
+        if find_periodic_point && has_periodic_point(&p, &mut derived_problems) {
+            println!("Periodic point encountered");
+        }
+        if find_periodic_point {
+            derived_problems.push(p.clone());
         }
     }
 }

@@ -35,6 +35,14 @@ fn main() {
                         .long("merge")
                         .help("Merge equivalent labels after speedup")
                 )
+                .arg(
+                    Arg::with_name("find-periodic-point")
+                        .short("p")
+                        .long("periodic-point")
+                        .required(false)
+                        .takes_value(false)
+                        .help("Check whether a periodic point has been encountered after each iteration")
+                )
         )
         .subcommand(
             SubCommand::with_name("server")
@@ -146,7 +154,8 @@ fn main() {
         let name = f.value_of("file").unwrap();
         let merge = f.is_present("merge");
         let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
-        cli::file(name, iter, merge);
+        let find_periodic_point: bool = f.is_present("find-periodic-point");
+        cli::file(name, iter, merge, find_periodic_point);
     } else if let Some(f) = matches.subcommand_matches("autolb") {
         let name = f.value_of("file").unwrap();
         let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
