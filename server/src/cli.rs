@@ -1,10 +1,10 @@
 extern crate futures01;
+use simulation::do_multiple_speedups;
 use simulation::AutomaticSimplifications;
 use simulation::AutoLb;
 use simulation::AutoUb;
 use simulation::DiagramType;
 use simulation::Config;
-use simulation::Normalized;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use futures::future::{FutureExt, TryFutureExt};
@@ -16,18 +16,6 @@ use futures01::Future;
 use futures_cpupool::CpuPool;
 
 type Problem = simulation::GenericProblem;
-
-fn has_periodic_point(
-    curr_normalized_problem: &Normalized,
-    prev_normalized_problems: &Vec<Normalized>
-) -> bool {
-    for prev_problem in prev_normalized_problems {
-        if curr_normalized_problem == prev_problem {
-            return true;
-        }
-    }
-    return false;
-}
 
 pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
@@ -42,34 +30,18 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
         fixed_orientation_passive : None,
         diagramtype : DiagramType::Accurate
     };
-    let mut p = Problem::from_line_separated_text(&data, config).unwrap();
+    let p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
-    // Save normalized representations of problems derived on each iteration.
-    // Used to search for periodic points later on.
-    let mut derived_normalized_problems = Vec::new();
-    if find_periodic_point {
-        derived_normalized_problems.push(p.normalize());
+    let (results, found_periodic_point) = do_multiple_speedups(p, iter, merge, find_periodic_point);
+
+    for res in results {
+        println!("-------------------------");
+        println!("{}", res);
     }
 
-    for _ in 0..iter {
-        println!("-------------------------");
-        p = p.speedup().unwrap();
-        println!("{}", p.as_result());
-        if merge && !p.mergeable.as_ref().unwrap().is_empty() {
-            p = p.merge_equal();
-            println!("Merged equivalent labels");
-            println!("{}", p.as_result());
-        }
-
-        if find_periodic_point {
-            let normalized_p = p.normalize();
-            if has_periodic_point(&normalized_p, &derived_normalized_problems) {
-                println!("Periodic point encountered");
-            }
-
-            derived_normalized_problems.push(normalized_p);
-        }
+    if found_periodic_point {
+        println!("Periodic point encountered");
     }
 }
 
