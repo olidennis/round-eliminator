@@ -47,3 +47,4 @@ pub fn do_multiple_speedups(
 
     return (results, found_periodic_point);
 }
+
