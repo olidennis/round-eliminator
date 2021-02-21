@@ -29,7 +29,10 @@ fn get_autolb_handler(
     iter: usize,
     autolb_features: String
 ) -> procspawn::JoinHandle<i32> {
-    return procspawn::spawn((data, config, labels, iter, autolb_features), |(data, config, labels, iter, autolb_features)| {
+    return procspawn::spawn(
+        (data, config, labels, iter, autolb_features),
+        |(data, config, labels, iter, autolb_features)|
+    {
         let p = GenericProblem::from_line_separated_text(&data, config).unwrap();
         let autolb_features : Vec<_> = autolb_features.split(",").collect();
         let auto = AutomaticSimplifications::<AutoLb>::new(p, iter, labels, 1000, &autolb_features);
@@ -52,10 +55,19 @@ fn get_autoub_handler(
     iter: usize,
     autoub_features: String
 ) -> procspawn::JoinHandle<i32> {
-    return procspawn::spawn((data, config, labels, iter, autoub_features), |(data, config, labels, iter, autoub_features)| {
+    return procspawn::spawn(
+        (data, config, labels, iter, autoub_features),
+        |(data, config, labels, iter, autoub_features
+    )| {
         let p = GenericProblem::from_line_separated_text(&data, config).unwrap();
         let autoub_features : Vec<_> = autoub_features.split(",").collect();
-        let auto = AutomaticSimplifications::<AutoUb>::new(p, iter, labels, 1000, &autoub_features);
+        let auto = AutomaticSimplifications::<AutoUb>::new(
+            p,
+            iter,
+            labels,
+            1000,
+            &autoub_features
+        );
         let mut res: i32 = -1;
         for x in auto {
             let sol = x.unwrap();
@@ -178,7 +190,7 @@ pub fn search_for_complexity(
                 &mut autoub_handle,
                 &mut timeout_handle
             );
-        }
+          }
       }
   }
 
