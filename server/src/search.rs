@@ -18,8 +18,8 @@ pub fn search_for_complexity(
 ) -> (String, String) {
   let mut pp_search_handle = procspawn::spawn((data.clone(), config, iter, merge), |(data, config, iter, merge)| {
       let p = GenericProblem::from_line_separated_text(&data, config).unwrap();
-      let (_, found_periodic_point) = do_multiple_speedups(p, iter, merge, true);
-      found_periodic_point
+      let (res, found_periodic_point, found_zero_round) = do_multiple_speedups(p, iter, merge, true);
+      (res.len(), found_periodic_point, found_zero_round)
   });
 
  
@@ -71,31 +71,79 @@ pub fn search_for_complexity(
   let mut lower_bound = String::from("unknown");
   let mut upper_bound = String::from("unknown");
 
+  fn terminate_all(
+    pp_search_handle: &mut Option<procspawn::JoinHandle<(usize, bool, bool)>>,
+    autolb_handle: &mut Option<procspawn::JoinHandle<i32>>,
+    autoub_handle: &mut Option<procspawn::JoinHandle<i32>>,
+    timeout_handle: &mut procspawn::JoinHandle<()>
+  ) {
+    pp_search_handle.take().map(|mut h|h.kill());
+    autolb_handle.take().map(|mut h|h.kill());
+    autoub_handle.take().map(|mut h|h.kill());
+    timeout_handle.kill().ok();
+  }
+
   while let Some(events) = multi.wait_events() {
       for event in events {
           if event == pp_search_id {
-              let found_periodic_point = pp_search_handle.take().unwrap().join().unwrap();
-              if found_periodic_point {
+              let (
+                round_count,
+                found_periodic_point,
+                found_zero_round
+              ) = pp_search_handle.take().unwrap().join().unwrap();
+              
+              if found_periodic_point && !found_zero_round {
                   lower_bound = String::from("log n");
+              }
+              if found_zero_round {
+                  println!("Zero round problem was found");
+                  lower_bound = round_count.to_string();
+                  upper_bound = round_count.to_string();
+
+                  terminate_all(
+                      &mut pp_search_handle,
+                      &mut autolb_handle,
+                      &mut autoub_handle,
+                      &mut timeout_handle
+                  );
               }
           }
           if event == autolb_id {
               let lower_bound_res = autolb_handle.take().unwrap().join().unwrap();
-              if lower_bound_res != -1 && lower_bound != "log n" {
+              if lower_bound_res != -1 && lower_bound == "unknown" {
                   lower_bound = lower_bound_res.to_string();
+                  if lower_bound == upper_bound { // tight bounds found
+                    terminate_all(
+                        &mut pp_search_handle,
+                        &mut autolb_handle,
+                        &mut autoub_handle,
+                        &mut timeout_handle
+                    );
+                  }
               }
           }
           if event == autoub_id {
               let upper_bound_res = autoub_handle.take().unwrap().join().unwrap();
-              if upper_bound_res != -1 {
+              if upper_bound_res != -1 && upper_bound == "unknown" {
                   upper_bound = upper_bound_res.to_string();
+                  if lower_bound == upper_bound { // tight bounds found
+                    terminate_all(
+                        &mut pp_search_handle,
+                        &mut autolb_handle,
+                        &mut autoub_handle,
+                        &mut timeout_handle
+                    );
+                  }
               }
           }
           if event == timeout_id {
             println!("timeout!");
-            pp_search_handle.take().map(|mut h|h.kill());
-            autolb_handle.take().map(|mut h|h.kill());
-            autoub_handle.take().map(|mut h|h.kill());
+            terminate_all(
+                &mut pp_search_handle,
+                &mut autolb_handle,
+                &mut autoub_handle,
+                &mut timeout_handle
+            );
         }
       }
   }

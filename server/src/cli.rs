@@ -71,7 +71,7 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
     let p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
-    let (results, found_periodic_point) = do_multiple_speedups(p, iter, merge, find_periodic_point);
+    let (results, found_periodic_point, _) = do_multiple_speedups(p, iter, merge, find_periodic_point);
 
     for res in results {
         println!("-------------------------");
