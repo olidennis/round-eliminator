@@ -12,3 +12,4 @@ futures-preview = { version = "0.3.0-alpha.14", features = ["compat"] }
 futures01 = { package = "futures", version = "0.1" }
 futures-cpupool = "0.1"
 env_logger = "0.7.1"
+procspawn = { git = "https://github.com/olidennis/procspawn" }

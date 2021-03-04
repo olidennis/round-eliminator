@@ -15,7 +15,45 @@ use futures01::sync::mpsc;
 use futures01::Future;
 use futures_cpupool::CpuPool;
 
+use crate::search;
+   
 type Problem = simulation::GenericProblem;
+
+pub fn complexity(
+    name: &str,
+    labels: usize,
+    iter: usize,
+    merge : bool,
+    autolb_features : &str,
+    autoub_features : &str,
+    timeout: u64
+) {
+    let data = std::fs::read_to_string(name).expect("Unable to read file");
+    let config = Config {
+        compute_triviality : true,
+        compute_color_triviality : true,
+        compute_color_triviality_passive : false,
+        given_coloring : None,
+        given_coloring_passive : None,
+        compute_mergeable : true,
+        fixed_orientation : None,
+        fixed_orientation_passive : None,
+        diagramtype : DiagramType::Accurate
+    };
+
+    let (lower_bound, upper_bound) = search::search_for_complexity(
+        data,
+        config,
+        labels,
+        iter,
+        merge,
+        autolb_features.to_string(),
+        autoub_features.to_string(),
+        timeout
+    );
+    println!("Lower bound: {}", lower_bound);
+    println!("Upper bound: {}", upper_bound);
+}
 
 pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
     let data = std::fs::read_to_string(name).expect("Unable to read file");
@@ -33,7 +71,7 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
     let p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
-    let (results, found_periodic_point) = do_multiple_speedups(p, iter, merge, find_periodic_point);
+    let (results, found_periodic_point, _) = do_multiple_speedups(p, iter, merge, find_periodic_point);
 
     for res in results {
         println!("-------------------------");
