@@ -1,0 +1,13 @@
+B B B
+C C C
+D D D
+E E E
+F F F
+A G G
+
+G BG BG
+G CG CG
+G DG DG
+G EG EG
+G FG FG
+G G ABCDEFG

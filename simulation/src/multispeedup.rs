@@ -28,7 +28,7 @@ pub fn do_multiple_speedups(
   let mut found_zero_round = false;
 
   if find_periodic_point {
-      derived_normalized_problems.push(p.normalize());  
+      derived_normalized_problems.push(p.normalize());
   }
   if p.is_zero_rounds() {
     found_zero_round = true;
@@ -43,10 +43,11 @@ pub fn do_multiple_speedups(
       }
       results.push(p.as_result());
 
-      let normalized_p = p.normalize();
-      found_periodic_point = find_periodic_point &&
-        has_periodic_point(&normalized_p, &derived_normalized_problems);
-      derived_normalized_problems.push(normalized_p);
+      if find_periodic_point {
+        let normalized_p = p.normalize();
+        found_periodic_point = has_periodic_point(&normalized_p, &derived_normalized_problems);
+        derived_normalized_problems.push(normalized_p);
+      }
       
       if p.is_zero_rounds() {
         found_zero_round = true;
