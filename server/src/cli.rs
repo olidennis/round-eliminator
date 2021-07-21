@@ -36,7 +36,7 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
         compute_mergeable : true,
         fixed_orientation : None,
         fixed_orientation_passive : None,
-        diagramtype : DiagramType::Accurate
+        diagramtype : DiagramType::Fast
     };
     let mut p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());

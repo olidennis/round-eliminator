@@ -19,5 +19,8 @@ pub use crate::simpleapi::request_json;
 pub use crate::bignum::BigBigNum;
 pub use crate::problem::GenericProblem;
 pub use crate::bignum::BigNum1;
+pub use crate::bignum::BigNum2;
 pub use crate::problem::Config;
 pub use crate::bignum::BigNum;
+pub use crate::line::Line;
+pub use crate::constraint::Constraint;

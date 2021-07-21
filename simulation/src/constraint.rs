@@ -23,7 +23,7 @@ pub struct Constraint<BigNum : crate::bignum::BigNum> {
     pub delta: usize,
     pub bits: usize,
     pub mask: BigNum,
-    permutations: Option<bool>,
+    pub permutations: Option<bool>,
 }
 
 impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
@@ -332,11 +332,11 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
         }
 
         trace!("reducing bad configurations");
-        trace!("total bad: {}",bad.clone().count());
-        let bads : HashSet<_> = bad.clone().collect();
+        let bads : HashSet<_> = bad.collect();
+        trace!("total bad: {}",bads.len());
         trace!("computed bads");
         let mut maxbads = vec![];
-        'outer: for (_,b) in bad.enumerate() {
+        'outer: for (_,b) in bads.iter().enumerate() {
             for (i,p) in b.inner.one_bits().enumerate() {
                 let p = p - (i * bits);
                 for &s in &successors[p] {

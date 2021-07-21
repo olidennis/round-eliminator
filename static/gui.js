@@ -599,7 +599,7 @@ function make_div_newrenaming(problem){
         table.append(tr);
     }
     div.append(table);
-    let rename = $('<button type="button" class="btn btn-primary">Rename</button>');
+    let rename = $('<button type="button" class="btn btn-primary m-2">Rename</button>');
     rename.click(function(ev) {
         let labels = Array.from($('input',table)).map(x => x.value);
         let entries = Array.from(labels.entries());
@@ -607,6 +607,29 @@ function make_div_newrenaming(problem){
         api.api_rename(problem[0],newmapping,function(x){return append_new_problem_or_error(x, make_performed_action("Renaming."));} );
     });
     div.append(rename);
+
+    let rename2 = $('<button type="button" class="btn btn-primary m-2">Old Label Mapping</button>');
+    rename2.click(function(ev) {
+        let oldlabels = [... new Set(problem[1].mapping.map(x => x[0]).flat())];
+        let newsets = problem[1].mapping.map(x => x[0]);
+        let renaming = {};
+        for( let label of oldlabels ){
+            let containing = newsets.filter(set => set.includes(label));
+            let minsize = Math.min(...containing.map(x => x.length));
+            let unique_smallest = containing.filter(x => x.length == minsize).length == 1;
+            if( unique_smallest ){
+                let idx = newsets.findIndex( set => set.includes(label) && set.length == minsize);
+                renaming[idx] = label;
+            }
+        }
+        let torename = Array.from($('input',table));
+        for( let [i,set] of newsets.entries() ){
+            let newlabel = i in renaming ? renaming[i] : "("+ newsets[i].join("").replace(/[()]/g,"_") +")";
+            $(torename[i]).val(newlabel);
+        }
+    });
+    div.append(rename2);
+
     return div;
 }
 
