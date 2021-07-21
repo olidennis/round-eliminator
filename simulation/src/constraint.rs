@@ -487,6 +487,5 @@ impl<BigNum : crate::bignum::BigNum> Constraint<BigNum> {
             permutations : None
         }
     }
-
 }
 

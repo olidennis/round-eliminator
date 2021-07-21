@@ -1,11 +1,14 @@
 mod cli;
+mod search;
 
+use procspawn;
 use clap::{App as ClApp, AppSettings, Arg, SubCommand};
 
 
 
 fn main() {
     env_logger::init();
+    procspawn::init();
 
     let matches = ClApp::new("Sim")
         .version("0.1")
@@ -144,6 +147,65 @@ fn main() {
 
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("complexity")
+                .about("Automatically try different techniques to find problem's complexity")
+                .arg(
+                    Arg::with_name("file")
+                        .short("f")
+                        .long("file")
+                        .value_name("FILE")
+                        .required(true)
+                        .help("Input file"),
+                )
+                .arg(
+                    Arg::with_name("labels")
+                        .short("l")
+                        .long("labels")
+                        .value_name("LABELS")
+                        .required(true)
+                        .help("Maximum number of labels"),
+                )
+                .arg(
+                    Arg::with_name("iter")
+                        .short("i")
+                        .long("iter")
+                        .value_name("ITER")
+                        .required(true)
+                        .help("Maximum number of iterations"),
+                )
+                .arg(
+                    Arg::with_name("merge")
+                        .short("m")
+                        .long("merge")
+                        .help("Merge equivalent labels after speedup")
+                )
+                .arg(
+                    Arg::with_name("autolb_features")
+                        .short("x")
+                        .long("autolb_features")
+                        .value_name("AUTOLB_FEATURES")
+                        .required(false)
+                        .help("Simplification types (comma separated). Possible values: unreach (try to merge unreachable labels), addarrow (try to add diagram edges), indirect (try to merge indirect neighbors), diag (try to merge diagram neighbors). Default value: diag,addarrow"),
+                )
+                .arg(
+                    Arg::with_name("autoub_features")
+                        .short("y")
+                        .long("autoub_features")
+                        .value_name("AUTOUB_FEATURES")
+                        .required(false)
+                        .help("Hardening types (comma separated). Possible values: pred (add predecessors when removing labels), det (some experimental thing). Default value: pred. Note that also `-x \"\"` is allowed."),
+
+                )
+                .arg(
+                    Arg::with_name("timeout")
+                        .short("t")
+                        .long("timeout")
+                        .value_name("TIMEOUT")
+                        .required(false)
+                        .help("Maximum time (in milliseconds) allowed to run subprocesses (e.g. autolb, autoub, etc.)"),
+                )
+        )
         .setting(AppSettings::SubcommandRequired)
         .get_matches();
 
@@ -170,5 +232,14 @@ fn main() {
         let col : Option<usize> = f.value_of("col").map(|x|x.parse().unwrap());
         let features = f.value_of("features").unwrap_or("pred");
         cli::autoub(name, labels, iter,col,features);
+    } else if let Some(f) = matches.subcommand_matches("complexity") {
+        let name = f.value_of("file").unwrap();
+        let merge = f.is_present("merge");
+        let labels: usize = f.value_of("labels").unwrap().parse().unwrap();
+        let iter: usize = f.value_of("iter").unwrap().parse().unwrap();
+        let autolb_features = f.value_of("autolb_features").unwrap_or("diag,addarrow");
+        let autoub_features = f.value_of("autoub_features").unwrap_or("pred");
+        let timeout: u64 = f.value_of("autoub_features").unwrap_or("10000").parse().unwrap();
+        cli::complexity(name, labels, iter, merge, autolb_features, autoub_features, timeout);
     }
 }

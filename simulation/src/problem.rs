@@ -12,7 +12,7 @@ use std::ops::{Deref,DerefMut};
 use crate::bignum::BigNum;
 use permutator::Permutation;
 
-type Normalized = (Constraint<BigBigNum>,Constraint<BigBigNum>);
+pub type Normalized = (Constraint<BigBigNum>,Constraint<BigBigNum>);
 
 
 macro_rules! gettype {

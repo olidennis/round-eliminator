@@ -9,6 +9,7 @@ mod maxclique;
 mod problem;
 mod simpleapi;
 mod extremalsets;
+mod multispeedup;
 
 pub use crate::auto::AutomaticSimplifications;
 pub use crate::autolb::AutoLb;
@@ -21,6 +22,8 @@ pub use crate::problem::GenericProblem;
 pub use crate::bignum::BigNum1;
 pub use crate::bignum::BigNum2;
 pub use crate::problem::Config;
+pub use crate::problem::Normalized;
 pub use crate::bignum::BigNum;
 pub use crate::line::Line;
 pub use crate::constraint::Constraint;
+pub use crate::multispeedup::do_multiple_speedups;

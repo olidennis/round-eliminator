@@ -1,4 +1,5 @@
 extern crate futures01;
+use simulation::do_multiple_speedups;
 use simulation::AutomaticSimplifications;
 use simulation::AutoLb;
 use simulation::AutoUb;
@@ -14,15 +15,44 @@ use futures01::sync::mpsc;
 use futures01::Future;
 use futures_cpupool::CpuPool;
 
+use crate::search;
+   
 type Problem = simulation::GenericProblem;
 
-fn has_periodic_point(curr_problem: &Problem, prev_problems: &mut Vec<Problem>) -> bool {
-    for prev_problem in prev_problems {
-        if curr_problem.normalize() == prev_problem.normalize() {
-            return true;
-        }
-    }
-    return false;
+pub fn complexity(
+    name: &str,
+    labels: usize,
+    iter: usize,
+    merge : bool,
+    autolb_features : &str,
+    autoub_features : &str,
+    timeout: u64
+) {
+    let data = std::fs::read_to_string(name).expect("Unable to read file");
+    let config = Config {
+        compute_triviality : true,
+        compute_color_triviality : true,
+        compute_color_triviality_passive : false,
+        given_coloring : None,
+        given_coloring_passive : None,
+        compute_mergeable : true,
+        fixed_orientation : None,
+        fixed_orientation_passive : None,
+        diagramtype : DiagramType::Accurate
+    };
+
+    let (lower_bound, upper_bound) = search::search_for_complexity(
+        data,
+        config,
+        labels,
+        iter,
+        merge,
+        autolb_features.to_string(),
+        autoub_features.to_string(),
+        timeout
+    );
+    println!("Lower bound: {}", lower_bound);
+    println!("Upper bound: {}", upper_bound);
 }
 
 pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
@@ -38,32 +68,18 @@ pub fn file(name: &str, iter: usize, merge : bool, find_periodic_point: bool) {
         fixed_orientation_passive : None,
         diagramtype : DiagramType::Fast
     };
-    let mut p = Problem::from_line_separated_text(&data, config).unwrap();
+    let p = Problem::from_line_separated_text(&data, config).unwrap();
     println!("{}", p.as_result());
 
-    // Save problems derived on each iteration.
-    // Used to search for periodic points later on.
-    let mut derived_problems = Vec::new();
-    if find_periodic_point {
-        derived_problems.push(p.clone());
+    let (results, found_periodic_point, _) = do_multiple_speedups(p, iter, merge, find_periodic_point);
+
+    for res in results {
+        println!("-------------------------");
+        println!("{}", res);
     }
 
-    for _ in 0..iter {
-        println!("-------------------------");
-        p = p.speedup().unwrap();
-        println!("{}", p.as_result());
-        if merge && !p.mergeable.as_ref().unwrap().is_empty() {
-            p = p.merge_equal();
-            println!("Merged equivalent labels");
-            println!("{}", p.as_result());
-        }
-
-        if find_periodic_point && has_periodic_point(&p, &mut derived_problems) {
-            println!("Periodic point encountered");
-        }
-        if find_periodic_point {
-            derived_problems.push(p.clone());
-        }
+    if found_periodic_point {
+        println!("Periodic point encountered");
     }
 }
 
