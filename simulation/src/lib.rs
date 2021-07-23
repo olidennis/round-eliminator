@@ -1,4 +1,3 @@
-#![feature(partition_point)]
 mod auto;
 mod autolb;
 mod autoub;
@@ -10,6 +9,7 @@ mod problem;
 mod simpleapi;
 mod extremalsets;
 mod multispeedup;
+mod forall;
 
 pub use crate::auto::AutomaticSimplifications;
 pub use crate::autolb::AutoLb;

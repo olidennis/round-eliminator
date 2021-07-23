@@ -610,10 +610,10 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
     /// such that a solution of the new problem can be converted in 1 round to a solution for the origina problem,
     /// and a solution for the original problem can be converted in 0 rounds to a solution for the new problem.
     pub fn speedup(&self) -> Result<Problem<BigBigNum>, String> {
-        let mut left = self.left.clone();
-        let mut right = self.right.clone();
+        let left = self.left.clone();
+        let right = self.right.clone();
 
-        trace!("1) adding permutations");
+        /*trace!("1) adding permutations");
         left.add_permutations();
         right.add_permutations();
 
@@ -622,7 +622,11 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
 
         trace!("3) removing permutations forall");
         newleft_before_renaming.add_permutations();
-        newleft_before_renaming.remove_permutations();
+        newleft_before_renaming.remove_permutations();*/
+        trace!("1) New forall");
+        let now = std::time::Instant::now();
+        let newleft_before_renaming = crate::forall::forall(&right,self);
+        trace!("2) Done ({} ms)",now.elapsed().as_millis());
 
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);
@@ -651,8 +655,8 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             trace!("renamed");
             let mut newright = left.intoo().new_constraint_exist(&hm_oldset_label);
 
-            trace!("6) removing permutations exists");
-            newright.remove_permutations();
+            //trace!("6) removing permutations exists");
+            //newright.remove_permutations();
             trace!("7) creating new problem");
 
             let mut config = self.config;
