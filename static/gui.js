@@ -380,12 +380,20 @@ function make_div_autolb(problem){
 
     let unreach = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge unreachable labels</p></label></div>');
     divautolb.append(unreach);
-    let diagram = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Try to merge diagram neighbors</p></label></div>');
+    let diagram = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge diagram neighbors</p></label></div>');
     divautolb.append(diagram);
     let indirect = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to merge indirect neighbors</p></label></div>');
     divautolb.append(indirect);
-    let arrows = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Try to add diagram edges</p></label></div>');
+    let arrows = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Try to add diagram edges</p></label></div>');
     divautolb.append(arrows);
+    let merge_new_to_old = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Merge new to old</p></label></div>');
+    divautolb.append(merge_new_to_old);
+    let merge_new_to_new = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Merge new to new</p></label></div>');
+    divautolb.append(merge_new_to_new);
+    let merge_old_to_new = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Merge old to new</p></label></div>');
+    divautolb.append(merge_old_to_new);
+    let merge_new_to_new_nonneighbor = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Merge new to new nonneighbors</p></label></div>');
+    divautolb.append(merge_new_to_new_nonneighbor);
 
     let autolb = $('<button type="button" class="btn btn-primary">Automatic Lower Bound</button>');
     autolb.click(function(ev) {
@@ -442,9 +450,14 @@ function make_div_autolb(problem){
         let usediag = $('input[type=checkbox]',diagram).is(':checked');
         let useaddarrow = $('input[type=checkbox]',arrows).is(':checked');
         let useindirect = $('input[type=checkbox]',indirect).is(':checked');
+        let use_new_to_old = $('input[type=checkbox]',merge_new_to_old).is(':checked');
+        let use_new_to_new = $('input[type=checkbox]',merge_new_to_new).is(':checked');
+        let use_old_to_new = $('input[type=checkbox]',merge_old_to_new).is(':checked');
+        let use_new_to_new_nonneighbor = $('input[type=checkbox]',merge_new_to_new_nonneighbor).is(':checked');
 
 
-        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, useindirect, onresult, onend);
+
+        let ch = api.api_autolb(blob, parseInt(maxiterlb.val(),10), parseInt(maxlabelslb.val(),10) ,parseInt(maxrcslb.val(),10), useunreach, usediag, useaddarrow, useindirect, use_new_to_old, use_new_to_new, use_old_to_new,use_new_to_new_nonneighbor, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();

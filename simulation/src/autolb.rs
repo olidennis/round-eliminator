@@ -1,7 +1,9 @@
+use crate::BigNum;
 use crate::auto::Auto;
 use crate::auto::Sequence;
 use crate::auto::Step;
 use crate::problem::DiagramType;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -14,7 +16,11 @@ pub struct AutoLb {
     merge_unreachable : bool,
     merge_diagram : bool,
     merge_indirect : bool,
-    addarrow : bool
+    addarrow : bool,
+    merge_new_to_old : bool,
+    merge_new_to_new : bool,
+    merge_old_to_new : bool,
+    merge_new_to_new_nonneighbor : bool
 }
 
 #[derive(Copy,Clone,Debug)]
@@ -33,6 +39,10 @@ impl Auto for AutoLb {
             merge_diagram: features.iter().any(|&x| x == "diag"),
             addarrow: features.iter().any(|&x| x == "addarrow"),
             merge_indirect : features.iter().any(|&x| x == "indirect"),
+            merge_new_to_old : features.iter().any(|&x| x == "use_new_to_old"),
+            merge_new_to_new : features.iter().any(|&x| x == "use_new_to_new"),
+            merge_old_to_new : features.iter().any(|&x| x == "use_old_to_new"),
+            merge_new_to_new_nonneighbor : features.iter().any(|&x| x == "use_new_to_new_nonneighbor"),
         }
     }
 
@@ -55,6 +65,51 @@ impl Auto for AutoLb {
         if self.addarrow {
             v.extend(sol.current().unreachable_pairs().into_iter().map(|x|Simplification::Addarrow(x)));
         }
+        let mut new_labels = HashSet::new();
+        let mut old_labels = HashSet::new();
+        let map_label_oldset = sol.current().map_label_oldset.clone().unwrap_or(vec![]);
+        let oldsets : Vec<_> = map_label_oldset.iter().map(|(_,o)|o.clone()).collect();
+        //let oldlabels = oldsets.iter().fold(BigBigNum::zero(),|a,b| a|b.clone());
+        for (l,o) in map_label_oldset.iter() {
+            let mut is_old = false;
+            for contained in o.one_bits() {
+                let mut containers : Vec<_> = oldsets.iter().filter(|old|old.bit(contained)).cloned().collect();
+                containers.sort_by_key(|set|set.count_ones());
+                let minsize = containers[0].count_ones();
+                let mincontainers : Vec<_> = containers.into_iter().filter(|c|c.count_ones()==minsize).collect();
+                if mincontainers.contains(o) {
+                    is_old = true;
+                }
+            }
+            if is_old {
+                old_labels.insert(*l);
+            } else {
+                new_labels.insert(*l);
+            }
+        }
+        /*for l in &old_labels {
+            println!("{} is an old label",sol.current().map_label_text()[l]);
+        }
+        for l in &new_labels {
+            println!("{} is a new label",sol.current().map_label_text()[l]);
+        }*/
+        if self.merge_old_to_new {
+            v.extend(sol.current().diagram.clone().into_iter().filter(|(a,b)| old_labels.contains(a) && new_labels.contains(b)).map(|x|Simplification::Merge(x)));
+        } 
+        if self.merge_new_to_new {
+            v.extend(sol.current().diagram.clone().into_iter().filter(|(a,b)| new_labels.contains(a) && new_labels.contains(b)).map(|x|Simplification::Merge(x)));
+        } 
+        if self.merge_new_to_old {
+            v.extend(sol.current().diagram.clone().into_iter().filter(|(a,b)| new_labels.contains(a) && old_labels.contains(b)).map(|x|Simplification::Merge(x)));
+        } 
+        if self.merge_new_to_new_nonneighbor {
+            //println!("nnn");
+            let pairs = new_labels.iter().cloned().cartesian_product(new_labels.iter().cloned()).filter(|(a,b)|a!=b);
+            //for (a,b) in pairs.clone() {
+            //    println!("possible merge: {} {}",sol.current().map_label_text()[&a],sol.current().map_label_text()[&b]);
+            //}
+            v.extend(pairs.map(|x|Simplification::Merge(x)));
+        } 
         Box::new(v.into_iter())
     }
 

@@ -150,8 +150,8 @@ export function api_rename(p, v, ready){
     return request({ Rename : [p,v] }, ready , function(){} , true);
 }
 
-export function api_autolb(p,label,iter, rcs, useunreach, usediag, useaddarrow, useindirect, result, end) {
-    return request({ AutoLb : [p,label,iter,rcs, useunreach, usediag, useaddarrow, useindirect] }, result , end ,true );
+export function api_autolb(p,label,iter, rcs, useunreach, usediag, useaddarrow, useindirect, use_new_to_old, use_new_to_new, use_old_to_new,use_new_to_new_nonneighbor, result, end) {
+    return request({ AutoLb : [p,label,iter,rcs, useunreach, usediag, useaddarrow, useindirect, use_new_to_old, use_new_to_new, use_old_to_new, use_new_to_new_nonneighbor] }, result , end ,true );
 }
 
 export function api_autoub(p,label,iter, rcs, usepred, usedet, result, end) {

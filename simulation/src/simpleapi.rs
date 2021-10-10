@@ -187,7 +187,11 @@ pub fn autolb(
     unreach : bool,
     diagram : bool,
     addarrow : bool,
-    indirect : bool
+    indirect : bool,
+    use_new_to_old : bool,
+    use_new_to_new : bool,
+    use_old_to_new : bool,
+    use_new_to_new_nonneighbor : bool
 ) -> impl Iterator<Item = Result<RLowerBoundStep, String>> {
     let mut features = vec![];
     if unreach {
@@ -201,6 +205,18 @@ pub fn autolb(
     }
     if indirect {
         features.push("indirect");
+    }
+    if use_new_to_old {
+        features.push("use_new_to_old")
+    }
+    if use_new_to_new {
+        features.push("use_new_to_new")
+    }
+    if use_old_to_new {
+        features.push("use_old_to_new")
+    }
+    if use_new_to_new_nonneighbor {
+        features.push("use_new_to_new_nonneighbor")
     }
     let auto = AutomaticSimplifications::<AutoLb>::new(p.clone(), maxiter, maxlabels, maxrcs, &features);
     auto.into_iter().map(move |r| {
@@ -260,7 +276,7 @@ pub enum Request {
     Addarrow(Problem, Addarrow),
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
-    AutoLb(Problem, usize, usize, usize, bool, bool, bool, bool),
+    AutoLb(Problem, usize, usize, usize, bool, bool, bool, bool, bool, bool, bool,bool),
     AutoUb(Problem, usize, usize, usize, bool, bool),
     Ping,
 }
@@ -325,8 +341,8 @@ where
             Ok(r) => f(Response::P(r)),
             Err(s) => f(Response::E(s)),
         },
-        Request::AutoLb(p, i, l, rcs, u, d, a, ind) => {
-            for r in autolb(&p, i, l, rcs, u,d,a, ind) {
+        Request::AutoLb(p, i, l, rcs, u, d, a, ind, use_new_to_old, use_new_to_new, use_old_to_new, use_new_to_new_nonneighbor) => {
+            for r in autolb(&p, i, l, rcs, u,d,a, ind, use_new_to_old, use_new_to_new, use_old_to_new, use_new_to_new_nonneighbor) {
                 match r {
                     Ok(r) => f(Response::L(r)),
                     Err(s) => f(Response::E(s)),
