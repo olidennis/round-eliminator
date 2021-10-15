@@ -154,8 +154,8 @@ export function api_autolb(p,label,iter, rcs, useunreach, usediag, useaddarrow, 
     return request({ AutoLb : [p,label,iter,rcs, useunreach, usediag, useaddarrow, useindirect, use_new_to_old, use_new_to_new, use_old_to_new, use_new_to_new_nonneighbor] }, result , end ,true );
 }
 
-export function api_autoub(p,label,iter, rcs, usepred, usedet, result, end) {
-    return request({ AutoUb : [p,label,iter, rcs, usepred,usedet] }, result , end ,true);
+export function api_autoub(p,label,iter, rcs, usepred, usedet, useonlynew, result, end) {
+    return request({ AutoUb : [p,label,iter, rcs, usepred,usedet, useonlynew] }, result , end ,true);
 }
 
 export function api_merge_equal(p, ready){

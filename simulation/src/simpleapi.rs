@@ -240,6 +240,7 @@ pub fn autoub(
     maxrcs : usize,
     usepred: bool,
     usedet: bool,
+    useonlynew: bool
 ) -> impl Iterator<Item = Result<RUpperBoundStep, String>> {
     let mut features = vec![];
     if usepred {
@@ -247,6 +248,9 @@ pub fn autoub(
     }
     if usedet {
         features.push("det");
+    }
+    if useonlynew {
+        features.push("onlynew");
     }
     let auto =
         AutomaticSimplifications::<AutoUb>::new(p.clone(), maxiter, maxlabels, maxrcs, &features);
@@ -277,7 +281,7 @@ pub enum Request {
     Harden(Problem, Keeping, bool),
     Rename(Problem, Renaming),
     AutoLb(Problem, usize, usize, usize, bool, bool, bool, bool, bool, bool, bool,bool),
-    AutoUb(Problem, usize, usize, usize, bool, bool),
+    AutoUb(Problem, usize, usize, usize, bool, bool, bool),
     Ping,
 }
 
@@ -349,8 +353,8 @@ where
                 }
             }
         }
-        Request::AutoUb(p, i, l, rcs, x, y) => {
-            for r in autoub(&p, i, l, rcs, x, y) {
+        Request::AutoUb(p, i, l, rcs, x, y, onlynew) => {
+            for r in autoub(&p, i, l, rcs, x, y, onlynew) {
                 match r {
                     Ok(r) => f(Response::U(r)),
                     Err(s) => f(Response::E(s)),

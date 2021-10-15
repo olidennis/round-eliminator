@@ -4,6 +4,7 @@ use crate::auto::Step;
 use crate::problem::DiagramType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use crate::bignum::BigNum as _;
 use crate::bignum::BigBigNum as BigNum;
 type Problem = crate::problem::GenericProblem;
@@ -13,6 +14,7 @@ type Problem = crate::problem::GenericProblem;
 pub struct AutoUb {
     usepred: bool,
     det: bool,
+    onlynew : bool
 }
 impl Auto for AutoUb {
     type Simplification = BigNum;
@@ -21,6 +23,7 @@ impl Auto for AutoUb {
         Self {
             usepred: features.iter().any(|&x| x == "pred"),
             det: features.iter().any(|&x| x == "det"),
+            onlynew: features.iter().any(|&x| x == "onlynew"),
         }
     }
     /// The possible simplifications are described by sets of labels,
@@ -31,11 +34,43 @@ impl Auto for AutoUb {
         maxlabels: usize,
     ) -> Box<dyn Iterator<Item = Self::Simplification>> {
         if !self.det || sol.current().map_label_oldset.is_none() || sol.speedups == 0 {
-            let iter = sol
-                .current()
-                .all_possible_sets()
-                .filter(move |x| x.count_ones() == maxlabels as u32);
-            Box::new(iter)
+            if !self.onlynew {
+                let iter = sol
+                    .current()
+                    .all_possible_sets()
+                    .filter(move |x| x.count_ones() == maxlabels as u32);
+                Box::new(iter)
+            } else {
+                let mut new_labels = HashSet::new();
+                let mut old_labels = HashSet::new();
+                let map_label_oldset = sol.current().map_label_oldset.clone().unwrap_or(vec![]);
+                let oldsets : Vec<_> = map_label_oldset.iter().map(|(_,o)|o.clone()).collect();
+                //let oldlabels = oldsets.iter().fold(BigBigNum::zero(),|a,b| a|b.clone());
+                for (l,o) in map_label_oldset.iter() {
+                    let mut is_old = false;
+                    for contained in o.one_bits() {
+                        let mut containers : Vec<_> = oldsets.iter().filter(|old|old.bit(contained)).cloned().collect();
+                        containers.sort_by_key(|set|set.count_ones());
+                        let minsize = containers[0].count_ones();
+                        let mincontainers : Vec<_> = containers.into_iter().filter(|c|c.count_ones()==minsize).collect();
+                        if mincontainers.contains(o) {
+                            is_old = true;
+                        }
+                    }
+                    if is_old {
+                        old_labels.insert(*l);
+                    } else {
+                        new_labels.insert(*l);
+                    }
+                }
+                let old = old_labels.iter().fold(BigNum::zero(),|a,&b|a | BigNum::one() << b);
+                let iter = sol
+                    .current()
+                    .all_possible_sets()
+                    .filter(move |x| x.count_ones() == maxlabels as u32)
+                    .filter(move |x| x.is_superset(&old));
+                Box::new(iter)
+            }
         } else {
             let labels: Vec<usize> = sol
                 .current()

@@ -491,6 +491,8 @@ function make_div_autoub(problem){
     divautoub.append(pred);
     let det = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input"><p class="form-control-static custom-control-label">Test</p></label></div>');
     divautoub.append(det);
+    let onlynew = $('<div class="custom-control custom-switch"><label><input type="checkbox" class="custom-control-input" checked><p class="form-control-static custom-control-label">Delete only new labels</p></label></div>');
+    divautoub.append(onlynew);
 
     let autoub = $('<button type="button" class="btn btn-primary">Automatic Upper Bound</button>');
     autoub.click(function(ev) {
@@ -539,7 +541,9 @@ function make_div_autoub(problem){
         append_generic(divdivresult);
         let usepred = $('input[type=checkbox]',pred).is(':checked');
         let usedet = $('input[type=checkbox]',det).is(':checked');
-        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10),parseInt(maxrcsub.val(),10) , usepred, usedet, onresult, onend);
+        let useonlynew = $('input[type=checkbox]',onlynew).is(':checked');
+
+        let ch = api.api_autoub(blob, parseInt(maxiterub.val(),10), parseInt(maxlabelsub.val(),10),parseInt(maxrcsub.val(),10) , usepred, usedet, useonlynew, onresult, onend);
         close.click(function(){
             divdivresult.remove();
             ch();
