@@ -318,17 +318,23 @@ pub fn forall<BigNum>(nc : &Constraint<BigNum>, problem : &Problem<BigNum>) -> C
             line_groups.push(line.groups().unique().collect::<Vec<_>>());
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         let pb = ProgressBar::new((size*size) as u64);
+        #[cfg(not(target_arch = "wasm32"))]
         pb.set_style(ProgressStyle::default_bar()
             .template("\n[elapsed: {elapsed_precise}] [{wide_bar:.green/red}] [eta: {eta_precise}]\n{msg}")
             /*.progress_chars("#>-")*/);
+        
 
         for i in 0..lines.len() {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
             pb.set_position((i*i) as u64);
             let est = pb.eta().as_secs();
             let dest = chrono::Duration::seconds(est as i64);
             let whenfinish = (Local::now() + dest).to_rfc2822();
             pb.set_message(format!("[i: {}/{}] [new lines: {}] [eta: {}]",i,size,newc.lines.len(),whenfinish));
+            }
 
             let mut candidates2 = vec![];
             
@@ -368,6 +374,7 @@ pub fn forall<BigNum>(nc : &Constraint<BigNum>, problem : &Problem<BigNum>) -> C
                 add_reduce_maximal(&mut newc.lines, newline);
             }
         }
+        #[cfg(not(target_arch = "wasm32"))]
         pb.finish_and_clear();
 
         if newc == nc { break; }

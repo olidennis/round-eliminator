@@ -641,7 +641,7 @@ function make_div_newrenaming(problem){
         }
         let torename = Array.from($('input',table));
         for( let [i,set] of newsets.entries() ){
-            let newlabel = i in renaming ? renaming[i] : "("+ newsets[i].join("").replace(/[()]/g,"_") +")";
+            let newlabel = i in renaming ? renaming[i] : "("+ newsets[i].join("").replace(/[(]/g,"<").replace(/[)]/g,">") +")";
             $(torename[i]).val(newlabel);
         }
     });

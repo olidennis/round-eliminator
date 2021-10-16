@@ -103,11 +103,11 @@ fn mark_subsumed(seeks : &mut usize, index : &[usize], S : &Elem, mut D : &mut [
                 }
             }
             if j+1 < S.set.len() && skip < off {
-                #[cfg(not(target_arch = "wasm32"))]
+                /*#[cfg(not(target_arch = "wasm32"))]
                 stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
                     mark_subsumed(seeks, index, S, &mut D[skip..off], b+skip, j+1, d+1);
                 });
-                #[cfg(target_arch = "wasm32")]
+                #[cfg(target_arch = "wasm32")]*/
                 mark_subsumed(seeks, index, S, &mut D[skip..off], b+skip, j+1, d+1);
             }
             b += off;

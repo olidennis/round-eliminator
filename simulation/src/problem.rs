@@ -624,9 +624,9 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
         newleft_before_renaming.add_permutations();
         newleft_before_renaming.remove_permutations();*/
         trace!("1) New forall");
-        let now = std::time::Instant::now();
+        //let now = std::time::Instant::now();
         let newleft_before_renaming = crate::forall::forall(&right,self);
-        trace!("2) Done ({} ms)",now.elapsed().as_millis());
+        //trace!("2) Done ({} ms)",now.elapsed().as_millis());
 
         let map_label_oldset: Vec<_> = newleft_before_renaming.sets().enumerate().collect();
         let hm_oldset_label = map_to_inv_hashmap(&map_label_oldset);

@@ -168,12 +168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cc"
-version = "1.0.65"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95752358c8f7552394baf48cd82695b345628ad3f170d607de3ca03b8dacca15"
-
-[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1134,15 +1128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "psm"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3abf49e5417290756acfd26501536358560c4a5cc4a0934d390939acb3e7083a"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1511,7 +1496,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "stacker",
  "uint",
 ]
 
@@ -1541,19 +1525,6 @@ name = "smallvec"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44e59e0c9fa00817912ae6e4e6e3c4fe04455e75699d06eedc7d85917ed8e8f4"
-
-[[package]]
-name = "stacker"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ccb4c06ec57bc82d0f610f1a2963d7648700e43a6f513e564b9c89f7991786"
-dependencies = [
- "cc",
- "cfg-if 0.1.10",
- "libc",
- "psm",
- "winapi 0.3.8",
-]
 
 [[package]]
 name = "static_assertions"
