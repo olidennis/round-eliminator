@@ -23,10 +23,10 @@ mod tests {
 
     #[test]
     fn relax_merge() {
-        let mut p = Problem::from_string("A ABC ABC\n\nAB AB\nC ABC").unwrap();
+        let mut p = Problem::from_string("A ABC ABC\nD EFG DEFG\n\nAB AB\nC ABC\nDEFG DEFG").unwrap();
         p.compute_diagram();
         let p = p.merge_equivalent_labels();
-        assert_eq!(format!("{}", p), "A^3\n\nA^2\n");
+        assert_eq!(format!("{}", p), "A^3\nD^3\n\nA^2\nD^2\n");
 
     }
 }
