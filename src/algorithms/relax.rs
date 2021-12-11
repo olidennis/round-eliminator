@@ -5,8 +5,8 @@ use crate::{problem::Problem, constraint::Constraint, line::Line, part::Part, gr
 impl Problem {
 
     pub fn relax_merge(&self, from: usize, to: usize) -> Self {
-        let active = self.active.relax_merge(from,to);
-        let passive = self.passive.relax_merge(from,to);
+        let active = self.active.relax(from,to, true);
+        let passive = self.passive.relax(from,to, true);
 
         Problem {
             active,
@@ -20,13 +20,27 @@ impl Problem {
         }
     }
     
+    pub fn relax_addarrow(&self, from: usize, to: usize) -> Self {
+        let passive = self.passive.relax(from,to, false);
+
+        Problem {
+            active : self.active.clone(),
+            passive,
+            mapping_label_text : self.mapping_label_text.clone(),
+            mapping_label_oldlabels : self.mapping_label_oldlabels.clone(),
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
+            diagram_direct: None,
+        }
+    }
 }
 
 impl Constraint {
-    pub fn relax_merge(&self, from: usize, to: usize) -> Self {
+    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
         let mut c = Constraint{ lines : vec![], is_maximized : false, degree : self.degree };
         for line in &self.lines {
-            let newline = line.relax_merge(from,to);
+            let newline = line.relax(from,to, remove_from);
             c.lines.push(newline);
         }
         c
@@ -34,10 +48,10 @@ impl Constraint {
 }
 
 impl Line {
-    pub fn relax_merge(&self, from: usize, to: usize) -> Self {
+    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
         let mut line = Line{ parts : vec![] };
         for part in &self.parts {
-            let newpart = part.relax_merge(from,to);
+            let newpart = part.relax(from,to, remove_from);
             line.parts.push(newpart);
         }
         line.normalize();
@@ -46,19 +60,21 @@ impl Line {
 }
 
 impl Part {
-    pub fn relax_merge(&self, from: usize, to: usize) -> Self {
-        Part{ gtype : self.gtype, group : self.group.relax_merge(from,to) }
+    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
+        Part{ gtype : self.gtype, group : self.group.relax(from,to, remove_from) }
     }
 }
 
 impl Group {
-    pub fn relax_merge(&self, from: usize, to: usize) -> Self {
+    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
         let v = &self.0;
         if !v.contains(&from) {
             self.clone()
         } else {
             let mut h = self.as_set();
-            h.remove(&from);
+            if remove_from {
+                h.remove(&from);
+            }
             h.insert(to);
             Group::from_set(&h)
         }
@@ -84,5 +100,11 @@ mod tests {
         assert_eq!(format!("{}", p), "U^3\n\nU^2\n");
         assert!(!p.trivial_sets.as_ref().unwrap().is_empty());
 
+        let p = Problem::from_string("A AB AB\n\nB AB").unwrap();
+        let mut p = p.relax_addarrow(1, 0);
+        p.discard_useless_stuff(true);
+        assert_eq!(format!("{}", p), "A AB^2\n\nAB^2\n");
+        let p = p.merge_equivalent_labels();
+        assert_eq!(format!("{}", p), "A^3\n\nA^2\n");
     }
 }

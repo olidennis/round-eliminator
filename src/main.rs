@@ -12,8 +12,7 @@ use crate::problem::Problem;
 fn main() {
     env_logger::init();
 
-    let p = Problem::from_string("AB^5 BC^100 CD^3\nABCD^108\n\nAB CD").unwrap();
-    let mut p = p.merge_equivalent_labels();
+    let mut p = Problem::from_string("AB^5 BC^100 CD^3\nABCD^108\n\nAB CD").unwrap();
     p.discard_useless_stuff(true);
     p.compute_triviality();
     p.compute_coloring_solvability();
@@ -30,4 +29,15 @@ fn main() {
     p.compute_triviality();
     p.compute_coloring_solvability();
     println!("{}",p);
+
+    let p = p.relax_addarrow(1, 2);
+    println!("{}",p);
+
+    let mut p = p.relax_addarrow(2, 1);
+    p.discard_useless_stuff(true);
+    println!("{}",p);
+
+    let p = p.merge_equivalent_labels();
+    println!("{}",p);
+
 }
