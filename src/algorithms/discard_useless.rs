@@ -12,7 +12,8 @@ impl Problem {
         let labels_passive = self.passive.labels_appearing();
         let to_keep = labels_active.intersection(&labels_passive).cloned().collect();
         let newp = self.harden(&to_keep);
-        *self = newp;
+        self.active = newp.active;
+        self.passive = newp.passive;
 
         let to_keep = self.active.labels_appearing();
 
@@ -24,11 +25,18 @@ impl Problem {
                 to_keep.contains(l)
             })
         }
+
+        //to fix
+        //pub trivial_sets: Option<Vec<Vec<usize>>>,
+        //pub coloring_sets: Option<Vec<Vec<usize>>>,
+        //pub diagram_indirect: Option<Vec<(usize, usize)>>,
+        //pub diagram_direct: Option<(Vec<(usize, Vec<usize>)>, Vec<(usize, usize)>)>,
     }
 
 
 
     pub fn discard_useless_stuff(&mut self) {
+        //maybe useless labels prevent to discard some useless lines, and one can actually see that some lines are useless only after removing useless labels?
         self.passive.discard_non_maximal_lines();
         self.remove_weak_active_lines();
     }

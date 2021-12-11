@@ -81,8 +81,9 @@ mod tests {
         let p = Problem::from_string("M U U\nP P P\n\nM UP\nU U\n").unwrap();
         let mut p = p.relax_merge(2, 1);
         p.compute_diagram();
-        p.discard_useless_stuff();
         p.compute_triviality();
+        p.compute_coloring_solvability();
+        p.discard_useless_stuff();
         assert_eq!(format!("{}", p), "U^3\n\nU^2\n");
         assert!(!p.trivial_sets.as_ref().unwrap().is_empty());
 
