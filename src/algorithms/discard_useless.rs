@@ -8,20 +8,25 @@ impl Problem {
 
 
     pub fn discard_useless_passive_labels(&mut self) {
-        todo!();
-    }
+        let labels_active = self.active.labels_appearing();
+        let labels_passive = self.passive.labels_appearing();
+        let to_keep = labels_active.intersection(&labels_passive).cloned().collect();
+        let newp = self.harden(&to_keep);
+        *self = newp;
 
-    /*
-    pub fn remove_label(&mut self, label : usize){
+        let to_keep = self.active.labels_appearing();
+
         self.mapping_label_text.retain(|(l,_)|{
-            *l != label
+            to_keep.contains(l)
         });
         if let Some(x) = self.mapping_label_oldlabels.as_mut() {
             x.retain(|(l,_)|{
-                *l != label
+                to_keep.contains(l)
             })
         }
-    }*/
+    }
+
+
 
     pub fn discard_useless_stuff(&mut self) {
         self.passive.discard_non_maximal_lines();

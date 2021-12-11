@@ -82,6 +82,7 @@ mod tests {
         let mut p = p.relax_merge(2, 1);
         p.compute_diagram();
         p.discard_useless_stuff();
+        p.compute_triviality();
         assert_eq!(format!("{}", p), "U^3\n\nU^2\n");
         assert!(!p.trivial_sets.as_ref().unwrap().is_empty());
 

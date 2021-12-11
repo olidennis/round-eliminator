@@ -112,7 +112,6 @@ impl Constraint {
         self.lines.iter().any(|line| line.includes(other))
     }
 
-    //requires maximality
     pub fn is_diagram_predecessor(&self, l1: usize, l2: usize) -> bool {
         if !self.is_maximized {
             panic!("Maximization has not been performed");
@@ -148,6 +147,18 @@ impl Constraint {
             }
         }
         true
+    }
+
+    fn compute_labels_appearing(&self, labels : &mut HashSet<usize>) {
+        for line in &self.lines {
+            line.compute_labels_appearing(labels);
+        }
+    }
+
+    pub fn labels_appearing(&self) -> HashSet<usize> {
+        let mut h = HashSet::new();
+        self.compute_labels_appearing(&mut h);
+        h
     }
 }
 

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::group::{Group, GroupType};
 
@@ -16,6 +16,12 @@ impl Part {
         }
         s.extend(self.gtype.to_string().chars());
         s
+    }
+
+    pub fn compute_labels_appearing(&self, labels : &mut HashSet<usize>) {
+        for &label in &self.group.0 {
+            labels.insert(label);
+        }
     }
 }
 
