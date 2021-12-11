@@ -28,11 +28,13 @@ impl Problem {
             })
         }
 
-        //to fix
-        //pub trivial_sets: Option<Vec<Vec<usize>>>,
-        //pub coloring_sets: Option<Vec<Vec<usize>>>,
-        //pub diagram_indirect: Option<Vec<(usize, usize)>>,
-        //pub diagram_direct: Option<(Vec<(usize, Vec<usize>)>, Vec<(usize, usize)>)>,
+        // the assumption here is that discard_unused_labels_from_internal_stuff should be called only after changing the labels
+        // so after simplifications/hardenings
+        // so these variables should anyways be None
+        // but to emphasize that they now may contain garbage, they are set to None
+        self.trivial_sets = None;
+        self.coloring_sets = None;
+
     }
 
 
@@ -45,9 +47,10 @@ impl Problem {
 
         loop{
             let p = self.clone();
+            // since the diagram may become wrong, the best thing to do here is to erase it
+            self.diagram_indirect = None;
+            self.diagram_direct = None;
             if recompute_diagram {
-                self.diagram_indirect = None;
-                self.diagram_direct = None;
                 self.compute_diagram();
             }
             self.passive.discard_non_maximal_lines();
@@ -136,5 +139,13 @@ mod tests {
         let mut p = Problem::from_string("A A A\nA A B\n A B B\n\nAB AB").unwrap();
         p.discard_useless_stuff(true);
         assert_eq!(format!("{}", p), "A^3\nB A^2\nA B^2\n\nAB^2\n");
+
+        let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB C").unwrap();
+        p.discard_useless_stuff(true);
+        assert_eq!(format!("{}", p), "A B^2\n\nAB^2\n");
+
+        let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB C").unwrap();
+        p.discard_useless_stuff(false);
+        assert_eq!(format!("{}", p), "A^3\nB A^2\nA B^2\nC^3\n\nAB^2\nB C\n");
     }
 }

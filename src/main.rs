@@ -13,12 +13,20 @@ fn main() {
     env_logger::init();
 
     let mut p = Problem::from_string("AB^5 BC^100 CD^3\nABCD^108\n\nAB CD").unwrap();
-    p.compute_triviality();
-    p.compute_diagram();
-    p.compute_coloring_solvability();
-    p.remove_weak_active_lines();
-    p.relax_merge(0,1);
-    p.compute_diagram();
     p.discard_useless_stuff(true);
-    p.harden(&HashSet::from([1,2,3]));
+    p.compute_triviality();
+    p.compute_coloring_solvability();
+    println!("{}",p);
+
+    let mut p = p.relax_merge(0,1);
+    p.discard_useless_stuff(true);
+    p.compute_triviality();
+    p.compute_coloring_solvability();
+    println!("{}",p);
+
+    let mut p = p.harden(&HashSet::from([1,2]));
+    p.discard_useless_stuff(true);
+    p.compute_triviality();
+    p.compute_coloring_solvability();
+    println!("{}",p);
 }
