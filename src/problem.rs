@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, fmt::Display};
 use crate::constraint::Constraint;
 use itertools::Itertools;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Problem {
     pub active: Constraint,
     pub passive: Constraint,
@@ -58,6 +58,8 @@ impl Problem {
         }
         h
     }
+
+
 }
 
 impl Display for Problem {

@@ -1,5 +1,7 @@
 use std::{ops::Deref, collections::HashSet};
 
+use itertools::Itertools;
+
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Group(pub Vec<usize>);
@@ -24,9 +26,9 @@ impl Group {
         self.0.iter().cloned().collect()
     } 
 
-//    fn from_vec(v : &Vec<usize>) -> Self {
-//        Group(v.iter().cloned().sorted().collect())
-//    }
+    pub fn from_set(h : &HashSet<usize>) -> Self {
+        Group(h.iter().cloned().sorted().collect())
+    }
 }
 
 impl GroupType {

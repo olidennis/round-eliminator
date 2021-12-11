@@ -15,4 +15,7 @@ fn main() {
     p.compute_diagram();
     p.compute_coloring_solvability();
     p.remove_weak_active_lines();
+    p.relax_merge(0,1);
+    p.compute_diagram();
+    p.discard_useless_stuff();
 }

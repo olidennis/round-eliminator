@@ -6,4 +6,5 @@ pub mod max_clique;
 pub mod maximize;
 pub mod part_parser;
 pub mod problem_triviality;
-pub mod useless_lines;
+pub mod discard_useless;
+pub mod relax_merge;

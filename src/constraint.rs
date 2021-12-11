@@ -53,6 +53,9 @@ impl Constraint {
             .lines()
             .map(|l| Line::parse(l, mapping))
             .collect::<Result<_, _>>()?;
+        if lines.is_empty() {
+            return Err("Empty constraint");
+        }
         let degree = lines[0].degree();
         if lines.iter().any(|line| line.degree() != degree) {
             return Err("Lines have different degrees");

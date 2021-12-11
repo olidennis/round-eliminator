@@ -8,7 +8,7 @@ pub struct Line {
     pub parts: Vec<Part>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Degree {
     Finite(usize),
     Star,

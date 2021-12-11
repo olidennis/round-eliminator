@@ -5,6 +5,29 @@ use crate::problem::Problem;
 
 
 impl Problem {
+
+
+    pub fn discard_useless_passive_labels(&mut self) {
+        todo!();
+    }
+
+    /*
+    pub fn remove_label(&mut self, label : usize){
+        self.mapping_label_text.retain(|(l,_)|{
+            *l != label
+        });
+        if let Some(x) = self.mapping_label_oldlabels.as_mut() {
+            x.retain(|(l,_)|{
+                *l != label
+            })
+        }
+    }*/
+
+    pub fn discard_useless_stuff(&mut self) {
+        self.passive.discard_non_maximal_lines();
+        self.remove_weak_active_lines();
+    }
+
     pub fn remove_weak_active_lines(&mut self) {
 
         let reachable = self.diagram_indirect_to_reachability_adj();
@@ -38,6 +61,9 @@ impl Problem {
                 })
             })
         }));
+
+        // remove from passive side the labels that do not appear anymore on the active side
+        self.discard_useless_passive_labels();
     }
 }
 
