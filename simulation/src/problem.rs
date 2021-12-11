@@ -653,7 +653,7 @@ impl<BigNum : crate::bignum::BigNum> Problem<BigNum> {
             trace!("newsize={} newleft_lines={} newlabels={}",newsize,newleft_before_renaming.lines.len(),hm_oldset_label.len());
             let newleft = newleft_before_renaming.intoo().renamed(&hm_oldset_label);
             trace!("renamed");
-            let mut newright = left.intoo().new_constraint_exist(&hm_oldset_label);
+            let newright = left.intoo().new_constraint_exist(&hm_oldset_label);
 
             //trace!("6) removing permutations exists");
             //newright.remove_permutations();
@@ -1229,10 +1229,22 @@ mod tests {
 
     #[test]
     fn test_normalize() {
-        let p1 : Problem<BigNum1> = Problem::from_text("M U U U\nP P P P\n","M UP UP UP\nU U U U\n").unwrap();
-        let p2 : Problem<BigNum1> = Problem::from_text("Z U U U\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX").unwrap();
-        let p3 : Problem<BigNum1> = Problem::from_text("Z U U X\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX").unwrap();
-        let p4 : Problem<BigNum2> = Problem::from_text("Z U U U\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX").unwrap();
+        let config = Config {
+            compute_triviality : false,
+            compute_color_triviality : false,
+            compute_color_triviality_passive : false,
+            given_coloring : None,
+            given_coloring_passive : None,
+            compute_mergeable : false,
+            fixed_orientation : None,
+            fixed_orientation_passive : None,
+            diagramtype : DiagramType::None
+        };
+
+        let p1 : Problem<BigNum1> = Problem::from_text("M U U U\nP P P P\n","M UP UP UP\nU U U U\n", config).unwrap();
+        let p2 : Problem<BigNum1> = Problem::from_text("Z U U U\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX", config).unwrap();
+        let p3 : Problem<BigNum1> = Problem::from_text("Z U U X\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX", config).unwrap();
+        let p4 : Problem<BigNum2> = Problem::from_text("Z U U U\nX X X X\n","Z X UX UX\nU U U U\nZ U UX UX", config).unwrap();
 
         assert!(p1.left != p2.left);
         assert!(p1.right != p2.right);
@@ -1243,8 +1255,8 @@ mod tests {
 
         let p1 = p1.normalize();
         let p2 = p2.normalize();
-        let p1 = Problem::from_constraints(p1.0,p1.1).unwrap();
-        let p2 = Problem::from_constraints(p2.0,p2.1).unwrap();
+        let p1 = Problem::from_constraints(p1.0,p1.1, config).unwrap();
+        let p2 = Problem::from_constraints(p2.0,p2.1, config).unwrap();
         println!("{}",p1.as_result().to_string());
         assert!(p1.as_result().to_string() == p2.as_result().to_string());
 
