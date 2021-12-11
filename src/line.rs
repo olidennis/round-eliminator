@@ -1,7 +1,7 @@
-use crate::group::GroupType;
+use crate::group::{GroupType};
 use crate::part::Part;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Line {
@@ -69,11 +69,8 @@ impl Line {
         Degree::Finite(s)
     }
 
-    pub fn compute_labels_appearing(&self, labels : &mut HashSet<usize>) {
-        for part in &self.parts {
-            part.compute_labels_appearing(labels);
-        }
-    }
+
+
 }
 
 #[cfg(test)]

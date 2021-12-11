@@ -11,7 +11,7 @@ impl Problem {
         let labels_active = self.active.labels_appearing();
         let labels_passive = self.passive.labels_appearing();
         let to_keep = labels_active.intersection(&labels_passive).cloned().collect();
-        let newp = self.harden(&to_keep);
+        let newp = self.harden(&to_keep, false);
         self.active = newp.active;
         self.passive = newp.passive;
     }

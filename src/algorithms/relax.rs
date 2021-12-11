@@ -1,4 +1,4 @@
-use crate::{problem::Problem, constraint::Constraint, line::Line, part::Part, group::Group};
+use crate::{problem::Problem, constraint::Constraint, group::Group};
 
 
 
@@ -38,48 +38,24 @@ impl Problem {
 
 impl Constraint {
     pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
-        let mut c = Constraint{ lines : vec![], is_maximized : false, degree : self.degree };
-        for line in &self.lines {
-            let newline = line.relax(from,to, remove_from);
-            c.lines.push(newline);
-        }
-        c
-    }
-}
-
-impl Line {
-    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
-        let mut line = Line{ parts : vec![] };
-        for part in &self.parts {
-            let newpart = part.relax(from,to, remove_from);
-            line.parts.push(newpart);
-        }
-        line.normalize();
-        line
-    }
-}
-
-impl Part {
-    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
-        Part{ gtype : self.gtype, group : self.group.relax(from,to, remove_from) }
-    }
-}
-
-impl Group {
-    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
-        let v = &self.0;
-        if !v.contains(&from) {
-            self.clone()
-        } else {
-            let mut h = self.as_set();
-            if remove_from {
-                h.remove(&from);
+        self.edited(|g|{
+            let v = &g.0;
+            if !v.contains(&from) {
+                g.clone()
+            } else {
+                let mut h = g.as_set();
+                if remove_from {
+                    h.remove(&from);
+                }
+                h.insert(to);
+                Group::from_set(&h)
             }
-            h.insert(to);
-            Group::from_set(&h)
-        }
+
+        })
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

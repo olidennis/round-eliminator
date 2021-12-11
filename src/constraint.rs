@@ -149,18 +149,23 @@ impl Constraint {
         true
     }
 
-    fn compute_labels_appearing(&self, labels : &mut HashSet<usize>) {
-        for line in &self.lines {
-            line.compute_labels_appearing(labels);
-        }
-    }
+
 
     pub fn labels_appearing(&self) -> HashSet<usize> {
         let mut h = HashSet::new();
-        self.compute_labels_appearing(&mut h);
+        for group in self.groups() {
+            for &label in &group.0 {
+                h.insert(label);
+            }
+        }
         h
     }
+
+
+    
 }
+
+
 
 #[cfg(test)]
 mod tests {

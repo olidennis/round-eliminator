@@ -2,17 +2,30 @@ use std::collections::HashSet;
 
 use itertools::Itertools;
 
-use crate::{problem::Problem, constraint::Constraint, line::Line, part::Part, group::Group};
+use crate::{problem::Problem, constraint::Constraint, group::Group};
 
 
 
 impl Problem {
-    pub fn harden(&self, keep : &HashSet<usize>) -> Self {
+    pub fn harden(&self, keep : &HashSet<usize>, add_predecessors : bool) -> Self {
 
         let mut keep = keep.clone();
 
-        let mut newactive = self.active.clone();
+
         let mut newpassive = self.passive.clone();
+        let mut newactive = if add_predecessors {
+            let predecessors = self.diagram_indirect_to_inverse_reachability_adj();
+
+            self.active.edited(|g|{
+                let mut h = HashSet::new();
+                for label in &g.0 {
+                    h.extend(predecessors[label].iter().cloned());
+                }
+                Group::from_set(&h)
+            })
+        } else {
+            self.active.clone()
+        };
 
         loop {
             newactive = newactive.harden(&keep);
@@ -44,42 +57,30 @@ impl Problem {
 
 impl Constraint {
     fn harden(&self, keep : &HashSet<usize>) -> Self {
-        // it seems that hardening preserves maximization (in the sense of still having all lines satisfying the forall, non-maximal lines may be present though), TODO: check
-        let mut c = Constraint{ lines : vec![], is_maximized : self.is_maximized, degree : self.degree };
-        for line in &self.lines {
-            let newline = line.harden(keep);
-            if newline.parts.iter().all(|part|!part.group.0.is_empty()) {
-                c.lines.push(newline);
-            }
-        }
-        c
+        self.edited(|g|Group(g.as_set().intersection(keep).cloned().sorted().collect()))
     }
 }
 
 
+#[cfg(test)]
+mod tests {
 
-impl Line {
-    pub fn harden(&self, keep : &HashSet<usize>) -> Self {
-        let mut line = Line{ parts : vec![] };
-        for part in &self.parts {
-            let newpart = part.harden(keep);
-            line.parts.push(newpart);
-        }
-        line.normalize();
-        line
-    }
-}
+    use std::collections::HashSet;
 
-impl Part {
-    pub fn harden(&self, keep : &HashSet<usize>) -> Self {
-        Part{ gtype : self.gtype, group : self.group.harden(keep) }
-    }
-}
+    use crate::problem::Problem;
 
-impl Group {
-    pub fn harden(&self, keep : &HashSet<usize>) -> Self {
-        let h = self.as_set();
-        let newgroup : Vec<_> = h.intersection(keep).cloned().sorted().collect();
-        Group(newgroup)
+    #[test]
+    fn harden_with_predecessors() {
+        
+        let mut p = Problem::from_string("0	1	1	1\n2	1	1	3\n4	4	4	5\n\n053 4513 4513 4513\n13 13 13 204513\n53 4513 4513 04513\n513 513 0513 4513\n513 513 513 04513").unwrap();
+        p.compute_diagram();
+        let mut p = p.harden(&HashSet::from([0,1,2,3]), true);
+        p.discard_useless_stuff(true);
+        let mut p = p.merge_equivalent_labels();
+        p.discard_useless_stuff(true);
+        assert_eq!(
+            format!("{}",p),
+            "0 1^3\n\n01 1^3\n"
+        );
     }
 }

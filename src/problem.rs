@@ -56,9 +56,22 @@ impl Problem {
         for &(a,b) in self.diagram_indirect.as_ref().expect("diagram required, but still not computed") {
             h.entry(a).or_default().insert(b);
         }
+        for label in self.labels() {
+            h.entry(label).or_default();
+        }
         h
     }
 
+    pub fn diagram_indirect_to_inverse_reachability_adj(&self) -> HashMap<usize,HashSet<usize>> {
+        let mut h : HashMap<usize,HashSet<usize>>  = HashMap::new();
+        for &(a,b) in self.diagram_indirect.as_ref().expect("diagram required, but still not computed") {
+            h.entry(b).or_default().insert(a);
+        }
+        for label in self.labels() {
+            h.entry(label).or_default();
+        }
+        h
+    }
 
 }
 

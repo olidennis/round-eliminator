@@ -24,7 +24,7 @@ fn main() {
     p.compute_coloring_solvability();
     println!("{}",p);
 
-    let mut p = p.harden(&HashSet::from([1,2]));
+    let mut p = p.harden(&HashSet::from([1,2]), true);
     p.discard_useless_stuff(true);
     p.compute_triviality();
     p.compute_coloring_solvability();
@@ -37,7 +37,9 @@ fn main() {
     p.discard_useless_stuff(true);
     println!("{}",p);
 
-    let p = p.merge_equivalent_labels();
+    let mut p = p.merge_equivalent_labels();
     println!("{}",p);
+
+    p.compute_set_inclusion_diagram();
 
 }
