@@ -47,6 +47,7 @@ impl Problem {
             passive : newpassive,
             mapping_label_text : self.mapping_label_text.clone(),
             mapping_label_oldlabels : self.mapping_label_oldlabels.clone(),
+            mapping_oldlabel_text : self.mapping_oldlabel_text.clone(),
             trivial_sets: None,
             coloring_sets: None,
             diagram_indirect: None,
