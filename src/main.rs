@@ -19,6 +19,6 @@ fn main() {
     p.remove_weak_active_lines();
     p.relax_merge(0,1);
     p.compute_diagram();
-    p.discard_useless_stuff();
+    p.discard_useless_stuff(true);
     p.harden(&HashSet::from([1,2,3]));
 }

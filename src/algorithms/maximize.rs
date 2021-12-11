@@ -12,7 +12,7 @@ use crate::{
 impl Constraint {
     // TEMPORARY, SLOW, JUST FOR DEGREE 2, FOR TESTING
     pub fn maximize(&mut self) {
-        if self.is_maximized {
+        if self.is_maximized || self.lines.is_empty() {
             return;
         }
 

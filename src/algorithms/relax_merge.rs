@@ -74,16 +74,13 @@ mod tests {
     fn relax_merge() {
         let p = Problem::from_string("A AB AB\n\nB AB").unwrap();
         let mut p = p.relax_merge(0, 1);
-        p.compute_diagram();
-        p.discard_useless_stuff();
+        p.discard_useless_stuff(true);
         assert_eq!(format!("{}", p), "B^3\n\nB^2\n");
 
         let p = Problem::from_string("M U U\nP P P\n\nM UP\nU U\n").unwrap();
         let mut p = p.relax_merge(2, 1);
-        p.compute_diagram();
+        p.discard_useless_stuff(true);
         p.compute_triviality();
-        p.compute_coloring_solvability();
-        p.discard_useless_stuff();
         assert_eq!(format!("{}", p), "U^3\n\nU^2\n");
         assert!(!p.trivial_sets.as_ref().unwrap().is_empty());
 

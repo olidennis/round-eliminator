@@ -44,7 +44,8 @@ impl Problem {
 
 impl Constraint {
     fn harden(&self, keep : &HashSet<usize>) -> Self {
-        let mut c = Constraint{ lines : vec![], is_maximized : false, degree : self.degree };
+        // it seems that hardening preserves maximization (in the sense of still having all lines satisfying the forall, non-maximal lines may be present though), TODO: check
+        let mut c = Constraint{ lines : vec![], is_maximized : self.is_maximized, degree : self.degree };
         for line in &self.lines {
             let newline = line.harden(keep);
             if newline.parts.iter().all(|part|!part.group.0.is_empty()) {
