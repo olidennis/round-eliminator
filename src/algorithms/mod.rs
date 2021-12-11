@@ -9,3 +9,4 @@ pub mod problem_triviality;
 pub mod discard_useless;
 pub mod relax_merge;
 pub mod harden;
+pub mod merge_equivalent;
