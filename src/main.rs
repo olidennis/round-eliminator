@@ -41,5 +41,6 @@ fn main() {
     println!("{}",p);
 
     p.compute_set_inclusion_diagram();
+    p.rename(&[]).unwrap();
 
 }

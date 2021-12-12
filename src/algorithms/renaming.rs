@@ -7,7 +7,7 @@ use crate::problem::Problem;
 
 
 impl Problem {
-    fn rename(&mut self, v : &[(usize,&str)]) -> Result<(),&'static str> {
+    pub fn rename(&mut self, v : &[(usize,&str)]) -> Result<(),&'static str> {
 
         let given_labels : HashSet<usize> = v.iter().map(|(l,_)|*l).unique().collect();
         let labels : HashSet<usize> = self.mapping_label_text.iter().map(|(l,_)|*l).unique().collect();
