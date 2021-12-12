@@ -11,3 +11,4 @@ pub mod relax;
 pub mod harden;
 pub mod merge_equivalent;
 pub mod group_iter;
+pub mod renaming;
