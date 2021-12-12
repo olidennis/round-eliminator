@@ -86,6 +86,8 @@ impl Problem {
         h
     }
 
+
+
 }
 
 impl Display for Problem {
@@ -105,7 +107,7 @@ impl Display for Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::problem::Problem;
+    use crate::{problem::Problem};
 
     #[test]
     #[should_panic]
@@ -121,4 +123,6 @@ mod tests {
         let p = Problem::from_string("A AB*\nC CD*\n\nAB CD").unwrap();
         assert_eq!(format!("{}", p), "A AB*\nC CD*\n\nAB CD\n");
     }
+
+
 }

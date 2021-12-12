@@ -43,7 +43,8 @@ fn main() {
 
     p.compute_set_inclusion_diagram();
     p.rename(&[]).unwrap();
-
+    p.sort_active_by_strength();
+    
     /* 
     let s = std::fs::read_to_string("test.txt").unwrap();
     let mut p = Problem::from_string(s).unwrap();
