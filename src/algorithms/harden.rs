@@ -51,6 +51,7 @@ impl Problem {
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
+            diagram_indirect_old: self.diagram_indirect_old.clone()
         }
     }
 }

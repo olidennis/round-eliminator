@@ -16,6 +16,7 @@ pub struct Problem {
     pub trivial_sets: Option<Vec<Vec<usize>>>,
     pub coloring_sets: Option<Vec<Vec<usize>>>,
     pub diagram_indirect: Option<Vec<(usize, usize)>>,
+    pub diagram_indirect_old: Option<Vec<(usize, usize)>>,
     pub diagram_direct: Option<(Vec<(usize, Vec<usize>)>, Vec<(usize, usize)>)>,
 }
 
@@ -46,6 +47,7 @@ impl Problem {
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
+            diagram_indirect_old: None
         };
         Ok(p)
     }
@@ -66,6 +68,21 @@ impl Problem {
             h.entry(a).or_default().insert(b);
         }
         for label in self.labels() {
+            h.entry(label).or_default();
+        }
+        h
+    }
+
+    pub fn diagram_indirect_old_to_reachability_adj(&self) -> HashMap<usize, HashSet<usize>> {
+        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+        for &(a, b) in self
+            .diagram_indirect_old
+            .as_ref()
+            .expect("old diagram required")
+        {
+            h.entry(a).or_default().insert(b);
+        }
+        for label in self.mapping_oldlabel_text.as_ref().unwrap().iter().map(|(x,_)|*x) {
             h.entry(label).or_default();
         }
         h
