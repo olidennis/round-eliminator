@@ -2,15 +2,14 @@ use std::collections::HashSet;
 
 use crate::problem::Problem;
 
-
-
 impl Problem {
-
-
     pub fn discard_labels_used_on_at_most_one_side_from_configurations(&mut self) {
         let labels_active = self.active.labels_appearing();
         let labels_passive = self.passive.labels_appearing();
-        let to_keep = labels_active.intersection(&labels_passive).cloned().collect();
+        let to_keep = labels_active
+            .intersection(&labels_passive)
+            .cloned()
+            .collect();
         let newp = self.harden(&to_keep, false);
         self.active = newp.active;
         self.passive = newp.passive;
@@ -19,13 +18,9 @@ impl Problem {
     pub fn discard_unused_labels_from_internal_stuff(&mut self) {
         let to_keep = self.active.labels_appearing();
 
-        self.mapping_label_text.retain(|(l,_)|{
-            to_keep.contains(l)
-        });
+        self.mapping_label_text.retain(|(l, _)| to_keep.contains(l));
         if let Some(x) = self.mapping_label_oldlabels.as_mut() {
-            x.retain(|(l,_)|{
-                to_keep.contains(l)
-            })
+            x.retain(|(l, _)| to_keep.contains(l))
         }
 
         // the assumption here is that discard_unused_labels_from_internal_stuff should be called only after changing the labels
@@ -34,18 +29,15 @@ impl Problem {
         // but to emphasize that they now may contain garbage, they are set to None
         self.trivial_sets = None;
         self.coloring_sets = None;
-
     }
 
-
-
-    pub fn discard_useless_stuff(&mut self, recompute_diagram : bool ) {
+    pub fn discard_useless_stuff(&mut self, recompute_diagram: bool) {
         // if passive side is maximized and some label gets discarded, it is still maximized, but some non-maximal lines may be present
         // zero-round solvability is preserved
         // coloring solvability is preserved
         // diagram may change
 
-        loop{
+        loop {
             let p = self.clone();
             // since the diagram may become wrong, the best thing to do here is to erase it
             self.diagram_indirect = None;
@@ -64,11 +56,9 @@ impl Problem {
                 break;
             }
         }
-
     }
 
     pub fn remove_weak_active_lines(&mut self) {
-
         let reachable = self.diagram_indirect_to_reachability_adj();
 
         // part 1: make groups smaller if possible
@@ -80,7 +70,10 @@ impl Problem {
                 'outer: for &label in &group {
                     for &other in &group {
                         // ignoring labels that are equivalent
-                        if label != other && !reachable[&other].contains(&label) && reachable[&label].contains(&other) {
+                        if label != other
+                            && !reachable[&other].contains(&label)
+                            && reachable[&label].contains(&other)
+                        {
                             continue 'outer;
                         }
                     }
@@ -91,20 +84,20 @@ impl Problem {
             }
         }
 
-
         // part 2: remove lines by inclusion
-        self.active.discard_non_maximal_lines_with_custom_supersets(Some(|h1 : &HashSet<usize>, h2 : &HashSet<usize>|{
-            // h1 is superset of h2 if all elements of h2 have a successor in h1
-            h2.iter().all(|x|{
-                h1.iter().any(|y|{
-                    x == y || (reachable[x].contains(y) && !reachable[y].contains(x))
-                })
-            })
-        }));
-
+        self.active
+            .discard_non_maximal_lines_with_custom_supersets(Some(
+                |h1: &HashSet<usize>, h2: &HashSet<usize>| {
+                    // h1 is superset of h2 if all elements of h2 have a successor in h1
+                    h2.iter().all(|x| {
+                        h1.iter().any(|y| {
+                            x == y || (reachable[x].contains(y) && !reachable[y].contains(x))
+                        })
+                    })
+                },
+            ));
     }
 }
-
 
 #[cfg(test)]
 mod tests {

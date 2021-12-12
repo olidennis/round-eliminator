@@ -16,31 +16,30 @@ fn main() {
     p.discard_useless_stuff(true);
     p.compute_triviality();
     p.compute_coloring_solvability();
-    println!("{}",p);
+    println!("{}", p);
 
-    let mut p = p.relax_merge(0,1);
+    let mut p = p.relax_merge(0, 1);
     p.discard_useless_stuff(true);
     p.compute_triviality();
     p.compute_coloring_solvability();
-    println!("{}",p);
+    println!("{}", p);
 
-    let mut p = p.harden(&HashSet::from([1,2]), true);
+    let mut p = p.harden(&HashSet::from([1, 2]), true);
     p.discard_useless_stuff(true);
     p.compute_triviality();
     p.compute_coloring_solvability();
-    println!("{}",p);
+    println!("{}", p);
 
     let p = p.relax_addarrow(1, 2);
-    println!("{}",p);
+    println!("{}", p);
 
     let mut p = p.relax_addarrow(2, 1);
     p.discard_useless_stuff(true);
-    println!("{}",p);
+    println!("{}", p);
 
     let mut p = p.merge_equivalent_labels();
-    println!("{}",p);
+    println!("{}", p);
 
     p.compute_set_inclusion_diagram();
     p.rename(&[]).unwrap();
-
 }

@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, HashSet}, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
 use crate::constraint::Constraint;
 use itertools::Itertools;
@@ -53,9 +56,13 @@ impl Problem {
         labels
     }
 
-    pub fn diagram_indirect_to_reachability_adj(&self) -> HashMap<usize,HashSet<usize>> {
-        let mut h : HashMap<usize,HashSet<usize>>  = HashMap::new();
-        for &(a,b) in self.diagram_indirect.as_ref().expect("diagram required, but still not computed") {
+    pub fn diagram_indirect_to_reachability_adj(&self) -> HashMap<usize, HashSet<usize>> {
+        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+        for &(a, b) in self
+            .diagram_indirect
+            .as_ref()
+            .expect("diagram required, but still not computed")
+        {
             h.entry(a).or_default().insert(b);
         }
         for label in self.labels() {
@@ -64,9 +71,13 @@ impl Problem {
         h
     }
 
-    pub fn diagram_indirect_to_inverse_reachability_adj(&self) -> HashMap<usize,HashSet<usize>> {
-        let mut h : HashMap<usize,HashSet<usize>>  = HashMap::new();
-        for &(a,b) in self.diagram_indirect.as_ref().expect("diagram required, but still not computed") {
+    pub fn diagram_indirect_to_inverse_reachability_adj(&self) -> HashMap<usize, HashSet<usize>> {
+        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+        for &(a, b) in self
+            .diagram_indirect
+            .as_ref()
+            .expect("diagram required, but still not computed")
+        {
             h.entry(b).or_default().insert(a);
         }
         for label in self.labels() {
@@ -74,7 +85,6 @@ impl Problem {
         }
         h
     }
-
 }
 
 impl Display for Problem {

@@ -135,7 +135,6 @@ impl Constraint {
                             l4.normalize();
                             newc.add_line_and_discard_non_maximal(l4);
                         }
-
                     }
                 }
 

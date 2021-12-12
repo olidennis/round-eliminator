@@ -17,26 +17,39 @@ pub struct Constraint {
 }
 
 impl Constraint {
-
     pub fn add_line_and_discard_non_maximal(&mut self, newline: Line) {
-        self.add_line_and_discard_non_maximal_with_custom_supersets(newline, None::<fn(&'_ _,&'_ _) -> _>)
+        self.add_line_and_discard_non_maximal_with_custom_supersets(
+            newline,
+            None::<fn(&'_ _, &'_ _) -> _>,
+        )
     }
 
     pub fn discard_non_maximal_lines(&mut self) {
-        self.discard_non_maximal_lines_with_custom_supersets(None::<fn(&'_ _,&'_ _) -> _>)
+        self.discard_non_maximal_lines_with_custom_supersets(None::<fn(&'_ _, &'_ _) -> _>)
     }
 
-
-    pub fn add_line_and_discard_non_maximal_with_custom_supersets<T>(&mut self, newline: Line, is_superset : Option<T>) where T : Fn(&HashSet<usize>,&HashSet<usize>) -> bool + Copy {
+    pub fn add_line_and_discard_non_maximal_with_custom_supersets<T>(
+        &mut self,
+        newline: Line,
+        is_superset: Option<T>,
+    ) where
+        T: Fn(&HashSet<usize>, &HashSet<usize>) -> bool + Copy,
+    {
         self.is_maximized = false;
         let lines = &mut self.lines;
-        lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline,is_superset));
-        if lines.iter().all(|oldline| !oldline.includes_with_custom_supersets(&newline,is_superset)) {
+        lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
+        if lines
+            .iter()
+            .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
+        {
             lines.push(newline);
         }
     }
 
-    pub fn discard_non_maximal_lines_with_custom_supersets<T>(&mut self, is_superset : Option<T>) where T : Fn(&HashSet<usize>,&HashSet<usize>) -> bool + Copy {
+    pub fn discard_non_maximal_lines_with_custom_supersets<T>(&mut self, is_superset: Option<T>)
+    where
+        T: Fn(&HashSet<usize>, &HashSet<usize>) -> bool + Copy,
+    {
         self.is_maximized = false;
         let lines = std::mem::take(&mut self.lines);
         for line in lines {
@@ -149,8 +162,6 @@ impl Constraint {
         true
     }
 
-
-
     pub fn labels_appearing(&self) -> HashSet<usize> {
         let mut h = HashSet::new();
         for group in self.groups() {
@@ -160,12 +171,7 @@ impl Constraint {
         }
         h
     }
-
-
-    
 }
-
-
 
 #[cfg(test)]
 mod tests {

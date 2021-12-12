@@ -3,12 +3,14 @@ use std::collections::HashSet;
 use crate::{group::GroupType, line::Line};
 
 impl Line {
-
     pub fn includes(&self, other: &Line) -> bool {
-        self.includes_with_custom_supersets(other,None::<fn(&'_ _,&'_ _) -> _>)
+        self.includes_with_custom_supersets(other, None::<fn(&'_ _, &'_ _) -> _>)
     }
 
-    pub fn includes_with_custom_supersets<T>(&self, other: &Line, is_superset : Option<T>) -> bool where T : Fn(&HashSet<usize>,&HashSet<usize>) -> bool {
+    pub fn includes_with_custom_supersets<T>(&self, other: &Line, is_superset: Option<T>) -> bool
+    where
+        T: Fn(&HashSet<usize>, &HashSet<usize>) -> bool,
+    {
         let d1 = self.parts.len();
         let d2 = other.parts.len();
         let t1 = self.degree_without_star();
@@ -52,7 +54,7 @@ impl Line {
             for j in 0..d2 {
                 let is_superset = match is_superset.as_ref() {
                     None => g1.is_superset(&h2[j]),
-                    Some(f) => f(&g1,&h2[j])
+                    Some(f) => f(&g1, &h2[j]),
                 };
                 if is_superset {
                     g.add_edge(1 + i, 1 + d1 + j, maxflow as i64, 0, 0);

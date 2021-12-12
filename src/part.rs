@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use crate::group::{Group, GroupType};
 
@@ -17,7 +17,6 @@ impl Part {
         s.extend(self.gtype.to_string().chars());
         s
     }
-
 }
 
 #[cfg(test)]

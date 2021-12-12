@@ -1,35 +1,32 @@
-use crate::{problem::Problem, constraint::Constraint, group::Group};
-
-
+use crate::{constraint::Constraint, group::Group, problem::Problem};
 
 impl Problem {
-
     pub fn relax_merge(&self, from: usize, to: usize) -> Self {
-        let active = self.active.relax(from,to, true);
-        let passive = self.passive.relax(from,to, true);
+        let active = self.active.relax(from, to, true);
+        let passive = self.passive.relax(from, to, true);
 
         Problem {
             active,
             passive,
-            mapping_label_text : self.mapping_label_text.clone(),
-            mapping_label_oldlabels : self.mapping_label_oldlabels.clone(),
-            mapping_oldlabel_text : self.mapping_oldlabel_text.clone(),
+            mapping_label_text: self.mapping_label_text.clone(),
+            mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
+            mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
             trivial_sets: None,
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
         }
     }
-    
+
     pub fn relax_addarrow(&self, from: usize, to: usize) -> Self {
-        let passive = self.passive.relax(from,to, false);
+        let passive = self.passive.relax(from, to, false);
 
         Problem {
-            active : self.active.clone(),
+            active: self.active.clone(),
             passive,
-            mapping_label_text : self.mapping_label_text.clone(),
-            mapping_label_oldlabels : self.mapping_label_oldlabels.clone(),
-            mapping_oldlabel_text : self.mapping_oldlabel_text.clone(),
+            mapping_label_text: self.mapping_label_text.clone(),
+            mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
+            mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
             trivial_sets: None,
             coloring_sets: None,
             diagram_indirect: None,
@@ -39,8 +36,8 @@ impl Problem {
 }
 
 impl Constraint {
-    pub fn relax(&self, from: usize, to: usize, remove_from : bool) -> Self {
-        self.edited(|g|{
+    pub fn relax(&self, from: usize, to: usize, remove_from: bool) -> Self {
+        self.edited(|g| {
             let v = &g.0;
             if !v.contains(&from) {
                 g.clone()
@@ -52,12 +49,9 @@ impl Constraint {
                 h.insert(to);
                 Group::from_set(&h)
             }
-
         })
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
