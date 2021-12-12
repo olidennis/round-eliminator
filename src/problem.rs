@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use crate::constraint::Constraint;
+use crate::{constraint::Constraint};
 use itertools::Itertools;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -85,6 +85,7 @@ impl Problem {
         }
         h
     }
+
 }
 
 impl Display for Problem {

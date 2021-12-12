@@ -66,16 +66,16 @@ mod tests {
 
     use std::collections::HashSet;
 
-    use crate::problem::Problem;
+    use crate::{problem::Problem, algorithms::event::EventHandler};
 
     #[test]
     fn harden_with_predecessors() {
         let mut p = Problem::from_string("0	1	1	1\n2	1	1	3\n4	4	4	5\n\n053 4513 4513 4513\n13 13 13 204513\n53 4513 4513 04513\n513 513 0513 4513\n513 513 513 04513").unwrap();
-        p.compute_diagram();
+        p.compute_diagram(&EventHandler::null());
         let mut p = p.harden(&HashSet::from([0, 1, 2, 3]), true);
-        p.discard_useless_stuff(true);
+        p.discard_useless_stuff(true, &EventHandler::null());
         let mut p = p.merge_equivalent_labels();
-        p.discard_useless_stuff(true);
+        p.discard_useless_stuff(true, &EventHandler::null());
         assert_eq!(format!("{}", p), "0 1^3\n\n01 1^3\n");
     }
 }

@@ -9,9 +9,11 @@ use crate::{
     part::Part,
 };
 
+use super::event::EventHandler;
+
 impl Constraint {
     // TEMPORARY, SLOW, JUST FOR DEGREE 2, FOR TESTING
-    pub fn maximize(&mut self) {
+    pub fn maximize(&mut self, eh : &EventHandler) {
         if self.is_maximized || self.lines.is_empty() {
             return;
         }
@@ -19,6 +21,8 @@ impl Constraint {
         if self.lines[0].degree_without_star() == 2 && !self.lines[0].has_star() {
             let mut c = self.clone();
             loop {
+                eh.notify("maximize", 1, 1);
+                
                 let mut newc = c.clone();
 
                 for l1 in &c.lines {

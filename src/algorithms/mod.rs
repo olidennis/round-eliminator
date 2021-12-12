@@ -12,3 +12,4 @@ pub mod part_parser;
 pub mod problem_triviality;
 pub mod relax;
 pub mod renaming;
+pub mod event;

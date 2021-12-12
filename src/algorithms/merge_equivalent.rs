@@ -16,13 +16,13 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::problem::Problem;
+    use crate::{problem::Problem, algorithms::event::EventHandler};
 
     #[test]
     fn relax_merge() {
         let mut p =
             Problem::from_string("A ABC ABC\nD EFG DEFG\n\nAB AB\nC ABC\nDEFG DEFG").unwrap();
-        p.compute_diagram();
+        p.compute_diagram(&EventHandler::null());
         let p = p.merge_equivalent_labels();
         assert_eq!(format!("{}", p), "A^3\nD^3\n\nA^2\nD^2\n");
     }
