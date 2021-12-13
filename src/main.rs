@@ -45,6 +45,7 @@ fn main() {
     p.rename(&[]).unwrap();
     p.sort_active_by_strength();
     p.rename_by_generators();
+    p.speedup(&eh);
     
     /* 
     let s = std::fs::read_to_string("test.txt").unwrap();
