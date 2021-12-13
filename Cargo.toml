@@ -1,5 +1,5 @@
 [workspace]
 
 members = [
-    "round_eliminator_lib"
+    "round-eliminator-lib"
 ]
