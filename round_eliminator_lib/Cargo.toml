@@ -1,0 +1,13 @@
+[package]
+name = "round-eliminator-2"
+version = "0.1.0"
+authors = ["Dennis"]
+edition = "2021"
+
+[dependencies]
+itertools = "0.10"
+contest-algorithms = "0.3.0"
+permutator = "0.4.0"
+log = "0.4"
+env_logger = "0.9.0"
+petgraph = "0.6.0"
