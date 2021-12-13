@@ -1,5 +1,6 @@
 [workspace]
 
 members = [
-    "round-eliminator-lib"
+    "round-eliminator-lib",
+    "round-eliminator-wasm"
 ]

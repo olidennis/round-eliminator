@@ -1,5 +1,5 @@
 [package]
-name = "round-eliminator-2"
+name = "round-eliminator-lib"
 version = "0.1.0"
 authors = ["Dennis"]
 edition = "2021"
