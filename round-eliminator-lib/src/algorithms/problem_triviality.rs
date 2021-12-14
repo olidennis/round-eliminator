@@ -10,7 +10,7 @@ use crate::{
 use super::event::EventHandler;
 
 impl Problem {
-    pub fn compute_triviality(&mut self, eh : &mut EventHandler ) {
+    pub fn compute_triviality(&mut self, eh: &mut EventHandler) {
         if self.trivial_sets.is_some() {
             panic!("triviality has been computed already");
         }
@@ -22,7 +22,7 @@ impl Problem {
         let mut trivial_sets = vec![];
         let num_active_sets = active_sets.len();
 
-        for (i,set) in active_sets.into_iter().enumerate() {
+        for (i, set) in active_sets.into_iter().enumerate() {
             eh.notify("triviality", i, num_active_sets);
 
             let group = Group(set.into_iter().sorted().collect());
@@ -43,7 +43,7 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn triviality() {

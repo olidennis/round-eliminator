@@ -61,26 +61,28 @@ impl Line {
         self.parts.sort();
     }
 
-    pub fn sort_by_strength(&mut self, reachability : &HashMap<usize,HashSet<usize>>) {
-        self.parts.sort_by(|a,b|{
+    pub fn sort_by_strength(&mut self, reachability: &HashMap<usize, HashSet<usize>>) {
+        self.parts.sort_by(|a, b| {
             if a.group.len() != 1 || b.group.len() != 1 {
                 a.cmp(b)
             } else {
                 let la = a.group[0];
                 let lb = b.group[0];
-                match (reachability[&la].contains(&lb),reachability[&lb].contains(&la)) {
-                    (true,false) => std::cmp::Ordering::Less,
-                    (false,true) => std::cmp::Ordering::Greater,
-                    _ => a.cmp(b)
+                match (
+                    reachability[&la].contains(&lb),
+                    reachability[&lb].contains(&la),
+                ) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => a.cmp(b),
                 }
             }
         })
     }
 }
 
-
 impl Constraint {
-    pub fn sort_lines_by_strength(&mut self, reachability : &HashMap<usize,HashSet<usize>> ) {
+    pub fn sort_lines_by_strength(&mut self, reachability: &HashMap<usize, HashSet<usize>>) {
         for line in self.lines.iter_mut() {
             line.sort_by_strength(reachability);
         }
@@ -97,11 +99,10 @@ impl Problem {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn sort_by_strength() {
@@ -109,6 +110,5 @@ mod tests {
         p.compute_diagram(&mut EventHandler::null());
         p.sort_active_by_strength();
         assert_eq!(format!("{}", p), "A B^2\n\nB BA\n");
-
     }
 }

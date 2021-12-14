@@ -2,52 +2,66 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::{problem::Problem, group::Group};
+use crate::{group::Group, problem::Problem};
 
 use super::event::EventHandler;
 
-
-
 impl Problem {
-    pub fn speedup(&self, eh : &mut EventHandler) -> Self {
+    pub fn speedup(&self, eh: &mut EventHandler) -> Self {
         let mut newactive_before_renaming = self.passive.clone();
         newactive_before_renaming.maximize(eh);
 
-        let mapping_label_oldlabels : Vec<_> =  newactive_before_renaming.groups().unique().map(|g|g.0.clone()).enumerate().collect();
-        let h_oldlabels_label : HashMap<_,_> = mapping_label_oldlabels.iter().map(|(a,b)|(b.clone(),*a)).collect();
+        let mapping_label_oldlabels: Vec<_> = newactive_before_renaming
+            .groups()
+            .unique()
+            .map(|g| g.0.clone())
+            .enumerate()
+            .collect();
+        let h_oldlabels_label: HashMap<_, _> = mapping_label_oldlabels
+            .iter()
+            .map(|(a, b)| (b.clone(), *a))
+            .collect();
 
-        let active = newactive_before_renaming.edited(|g|{
-            Group(vec![h_oldlabels_label[&g.0]])
-        });
+        let active = newactive_before_renaming.edited(|g| Group(vec![h_oldlabels_label[&g.0]]));
 
-        let passive = self.active.edited(|g|{
+        let passive = self.active.edited(|g| {
             let h = g.as_set();
-            let ng = mapping_label_oldlabels.iter().filter(|(_,o)|{
-                o.iter().any(|l|h.contains(l))
-            }).map(|p|p.0).sorted().collect();
+            let ng = mapping_label_oldlabels
+                .iter()
+                .filter(|(_, o)| o.iter().any(|l| h.contains(l)))
+                .map(|p| p.0)
+                .sorted()
+                .collect();
             Group(ng)
         });
 
-        let mut p = Problem { 
-            active, 
-            passive, 
-            mapping_label_text: vec![], 
-            mapping_label_oldlabels : Some(mapping_label_oldlabels), 
-            mapping_oldlabel_text: Some(self.mapping_label_text.clone()), 
-            trivial_sets: None, 
-            coloring_sets: None, 
-            diagram_indirect: None, 
+        let mut p = Problem {
+            active,
+            passive,
+            mapping_label_text: vec![],
+            mapping_label_oldlabels: Some(mapping_label_oldlabels),
+            mapping_oldlabel_text: Some(self.mapping_label_text.clone()),
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
             diagram_indirect_old: self.diagram_indirect.clone(),
-            diagram_direct: None
+            diagram_direct: None,
         };
         p.assign_chars();
         p
     }
 
     pub fn assign_chars(&mut self) {
-        let labels : Vec<_> = self.mapping_label_oldlabels.as_ref().unwrap().iter().map(|(l,_)|*l).collect();
-        
-        self.mapping_label_text = labels.iter()
+        let labels: Vec<_> = self
+            .mapping_label_oldlabels
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|(l, _)| *l)
+            .collect();
+
+        self.mapping_label_text = labels
+            .iter()
             .map(|&i| {
                 if labels.len() <= 62 {
                     let i8 = i as u8;
@@ -69,7 +83,7 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn speedup() {
@@ -77,10 +91,6 @@ mod tests {
         let mut p = p.speedup(&mut EventHandler::null());
         p.compute_diagram(&mut EventHandler::null());
         p.sort_active_by_strength();
-        assert_eq!(format!("{}", p), "A^2\nB C\n\nA BC^3\nC^4\n");
-
-
+        assert_eq!(format!("{}", p), "A^2\nB C\n\nA BC^3\nAC C^3\n");
     }
-
-
 }

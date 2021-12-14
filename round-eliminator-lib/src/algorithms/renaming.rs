@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 
@@ -40,36 +40,38 @@ impl Problem {
         Ok(())
     }
 
-    pub fn mapping_label_generators(&self) -> Vec<(usize,Vec<usize>)> {
+    pub fn mapping_label_generators(&self) -> Vec<(usize, Vec<usize>)> {
         if self.mapping_label_oldlabels.is_none() {
             panic!("mapping label generators requires that the current problem is the result of a speedup");
         }
 
         let map_label_oldset = self.mapping_label_oldlabels.clone().unwrap();
-        let oldsets : Vec<_> = map_label_oldset.iter().map(|(_,o)|o.clone()).collect();
+        let oldsets: Vec<_> = map_label_oldset.iter().map(|(_, o)| o.clone()).collect();
 
         let mut result = vec![];
 
         if self.diagram_indirect_old.is_some() {
             let oldreach = self.diagram_indirect_old_to_reachability_adj();
-            for (l,o) in &map_label_oldset {
+            for (l, o) in &map_label_oldset {
                 let mut gen = o.clone();
                 for label in o {
-                    gen.retain(|x|{
-                        x == label ||
-                        !oldreach[label].contains(x) ||
-                        oldreach[x].contains(label)
+                    gen.retain(|x| {
+                        x == label || !oldreach[label].contains(x) || oldreach[x].contains(label)
                     });
                 }
                 gen.sort();
-                result.push((*l,gen));
+                result.push((*l, gen));
             }
         } else {
-            for (l,o) in &map_label_oldset {
+            for (l, o) in &map_label_oldset {
                 let mut gen = vec![];
                 for contained in o {
-                    let mut containing : Vec<_> = oldsets.iter().filter(|old|old.contains(contained)).cloned().collect();
-                    containing.sort_by_key(|set|set.len());
+                    let mut containing: Vec<_> = oldsets
+                        .iter()
+                        .filter(|old| old.contains(contained))
+                        .cloned()
+                        .collect();
+                    containing.sort_by_key(|set| set.len());
                     let minsize = containing[0].len();
                     if minsize == o.len() {
                         gen.push(*contained);
@@ -77,9 +79,9 @@ impl Problem {
                 }
                 gen.sort();
                 if !gen.is_empty() {
-                    result.push((*l,gen));
+                    result.push((*l, gen));
                 } else {
-                    result.push((*l,o.clone()));
+                    result.push((*l, o.clone()));
                 }
             }
         }
@@ -91,18 +93,28 @@ impl Problem {
 
     pub fn rename_by_generators(&mut self) {
         let map_label_oldlabels = self.mapping_label_generators();
-        let map_oldlabels_text = self.mapping_oldlabel_text.as_ref().expect("rename by generators requires that the current problem is the result of a speedup");
-        let map_oldlabels_text : HashMap<_,_> = map_oldlabels_text.iter().cloned().collect();
-        let renaming : Vec<_> = map_label_oldlabels.into_iter().map(|(label,oldset)|{
-            if oldset.len() == 1 {
-                (label,map_oldlabels_text[&oldset[0]].clone())
-            } else {
-                (label,format!("<{}>",oldset.iter().map(|x|&map_oldlabels_text[x]).join(",")))
-            }
-        }).collect();
+        let map_oldlabels_text = self.mapping_oldlabel_text.as_ref().expect(
+            "rename by generators requires that the current problem is the result of a speedup",
+        );
+        let map_oldlabels_text: HashMap<_, _> = map_oldlabels_text.iter().cloned().collect();
+        let renaming: Vec<_> = map_label_oldlabels
+            .into_iter()
+            .map(|(label, oldset)| {
+                if oldset.len() == 1 {
+                    (label, map_oldlabels_text[&oldset[0]].clone())
+                } else {
+                    (
+                        label,
+                        format!(
+                            "<{}>",
+                            oldset.iter().map(|x| &map_oldlabels_text[x]).join(",")
+                        ),
+                    )
+                }
+            })
+            .collect();
         self.rename(&renaming).unwrap();
     }
-
 }
 
 #[cfg(test)]
@@ -143,18 +155,34 @@ mod tests {
     }
 
     #[test]
-    fn renaming_by_generators(){
+    fn renaming_by_generators() {
         let mut p = Problem::from_string("A D D D\nB B B C\n\nAC	BCD	BCD	BCD\nD	D	D	D").unwrap();
-        p.mapping_label_oldlabels = Some(vec![(0,vec![0]),(2,vec![1]),(3,vec![0,1]),(1,vec![1,2])]);
-        p.diagram_indirect_old = Some(vec![(0,0),(1,1),(2,2),(2,1)]);
-        p.mapping_oldlabel_text = Some(vec![(0,"M".into()),(1,"U".into()),(2,"P".into())]);
+        p.mapping_label_oldlabels = Some(vec![
+            (0, vec![0]),
+            (2, vec![1]),
+            (3, vec![0, 1]),
+            (1, vec![1, 2]),
+        ]);
+        p.diagram_indirect_old = Some(vec![(0, 0), (1, 1), (2, 2), (2, 1)]);
+        p.mapping_oldlabel_text = Some(vec![(0, "M".into()), (1, "U".into()), (2, "P".into())]);
         p.rename_by_generators();
-        assert_eq!(format!("{}",p),"M P^3\n(<M,U>) U^3\n\nM(<M,U>) PU(<M,U>)^3\nP^4\n");
+        assert_eq!(
+            format!("{}", p),
+            "M P^3\n(<M,U>) U^3\n\nM(<M,U>) PU(<M,U>)^3\nP^4\n"
+        );
 
         let mut p = Problem::from_string("A D D D\nB B B C\n\nAC	BCD	BCD	BCD\nD	D	D	D").unwrap();
-        p.mapping_label_oldlabels = Some(vec![(0,vec![0]),(2,vec![1]),(3,vec![0,1]),(1,vec![1,2])]);
-        p.mapping_oldlabel_text = Some(vec![(0,"M".into()),(1,"U".into()),(2,"P".into())]);
+        p.mapping_label_oldlabels = Some(vec![
+            (0, vec![0]),
+            (2, vec![1]),
+            (3, vec![0, 1]),
+            (1, vec![1, 2]),
+        ]);
+        p.mapping_oldlabel_text = Some(vec![(0, "M".into()), (1, "U".into()), (2, "P".into())]);
         p.rename_by_generators();
-        assert_eq!(format!("{}",p),"M P^3\n(<M,U>) U^3\n\nM(<M,U>) PU(<M,U>)^3\nP^4\n");
+        assert_eq!(
+            format!("{}", p),
+            "M P^3\n(<M,U>) U^3\n\nM(<M,U>) PU(<M,U>)^3\nP^4\n"
+        );
     }
 }

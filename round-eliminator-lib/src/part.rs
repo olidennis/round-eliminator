@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::group::{Group, GroupType};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Part {
     pub gtype: GroupType,
     pub group: Group,

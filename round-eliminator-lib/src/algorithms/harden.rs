@@ -51,7 +51,7 @@ impl Problem {
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
-            diagram_indirect_old: self.diagram_indirect_old.clone()
+            diagram_indirect_old: self.diagram_indirect_old.clone(),
         }
     }
 }
@@ -67,7 +67,7 @@ mod tests {
 
     use std::collections::HashSet;
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn harden_with_predecessors() {

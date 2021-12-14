@@ -15,7 +15,7 @@ impl Problem {
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
-            diagram_indirect_old: self.diagram_indirect_old.clone()
+            diagram_indirect_old: self.diagram_indirect_old.clone(),
         }
     }
 
@@ -32,7 +32,7 @@ impl Problem {
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
-            diagram_indirect_old: self.diagram_indirect_old.clone()
+            diagram_indirect_old: self.diagram_indirect_old.clone(),
         }
     }
 }
@@ -58,7 +58,7 @@ impl Constraint {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn relax_merge() {

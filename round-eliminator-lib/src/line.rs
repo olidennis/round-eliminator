@@ -3,7 +3,7 @@ use crate::part::Part;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Line {
     pub parts: Vec<Part>,
 }

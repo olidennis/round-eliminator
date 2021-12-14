@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use crate::{constraint::Constraint};
+use crate::constraint::Constraint;
 use itertools::Itertools;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,7 +47,7 @@ impl Problem {
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
-            diagram_indirect_old: None
+            diagram_indirect_old: None,
         };
         Ok(p)
     }
@@ -82,7 +82,13 @@ impl Problem {
         {
             h.entry(a).or_default().insert(b);
         }
-        for label in self.mapping_oldlabel_text.as_ref().unwrap().iter().map(|(x,_)|*x) {
+        for label in self
+            .mapping_oldlabel_text
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|(x, _)| *x)
+        {
             h.entry(label).or_default();
         }
         h
@@ -102,9 +108,6 @@ impl Problem {
         }
         h
     }
-
-
-
 }
 
 impl Display for Problem {
@@ -124,7 +127,7 @@ impl Display for Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem};
+    use crate::problem::Problem;
 
     #[test]
     #[should_panic]
@@ -140,6 +143,4 @@ mod tests {
         let p = Problem::from_string("A AB*\nC CD*\n\nAB CD").unwrap();
         assert_eq!(format!("{}", p), "A AB*\nC CD*\n\nAB CD\n");
     }
-
-
 }

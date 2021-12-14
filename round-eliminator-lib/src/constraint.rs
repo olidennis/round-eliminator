@@ -41,9 +41,10 @@ impl Constraint {
         // assuming that there are only maximal lines at the moment
         let len = lines.len();
         lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
-        if lines.len() != len || lines
-            .iter()
-            .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
+        if lines.len() != len
+            || lines
+                .iter()
+                .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
         {
             lines.push(newline);
         }
@@ -175,8 +176,6 @@ impl Constraint {
         }
         h
     }
-
-    
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ use super::event::EventHandler;
 
 impl Problem {
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
-    pub fn compute_coloring_solvability(&mut self, eh : &mut EventHandler) {
+    pub fn compute_coloring_solvability(&mut self, eh: &mut EventHandler) {
         if self.passive.degree != Degree::Finite(2) {
             panic!("cannot compute coloring solvability if the passive side has degree different from 2");
         }
@@ -27,7 +27,11 @@ impl Problem {
 
         for (i, set1) in active_sets.iter().enumerate() {
             for (j, set2) in active_sets.iter().enumerate() {
-                eh.notify("coloring graph",active_sets.len()*i+j, active_sets.len()*active_sets.len());
+                eh.notify(
+                    "coloring graph",
+                    active_sets.len() * i + j,
+                    active_sets.len() * active_sets.len(),
+                );
                 if i < j {
                     let group1 = Group(set1.iter().cloned().sorted().collect());
                     let group2 = Group(set2.iter().cloned().sorted().collect());
@@ -63,7 +67,7 @@ impl Problem {
         }
 
         let g = Graph::from_adj(adj);
-        eh.notify("clique",1,1);
+        eh.notify("clique", 1, 1);
         let mut coloring_sets: Vec<_> = g
             .max_clique()
             .into_iter()
@@ -77,7 +81,7 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn coloring() {

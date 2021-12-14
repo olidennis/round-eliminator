@@ -17,9 +17,9 @@ impl Problem {
 
         let mut diagram = vec![];
 
-        for (i,l1) in labels.iter().enumerate() {
-            for (j,l2) in labels.iter().enumerate() {
-                eh.notify("diagram",i*labels.len()+j,labels.len()*labels.len());
+        for (i, l1) in labels.iter().enumerate() {
+            for (j, l2) in labels.iter().enumerate() {
+                eh.notify("diagram", i * labels.len() + j, labels.len() * labels.len());
                 if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
                     diagram.push((*l1, *l2));
                 }
@@ -116,7 +116,7 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn diagram() {

@@ -33,7 +33,7 @@ impl Problem {
         self.coloring_sets = None;
     }
 
-    pub fn discard_useless_stuff(&mut self, recompute_diagram: bool, eh : &mut EventHandler) {
+    pub fn discard_useless_stuff(&mut self, recompute_diagram: bool, eh: &mut EventHandler) {
         // if passive side is maximized and some label gets discarded, it is still maximized, but some non-maximal lines may be present
         // zero-round solvability is preserved
         // coloring solvability is preserved
@@ -44,20 +44,20 @@ impl Problem {
             // since the diagram may become wrong, the best thing to do here is to erase it
             self.diagram_indirect = None;
             self.diagram_direct = None;
-            eh.notify("recompute diagram",1,1);
+            eh.notify("recompute diagram", 1, 1);
             if recompute_diagram {
                 self.compute_diagram(eh);
             }
-            eh.notify("discard non maximal",1,1);
+            eh.notify("discard non maximal", 1, 1);
             self.passive.discard_non_maximal_lines();
             self.active.discard_non_maximal_lines();
-            eh.notify("remove weak",1,1);
+            eh.notify("remove weak", 1, 1);
             if self.diagram_indirect.is_some() {
                 self.remove_weak_active_lines();
             }
-            eh.notify("discard labels at most one side",1,1);
+            eh.notify("discard labels at most one side", 1, 1);
             self.discard_labels_used_on_at_most_one_side_from_configurations();
-            eh.notify("discard unused internal",1,1);
+            eh.notify("discard unused internal", 1, 1);
             self.discard_unused_labels_from_internal_stuff();
             if self == &p {
                 break;
@@ -109,7 +109,7 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn useless1() {

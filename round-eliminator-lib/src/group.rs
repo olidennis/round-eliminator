@@ -1,11 +1,14 @@
-use std::{collections::HashSet, ops::{Deref, DerefMut}};
+use std::{
+    collections::HashSet,
+    ops::{Deref, DerefMut},
+};
 
 use itertools::Itertools;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Group(pub Vec<usize>);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum GroupType {
     One,
     Many(usize),
@@ -35,12 +38,24 @@ impl Group {
         Group(h.iter().cloned().sorted().collect())
     }
 
-    pub fn intersection(&self, other : &Group) -> Self {
-        Group(self.as_set().intersection(&other.as_set()).cloned().sorted().collect())
+    pub fn intersection(&self, other: &Group) -> Self {
+        Group(
+            self.as_set()
+                .intersection(&other.as_set())
+                .cloned()
+                .sorted()
+                .collect(),
+        )
     }
 
-    pub fn union(&self, other : &Group) -> Self {
-        Group(self.as_set().union(&other.as_set()).cloned().sorted().collect())
+    pub fn union(&self, other: &Group) -> Self {
+        Group(
+            self.as_set()
+                .union(&other.as_set())
+                .cloned()
+                .sorted()
+                .collect(),
+        )
     }
 }
 

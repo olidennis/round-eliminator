@@ -1,6 +1,4 @@
-use crate::{problem::Problem, algorithms::event::EventHandler};
-
-
+use crate::{algorithms::event::EventHandler, problem::Problem};
 
 pub fn request_json<F>(_req: &str, mut f: F)
 where
@@ -14,9 +12,9 @@ where
     };
     request(req, handler);*/
 
-    let mut eh = EventHandler::with(|x : (String,usize,usize)|{
+    let mut eh = EventHandler::with(|x: (String, usize, usize)| {
         // TEMPORARY, for testing
-        f(format!("\"{} {} {}\"",x.0,x.1,x.2));
+        f(format!("\"{} {} {}\"", x.0, x.1, x.2));
     });
     let mut p = Problem::from_string("A AB AB\n\nA B").unwrap();
     p.compute_diagram(&mut eh);
