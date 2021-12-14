@@ -1,4 +1,4 @@
-use futures::channel::mpsc::UnboundedReceiver;
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 use warp::{Filter, ws::{WebSocket, Ws, Message}};
 use futures_util::StreamExt;
 
@@ -36,24 +36,36 @@ async fn serve_client(ws: WebSocket) {
     let (ws_tx,mut ws_rx) = ws.split();
 
 
-    let (tx, rx) : (futures::channel::mpsc::UnboundedSender<Message>, UnboundedReceiver<Message>)= futures::channel::mpsc::unbounded();
-
+    let (tx, rx) = futures::channel::mpsc::unbounded();
+    
     tokio::spawn(
         rx.map(|x|Ok(x))
             .forward(ws_tx)
     );
 
+    let stop = Arc::new(AtomicBool::new(false));
 
     while let Some(m) = ws_rx.next().await {
         match m {
             Ok(m) =>  
                 if m.is_text() {
                     let request = m.to_str().expect("error parsing json!").to_owned();
-                    let tx = tx.clone();
-                    let fun = move || {
-                        round_eliminator_lib::serial::request_json(&request, |s|{  tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!"); });
-                    };
-                    tokio::task::spawn_blocking(fun);
+                    if request == "\"STOP\"" {
+                        println!("stop asked");
+                        stop.store(true, Ordering::Release);
+                    } else {
+                        let tx = tx.clone();
+                        let stop = stop.clone();
+                        let fun = move || {
+                            round_eliminator_lib::serial::request_json(&request, |s|{
+                                if stop.load(Ordering::Acquire) {
+                                    panic!("stopping thread");
+                                }
+                                tx.unbounded_send(Message::text(s)).expect("unbounded_send failed!");
+                            });
+                        };
+                        tokio::task::spawn_blocking(fun);
+                    }
                 }
             Err(e) => { eprintln!("Error while receiving message from websocket: {:?}",e); return; }
         }

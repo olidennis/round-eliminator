@@ -45,8 +45,13 @@ function request_wasm(req, onresult, oncomplete) {
 function request_server(req, onresult, oncomplete) {
     let a = new WebSocket("ws://" + location.host + "/api");
     let r = JSON.stringify(req);
+    let terminated = false;
 
     let ping = setInterval(function(){
+        if( terminated ){
+            clearInterval(ping);
+            return;
+        }
         if( a.readyState == WebSocket.OPEN ){
             a.send( JSON.stringify( "Ping" ) );
         } else if( a.readyState != WebSocket.CONNECTING ){
@@ -65,7 +70,7 @@ function request_server(req, onresult, oncomplete) {
         //oncomplete();
     }
     a.onclose = function(e){
-        if( !e.wasClean )alert("Something bad happened.");
+        if( !e.wasClean && !terminated )alert("Something bad happened.");
         oncomplete();
     }
     a.onmessage = function(s){
@@ -81,7 +86,12 @@ function request_server(req, onresult, oncomplete) {
             a.close();
         }
     }
-    return function(){
-        console.log("not implemented!");
+
+    let terminate = function(){
+        console.log("terminating server thread!");
+        a.send(JSON.stringify("STOP"));
+        a.close();
+        terminated = true;
     }
+    return terminate;
 }
