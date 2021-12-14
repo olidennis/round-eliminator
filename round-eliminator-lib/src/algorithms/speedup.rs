@@ -93,4 +93,38 @@ mod tests {
         p.sort_active_by_strength();
         assert_eq!(format!("{}", p), "A^2\nB C\n\nA BC^3\nAC C^3\n");
     }
+
+    #[test]
+    fn matching() {
+        let mut eh = EventHandler::with(|(x,a,b)|println!("{} {} {}",x,a,b));
+        let eh = &mut eh;
+        let p0 = Problem::from_string("M U U U\nP P P P\n\nM UP UP UP\nU U U U").unwrap();
+        let mut v = vec![p0];
+        for i in 0..7 {
+            v.push(v[i].speedup(eh));
+        }
+        v[6].compute_triviality(eh);
+        v[7].compute_triviality(eh);
+        assert!(v[6].trivial_sets.as_ref().unwrap().is_empty() && !v[7].trivial_sets.as_ref().unwrap().is_empty());
+    }
+
+    #[test]
+    fn matching2() {
+        let mut eh = EventHandler::with(|(x,a,b)|println!("{} {} {}",x,a,b));
+        let eh = &mut eh;
+        let mut p0 = Problem::from_string("M U U U\nP P P P\n\nM UP UP UP\nU U U U").unwrap();
+        p0.compute_triviality(eh);
+        p0.compute_diagram(eh);
+
+        let mut v = vec![p0];
+        for i in 0..7 {
+            let mut r = v[i].speedup(eh);
+            r.compute_triviality(eh);
+            r.compute_diagram(eh);
+            v.push(r);
+        }  
+        assert!(v[6].trivial_sets.as_ref().unwrap().is_empty() && !v[7].trivial_sets.as_ref().unwrap().is_empty());
+    }
+
+
 }
