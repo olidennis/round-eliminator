@@ -228,10 +228,12 @@ fn combine_lines(
             let c2 = &l2_without_one[y];
             let lines = intersections(&union, c1, c2);
             for mut newline in lines {
-                for parts in newline.parts.iter_mut() {
-                    if let GroupType::Many(x) = parts.gtype {
-                        if x >= becomes_star {
-                            parts.gtype = GroupType::Star;
+                if newline.has_star() {
+                    for parts in newline.parts.iter_mut() {
+                        if let GroupType::Many(x) = parts.gtype {
+                            if x >= becomes_star {
+                                parts.gtype = GroupType::Star;
+                            }
                         }
                     }
                 }
