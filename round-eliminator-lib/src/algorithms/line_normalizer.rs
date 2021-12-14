@@ -32,7 +32,7 @@ impl Line {
         let mut h = HashMap::new();
         let parts = std::mem::take(&mut self.parts);
         for mut part in parts {
-            part.group.0.sort();
+            part.group.sort();
             let x = h.get(&part.group).unwrap_or(&GroupType::Many(0));
 
             use GroupType::*;
@@ -63,11 +63,11 @@ impl Line {
 
     pub fn sort_by_strength(&mut self, reachability : &HashMap<usize,HashSet<usize>>) {
         self.parts.sort_by(|a,b|{
-            if a.group.0.len() != 1 || b.group.0.len() != 1 {
+            if a.group.len() != 1 || b.group.len() != 1 {
                 a.cmp(b)
             } else {
-                let la = a.group.0[0];
-                let lb = b.group.0[0];
+                let la = a.group[0];
+                let lb = b.group[0];
                 match (reachability[&la].contains(&lb),reachability[&lb].contains(&la)) {
                     (true,false) => std::cmp::Ordering::Less,
                     (false,true) => std::cmp::Ordering::Greater,

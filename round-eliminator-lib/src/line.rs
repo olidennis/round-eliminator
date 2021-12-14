@@ -47,7 +47,11 @@ impl Line {
     }
 
     pub fn has_star(&self) -> bool {
-        self.parts.iter().any(|x| x.gtype == GroupType::Star)
+        self.get_star().is_some()
+    }
+
+    pub fn get_star(&self) -> Option<&Part> {
+        self.parts.iter().find(|x| x.gtype == GroupType::Star)
     }
 
     pub fn degree(&self) -> Degree {

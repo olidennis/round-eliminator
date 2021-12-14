@@ -37,8 +37,11 @@ impl Constraint {
     {
         self.is_maximized = false;
         let lines = &mut self.lines;
+        // computing and checking len is not needed, but it allows to skip the second check if something already changed,
+        // assuming that there are only maximal lines at the moment
+        let len = lines.len();
         lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
-        if lines
+        if lines.len() != len || lines
             .iter()
             .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
         {
@@ -93,12 +96,12 @@ impl Constraint {
 
         for line in &self.lines {
             let groups = line.parts.iter().map(|part| &part.group);
-            if groups.clone().all(|group| group.0.len() == 1) {
-                let labels = groups.map(|group| group.0[0]).unique();
+            if groups.clone().all(|group| group.len() == 1) {
+                let labels = groups.map(|group| group[0]).unique();
                 let set = labels_to_set(labels);
                 result.insert(set);
             } else {
-                let domain: Vec<_> = groups.map(|group| &group.0[..]).collect();
+                let domain: Vec<_> = groups.map(|group| &group[..]).collect();
                 for labels in CartesianProductIterator::new(&domain) {
                     let set = labels_to_set(labels.into_iter().unique());
                     result.insert(set);
@@ -113,8 +116,9 @@ impl Constraint {
         let mut result: Vec<HashSet<usize>> = vec![];
         for set in all_sets.into_iter().sorted() {
             let set = HashSet::from_iter(set.0.into_iter());
+            let len = result.len();
             result.retain(|x| !x.is_superset(&set));
-            if result.iter().all(|r| !set.is_superset(r)) {
+            if result.len() != len || result.iter().all(|r| !set.is_superset(r)) {
                 result.push(set);
             }
         }

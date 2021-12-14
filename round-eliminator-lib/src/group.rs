@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Deref};
+use std::{collections::HashSet, ops::{Deref, DerefMut}};
 
 use itertools::Itertools;
 
@@ -20,13 +20,27 @@ impl Deref for Group {
     }
 }
 
+impl DerefMut for Group {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl Group {
     pub fn as_set(&self) -> HashSet<usize> {
-        self.0.iter().cloned().collect()
+        self.iter().cloned().collect()
     }
 
     pub fn from_set(h: &HashSet<usize>) -> Self {
         Group(h.iter().cloned().sorted().collect())
+    }
+
+    pub fn intersection(&self, other : &Group) -> Self {
+        Group(self.as_set().intersection(&other.as_set()).cloned().sorted().collect())
+    }
+
+    pub fn union(&self, other : &Group) -> Self {
+        Group(self.as_set().union(&other.as_set()).cloned().sorted().collect())
     }
 }
 
