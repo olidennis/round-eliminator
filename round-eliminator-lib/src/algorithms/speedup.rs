@@ -9,7 +9,7 @@ use super::event::EventHandler;
 
 
 impl Problem {
-    pub fn speedup(&self, eh : &EventHandler) -> Self {
+    pub fn speedup(&self, eh : &mut EventHandler) -> Self {
         let mut newactive_before_renaming = self.passive.clone();
         newactive_before_renaming.maximize(eh);
 
@@ -74,8 +74,8 @@ mod tests {
     #[test]
     fn speedup() {
         let p = Problem::from_string("M U U U\nP P P P\n\nM M\nU PU").unwrap();
-        let mut p = p.speedup(&EventHandler::null());
-        p.compute_diagram(&EventHandler::null());
+        let mut p = p.speedup(&mut EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         p.sort_active_by_strength();
         assert_eq!(format!("{}", p), "A^2\nB C\n\nA BC^3\nC^4\n");
 

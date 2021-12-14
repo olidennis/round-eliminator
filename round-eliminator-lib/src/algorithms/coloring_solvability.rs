@@ -12,7 +12,7 @@ use super::event::EventHandler;
 
 impl Problem {
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
-    pub fn compute_coloring_solvability(&mut self, eh : &EventHandler) {
+    pub fn compute_coloring_solvability(&mut self, eh : &mut EventHandler) {
         if self.passive.degree != Degree::Finite(2) {
             panic!("cannot compute coloring solvability if the passive side has degree different from 2");
         }
@@ -82,19 +82,19 @@ mod tests {
     #[test]
     fn coloring() {
         let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA BC\nB C").unwrap();
-        p.compute_coloring_solvability(&EventHandler::null());
+        p.compute_coloring_solvability(&mut EventHandler::null());
         assert_eq!(p.coloring_sets, Some(vec![vec![0], vec![1], vec![2]]));
 
         let mut p = Problem::from_string("A A A\nB B B\nC C C\nD D D\n\nA BC\nB C\nD A").unwrap();
-        p.compute_coloring_solvability(&EventHandler::null());
+        p.compute_coloring_solvability(&mut EventHandler::null());
         assert_eq!(p.coloring_sets, Some(vec![vec![0], vec![1], vec![2]]));
 
         let mut p = Problem::from_string("A A A\nB B B\nC C D\nE E E\n\nA BCD\nB CD\nE A").unwrap();
-        p.compute_coloring_solvability(&EventHandler::null());
+        p.compute_coloring_solvability(&mut EventHandler::null());
         assert_eq!(p.coloring_sets, Some(vec![vec![0], vec![1], vec![2, 3]]));
 
         let mut p = Problem::from_string("A AB AB\n\nA B").unwrap();
-        p.compute_coloring_solvability(&EventHandler::null());
+        p.compute_coloring_solvability(&mut EventHandler::null());
         assert!(p.coloring_sets.unwrap().len() < 2);
     }
 
@@ -102,6 +102,6 @@ mod tests {
     #[should_panic]
     fn coloring_hypergraph() {
         let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA B C").unwrap();
-        p.compute_coloring_solvability(&EventHandler::null());
+        p.compute_coloring_solvability(&mut EventHandler::null());
     }
 }

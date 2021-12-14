@@ -64,19 +64,19 @@ mod tests {
     fn relax_merge() {
         let p = Problem::from_string("A AB AB\n\nB AB").unwrap();
         let mut p = p.relax_merge(0, 1);
-        p.discard_useless_stuff(true, &EventHandler::null());
+        p.discard_useless_stuff(true, &mut EventHandler::null());
         assert_eq!(format!("{}", p), "B^3\n\nB^2\n");
 
         let p = Problem::from_string("M U U\nP P P\n\nM UP\nU U\n").unwrap();
         let mut p = p.relax_merge(2, 1);
-        p.discard_useless_stuff(true, &EventHandler::null());
-        p.compute_triviality(&EventHandler::null());
+        p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.compute_triviality(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "U^3\n\nU^2\n");
         assert!(!p.trivial_sets.as_ref().unwrap().is_empty());
 
         let p = Problem::from_string("A AB AB\n\nB AB").unwrap();
         let mut p = p.relax_addarrow(1, 0);
-        p.discard_useless_stuff(true, &EventHandler::null());
+        p.discard_useless_stuff(true, &mut EventHandler::null());
         assert_eq!(format!("{}", p), "A AB^2\n\nAB^2\n");
         let p = p.merge_equivalent_labels();
         assert_eq!(format!("{}", p), "A^3\n\nA^2\n");

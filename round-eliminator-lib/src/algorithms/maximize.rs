@@ -13,7 +13,7 @@ use super::event::EventHandler;
 
 impl Constraint {
     // TEMPORARY, SLOW, JUST FOR DEGREE 2, FOR TESTING
-    pub fn maximize(&mut self, eh : &EventHandler) {
+    pub fn maximize(&mut self, eh : &mut EventHandler) {
         if self.is_maximized || self.lines.is_empty() {
             return;
         }

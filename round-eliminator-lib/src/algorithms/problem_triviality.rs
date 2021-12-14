@@ -10,7 +10,7 @@ use crate::{
 use super::event::EventHandler;
 
 impl Problem {
-    pub fn compute_triviality(&mut self, eh : &EventHandler ) {
+    pub fn compute_triviality(&mut self, eh : &mut EventHandler ) {
         if self.trivial_sets.is_some() {
             panic!("triviality has been computed already");
         }
@@ -48,19 +48,19 @@ mod tests {
     #[test]
     fn triviality() {
         let mut p = Problem::from_string("M U U\nP P P\n\nM UP\nU U").unwrap();
-        p.compute_triviality(&EventHandler::null());
+        p.compute_triviality(&mut EventHandler::null());
         assert!(p.trivial_sets.unwrap().is_empty());
 
         let mut p = Problem::from_string("A AB AB\n\nA A\nB B").unwrap();
-        p.compute_triviality(&EventHandler::null());
+        p.compute_triviality(&mut EventHandler::null());
         assert!(!p.trivial_sets.unwrap().is_empty());
 
         let mut p = Problem::from_string("A B AB\n\nA A\nB B\nA B\nAB AB").unwrap();
-        p.compute_triviality(&EventHandler::null());
+        p.compute_triviality(&mut EventHandler::null());
         assert!(!p.trivial_sets.unwrap().is_empty());
 
         let mut p = Problem::from_string("A B AB\n\nA A\nB B\nA B").unwrap();
-        p.compute_triviality(&EventHandler::null());
+        p.compute_triviality(&mut EventHandler::null());
         assert!(!p.trivial_sets.unwrap().is_empty());
     }
 }

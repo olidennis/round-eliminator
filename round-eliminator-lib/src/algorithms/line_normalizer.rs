@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn sort_by_strength() {
         let mut p = Problem::from_string("B B A\n\nB AB").unwrap();
-        p.compute_diagram(&EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         p.sort_active_by_strength();
         assert_eq!(format!("{}", p), "A B^2\n\nB BA\n");
 

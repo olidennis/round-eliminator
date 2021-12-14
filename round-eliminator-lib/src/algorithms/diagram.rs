@@ -7,7 +7,7 @@ use crate::problem::Problem;
 use super::event::EventHandler;
 
 impl Problem {
-    pub fn compute_diagram(&mut self, eh: &EventHandler) {
+    pub fn compute_diagram(&mut self, eh: &mut EventHandler) {
         if self.diagram_indirect.is_some() {
             panic!("diagram has been computed already");
         }
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn diagram() {
         let mut p = Problem::from_string("M U U\nP P P\n\nM UP\nU U").unwrap();
-        p.compute_diagram(&EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         assert_eq!(
             p.diagram_indirect,
             Some(vec![(0, 0), (1, 1), (2, 1), (2, 2)])
@@ -132,7 +132,7 @@ mod tests {
         );
 
         let mut p = Problem::from_string("M U U\nP P P\n\nM UP").unwrap();
-        p.compute_diagram(&EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         assert_eq!(
             p.diagram_indirect,
             Some(vec![(0, 0), (1, 1), (1, 2), (2, 1), (2, 2)])
@@ -143,7 +143,7 @@ mod tests {
         );
 
         let mut p = Problem::from_string("A AB AB\n\nA A\nB B").unwrap();
-        p.compute_diagram(&EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         assert_eq!(p.diagram_indirect, Some(vec![(0, 0), (1, 1)]));
         assert_eq!(
             p.diagram_direct,
@@ -151,7 +151,7 @@ mod tests {
         );
 
         let mut p = Problem::from_string("A B AB\n\nB AB").unwrap();
-        p.compute_diagram(&EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         assert_eq!(p.diagram_indirect, Some(vec![(0, 0), (0, 1), (1, 1)]));
         assert_eq!(
             p.diagram_direct,
@@ -159,7 +159,7 @@ mod tests {
         );
 
         let mut p = Problem::from_string("0	1	1	1\n2	1	1	3\n4	4	4	5\n\n053 4513 4513 4513\n13 13 13 204513\n53 4513 4513 04513\n513 513 0513 4513\n513 513 513 04513").unwrap();
-        p.compute_diagram(&EventHandler::null());
+        p.compute_diagram(&mut EventHandler::null());
         assert_eq!(
             p.diagram_indirect,
             Some(vec![

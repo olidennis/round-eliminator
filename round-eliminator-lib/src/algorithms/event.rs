@@ -1,22 +1,22 @@
 
-use std::sync::mpsc::{Sender};
 
-pub struct EventHandler {
-    tx: Option<Sender<(String,usize,usize)>>
+pub struct EventHandler<'a> {
+    tx: Option<Box<dyn FnMut((String,usize,usize)) -> () + 'a >>
 }
 
 
-impl EventHandler {
+impl<'a> EventHandler<'a> {
     pub fn null() -> Self {
         Self{ tx : None}
     }
 
-    pub fn notify<S : AsRef<str>> (&self, s : S, x : usize, t : usize) {
-        let s = s.as_ref();
-        self.tx.as_ref().map(|tx|tx.send((s.to_string(),x,t)).expect("Stopped"));
+    pub fn with<T>(f : T) -> Self where T : FnMut((String,usize,usize)) -> () + 'a  {
+        Self{ tx : Some(Box::new(f)) }
     }
 
-    //pub fn check_stop(&self) {
-    //    self.notify("",0,0);
-    //}
+    pub fn notify<S : AsRef<str>> (&mut self, s : S, x : usize, t : usize) {
+        let s = s.as_ref();
+        self.tx.as_mut().map(|tx|tx((s.to_string(),x,t)));
+    }
+
 }
