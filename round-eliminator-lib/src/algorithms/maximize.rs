@@ -20,6 +20,8 @@ impl Constraint {
             return;
         }
 
+        let becomes_star = 100;
+
         let mut seen = HashSet::new();
         let mut seen_pairs = HashSet::new();
 
@@ -84,6 +86,7 @@ impl Constraint {
                         &without_one[i],
                         &without_one[j],
                         &mut seen,
+                        becomes_star
                     );
                     for newline in candidates {
                         candidates2.add_line_and_discard_non_maximal(newline);
@@ -162,8 +165,8 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
         if let Some(star_intersection) = &star_intersection {
             parts.push(star_intersection.clone());
         }
-        let mut line = Line { parts };
-        line.normalize();
+        let line = Line { parts };
+        //line.normalize();
         result.push(line);
     }
 
@@ -206,6 +209,7 @@ fn combine_lines(
     l1_without_one: &Vec<Line>,
     l2_without_one: &Vec<Line>,
     seen: &mut HashSet<Line>,
+    becomes_star : usize
 ) -> Vec<Line> {
     let mut result = Constraint {
         lines: vec![],
@@ -223,7 +227,15 @@ fn combine_lines(
             let c1 = &l1_without_one[x];
             let c2 = &l2_without_one[y];
             let lines = intersections(&union, c1, c2);
-            for newline in lines {
+            for mut newline in lines {
+                for parts in newline.parts.iter_mut() {
+                    if let GroupType::Many(x) = parts.gtype {
+                        if x >= becomes_star {
+                            parts.gtype = GroupType::Star;
+                        }
+                    }
+                }
+                newline.normalize();
                 if !seen.contains(&newline) {
                     seen.insert(newline.clone());
                     result.add_line_and_discard_non_maximal(newline);
