@@ -11,3 +11,4 @@ permutator = "0.4.0"
 log = "0.4"
 env_logger = "0.9.0"
 petgraph = "0.6.0"
+streaming-iterator = { version = "0.1.5", features = ["std"]}

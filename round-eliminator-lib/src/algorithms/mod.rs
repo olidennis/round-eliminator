@@ -14,3 +14,4 @@ pub mod relax;
 pub mod renaming;
 pub mod event;
 pub mod speedup;
+pub mod multisets_pairing;
