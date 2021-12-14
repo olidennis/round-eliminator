@@ -2,5 +2,6 @@
 
 members = [
     "round-eliminator-lib",
-    "round-eliminator-wasm"
+    "round-eliminator-wasm",
+    "round-eliminator-server"
 ]
