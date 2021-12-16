@@ -1,14 +1,15 @@
 use crate::group::GroupType;
 use crate::part::Part;
 use itertools::Itertools;
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Line {
     pub parts: Vec<Part>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Degree {
     Finite(usize),
     Star,

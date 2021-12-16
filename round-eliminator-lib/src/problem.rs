@@ -5,8 +5,9 @@ use std::{
 
 use crate::constraint::Constraint;
 use itertools::Itertools;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Problem {
     pub active: Constraint,
     pub passive: Constraint,
@@ -127,7 +128,7 @@ impl Display for Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::problem::Problem;
+    use crate::{problem::Problem, algorithms::event::EventHandler};
 
     #[test]
     #[should_panic]
@@ -142,5 +143,39 @@ mod tests {
 
         let p = Problem::from_string("A AB*\nC CD*\n\nAB CD").unwrap();
         assert_eq!(format!("{}", p), "A AB*\nC CD*\n\nAB CD\n");
+    }
+
+    #[test]
+    fn serialize() {
+        let mut p = Problem::from_string("M U*\nP*\n\nM UP*\nU*").unwrap();
+        let mut eh = EventHandler::null();
+        p.compute_triviality(&mut eh);
+        p.compute_diagram(&mut eh);
+        let serialized = serde_json::to_string(&p).unwrap();
+        println!("{}",serialized);
+
+        let mut p = Problem::from_string("A B B\nC D D\n\nAB AB\nCD CD").unwrap();
+        let mut eh = EventHandler::null();
+        p.compute_triviality(&mut eh);
+        p.compute_diagram(&mut eh);
+        let serialized = serde_json::to_string(&p).unwrap();
+        println!("{}",serialized);
+
+        let mut p = Problem::from_string("A B B\nC D D\n\nAB CD").unwrap();
+        let mut eh = EventHandler::null();
+        p.compute_triviality(&mut eh);
+        p.compute_coloring_solvability(&mut eh);
+        p.compute_diagram(&mut eh);
+        let serialized = serde_json::to_string(&p).unwrap();
+        println!("{}",serialized);
+
+
+        let mut p = Problem::from_string("A B AB C\n\nAB AB\nC C").unwrap();
+        let mut eh = EventHandler::null();
+        p.compute_triviality(&mut eh);
+        p.compute_coloring_solvability(&mut eh);
+        p.compute_diagram(&mut eh);
+        let serialized = serde_json::to_string(&p).unwrap();
+        println!("{}",serialized);
     }
 }

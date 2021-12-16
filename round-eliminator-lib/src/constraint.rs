@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 use permutator::copy::CartesianProductIterator;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     group::{Group, GroupType},
@@ -9,7 +10,7 @@ use crate::{
     part::Part,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Constraint {
     pub lines: Vec<Line>,
     pub is_maximized: bool,
