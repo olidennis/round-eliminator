@@ -153,7 +153,7 @@ Vue.component('re-problem-info', {
             </div>
             <div v-if="this.info.is_mergeable" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div>The following labels can be merged
+                    <div>The following labels can be merged:
                         <span v-for="set in this.info.mergesets">{{ set }} </span>
                     </div>
                 </div>
@@ -162,6 +162,13 @@ Vue.component('re-problem-info', {
     `
 })
 
+
+Vue.component('re-test', {
+    props: ['problem'],
+    template: `
+        <b-table striped hover :items="[[1,2,3],[4,5,6]]" thead-class="d-none"></b-table>
+    `   
+})
 
 var app = new Vue({
     el: '#vueapp',
