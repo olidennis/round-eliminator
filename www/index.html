@@ -30,56 +30,26 @@
         .table > tbody > tr:first-child > td {
             border: none;
         }
+        .top-0 {
+            top: 0
+        }
+        .end-0 {
+            right: 0
+        }
     </style>
 </head>
 
 <body>
 
-    <div class="container-fluid m-0 p-0">
-        <div class="container-fluid rounded bg-light m-0 mb-5 p-5">
-            <div class="row">
-                <div class="col-md">
-                    <h4>Active</h4>
-                    <textarea rows="4" cols="30" class="form-control" id="inf1">
-    M U U U
-    P P P P
-    </textarea>
-                </div>
-                <div class="col-md">
-                    <h4>Passive</h4>
-                    <textarea rows="4" cols="30" class="form-control" id="inf2">
-    M UP UP UP
-    U U U U</textarea>
-                </div>
-                <div class="col-sm mt-auto text-right">
-                    <div id="showdiag" class="text-right"></div>
-                    <div id="config" class="text-left"></div>
-                    <button type="button" class="btn btn-primary" id="btn0">Start</button>
-                    <button type="button" class="btn btn-primary" id="btnclear">Clear</button>
-                </div>
-            </div>
-        </div>
-    
-        <div class="container-fluid m-0 p-0" id="steps">
+    <div id="vueapp">
 
-            <div id="vueapp">
-
-
-                <re-performed-action :action='{ type : "simplificationaddarrow", from : "A", to : "B"}'/></re-performed-action>
-                <re-computing :action='{ type : "triviality", max : 100, cur : 10 }'></re-computing>
+        <re-performed-action :action='{ type : "simplificationaddarrow", from : "A", to : "B"}'/></re-performed-action>
+        <re-computing :action='{ type : "triviality", max : 100, cur : 10 }'></re-computing>
+        <re-problem :problem="this.problem5"></re-problem>
+        <re-problem :problem="this.problem1"></re-problem>
         
-                <re-problem :problem="this.problem5"></re-problem>
-                <re-problem :problem="this.problem1"></re-problem>
-                
-        
-            </div>
 
-
-        </div>
     </div>
-        
-    
-    
    
 </body>
 

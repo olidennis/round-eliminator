@@ -78,7 +78,14 @@ Vue.component('re-performed-action', {
         }
     },
     template: `
-        <div class="card bg-primary text-white m-2 p-2">{{ actionview }}</div>
+        <div class="card bg-primary text-white m-2 p-2" :id="'current'+this._uid">
+            <span>
+                {{ actionview }}
+                <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </span>
+        </div>
     `
 })
 
@@ -111,13 +118,15 @@ Vue.component('re-computing', {
         }
     },
     template: `
-        <div class="card card-body m-2 bg-light">
+        <div class="card card-body m-2 bg-light" :id="'current'+this._uid">
             <div class="spinner-border" role="status"></div>
             {{ state.msg }}
             <div v-if="state.bar" class="progress">
-                <div class="progress-bar" role="progressbar" :style="'width : ' + Math.floor(state.cur *100 / state.max) + '%'">
+                <div class="progress-bar" role="progressbar" :style="'width : ' + Math.floor(state.cur *100 / state.max) + '%'"></div>
             </div>
-        </div>
+            <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
         
     `
@@ -328,16 +337,22 @@ Vue.component('re-problem', {
         }
     },
     template: `
-        <div class="card card-body m-2 p-2 bg-light">
-            <div class="row p-0 m-0 pl-3 pt-3" v-if="this.problem.mapping_label_oldlabels != null">
-                <div class="btn-group btn-group-toggle" data-toggle="buttons">
-                    <label class="btn btn-primary active">
-                        <input type="radio" name="options" autocomplete="off" value="renamed" v-model="mode">New</label>
-                    <label class="btn btn-primary">
-                        <input type="radio" name="options" autocomplete="off" value="original" v-model="mode">Old</label>
-                    <label class="btn btn-primary">
-                        <input type="radio" name="options" autocomplete="off" value="both" v-model="mode">Both</label>
+        <div class="card card-body m-2 p-2 bg-light position-relative" :id="'problem'+this._uid">
+            <div class="row p-0 m-0 justify-content-between">
+                <div v-if="this.problem.mapping_label_oldlabels != null">
+                    <div class="btn-group btn-group-toggle pt-3 pl-3" data-toggle="buttons">
+                        <label class="btn btn-primary active">
+                            <input type="radio" name="options" autocomplete="off" value="renamed" v-model="mode">New</label>
+                        <label class="btn btn-primary">
+                            <input type="radio" name="options" autocomplete="off" value="original" v-model="mode">Old</label>
+                        <label class="btn btn-primary">
+                            <input type="radio" name="options" autocomplete="off" value="both" v-model="mode">Both</label>
+                    </div>
                 </div>
+                <div/>
+                <button data-dismiss="alert" :data-target="'#problem'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <re-problem-info :problem="this.problem"></re-problem-info>
             <div class="row p-0 m-2">
