@@ -16,8 +16,29 @@ let serialized4 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"g
 let problem4 = JSON.parse(serialized4);
 console.log(problem4);
 
-function label_mapping(problem){
-    return Object.assign({}, ...problem.mapping_label_text.map((x) => ({[x[0]]: x[1]})));
+let serialized5 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1]}]},{"parts":[{"gtype":"One","group":[2]},{"gtype":"Star","group":[3]}]}],"is_maximized":false,"degree":"Star"},"passive":{"lines":[{"parts":[{"gtype":"One","group":[0,2]},{"gtype":"Star","group":[1,2,3]}]},{"parts":[{"gtype":"One","group":[0,1,2,3]},{"gtype":"One","group":[2]},{"gtype":"Star","group":[1,2,3]}]},{"parts":[{"gtype":"One","group":[0,1,2]},{"gtype":"Star","group":[1,2]}]}],"is_maximized":true,"degree":"Star"},"mapping_label_text":[[0,"A"],[1,"B"],[2,"C"],[3,"D"]],"mapping_label_oldlabels":[[0,[0]],[1,[1,2]],[2,[0,1]],[3,[1]]],"mapping_oldlabel_text":[[0,"M"],[2,"P"],[1,"U"]],"trivial_sets":[],"coloring_sets":null,"diagram_indirect":[[0,0],[0,2],[1,1],[1,2],[2,2],[3,1],[3,2],[3,3]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0]],[1,[1]],[2,[2]],[3,[3]]],[[0,2],[1,2],[3,1]]]}';
+let problem5 = JSON.parse(serialized5);
+console.log(problem5);
+
+function fix_problem(p) {
+    p.map_label_text = vec_to_map(p.mapping_label_text);
+    p.map_label_oldlabels = vec_to_map(p.mapping_label_oldlabels) ?? null;
+    p.map_oldlabel_text = vec_to_map(p.mapping_oldlabel_text) ?? null;
+    p.labels = p.mapping_label_text.map(x => x[0]);
+}
+
+fix_problem(problem1);
+fix_problem(problem2);
+fix_problem(problem3);
+fix_problem(problem4);
+fix_problem(problem5);
+
+
+function vec_to_map(v){
+    if( v == null ){
+        return null;
+    }
+    return Object.assign({}, ...v.map((x) => ({[x[0]]: x[1]})));
 }
 
 function labelset_to_string(v, mapping) {
@@ -106,30 +127,28 @@ Vue.component('re-computing', {
 Vue.component('re-problem-info', {
     props: ['problem'],
     computed: {
-        label_mapping: function() {
-            return label_mapping(this.problem);
-        },
         info: function() {
             let problem = this.problem;
             let numlabels = problem.mapping_label_text.length;
             let is_zero = problem.trivial_sets != null && problem.trivial_sets.length > 0;
             let is_nonzero = problem.trivial_sets != null && problem.trivial_sets.length == 0;
             let numcolors = problem.coloring_sets != null ? problem.coloring_sets.length : 0;
-            let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,this.label_mapping));
-            let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,this.label_mapping));
+            let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,this.problem.map_label_text));
+            let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,this.problem.map_label_text));
             let mergeable = (this.problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
             let is_mergeable = mergeable.length > 0;
-            let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],this.label_mapping));
+            let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],this.problem.map_label_text));
             return { numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
         }
     },
     template: `
-        <div>
+        <div class="row p-0 m-2">
             <div class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>{{ this.info.numlabels }} Labels.</div>
                 </div>
             </div>
+            <div class="w-100"/>
             <div v-if="this.info.is_zero" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem IS zero round solvable.</div>
@@ -140,9 +159,10 @@ Vue.component('re-problem-info', {
             </div>
             <div v-if="this.info.is_nonzero" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div>The problem is NOT zero round solvable</div>
+                    <div>The problem is NOT zero round solvable.</div>
                 </div>
             </div>
+            <div class="w-100"/>
             <div v-if="this.info.numcolors >= 2" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem is solvable in zero round given a {{ this.info.numcolors }} coloring.</div>
@@ -151,6 +171,7 @@ Vue.component('re-problem-info', {
                     </div>
                 </div>
             </div>
+            <div class="w-100"/>
             <div v-if="this.info.is_mergeable" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The following labels can be merged:
@@ -164,16 +185,16 @@ Vue.component('re-problem-info', {
 
 
 Vue.component('re-constraint', {
-    props: ['problem','side','oldlabels'],
+    props: ['problem','side','mode'],
     computed: {
-        label_mapping: function() {
-            return label_mapping(this.problem);
-        },
         table : function() {
             let problem = this.problem;
             let constraint = this.side == "active" ? problem.active : problem.passive;
             return constraint.lines.map(row => row.parts.map(elem => {
-                let r = {  label : labelset_to_string(elem.group,this.label_mapping) };
+                let renamed = labelset_to_string(elem.group,this.problem.map_label_text);
+                let original = problem.mapping_label_oldlabels == null ? null : elem.group.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
+
+                let r = {  renamed : renamed, original : original};
                 if( elem.gtype == "One" ){
                 } else if( elem.gtype == "Star" ){
                     r.star = true;
@@ -189,7 +210,25 @@ Vue.component('re-constraint', {
         <table class="table">
             <tr v-for="row in this.table">
                 <td v-for="elem in row">
-                    {{ elem.label }}<sup v-if="elem.rep">{{ elem.rep }}</sup><span v-if="elem.star">*</span>
+                    <div v-if="mode == 'original'">
+                        <span v-for="set in elem.original" class="rounded m-1 labelborder">{{ set }}</span>
+                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                        <span v-if="elem.star">*</span>
+                    </div>
+                    <div v-if="mode == 'renamed'">
+                        {{ elem.renamed }}
+                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                        <span v-if="elem.star">*</span>
+                    </div>
+                    <div v-if="mode == 'both'">
+                        {{ elem.renamed }}
+                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                        <span v-if="elem.star">*</span>
+                        <hr/>
+                        <span v-for="set in elem.original" class="rounded m-1 labelborder">{{ set }}</span>
+                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                        <span v-if="elem.star">*</span>
+                    </div>
                 </td>
             </tr>
         </table>
@@ -197,16 +236,141 @@ Vue.component('re-constraint', {
 })
 
 
+Vue.component('re-card',{
+    props: ['title','subtitle','show','id'],
+    template : `
+        <div class="card m-2">
+            <div class="card-header p-0">
+                <button class="btn btn-link" data-toggle="collapse" :data-target="'.collapse'+this.id">
+                    <h6>{{ this.title }}</h6>
+                    <h6><small>{{ this.subtitle }}</small></h6>
+                </button>
+            </div>
+            <div :class="'collapse'+this.id + ' collapse ' + (this.show?'show':'')">
+                <div class="card-body">
+                    <slot></slot>
+                </div>
+            </div>
+        </div>
+    `
+})
+
+Vue.component('re-renaming', {
+    props: ["problem"],
+    computed: {
+        table: function() {
+            return this.problem.mapping_label_oldlabels.map(x => ({
+                old: labelset_to_string(this.problem.map_label_oldlabels[x[0]],this.problem.map_oldlabel_text), 
+                cur: this.problem.map_label_text[x[0]]
+            }));
+        }
+    },
+    template: `
+        <table class="table">
+            <tr v-for="row in this.table">
+                <td><span class="rounded m-1 labelborder">{{ row.old }}</span></td>
+                <td>{{ row.cur }}</td>
+            </tr>
+        </table>
+    `
+})
+
+Vue.component('re-tools', {
+    props: ["problem"],
+    computed: {
+        
+    },
+    template: `
+        <div></div>
+    `
+})
+
+
+Vue.component('re-diagram', {
+    props: ["problem","id"],
+    computed: {
+        visdata : function() {
+            let nodes = [];
+            for( let node of this.problem.diagram_direct[0] ){
+                nodes.push({ id : node[0], label: node[1].map(x => this.problem.map_label_text[x]).join(",") });
+            }
+            let edges = [];
+            for( let edge of this.problem.diagram_direct[1] ){
+                edges.push({ from : edge[0], to : edge[1], arrows: 'to'});
+            }
+            let visnodes = new vis.DataSet(nodes);
+            let visedges = new vis.DataSet(edges);
+            let visdata = {
+                nodes: visnodes,
+                edges: visedges
+            };
+            return visdata;
+        }
+    },
+    mounted: function() {
+        let id = "diagram" + this.id;
+        let network = new vis.Network(document.getElementById(id), this.visdata, {});
+    },
+    template: `
+        <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this.id" onmouseover="document.body.style.overflow='hidden';"  onmouseout="document.body.style.overflow='auto';">
+        </div>
+    `
+})
+
+
+
+
+Vue.component('re-problem', {
+    props: ["problem"],
+    data: function() {
+        return {
+            mode : "renamed"
+        }
+    },
+    template: `
+        <div class="card card-body m-2 p-2 bg-light">
+            <div class="row p-0 m-0 pl-3 pt-3" v-if="this.problem.mapping_label_oldlabels != null">
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn btn-primary active">
+                        <input type="radio" name="options" autocomplete="off" value="renamed" v-model="mode">New</label>
+                    <label class="btn btn-primary">
+                        <input type="radio" name="options" autocomplete="off" value="original" v-model="mode">Old</label>
+                    <label class="btn btn-primary">
+                        <input type="radio" name="options" autocomplete="off" value="both" v-model="mode">Both</label>
+                </div>
+            </div>
+            <re-problem-info :problem="this.problem"></re-problem-info>
+            <div class="row p-0 m-2">
+                <re-card title="Active" subtitle="Any choice satisfies previous Passive" :id="'group1'+this._uid" show="true">
+                    <re-constraint side="active" :mode="this.mode" :problem="this.problem"></re-constraint>
+                </re-card>
+                <re-card title="Passive" subtitle="Exists choice satisfying previous Active" :id="'group1'+this._uid" show="true">
+                    <re-constraint side="passive" :mode="this.mode" :problem="this.problem"></re-constraint>
+                </re-card>
+                <re-card title="Renaming" subtitle="Old and new labels" :id="'group1'+this._uid" show="true" v-if="this.problem.mapping_label_oldlabels != null">
+                    <re-renaming :problem="problem"></re-renaming>
+                </re-card>
+                <re-card title="Diagram" subtitle="Strength of passive labels" :id="'group1'+this._uid" show="true" v-if="this.problem.diagram_direct != null">
+                    <re-diagram :problem="problem" :id="'diag'+this._uid" ></re-diagram>
+                </re-card>
+                <re-card title="Tools" subtitle="Speedup, edit, simplifications, ..." :id="'group1'+this._uid" show="true">
+                    <re-tools :problem="problem"></re-tools>
+                </re-card>
+            </div>
+        </div>
+    `
+})
+
 var app = new Vue({
     el: '#vueapp',
     data: {
         problem1 : problem1,
         problem2 : problem2,
         problem3 : problem3,
-        problem4 : problem4
+        problem4 : problem4,
+        problem5 : problem5
     },
     methods: {}
 })
-
 
 

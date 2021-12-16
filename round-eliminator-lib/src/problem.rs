@@ -177,5 +177,13 @@ mod tests {
         p.compute_diagram(&mut eh);
         let serialized = serde_json::to_string(&p).unwrap();
         println!("{}",serialized);
+
+        let mut p = Problem::from_string("M U*\nP*\n\nM UP*\nU*").unwrap().speedup(&mut eh);
+        let mut eh = EventHandler::null();
+        p.compute_triviality(&mut eh);
+        p.compute_diagram(&mut eh);
+        let serialized = serde_json::to_string(&p).unwrap();
+        println!("{}",serialized);
+
     }
 }
