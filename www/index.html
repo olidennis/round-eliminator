@@ -5,10 +5,10 @@
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
     <title>Round Eliminator</title>
     <link type="text/css" rel="stylesheet" href="//unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
-    <link type="text/css" rel="stylesheet" href="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
-    <script src="//polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver" crossorigin="anonymous"></script>
+    <!--<link type="text/css" rel="stylesheet" href="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />-->
+    <!--<script src="//polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver" crossorigin="anonymous"></script>-->
     <script src="//unpkg.com/vue@latest/dist/vue.min.js"></script>
-    <script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+    <!--<script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>-->
 
     <script src="./api.js"></script>
     <script src="./gui.js" defer></script>
@@ -42,7 +42,15 @@
         <re-problem-info :problem='this.problem3'></re-problem-info>
         <re-problem-info :problem='this.problem4'></re-problem-info>
 
-        <re-test :problem='this.problem1'></re-test>
+        <re-constraint :problem='this.problem1' side="active"></re-constraint>
+        <re-constraint :problem='this.problem1' side="passive"></re-constraint>
+        <re-constraint :problem='this.problem2' side="active"></re-constraint>
+        <re-constraint :problem='this.problem2' side="passive"></re-constraint>
+        <re-constraint :problem='this.problem3' side="active"></re-constraint>
+        <re-constraint :problem='this.problem3' side="passive"></re-constraint>
+        <re-constraint :problem='this.problem4' side="active"></re-constraint>
+        <re-constraint :problem='this.problem4' side="passive"></re-constraint>
+
 
     </div>
 

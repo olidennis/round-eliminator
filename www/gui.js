@@ -163,12 +163,39 @@ Vue.component('re-problem-info', {
 })
 
 
-Vue.component('re-test', {
-    props: ['problem'],
+Vue.component('re-constraint', {
+    props: ['problem','side','oldlabels'],
+    computed: {
+        label_mapping: function() {
+            return label_mapping(this.problem);
+        },
+        table : function() {
+            let problem = this.problem;
+            let constraint = this.side == "active" ? problem.active : problem.passive;
+            return constraint.lines.map(row => row.parts.map(elem => {
+                let r = {  label : labelset_to_string(elem.group,this.label_mapping) };
+                if( elem.gtype == "One" ){
+                } else if( elem.gtype == "Star" ){
+                    r.star = true;
+                } else {
+                    r.rep = elem.gtype.Many;
+                }
+                
+                return r;
+            }));
+        }
+    },
     template: `
-        <b-table striped hover :items="[[1,2,3],[4,5,6]]" thead-class="d-none"></b-table>
+        <table class="table">
+            <tr v-for="row in this.table">
+                <td v-for="elem in row">
+                    {{ elem.label }}<sup v-if="elem.rep">{{ elem.rep }}</sup><span v-if="elem.star">*</span>
+                </td>
+            </tr>
+        </table>
     `   
 })
+
 
 var app = new Vue({
     el: '#vueapp',
