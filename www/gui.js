@@ -242,16 +242,16 @@ Vue.component('re-constraint', {
 
 
 Vue.component('re-card',{
-    props: ['title','subtitle','show','id'],
+    props: ['title','subtitle','show'],
     template : `
         <div class="card m-2">
             <div class="card-header p-0">
-                <button class="btn btn-link text-left" data-toggle="collapse" :data-target="'.collapse'+this.id">
+                <button class="btn btn-link text-left" data-toggle="collapse" :data-target="'.collapse'+this._uid">
                     {{ this.title }}<br/>
                     <small v-if="this.subtitle!=''">{{ this.subtitle }}</small>
                 </button>
             </div>
-            <div :class="'collapse'+this.id + ' collapse ' + (this.show?'show':'')">
+            <div :class="'collapse'+this._uid + ' collapse ' + (this.show?'show':'')">
                 <div class="card-body">
                     <slot></slot>
                 </div>
@@ -430,20 +430,20 @@ Vue.component('re-problem', {
                 </button>
             </div>
             <re-problem-info :problem="this.problem"></re-problem-info>
-            <div class="row p-0 m-2">
-                <re-card title="Active" subtitle="Any choice satisfies previous Passive" :id="'group1'+this._uid" show="true">
+            <div class="row p-0 m-2 align-items-start">
+                <re-card title="Active" subtitle="Any choice satisfies previous Passive" show="true">
                     <re-constraint side="active" :mode="this.mode" :problem="this.problem"></re-constraint>
                 </re-card>
-                <re-card title="Passive" subtitle="Exists choice satisfying previous Active" :id="'group1'+this._uid" show="true">
+                <re-card title="Passive" subtitle="Exists choice satisfying previous Active" show="true">
                     <re-constraint side="passive" :mode="this.mode" :problem="this.problem"></re-constraint>
                 </re-card>
-                <re-card title="Renaming" subtitle="Old and new labels" :id="'group1'+this._uid" show="true" v-if="this.problem.mapping_label_oldlabels != null">
+                <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_label_oldlabels != null">
                     <re-renaming :problem="problem"></re-renaming>
                 </re-card>
-                <re-card title="Diagram" subtitle="Strength of passive labels" :id="'group1'+this._uid" show="true" v-if="this.problem.diagram_direct != null">
+                <re-card title="Diagram" subtitle="Strength of passive labels" show="true" v-if="this.problem.diagram_direct != null">
                     <re-diagram :problem="problem" :id="'diag'+this._uid" ></re-diagram>
                 </re-card>
-                <re-card title="Tools" subtitle="Speedup, edit, simplifications, ..." :id="'group1'+this._uid" show="true">
+                <re-card title="Tools" subtitle="Speedup, edit, simplifications, ..." show="true">
                     <re-tools :problem="problem"></re-tools>
                 </re-card>
             </div>
