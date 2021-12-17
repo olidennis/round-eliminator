@@ -19,6 +19,24 @@ impl Problem {
         }
 
         if v.iter().map(|(_, s)| s).unique().count() != labels.len() {
+            /*for (a,s1) in v {
+                for (b,s2) in v {
+                    if a < b && s1 == s2 {
+                        let hlt : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+                        let hlo : HashMap<_,_> = self.mapping_label_oldlabels.as_ref().unwrap().iter().cloned().collect();
+                        let hot : HashMap<_,_> = self.mapping_oldlabel_text.as_ref().unwrap().iter().cloned().collect();
+                        println!("{} {} would get the same renaming {}",hlt[a],hlt[b],s1);
+                        for o in &hlo[a] {
+                            print!("{}   ",hot[o]);
+                        }
+                        println!();
+                        for o in &hlo[b] {
+                            print!("{}   ",hot[o]);
+                        }
+                        println!();
+                    }
+                }
+            }*/
             return Err("Labels are not unique");
         }
 
@@ -100,17 +118,18 @@ impl Problem {
         let renaming: Vec<_> = map_label_oldlabels
             .into_iter()
             .map(|(label, oldset)| {
-                if oldset.len() == 1 {
-                    (label, map_oldlabels_text[&oldset[0]].clone())
-                } else {
+                //this causes a bug, by not putting <> on single element sets, some collisions may happen
+                //if oldset.len() == 1 {
+                //    (label, map_oldlabels_text[&oldset[0]].chars().filter(|&c|c!=')'&&c!='(').collect::<String>())
+                //} else {
                     (
                         label,
                         format!(
                             "<{}>",
-                            oldset.iter().map(|x| &map_oldlabels_text[x]).join(",")
+                            oldset.iter().map(|x| map_oldlabels_text[x].chars().filter(|&c|c!=')'&&c!='(').collect::<String>()).join(",")
                         ),
                     )
-                }
+                //}
             })
             .collect();
         self.rename(&renaming).unwrap();
@@ -168,7 +187,7 @@ mod tests {
         p.rename_by_generators();
         assert_eq!(
             format!("{}", p),
-            "M P^3\n(<M,U>) U^3\n\nM(<M,U>) PU(<M,U>)^3\nP^4\n"
+            "(<M>) (<P>)^3\n(<M,U>) (<U>)^3\n\n(<M>)(<M,U>) (<P>)(<U>)(<M,U>)^3\n(<P>)^4\n"
         );
 
         let mut p = Problem::from_string("A D D D\nB B B C\n\nAC	BCD	BCD	BCD\nD	D	D	D").unwrap();
@@ -182,7 +201,12 @@ mod tests {
         p.rename_by_generators();
         assert_eq!(
             format!("{}", p),
-            "M P^3\n(<M,U>) U^3\n\nM(<M,U>) PU(<M,U>)^3\nP^4\n"
+            "(<M>) (<P>)^3\n(<M,U>) (<U>)^3\n\n(<M>)(<M,U>) (<P>)(<U>)(<M,U>)^3\n(<P>)^4\n"
         );
+    }
+
+    #[test]
+    fn renaming_by_generators_when_equal_labels() {
+        todo!();
     }
 }

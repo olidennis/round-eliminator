@@ -186,4 +186,113 @@ mod tests {
         println!("{}",serialized);
 
     }
+
+    use std::collections::{HashMap, HashSet};
+
+    fn testproblem() {
+        //let mut eh = EventHandler::with(|(s,a,b)|{print!("                                     \r{} {} {}\r",s,a,b);});
+        let mut eh = EventHandler::null();
+        let eh = &mut eh;
+        let mut p = Problem::from_string("M^4\nP U^3\n\nM UP^3\nU^4").unwrap();
+        let mut step = 0;
+        let delta = 4;
+        let mut last_color = 0;
+        
+        for _ in 0.. {
+            println!("{}\n\n",p);
+
+            p = p.speedup(eh);
+            p.compute_set_inclusion_diagram();
+            p.rename_by_generators();
+            p = p.speedup(eh);
+            p.compute_set_inclusion_diagram();
+            p.rename_by_generators();
+
+            let succ = p.diagram_indirect_to_reachability_adj();
+
+
+            let mut labelname = 1;
+            for (_,text) in p.mapping_label_text.iter_mut() {
+                match text.as_ref() {
+                    "(<<M>>)" => {  *text = "M".into() },
+                    "(<<P>>)" => {  *text = "P".into() },
+                    "(<<U>>)" => {  *text = "U".into() },
+                    "(<<M>,<P>>)" => {  *text = format!("X",); }
+                    _ => {
+                        if text[3..text.len()-3].parse::<usize>().is_err() {
+                            *text = format!("(L{})",labelname);
+                            labelname += 1;
+                        } else {
+                            *text = text[3..text.len()-3].into();
+                        }
+                    }
+                }
+                if text == "(<P,<M,U>>)" {
+                    last_color += 1;
+                    *text = format!("{}",last_color);
+                }
+            }
+            
+            //println!("AFTER RENAMING\n{}\n\n",p);
+
+
+            let mut colors = vec![];
+            for line in &p.active.lines {
+                if line.parts.len() == 1 {
+                    for (l,s) in p.mapping_label_text.iter_mut() {
+                        if *l == line.parts[0].group[0] && s.len() > 1 {
+                            last_color += 1; 
+                            *s = format!("{}",last_color);
+                            break;
+                        }
+                    }
+                    colors.push(line.parts[0].group[0]);
+                }
+            }
+
+            let hlt : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+
+
+            for c in &colors {
+                println!("color {}",hlt[c]);
+            }
+            
+            let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
+
+            let should_merge = step % (delta-1) != 0;
+            if should_merge {
+                let from = last_color;
+                let to = step / (delta-1) * (delta-1) + 1;
+                println!("must merge color {} to color {}",from,to);
+                p = p.relax_merge(htl[&format!("{}",from)], htl[&format!("{}",to)]);
+            }
+
+            let mut successors_of_colors : HashSet<usize> = HashSet::new();
+            for &c in &colors {
+                let s = succ[&c].iter().filter(|&&x|x != c).filter(|l|hlt[l] != "X" && hlt[l] != "P");
+                successors_of_colors.extend(s);
+            }
+
+            for label in successors_of_colors {
+                let target = if succ[&label].contains(&htl["U"]) {
+                    htl["U"]
+                }  else {
+                    htl["X"]
+                };
+                //println!("must merge wildcard {} to {}",hlt[&label],hlt[&target]);
+                p = p.relax_merge(label, target);
+            }
+
+            p.discard_useless_stuff(true, eh);
+            p.sort_active_by_strength();
+
+
+            println!("----------------------");
+            step += 1;
+        }
+
+
+
+
+    }
 }

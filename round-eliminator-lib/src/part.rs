@@ -19,6 +19,19 @@ impl Part {
         s.extend(self.gtype.to_string().chars());
         s
     }
+
+    /*
+    pub fn to_string(&self, mapping: &HashMap<usize, String>) -> String {
+        let mut s = String::new();
+        let deg = self.gtype.value();
+        for _ in 0..deg {
+            for label in &*self.group {
+                s.extend(mapping[&label].chars());
+            }
+            s.extend(" ".chars());
+        }
+        s
+    }*/
 }
 
 #[cfg(test)]
