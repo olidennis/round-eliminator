@@ -25,6 +25,17 @@ function fix_problem(p) {
     p.map_label_oldlabels = vec_to_map(p.mapping_label_oldlabels) ?? null;
     p.map_oldlabel_text = vec_to_map(p.mapping_oldlabel_text) ?? null;
     p.labels = p.mapping_label_text.map(x => x[0]);
+    let problem = p;
+    let numlabels = problem.mapping_label_text.length;
+    let is_zero = problem.trivial_sets != null && problem.trivial_sets.length > 0;
+    let is_nonzero = problem.trivial_sets != null && problem.trivial_sets.length == 0;
+    let numcolors = problem.coloring_sets != null ? problem.coloring_sets.length : 0;
+    let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,problem.map_label_text));
+    let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,problem.map_label_text));
+    let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
+    let is_mergeable = mergeable.length > 0;
+    let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
+    p.info = { numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
 }
 
 fix_problem(problem1);
@@ -135,56 +146,41 @@ Vue.component('re-computing', {
 
 Vue.component('re-problem-info', {
     props: ['problem'],
-    computed: {
-        info: function() {
-            let problem = this.problem;
-            let numlabels = problem.mapping_label_text.length;
-            let is_zero = problem.trivial_sets != null && problem.trivial_sets.length > 0;
-            let is_nonzero = problem.trivial_sets != null && problem.trivial_sets.length == 0;
-            let numcolors = problem.coloring_sets != null ? problem.coloring_sets.length : 0;
-            let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,this.problem.map_label_text));
-            let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,this.problem.map_label_text));
-            let mergeable = (this.problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
-            let is_mergeable = mergeable.length > 0;
-            let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],this.problem.map_label_text));
-            return { numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
-        }
-    },
     template: `
         <div class="row p-0 m-2">
             <div class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div>{{ this.info.numlabels }} Labels.</div>
+                    <div>{{ this.problem.info.numlabels }} Labels.</div>
                 </div>
             </div>
             <div class="w-100"/>
-            <div v-if="this.info.is_zero" class="col-auto m-2 p-0">
+            <div v-if="this.problem.info.is_zero" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem IS zero round solvable.</div>
                     <div>The following sets allow zero round solvability:
-                        <span v-for="set in this.info.zerosets">{{ set }} </span>
+                        <span v-for="set in this.problem.info.zerosets">{{ set }} </span>
                     </div>
                 </div>
             </div>
-            <div v-if="this.info.is_nonzero" class="col-auto m-2 p-0">
+            <div v-if="this.problem.info.is_nonzero" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem is NOT zero round solvable.</div>
                 </div>
             </div>
             <div class="w-100"/>
-            <div v-if="this.info.numcolors >= 2" class="col-auto m-2 p-0">
+            <div v-if="this.problem.info.numcolors >= 2" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div>The problem is solvable in zero round given a {{ this.info.numcolors }} coloring.</div>
+                    <div>The problem is solvable in zero round given a {{ this.problem.info.numcolors }} coloring.</div>
                     <div>The following sets are colors:
-                        <span v-for="set in this.info.coloringsets">{{ set }} </span>
+                        <span v-for="set in this.problem.info.coloringsets">{{ set }} </span>
                     </div>
                 </div>
             </div>
             <div class="w-100"/>
-            <div v-if="this.info.is_mergeable" class="col-auto m-2 p-0">
+            <div v-if="this.problem.info.is_mergeable" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The following labels can be merged:
-                        <span v-for="set in this.info.mergesets">{{ set }} </span>
+                        <span v-for="set in this.problem.info.mergesets">{{ set }} </span>
                     </div>
                 </div>
             </div>
@@ -250,9 +246,9 @@ Vue.component('re-card',{
     template : `
         <div class="card m-2">
             <div class="card-header p-0">
-                <button class="btn btn-link" data-toggle="collapse" :data-target="'.collapse'+this.id">
-                    <h6>{{ this.title }}</h6>
-                    <h6><small>{{ this.subtitle }}</small></h6>
+                <button class="btn btn-link text-left" data-toggle="collapse" :data-target="'.collapse'+this.id">
+                    {{ this.title }}<br/>
+                    <small v-if="this.subtitle!=''">{{ this.subtitle }}</small>
                 </button>
             </div>
             <div :class="'collapse'+this.id + ' collapse ' + (this.show?'show':'')">
@@ -281,16 +277,6 @@ Vue.component('re-renaming', {
                 <td>{{ row.cur }}</td>
             </tr>
         </table>
-    `
-})
-
-Vue.component('re-tools', {
-    props: ["problem"],
-    computed: {
-        
-    },
-    template: `
-        <div></div>
     `
 })
 
@@ -327,6 +313,95 @@ Vue.component('re-diagram', {
 })
 
 
+Vue.component('re-speedup',{
+    props: ['problem'],
+    template: `
+        <button type="button" class="btn btn-primary ml-2">Speedup</button>
+    `
+})
+
+
+Vue.component('re-merge',{
+    props: ['problem'],
+    template: `
+        <button type="button" class="btn btn-primary ml-2" v-if="this.problem.info.is_mergeable">Merge</button>
+    `
+})
+
+Vue.component('re-edit',{
+    props: ['problem'],
+    template: `
+        <button type="button" class="btn btn-primary m-2">Edit</button>
+    `
+})
+
+Vue.component('re-simplify-merge',{
+    props: ['problem'],
+    template: `
+        <re-card title="Simplify" subtitle="(by merging)" :id="'group'+this._uid">
+        </re-card>
+    `
+})
+
+Vue.component('re-simplify-addarrow',{
+    props: ['problem'],
+    template: `
+        <re-card title="Simplify" subtitle="(by adding arrows)" :id="'group'+this._uid">
+        </re-card>
+    `
+})
+
+Vue.component('re-harden-keep',{
+    props: ['problem'],
+    template: `
+        <re-card title="Harden" subtitle="(by keeping labels)" :id="'group'+this._uid">
+        </re-card>
+    `
+})
+
+Vue.component('re-harden-remove',{
+    props: ['problem'],
+    template: `
+        <re-card title="Harden" subtitle="(by removing labels)" :id="'group'+this._uid">
+        </re-card>
+    `
+})
+
+Vue.component('re-auto-lb',{
+    props: ['problem'],
+    template: `
+        <re-card title="Automatic Lower Bound" subtitle="" :id="'group'+this._uid">
+        </re-card>
+    `
+})
+
+Vue.component('re-auto-ub',{
+    props: ['problem'],
+    template: `
+        <re-card title="Automatic Upper Bound" subtitle="" :id="'group'+this._uid">
+        </re-card>
+    `
+})
+
+Vue.component('re-tools', {
+    props: ["problem"],
+    computed: {
+        
+    },
+    template: `
+        <div>
+            <re-speedup :problem="problem"></re-speedup>
+            <re-merge :problem="problem"></re-merge>
+            <re-edit :problem="problem"></re-edit>
+            <re-simplify-merge :problem="problem"></re-simplify-merge>
+            <re-simplify-addarrow :problem="problem"></re-simplify-addarrow>
+            <re-harden-keep :problem="problem"></re-harden-keep>
+            <re-harden-remove :problem="problem"></re-harden-remove>
+            <re-auto-lb :problem="problem"></re-auto-lb>
+            <re-auto-ub :problem="problem"></re-auto-ub>
+        </div>
+    `
+})
 
 
 Vue.component('re-problem', {
