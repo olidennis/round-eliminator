@@ -36,11 +36,11 @@ impl Problem {
                     let group1 = Group(set1.iter().cloned().sorted().collect());
                     let group2 = Group(set2.iter().cloned().sorted().collect());
                     let part1 = Part {
-                        gtype: GroupType::One,
+                        gtype: GroupType::ONE,
                         group: group1,
                     };
                     let part2 = Part {
-                        gtype: GroupType::One,
+                        gtype: GroupType::ONE,
                         group: group2,
                     };
 

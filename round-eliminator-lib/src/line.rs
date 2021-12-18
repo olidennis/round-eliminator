@@ -35,9 +35,9 @@ impl Line {
         for part in &self.parts {
             use GroupType::*;
             match part.gtype {
-                One => {
-                    s += 1;
-                }
+                //One => {
+                //    s += 1;
+                //}
                 Many(n) => {
                     s += n;
                 }
@@ -60,9 +60,9 @@ impl Line {
         for part in &self.parts {
             use GroupType::*;
             match part.gtype {
-                One => {
-                    s += 1;
-                }
+                //One => {
+                //    s += 1;
+                //}
                 Many(n) => {
                     s += n;
                 }

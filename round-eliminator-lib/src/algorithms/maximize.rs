@@ -44,7 +44,7 @@ impl Constraint {
                     let before = &line.parts[0..i];
                     let mid = match part.gtype {
                         GroupType::Many(0) => panic!("group of size 0, should not happen"),
-                        GroupType::One | GroupType::Many(1) => None,
+                        GroupType::ONE => None,
                         GroupType::Many(x) => Some(Part {
                             group: part.group.clone(),
                             gtype: GroupType::Many(x - 1),
@@ -119,7 +119,7 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
         line.parts
             .iter()
             .map(|part| match part.gtype {
-                GroupType::One => 1,
+                GroupType::ONE => 1,
                 GroupType::Many(x) => x,
                 GroupType::Star => starvalue,
             })
@@ -221,7 +221,7 @@ fn combine_lines(
     for (union, v) in unions {
         let union = Part {
             group: Group(union),
-            gtype: GroupType::One,
+            gtype: GroupType::ONE,
         };
         for (x, y) in v {
             let c1 = &l1_without_one[x];

@@ -12,9 +12,12 @@ pub struct Group(pub Vec<usize>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
-    One,
     Many(usize),
     Star,
+}
+
+impl GroupType {
+    pub const ONE: GroupType = GroupType::Many(1);
 }
 
 impl Deref for Group {
@@ -65,7 +68,7 @@ impl GroupType {
     pub fn to_string(&self) -> String {
         use GroupType::*;
         match self {
-            One => String::new(),
+            &GroupType::ONE => String::new(),
             Many(n) => format!("^{}", n),
             Star => String::from('*'),
         }
@@ -74,7 +77,7 @@ impl GroupType {
     pub fn value(&self) -> usize {
         use GroupType::*;
         match self {
-            One => 1,
+            //One => 1,
             Many(n) => *n,
             Star => {
                 panic!("Should not call value() on Star")
@@ -95,7 +98,7 @@ mod tests {
 
     #[test]
     fn valid_values() {
-        assert_eq!(GroupType::One.value(), 1);
+        assert_eq!(GroupType::ONE.value(), 1);
         assert_eq!(GroupType::Many(100).value(), 100);
     }
 }

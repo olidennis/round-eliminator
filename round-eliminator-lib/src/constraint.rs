@@ -140,21 +140,21 @@ impl Constraint {
                 if part.group.contains(&l1) {
                     let mut test = line.clone();
                     match test.parts[i].gtype {
-                        GroupType::One => {
+                        GroupType::ONE => {
                             test.parts[i].group.0 = vec![l2];
                         }
                         GroupType::Many(x) => {
                             test.parts[i].gtype = GroupType::Many(x - 1);
                             let part = Part {
                                 group: Group(vec![l2]),
-                                gtype: GroupType::One,
+                                gtype: GroupType::ONE,
                             };
                             test.parts.push(part);
                         }
                         GroupType::Star => {
                             let part = Part {
                                 group: Group(vec![l2]),
-                                gtype: GroupType::One,
+                                gtype: GroupType::ONE,
                             };
                             test.parts.push(part);
                         }

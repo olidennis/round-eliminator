@@ -49,7 +49,7 @@ mod tests {
         let p = Part::parse("ABC", &mut h).unwrap();
         assert_eq!(
             Part {
-                gtype: GroupType::One,
+                gtype: GroupType::ONE,
                 group: Group(vec![0, 1, 2])
             },
             p

@@ -189,17 +189,29 @@ mod tests {
 
     use std::collections::{HashMap, HashSet};
 
+    #[test]
     fn testproblem() {
-        //let mut eh = EventHandler::with(|(s,a,b)|{print!("                                     \r{} {} {}\r",s,a,b);});
-        let mut eh = EventHandler::null();
+        //let s = std::fs::read_to_string("../test.txt").unwrap();
+        //let p = Problem::from_string(s).unwrap();
+        //println!("{}",p);
+        //return;
+
+        let mut eh = EventHandler::with(|(s,a,b)|{print!("                                     \r{} {} {}\r",s,a,b);});
+        //let mut eh = EventHandler::null();
         let eh = &mut eh;
-        let mut p = Problem::from_string("M^4\nP U^3\n\nM UP^3\nU^4").unwrap();
-        let mut step = 0;
+
         let delta = 4;
+        let nomerge = delta-2;
+
+        let mut p = Problem::from_string(format!("M^{}\nP U^{}\n\nM UP^{}\nU^{}",delta,delta-1,delta-1,delta)).unwrap();
+
+        let mut step = 0;
         let mut last_color = 0;
         
-        for _ in 0.. {
-            println!("{}\n\n",p);
+        for _ in 0..4 {
+            let serialized = serde_json::to_string(&p).unwrap();
+            println!("\n\n{}\n\n",serialized);
+            println!("\n\n{}\n\n",p);
 
             p = p.speedup(eh);
             p.compute_set_inclusion_diagram();
@@ -227,10 +239,6 @@ mod tests {
                         }
                     }
                 }
-                if text == "(<P,<M,U>>)" {
-                    last_color += 1;
-                    *text = format!("{}",last_color);
-                }
             }
             
             //println!("AFTER RENAMING\n{}\n\n",p);
@@ -252,18 +260,19 @@ mod tests {
 
             let hlt : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
 
-
+            println!("\n\ncolors: ");
             for c in &colors {
-                println!("color {}",hlt[c]);
+                print!(" {} ",hlt[c]);
             }
+            println!("\n\n");
             
             let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
 
-            let should_merge = step % (delta-1) != 0;
+            let should_merge = step % nomerge != 0;
             if should_merge {
                 let from = last_color;
-                let to = step / (delta-1) * (delta-1) + 1;
-                println!("must merge color {} to color {}",from,to);
+                let to = step / nomerge * nomerge + 1;
+                println!("\n\nmust merge color {} to color {}\n\n",from,to);
                 p = p.relax_merge(htl[&format!("{}",from)], htl[&format!("{}",to)]);
             }
 
@@ -287,7 +296,6 @@ mod tests {
             p.sort_active_by_strength();
 
 
-            println!("----------------------");
             step += 1;
         }
 

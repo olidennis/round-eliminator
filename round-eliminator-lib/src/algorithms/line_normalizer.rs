@@ -37,15 +37,15 @@ impl Line {
 
             use GroupType::*;
             let mut r = match (x, part.gtype) {
-                (One, One) => Many(2),
-                (One, Many(a)) => Many(a + 1),
-                (Many(a), One) => Many(*a + 1),
+                //(One, One) => Many(2),
+                //(One, Many(a)) => Many(a + 1),
+                //(Many(a), One) => Many(*a + 1),
                 (Many(a), Many(b)) => Many(*a + b),
                 (Star, _) | (_, Star) => Star,
             };
 
             if r == GroupType::Many(1) {
-                r = GroupType::One;
+                r = GroupType::ONE;
             }
 
             h.insert(part.group, r);

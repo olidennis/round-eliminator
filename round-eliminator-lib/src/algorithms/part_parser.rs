@@ -20,7 +20,7 @@ impl Part {
             let next_label = mapping.len();
             *mapping.entry(s).or_insert(next_label)
         };
-        let mut gtype = GroupType::One;
+        let mut gtype = GroupType::ONE;
 
         while let Some(c) = chars.by_ref().next() {
             match (state, c) {
