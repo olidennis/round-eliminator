@@ -33,7 +33,7 @@ impl Problem {
         self.coloring_sets = None;
     }
 
-    pub fn discard_useless_stuff(&mut self, recompute_diagram: bool, eh: &mut EventHandler) {
+    pub fn discard_useless_stuff(&mut self, recompute_full_diagram: bool, eh: &mut EventHandler) {
         // if passive side is maximized and some label gets discarded, it is still maximized, but some non-maximal lines may be present
         // zero-round solvability is preserved
         // coloring solvability is preserved
@@ -45,16 +45,18 @@ impl Problem {
             self.diagram_indirect = None;
             self.diagram_direct = None;
             eh.notify("recompute diagram", 1, 1);
-            if recompute_diagram {
+            if recompute_full_diagram {
                 self.compute_diagram(eh);
+            } else {
+                self.compute_partial_diagram(eh);
             }
             eh.notify("discard non maximal", 1, 1);
             self.passive.discard_non_maximal_lines();
             self.active.discard_non_maximal_lines();
             eh.notify("remove weak", 1, 1);
-            if self.diagram_indirect.is_some() {
-                self.remove_weak_active_lines();
-            }
+            //if self.diagram_indirect.is_some() {
+            self.remove_weak_active_lines();
+            //}
             eh.notify("discard labels at most one side", 1, 1);
             self.discard_labels_used_on_at_most_one_side_from_configurations();
             eh.notify("discard unused internal", 1, 1);
@@ -146,6 +148,6 @@ mod tests {
 
         let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB C").unwrap();
         p.discard_useless_stuff(false, &mut EventHandler::null());
-        assert_eq!(format!("{}", p), "A^3\nB A^2\nA B^2\nC^3\n\nAB^2\nB C\n");
+        assert_eq!(format!("{}", p), "A B^2\n\nAB^2\n");
     }
 }

@@ -128,6 +128,8 @@ impl Display for Problem {
 #[cfg(test)]
 mod tests {
 
+    use itertools::Itertools;
+
     use crate::{problem::Problem, algorithms::event::EventHandler};
 
     #[test]
@@ -189,8 +191,86 @@ mod tests {
 
     use std::collections::{HashMap, HashSet};
 
-    #[test]
+    //#[test]
     fn testproblem() {
+        let mut eh = EventHandler::with(|(s,a,b)|{print!("                                     \r{} {} {}\r",s,a,b);});
+        /*let mut eh = EventHandler::null();
+        let mut p = Problem::from_string(format!(r"M M M M M
+        P U U U U
+        1 1 1 1 1
+        2 2 2 2 2
+        3 3 3 3 3
+        L L L L X
+        (12) (12) (12) (12) U
+        (13) (13) (13) (13) U
+        (23) (23) (23) (23) U
+        (123) (123) (123) U U
+
+        MX PU123(12)(13)(23)(123)X PU123(12)(13)(23)(123)X
+        LMPU123(12)(13)(23)(123)X PU123(12)(13)(23)(123)X X
+        LX U23(23)X UX
+        LX 2UX 3UX
+        UX U123(12)(13)(23)(123)X UX
+        1UX 23(23)UX UX
+        2UX 13(13)UX UX
+        3UX 12(12)UX UX
+        1UX 2UX 3UX")).unwrap();
+        p.compute_diagram(&mut eh);
+
+        let mut p = p.speedup(&mut eh);
+        p.compute_set_inclusion_diagram();
+        p.rename_by_generators();
+
+        let mut p = p.speedup(&mut eh);
+        p.compute_set_inclusion_diagram();
+        p.rename_by_generators();
+        p.sort_active_by_strength();
+
+        println!("{}",p);
+
+        let serialized = serde_json::to_string(&p).unwrap();
+        println!("\n\n{}\n\n",serialized);*/
+        let s = std::fs::read_to_string("../serialized.txt").unwrap();
+        let mut p: Problem = serde_json::from_str(&s).unwrap();
+        println!("{}",p);
+
+
+        let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
+        p = p.relax_merge(htl["(<<2>>)"],htl["(<<M,U>,<2>>)"]);
+        p = p.relax_merge(htl["(<<P>,<M,U>>)"],htl["(<<M,U>,<2>>)"]);
+        p = p.relax_merge(htl["(<<M>,<P>>)"],htl["(<<X>>)"]);
+
+        p = p.relax_merge(htl["(<<23>,<L,13>>)"],htl["(<<23>>)"]);
+        p = p.relax_merge(htl["(<<123>,<L,13>>)"],htl["(<<123>>)"]);
+        p = p.relax_merge(htl["(<<123>,<M,23>,<L,13>>)"],htl["(<<123>,<M,23>>)"]);
+
+        p = p.relax_merge(htl["(<<P>,<L,12>>)"],htl["(<<12>,<L>>)"]);
+        p = p.relax_merge(htl["(<<P>,<M,23>>)"],htl["(<<23>,<M,3>>)"]);
+
+        p = p.relax_merge(htl["(<<23>,<M,3>>)"],htl["(<<23>>)"]);
+
+
+        p.discard_useless_stuff(false, &mut eh);
+
+        p.rename(&[
+            (htl["(<<M>>)"],"M".into()),
+            (htl["(<<M,U>>)"],"L".into()),
+            (htl["(<<X>>)"],"X".into()),
+            (htl["(<<M,U>,<2>>)"],"2".into()),
+            (htl["(<<U>>)"],"U".into()),
+            (htl["(<<23>>)"],"23".into()),
+            (htl["(<<3>>)"],"3".into()),
+            (htl["(<<12>,<L>>)"],"12".into()),
+            (htl["(<<1>>)"],"1".into()),
+            (htl["(<<123>>)"],"123".into()),
+            (htl["(<<13>>)"],"13".into()),
+            (htl["(<<P>>)"],"P".into()),
+        ]).unwrap();
+
+        println!("\n\n\n{}\n\n\n",p);
+    }
+    
+    fn testproblem2() {
         //let s = std::fs::read_to_string("../test.txt").unwrap();
         //let p = Problem::from_string(s).unwrap();
         //println!("{}",p);
@@ -204,20 +284,94 @@ mod tests {
         let nomerge = delta-2;
 
         let mut p = Problem::from_string(format!("M^{}\nP U^{}\n\nM UP^{}\nU^{}",delta,delta-1,delta-1,delta)).unwrap();
+        p.compute_diagram(eh);
 
         let mut step = 0;
         let mut last_color = 0;
         
-        for _ in 0..4 {
+        for _ in 0.. {
             let serialized = serde_json::to_string(&p).unwrap();
             println!("\n\n{}\n\n",serialized);
             println!("\n\n{}\n\n",p);
 
+
+            let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
+            //p.diagram_indirect = None;
+            //p.compute_diagram(eh);
+            let label_p = htl["P"];
+            for (_,group) in p.diagram_direct.as_ref().unwrap().0.clone().iter() {
+                if group.contains(&label_p) {
+                    for &l in group {
+                        if l != label_p {
+                            p = p.relax_merge(l,label_p);
+                        }
+                    }
+                }
+            }
+            if p.diagram_indirect.is_none() {
+                p.compute_diagram(eh);
+            }
+
+            p.compute_triviality(eh);
+            if p.trivial_sets.as_ref().unwrap().len() > 0 {
+                println!("got a trivial problem");
+                return;
+            }
+
             p = p.speedup(eh);
-            p.compute_set_inclusion_diagram();
+            p.compute_partial_diagram(eh);
             p.rename_by_generators();
+
+            //println!("\n\nIntermediate problem:\n{}\n\n",p);
+
+            if step % nomerge != 0 && false {
+                let hlt : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+                let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
+                let label_p = htl["(<P>)"];
+                let successors_of_p : Vec<_> = p.diagram_direct.as_ref().unwrap().1.iter().filter(|&&(a,b)|a==label_p&&b!=label_p).map(|(_,b)|*b).collect();
+                if successors_of_p.len() > 1 {
+                    println!("\n\nP has {} successors\n\n",successors_of_p.len());
+                    return;
+                }
+                if successors_of_p.len() == 1 {
+                    let succp = successors_of_p[0];
+                    //let predecessors_of_succp : Vec<_> = p.diagram_direct.as_ref().unwrap().1.iter().filter(|&&(a,b)|b==succp&&a!=succp).map(|(a,_)|*a).collect();
+                    /*if predecessors_of_succp.len() != 2 {
+                        println!("\n\nsuccP has {} predecessors\n\n",predecessors_of_succp.len());
+                        return;
+                    }
+                    let otherp = predecessors_of_succp.into_iter().filter(|&x|x != label_p).next().unwrap();
+                    */
+                    /*for otherp in predecessors_of_succp.into_iter().filter(|&x|x != label_p){
+                        println!("merging {} to {}",hlt[&otherp],hlt[&succp]);
+                        p = p.relax_merge(otherp,succp);
+                    }*/
+
+                    let succ = p.diagram_indirect_to_reachability_adj();
+                    let mut toremove = succ[&htl["(<M>)"]].clone();
+                    for c in (1..=last_color).step_by(nomerge) {
+                        toremove = toremove.intersection(&succ[&htl[&format!("(<{}>)",c)]]).cloned().collect();
+                    }
+
+                    for otherp in toremove.into_iter().filter(|&x|x != succp && succ[&x].contains(&succp)) {
+                        //println!("merging {} to {}",hlt[&otherp],hlt[&succp]);
+                        p = p.relax_merge(otherp,succp);
+                    }
+
+                    p.compute_partial_diagram(eh);
+                    println!("\n\nIntermediate problem after simplifications:\n{}\n\n",p);
+                } else {
+                    //println!("\n\nnot doing intermediate relaxations\n\n");
+                }
+            } else {
+                //println!("skipping intermediate relaxations");
+            }
+
+
+
+
             p = p.speedup(eh);
-            p.compute_set_inclusion_diagram();
+            p.compute_partial_diagram(eh);
             p.rename_by_generators();
 
             let succ = p.diagram_indirect_to_reachability_adj();
@@ -260,11 +414,14 @@ mod tests {
 
             let hlt : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
 
-            println!("\n\ncolors: ");
+            println!("\n\ngot colors: ");
             for c in &colors {
                 print!(" {} ",hlt[c]);
             }
             println!("\n\n");
+
+            println!("\n\nProblem BEFORE simplifications\n{}\n\n",p);
+
             
             let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
 
@@ -272,7 +429,7 @@ mod tests {
             if should_merge {
                 let from = last_color;
                 let to = step / nomerge * nomerge + 1;
-                println!("\n\nmust merge color {} to color {}\n\n",from,to);
+                println!("\n\nmerging color {} to color {}\n\n",from,to);
                 p = p.relax_merge(htl[&format!("{}",from)], htl[&format!("{}",to)]);
             }
 
@@ -292,9 +449,87 @@ mod tests {
                 p = p.relax_merge(label, target);
             }
 
+            p.compute_partial_diagram(eh);
+            let label_p = htl["P"];
+            let label_x = htl["X"];
+            for (_,group) in p.diagram_direct.as_ref().unwrap().0.clone().iter() {
+                if group.contains(&label_p) {
+                    for &l in group {
+                        if l != label_p {
+                            p = p.relax_merge(l,label_p);
+                        }
+                    }
+                }
+                if group.contains(&label_x) {
+                    for &l in group {
+                        if l != label_p {
+                            p = p.relax_merge(l,label_x);
+                        }
+                    }
+                }
+            }
+
+            println!("\n\nProblem after some simplifications\n{}\n\n",p);
+
+            p.discard_useless_stuff(true, eh);
+
+            let hlt : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+            //println!("\n\n{}\n\n",p);
+            let succ = p.diagram_indirect_to_reachability_adj();
+            for l1 in succ.keys() {
+                for l2 in succ.keys() {
+                    if l1 != l2  {
+                        let mut sl1 = succ[l1].clone();
+                        let mut sl2 = succ[l2].clone();
+                        sl1.remove(l1);
+                        sl2.remove(l2);
+                        if sl1 == sl2 && sl1.len() >= 3 {
+                            //println!("merging similar labels {} to {}",hlt[l1],hlt[l2]);
+                            p = p.relax_merge(*l1, *l2);
+                        }
+
+                    }
+                }
+            }
+
+            /*
+            p.discard_useless_stuff(true, eh);
+
+            //println!("\n\nJust before checking for path:\n{}\n\n",p);
+
+            
+            let dirsucc = p.diagram_direct_to_succ_adj();
+            let dirpred = p.diagram_direct_to_pred_adj();
+            let mut path : Vec<usize> = dirsucc[&label_p].iter().filter(|x|{
+                //println!("succ of P: {}, {} {}",hlt[x],dirsucc[x].len(),dirpred[x].len());
+                dirsucc[x].len() == 1 && dirpred[x].len() == 1
+            }).cloned().collect();
+            while !path.is_empty() {
+                let last = path.last().unwrap();
+                let next = dirsucc[last].iter().cloned().next().unwrap();
+                if dirsucc[&next].len() == 1 && dirpred[&next].len() == 1 {
+                    path.push(next);
+                } else {
+                    break;
+                }
+            }
+            //println!("path length: {}",path.len());
+            if path.len() >= 2 {
+                println!("merging in the path between P and the color");
+                for &x in &path {
+                    p = p.relax_merge(x, path[0]);
+                }
+            }*/
+
+            if p.diagram_indirect.is_none() {
+                p.compute_partial_diagram(eh);
+            }
+            p.sort_active_by_strength();
+            println!("\n\nProblem after more simplifications\n{}\n\n",p);
+            
+
             p.discard_useless_stuff(true, eh);
             p.sort_active_by_strength();
-
 
             step += 1;
         }
@@ -302,5 +537,40 @@ mod tests {
 
 
 
+    }
+}
+
+
+impl Problem {
+    pub fn diagram_direct_to_succ_adj(&self) -> HashMap<usize, HashSet<usize>> {
+        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+        for &(a, b) in &self
+            .diagram_direct
+            .as_ref()
+            .expect("diagram required, but still not computed")
+            .1
+        {
+            h.entry(a).or_default().insert(b);
+        }
+        for label in self.labels() {
+            h.entry(label).or_default();
+        }
+        h
+    }
+
+    pub fn diagram_direct_to_pred_adj(&self) -> HashMap<usize, HashSet<usize>> {
+        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+        for &(a, b) in &self
+            .diagram_direct
+            .as_ref()
+            .expect("diagram required, but still not computed")
+            .1
+        {
+            h.entry(b).or_default().insert(a);
+        }
+        for label in self.labels() {
+            h.entry(label).or_default();
+        }
+        h
     }
 }

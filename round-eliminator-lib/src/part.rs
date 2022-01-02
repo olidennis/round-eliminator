@@ -20,8 +20,8 @@ impl Part {
         s
     }
 
-    /*
-    pub fn to_string(&self, mapping: &HashMap<usize, String>) -> String {
+    
+    pub fn _to_string(&self, mapping: &HashMap<usize, String>) -> String {
         let mut s = String::new();
         let deg = self.gtype.value();
         for _ in 0..deg {
@@ -31,7 +31,7 @@ impl Part {
             s.extend(" ".chars());
         }
         s
-    }*/
+    }
 }
 
 #[cfg(test)]

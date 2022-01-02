@@ -132,9 +132,12 @@ impl Constraint {
     }
 
     pub fn is_diagram_predecessor(&self, l1: usize, l2: usize) -> bool {
-        if !self.is_maximized {
-            panic!("Maximization has not been performed");
-        }
+        // this is commented out so that one may still try to see if a label is a predecessor of another label
+        // if the result is true, then it is always correct
+        // if the result is false, it may just be because of a non-maximized right side
+        //if !self.is_maximized {
+        //    panic!("Maximization has not been performed");
+        //}
         for line in &self.lines {
             for (i, part) in line.parts.iter().enumerate() {
                 if part.group.contains(&l1) {

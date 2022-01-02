@@ -8,10 +8,15 @@ use super::event::EventHandler;
 
 impl Problem {
     pub fn compute_diagram(&mut self, eh: &mut EventHandler) {
+        
+        self.passive.maximize(eh);
+        self.compute_partial_diagram(eh);
+    }
+
+    pub fn compute_partial_diagram(&mut self, eh: &mut EventHandler) {
         if self.diagram_indirect.is_some() {
             panic!("diagram has been computed already");
         }
-        self.passive.maximize(eh);
 
         let labels: Vec<_> = self.labels();
 
