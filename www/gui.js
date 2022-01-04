@@ -1,57 +1,68 @@
 
 import * as api from "./api.js"
 
-/*
-let serialized1 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1]}]},{"parts":[{"gtype":"Star","group":[2]}]}],"is_maximized":false,"degree":"Star"},"passive":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1,2]}]},{"parts":[{"gtype":"One","group":[0,1]},{"gtype":"Star","group":[1]}]}],"is_maximized":true,"degree":"Star"},"mapping_label_text":[[1,"U"],[2,"P"],[0,"M"]],"mapping_label_oldlabels":null,"mapping_oldlabel_text":null,"trivial_sets":[],"coloring_sets":null,"diagram_indirect":[[0,0],[1,1],[2,1],[2,2]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0]],[1,[1]],[2,[2]]],[[2,1]]]}';
-let problem1 = JSON.parse(serialized1);
-console.log(problem1);
 
-let serialized2 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":{"Many":2},"group":[1]}]},{"parts":[{"gtype":"One","group":[2]},{"gtype":{"Many":2},"group":[3]}]}],"is_maximized":false,"degree":{"Finite":3}},"passive":{"lines":[{"parts":[{"gtype":{"Many":2},"group":[0,1]}]},{"parts":[{"gtype":{"Many":2},"group":[2,3]}]}],"is_maximized":true,"degree":{"Finite":2}},"mapping_label_text":[[3,"D"],[0,"A"],[2,"C"],[1,"B"]],"mapping_label_oldlabels":null,"mapping_oldlabel_text":null,"trivial_sets":[[0,1],[2,3]],"coloring_sets":null,"diagram_indirect":[[0,0],[0,1],[1,0],[1,1],[2,2],[2,3],[3,2],[3,3]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0,1]],[2,[2,3]]],[]]}';
-let problem2 = JSON.parse(serialized2);
-console.log(problem2);
-
-let serialized3 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":{"Many":2},"group":[1]}]},{"parts":[{"gtype":"One","group":[2]},{"gtype":{"Many":2},"group":[3]}]}],"is_maximized":false,"degree":{"Finite":3}},"passive":{"lines":[{"parts":[{"gtype":"One","group":[0,1]},{"gtype":"One","group":[2,3]}]}],"is_maximized":true,"degree":{"Finite":2}},"mapping_label_text":[[1,"B"],[3,"D"],[2,"C"],[0,"A"]],"mapping_label_oldlabels":null,"mapping_oldlabel_text":null,"trivial_sets":[],"coloring_sets":[[0,1],[2,3]],"diagram_indirect":[[0,0],[0,1],[1,0],[1,1],[2,2],[2,3],[3,2],[3,3]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0,1]],[2,[2,3]]],[]]}';
-let problem3 = JSON.parse(serialized3);
-console.log(problem3);
-
-let serialized4 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"One","group":[0,1]},{"gtype":"One","group":[1]},{"gtype":"One","group":[2]}]}],"is_maximized":false,"degree":{"Finite":4}},"passive":{"lines":[{"parts":[{"gtype":{"Many":2},"group":[0,1]}]},{"parts":[{"gtype":{"Many":2},"group":[2]}]}],"is_maximized":true,"degree":{"Finite":2}},"mapping_label_text":[[1,"B"],[0,"A"],[2,"C"]],"mapping_label_oldlabels":null,"mapping_oldlabel_text":null,"trivial_sets":[],"coloring_sets":[],"diagram_indirect":[[0,0],[0,1],[1,0],[1,1],[2,2]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0,1]],[2,[2]]],[]]}';
-let problem4 = JSON.parse(serialized4);
-console.log(problem4);
-
-let serialized5 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1]}]},{"parts":[{"gtype":"One","group":[2]},{"gtype":"Star","group":[3]}]}],"is_maximized":false,"degree":"Star"},"passive":{"lines":[{"parts":[{"gtype":"One","group":[0,2]},{"gtype":"Star","group":[1,2,3]}]},{"parts":[{"gtype":"One","group":[0,1,2,3]},{"gtype":"One","group":[2]},{"gtype":"Star","group":[1,2,3]}]},{"parts":[{"gtype":"One","group":[0,1,2]},{"gtype":"Star","group":[1,2]}]}],"is_maximized":true,"degree":"Star"},"mapping_label_text":[[0,"A"],[1,"B"],[2,"C"],[3,"D"]],"mapping_label_oldlabels":[[0,[0]],[1,[1,2]],[2,[0,1]],[3,[1]]],"mapping_oldlabel_text":[[0,"M"],[2,"P"],[1,"U"]],"trivial_sets":[],"coloring_sets":null,"diagram_indirect":[[0,0],[0,2],[1,1],[1,2],[2,2],[3,1],[3,2],[3,3]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0]],[1,[1]],[2,[2]],[3,[3]]],[[0,2],[1,2],[3,1]]]}';
-let problem5 = JSON.parse(serialized5);
-console.log(problem5);*/
-
-function new_problem(left, right, onresult, onerror) {
-    let ondata = function(x) {
-        if( x.E != null ) {
-            onerror(x.E);
+function handle_result(x, onresult, onerror, progress) {
+    if( x.E != null ) {
+        onerror(x.E);
+    }
+    if( x.P != null ){
+        let p = x.P;
+        fix_problem(p);
+        onresult(p);
+    }
+    if( x.Event != null ){
+        progress.type = x.Event[0];
+        if(x.Event.length > 1) {
+            progress.cur = x.Event[1];
+            progress.max = x.Event[2];
         }
-        if( x.P != null ){
-            let p = x.P;
-            fix_problem(p);
-            onresult(p);
-        }
-    };
+    }
+};
+
+function new_problem(left, right, onresult, onerror, progress) {
+    let ondata = x => handle_result(x, onresult, onerror, progress);
     api.request({ NewProblem : [left,right] }, ondata , function(){});
 }
 
-function speedup(onresult, progress){
-    let ondata = function(x) {
-        if( x.P != null ){
-            let p = x.P;
-            fix_problem(p);
-            onresult(p);
-        }
-        if( x.Event != null ){
-            progress.type = x.Event[0];
-            if(x.Event.length > 1) {
-                progress.cur = x.Event[1];
-                progress.max = x.Event[2];
-            }
-        }
-    };
-    return api.request({ Speedup : this }, ondata , function(){});
+function speedup(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Speedup : problem }, ondata , function(){});
+}
+
+function simplify_merge(problem, from, to, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ SimplifyMerge : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
+}
+
+function simplify_addarrow(problem, from, to, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ SimplifyAddarrow : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
+}
+
+function harden_remove(problem, label, keep_predecessors, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ HardenRemove : [problem, parseInt(label), keep_predecessors] }, ondata , function(){});
+}
+
+function merge_equivalent_labels(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ MergeEquivalentLabels : problem }, ondata , function(){});
+}
+
+function maximize(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Maximize : problem }, ondata , function(){});
+}
+
+function renamegenerators(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ RenameGenerators : problem }, ondata , function(){});
+}
+
+function rename(problem, renaming, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Rename : [problem,renaming] }, ondata , function(){});
 }
 
 function fix_problem(p) {
@@ -70,18 +81,33 @@ function fix_problem(p) {
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
     p.info = { numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
-    p.speedup = speedup;
 }
 
-/*
-fix_problem(problem1);
-fix_problem(problem2);
-fix_problem(problem3);
-fix_problem(problem4);
-fix_problem(problem5);*/
 
 
+function on_new_problem(stuff, action, progress, p){
+    let idx = stuff.indexOf(progress);
+    stuff.splice(idx,1);
+    stuff.push({ type : "performed", data: action })
+    stuff.push({ type : "problem", data : p });
+}
 
+
+function call_api_generating_problem(stuff, action, f, params) {
+    let progress = { type : "computing", data: {type : "empty", cur : 1, max : 1, onstop : function(){}} };
+    stuff.push(progress);
+    let remove_progress_bar = function() {
+        console.log("removing progress bar");
+        let idx = stuff.indexOf(progress);
+        stuff.splice(idx,1);
+    }
+    let termination_handle = f(...params, p => on_new_problem(stuff, action, progress, p),e =>  { remove_progress_bar() ; stuff.push({ type : "error", data : e });} ,progress.data);
+    progress.data.onstop = function() {
+        remove_progress_bar();
+        console.log("killing worker");
+        termination_handle();
+    }
+}
 
 function vec_to_map(v){
     if( v == null ){
@@ -95,7 +121,16 @@ function labelset_to_string(v, mapping) {
 }
 
 
-
+function constraint_to_text(constraint,mapping) {
+    return constraint.lines.map(line => {
+        return line.parts.map(part => {
+            let exp = "";
+            if( part.gtype == "Star" )exp="*";
+            else if( part.gtype.Many != 1 )exp = "^" + part.gtype.Many;
+            return part.group.map( label => mapping[label] ).join("") + exp;
+        }).join(" ")
+    }).join("\n")
+}
 
 Vue.component('re-performed-action', {
     props: ['action'],
@@ -116,6 +151,12 @@ Vue.component('re-performed-action', {
                     return "Performed Hardening: Remove Label " + this.action.label;
                 case "speedup":
                     return "Performed speedup";
+                case "maximize":
+                    return "Maximized passive side";
+                case "renamegenerators":
+                    return "Renamed by generators";
+                case "rename":
+                    return "Renamed";
                 default:
                     return "Unknown " + this.action.type
             }
@@ -136,7 +177,7 @@ Vue.component('re-performed-action', {
 Vue.component('re-error', {
     props: ['error'],
     template: `
-        <div class="card bg-primary text-white m-2 p-2" :id="'current'+this._uid">
+        <div class="card bg-danger text-white m-2 p-2" :id="'current'+this._uid">
             <span>
                 {{ this.error }}
                 <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close" aria-label="Close">
@@ -373,73 +414,151 @@ Vue.component('re-speedup',{
     props: ['problem','stuff'],
     methods: {
         on_speedup() {
-            let stuff = this.stuff;
-            let progress = { type : "computing", data: {type : "empty", cur : 1, max : 1, onstop : function(){}} };
-            stuff.push(progress);
-            let termination_handle = this.problem.speedup(function(p){
-                let idx = stuff.indexOf(progress);
-                stuff.splice(idx,1);
-                stuff.push({ type : "performed", data: { type : "speedup"} })
-                stuff.push({ type : "problem", data : p });
-            },
-            progress.data);
-            progress.data.onstop = function() {
-                console.log("removing progress bar");
-                let idx = stuff.indexOf(progress);
-                stuff.splice(idx,1);
-                console.log("killing worker");
-                termination_handle();
-            }
+            call_api_generating_problem(this.stuff,{type:"speedup"},speedup,[this.problem]);
         }
     },
     template: `
-        <button type="button" class="btn btn-primary ml-2" v-on:click="on_speedup">Speedup</button>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Speedup</button>
+    `
+})
+
+Vue.component('re-rename-generators',{
+    props: ['problem','stuff'],
+    methods: {
+        on_rename() {
+            call_api_generating_problem(this.stuff,{type:"renamegenerators"},renamegenerators,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_rename">Rename by generators</button>
+    `
+})
+
+Vue.component('re-rename',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+        table: this.problem.mapping_label_text.map(x => {
+                let label = x[0];
+                let text = x[1];
+                let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                if( oldtext == null ) {
+                    return [label,text,"",text];
+                } else {
+                    return [label,text,oldtext,text];
+                }
+        })
+    }},
+    methods: {
+        on_rename() {
+            call_api_generating_problem(this.stuff,{type:"rename"},rename,[this.problem,this.table.map(x => [x[0],x[3]])]);
+        }
+    },
+    template: `
+    <re-card title="New renaming" subtitle="(manually rename labels)" :id="'group'+this._uid">
+        <table class="table">
+            <tr v-for="(row,index) in this.table">
+                <td class="align-middle" v-if="row[2]!=''"><span class="rounded m-1 labelborder">{{ row[2] }}</span></td>
+                <td class="align-middle">{{ row[1] }}</td>
+                <td class="align-middle"><input class="form-control" v-model="table[index][3]"></input></td>
+            </tr>
+        </table>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_rename">Rename</button>
+    </re-card>
     `
 })
 
 
-Vue.component('re-merge',{
-    props: ['problem'],
+Vue.component('re-maximize',{
+    props: ['problem','stuff'],
+    methods: {
+        on_maximize() {
+            call_api_generating_problem(this.stuff,{type:"maximize"},maximize,[this.problem]);
+        }
+    },
     template: `
-        <button type="button" class="btn btn-primary ml-2" v-if="this.problem.info.is_mergeable">Merge</button>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_maximize">Maximize</button>
+    `
+})
+
+Vue.component('re-merge',{
+    props: ['problem','stuff'],
+    methods: {
+        on_merge() {
+            call_api_generating_problem(this.stuff,{type:"mergeequal"},merge_equivalent_labels,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-if="this.problem.info.is_mergeable" v-on:click="on_merge">Merge</button>
     `
 })
 
 Vue.component('re-edit',{
     props: ['problem'],
+    methods: {
+        on_edit() {
+            this.$root.$emit('event_edit',[constraint_to_text(this.problem.active, this.problem.map_label_text),constraint_to_text(this.problem.passive, this.problem.map_label_text)])
+        }
+    },
     template: `
-        <button type="button" class="btn btn-primary m-2">Edit</button>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_edit">Edit</button>
     `
 })
 
-Vue.component('re-simplify-merge',{
-    props: ['problem'],
+Vue.component('re-simplify',{
+    props: ['problem','stuff'],
+    data: function() {return {
+        from : 0,
+        to : 1
+    }},
+    methods: {
+        on_merge() {
+            call_api_generating_problem(
+                this.stuff,
+                {type:"simplificationmerge", from:this.problem.map_label_text[this.from], to : this.problem.map_label_text[this.to]},
+                simplify_merge,[this.problem, this.from, this.to]
+            );
+        },
+        on_addarrow() {
+            call_api_generating_problem(
+                this.stuff,
+                {type:"simplificationaddarrow", from:this.problem.map_label_text[this.from], to : this.problem.map_label_text[this.to]},
+                simplify_addarrow,[this.problem, this.from, this.to]
+            );
+        }
+    },
     template: `
-        <re-card title="Simplify" subtitle="(by merging)" :id="'group'+this._uid">
+        <re-card title="Simplify" subtitle="(by merging or adding arrows)" :id="'group'+this._uid">
+            From: <re-label-picker :problem="this.problem" v-model="from"></re-label-picker>
+            To: <re-label-picker :problem="this.problem" v-model="to"></re-label-picker>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_merge">Merge</button>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_addarrow">Add Arrow</button>
         </re-card>
     `
 })
 
-Vue.component('re-simplify-addarrow',{
-    props: ['problem'],
-    template: `
-        <re-card title="Simplify" subtitle="(by adding arrows)" :id="'group'+this._uid">
-        </re-card>
-    `
-})
-
-Vue.component('re-harden-keep',{
-    props: ['problem'],
-    template: `
-        <re-card title="Harden" subtitle="(by keeping labels)" :id="'group'+this._uid">
-        </re-card>
-    `
-})
 
 Vue.component('re-harden-remove',{
-    props: ['problem'],
+    props: ['problem','stuff'],
+    data: function() {return {
+        label : 0,
+        keep_predecessors : true
+    }},
+    methods: {
+        on_remove() {
+            call_api_generating_problem(
+                this.stuff,
+                {type:"hardenremove", label:this.problem.map_label_text[this.label]},
+                harden_remove,[this.problem, this.label, this.keep_predecessors]
+            );
+        },
+    },
     template: `
         <re-card title="Harden" subtitle="(by removing labels)" :id="'group'+this._uid">
+            <re-label-picker :problem="this.problem" v-model="label"></re-label-picker>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">Keep Predecessors</p></label>
+            </div>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_remove">Remove</button>
         </re-card>
     `
 })
@@ -460,6 +579,19 @@ Vue.component('re-auto-ub',{
     `
 })
 
+Vue.component('re-operations',{
+    props: ['problem','stuff'],
+    template: `
+        <re-card title="Operations" subtitle="(speedup, maximize, edit, gen renaming, merge)" :id="'group'+this._uid">
+            <div class="m-2"><re-speedup :problem="problem" :stuff="stuff"></re-speedup> apply round elimination</div>
+            <div class="m-2"><re-maximize :problem="problem" :stuff="stuff"></re-maximize> maximize passive side (and compute full diagram, triviality, ...)</div>
+            <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
+            <div class="m-2"><re-edit :problem="problem" :stuff="stuff"></re-edit>copy problem up</div>
+            <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
+        </re-card>
+    `
+})
+
 Vue.component('re-tools', {
     props: ["problem","stuff"],
     computed: {
@@ -467,15 +599,10 @@ Vue.component('re-tools', {
     },
     template: `
         <div>
-            <re-speedup :problem="problem" :stuff="stuff"></re-speedup>
-            <re-merge :problem="problem" :stuff="stuff"></re-merge>
-            <re-edit :problem="problem" :stuff="stuff"></re-edit>
-            <re-simplify-merge :problem="problem" :stuff="stuff"></re-simplify-merge>
-            <re-simplify-addarrow :problem="problem" :stuff="stuff"></re-simplify-addarrow>
-            <re-harden-keep :problem="problem" :stuff="stuff"></re-harden-keep>
+            <re-operations :problem="problem" :stuff="stuff"></re-operations>
+            <re-simplify :problem="problem" :stuff="stuff"></re-simplify>
             <re-harden-remove :problem="problem" :stuff="stuff"></re-harden-remove>
-            <re-auto-lb :problem="problem" :stuff="stuff"></re-auto-lb>
-            <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
+            <re-rename :problem="problem" :stuff="stuff"></re-rename>
         </div>
     `
 })
@@ -518,7 +645,7 @@ Vue.component('re-problem', {
                 <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_label_oldlabels != null">
                     <re-renaming :problem="problem"></re-renaming>
                 </re-card>
-                <re-card title="Diagram" subtitle="Strength of passive labels" show="true" v-if="this.problem.diagram_direct != null">
+                <re-card :title="this.problem.passive.is_maximized ? 'Diagram' : 'Partial Diagram'" subtitle="Strength of passive labels" show="true" v-if="this.problem.diagram_direct != null">
                     <re-diagram :problem="problem" :id="'diag'+this._uid" ></re-diagram>
                 </re-card>
                 <re-card title="Tools" subtitle="Speedup, edit, simplifications, ..." show="true">
@@ -526,6 +653,42 @@ Vue.component('re-problem', {
                 </re-card>
             </div>
         </div>
+    `
+})
+
+Vue.component('re-label-picker', {
+    props: ["problem", "value"],
+    computed : {
+        data : function() {
+            return this.problem.mapping_label_text.map(x => {
+                let label = x[0];
+                let text = x[1];
+                let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                if( oldtext == null ) {
+                    return [label,text];
+                } else {
+                    return [label,text,oldtext];
+                }
+            })
+        }
+    },
+    mounted: function() {
+        let id = "#select" + this._uid;
+        let t = this;
+        $(this.$el).selectpicker();
+        $(this.$el).on('change', function(){
+            t.$emit('input', $(id).val())
+        });
+    },
+    beforeDestroy: function() {
+        $(this.$el).selectpicker('destroy');
+    },
+    template: `
+    <select class="selectpicker" data-live-search="true" :value="value" :id="'select'+this._uid">
+        <option v-for="x in this.data" :value="x[0]">
+            <span v-if="x.length == 3">[{{ x[2] }}] → </span>{{ x[1] }}
+        </option>
+    </select>
     `
 })
 
@@ -539,20 +702,17 @@ Vue.component('re-begin', {
     },
     methods: {
         on_start() {
-            let stuff = this.stuff;
-            new_problem(this.active, this.passive, 
-                function(p){
-                    stuff.push({ type : "performed", data: { type : "initial"} })
-                    stuff.push({ type : "problem", data : p });
-                },
-                function(e){
-                    stuff.push({ type : "error", data : e });
-                }
-            );
+            call_api_generating_problem(this.stuff,{type:"initial"},new_problem,[this.active, this.passive]);
         },
         on_clear() {
             this.stuff.splice(0)
         }
+    },
+    mounted: function(){
+        this.$root.$on('event_edit', x => {
+            this.active = x[0];
+            this.passive = x[1];
+        })
     },
     template: `
     <div class="container-fluid m-0 p-0">

@@ -1,11 +1,20 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, hash::Hash};
 
 use itertools::Itertools;
 
 use crate::{constraint::Constraint, group::Group, problem::Problem};
 
+use super::event::EventHandler;
+
 impl Problem {
-    pub fn harden(&self, keep: &HashSet<usize>, add_predecessors: bool) -> Self {
+
+    pub fn harden_remove(&self, label : usize, add_predecessors: bool) -> Self {
+        let mut h : HashSet<_> = self.labels().into_iter().collect();
+        h.remove(&label);
+        self.harden_keep(&h, add_predecessors)
+    }
+
+    pub fn harden_keep(&self, keep: &HashSet<usize>, add_predecessors: bool) -> Self {
         let mut keep = keep.clone();
 
         let mut newpassive = self.passive.clone();
@@ -73,7 +82,7 @@ mod tests {
     fn harden_with_predecessors() {
         let mut p = Problem::from_string("0	1	1	1\n2	1	1	3\n4	4	4	5\n\n053 4513 4513 4513\n13 13 13 204513\n53 4513 4513 04513\n513 513 0513 4513\n513 513 513 04513").unwrap();
         p.compute_diagram(&mut EventHandler::null());
-        let mut p = p.harden(&HashSet::from([0, 1, 2, 3]), true);
+        let mut p = p.harden_keep(&HashSet::from([0, 1, 2, 3]), true);
         p.discard_useless_stuff(true, &mut EventHandler::null());
         let mut p = p.merge_equivalent_labels();
         p.discard_useless_stuff(true, &mut EventHandler::null());

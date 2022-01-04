@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{algorithms::event::EventHandler, problem::Problem};
+use crate::{algorithms::event::EventHandler, problem::Problem, line::Degree};
 
 pub fn request_json<F>(req: &str, f: F)
 where
@@ -24,11 +24,69 @@ where
             return;
         }
         Request::NewProblem(active, passive) => match Problem::from_string_active_passive(active, passive) {
-            Ok(r) => handler(Response::P(r)),
+            Ok(mut new) => {
+                new.discard_useless_stuff(false, &mut eh);
+                new.sort_active_by_strength();
+                handler(Response::P(new))
+            },
             Err(s) => handler(Response::E(s.into())),
         },
-        Request::Speedup(problem) => {
-            handler(Response::P(problem.speedup(&mut eh)));
+        Request::Speedup(mut problem) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            let mut new = problem.speedup(&mut eh);
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
+        Request::SimplifyMerge(problem, a,b) => {
+            let mut new = problem.relax_merge(a,b);
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
+        Request::SimplifyAddarrow(problem, a,b) => {
+            let mut new = problem.relax_addarrow(a,b);
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
+        Request::HardenRemove(mut problem, label, keep_predecessors) => {
+            if keep_predecessors && problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            let mut new = problem.harden_remove(label, keep_predecessors);
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
+        Request::MergeEquivalentLabels(problem) => {
+            let mut new = problem.merge_equivalent_labels();
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
+        Request::Maximize(mut problem) => {
+            problem.diagram_indirect = None;
+            problem.compute_diagram(&mut eh);
+            problem.discard_useless_stuff(true, &mut eh);
+            problem.sort_active_by_strength();
+            problem.compute_triviality(&mut eh);
+            if problem.passive.degree == Degree::Finite(2) {
+                problem.compute_coloring_solvability(&mut eh);
+            }
+            handler(Response::P(problem));
+        },
+        Request::RenameGenerators(mut problem) => {
+            problem.rename_by_generators();
+            handler(Response::P(problem));
+        },
+        Request::Rename(mut problem,renaming) => match problem.rename(&renaming) {
+            Ok(()) => {
+                handler(Response::P(problem))
+            },
+            Err(s) => handler(Response::E(s.into())),
         }
         _ => { unimplemented!() }
     }
@@ -41,7 +99,14 @@ where
 #[derive(Deserialize, Serialize)]
 pub enum Request {
     NewProblem(String, String),
+    SimplifyMerge(Problem,usize,usize),
+    SimplifyAddarrow(Problem,usize,usize),
+    HardenRemove(Problem,usize,bool),
     Speedup(Problem),
+    Maximize(Problem),
+    MergeEquivalentLabels(Problem),
+    RenameGenerators(Problem),
+    Rename(Problem,Vec<(usize,String)>),
     Ping,
 }
 

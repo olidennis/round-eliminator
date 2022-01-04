@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use itertools::Itertools;
 use petgraph::graph::IndexType;
 
 use crate::problem::Problem;
@@ -67,6 +68,8 @@ impl Problem {
         // replace each SCC with a single label, obtaining a DAG,
         // and then compute the transitive reduction
 
+        let labels : HashSet<_> = self.labels().into_iter().collect();
+
         // compute SCC
         let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(diagram);
         let scc = petgraph::algo::kosaraju_scc(&g);
@@ -77,6 +80,8 @@ impl Problem {
                 group.sort();
                 (group[0], group)
             })
+            // petgraph is adding nodes also for labels that are not present
+            .filter(|(x,_)|labels.contains(x))
             .collect();
 
         // compute renaming
@@ -109,6 +114,7 @@ impl Problem {
             .edge_indices()
             .map(|e| reduction.edge_endpoints(e).unwrap())
             .map(|(u, v)| (topo[u.index()].index(), topo[v.index()].index()))
+            .unique()
             .collect();
 
         merged.sort();

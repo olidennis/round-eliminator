@@ -12,7 +12,7 @@ impl Problem {
             .intersection(&labels_passive)
             .cloned()
             .collect();
-        let newp = self.harden(&to_keep, false);
+        let newp = self.harden_keep(&to_keep, false);
         self.active = newp.active;
         self.passive = newp.passive;
     }
@@ -38,6 +38,9 @@ impl Problem {
         // zero-round solvability is preserved
         // coloring solvability is preserved
         // diagram may change
+        
+        self.diagram_indirect = None;
+        self.diagram_direct = None;
 
         loop {
             let p = self.clone();
