@@ -35,6 +35,11 @@ function simplify_merge(problem, from, to, onresult, onerror, progress){
     return api.request({ SimplifyMerge : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
 }
 
+function simplify_group(problem, labels, to, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ SimplifyMergeGroup : [problem, labels.map(x => parseInt(x)), parseInt(to)] }, ondata , function(){});
+}
+
 function simplify_addarrow(problem, from, to, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ SimplifyAddarrow : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
@@ -43,6 +48,11 @@ function simplify_addarrow(problem, from, to, onresult, onerror, progress){
 function harden_remove(problem, label, keep_predecessors, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ HardenRemove : [problem, parseInt(label), keep_predecessors] }, ondata , function(){});
+}
+
+function harden_keep(problem, labels, keep_predecessors, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ HardenKeep : [problem, labels.map(x => parseInt(x)), keep_predecessors] }, ondata , function(){});
 }
 
 function merge_equivalent_labels(problem, onresult, onerror, progress){
@@ -142,13 +152,15 @@ Vue.component('re-performed-action', {
                 case "mergeequal":
                     return "Merged equivalent labels.";
                 case "simplificationmerge":
-                    return "Performed Simplification: Merge " + this.action.from + "→" + this.action.to;
+                    return "Performed Simplification: Merged " + this.action.from + "→" + this.action.to;
                 case "simplificationaddarrow":
-                    return "Performed Simplification: Add Arrow " + this.action.from + "→" + this.action.to;
+                    return "Performed Simplification: Added Arrow " + this.action.from + "→" + this.action.to;
                 case "hardenkeep":
-                    return "Performed Hardening: Keep Label Set " + this.action.labels.join("");
+                    return "Performed Hardening: Kept Label Set " + this.action.labels.join("");
+                case "simplifymergegroup":
+                    return "Performed Simplification: Merged Set " + this.action.labels.join("") + "→" + this.action.to;
                 case "hardenremove":
-                    return "Performed Hardening: Remove Label " + this.action.label;
+                    return "Performed Hardening: Removed Label " + this.action.label;
                 case "speedup":
                     return "Performed speedup";
                 case "maximize":
@@ -443,37 +455,6 @@ Vue.component('re-diagram', {
 
 
 
-Vue.component('re-diagram-old', {
-    props: ["problem","id"],
-    computed: {
-        visdata : function() {
-            let nodes = [];
-            for( let node of this.problem.diagram_direct[0] ){
-                nodes.push({ id : node[0], label: node[1].map(x => this.problem.map_label_text[x]).join(",") });
-            }
-            let edges = [];
-            for( let edge of this.problem.diagram_direct[1] ){
-                edges.push({ from : edge[0], to : edge[1], arrows: 'to'});
-            }
-            let visnodes = new vis.DataSet(nodes);
-            let visedges = new vis.DataSet(edges);
-            let visdata = {
-                nodes: visnodes,
-                edges: visedges
-            };
-            return visdata;
-        }
-    },
-    mounted: function() {
-        let id = "diagram" + this.id;
-        let network = new vis.Network(document.getElementById(id), this.visdata, {});
-    },
-    template: `
-        <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this.id" onmouseover="document.body.style.overflow='hidden';"  onmouseout="document.body.style.overflow='auto';">
-        </div>
-    `
-})
-
 
 
 Vue.component('re-speedup',{
@@ -573,8 +554,8 @@ Vue.component('re-edit',{
 Vue.component('re-simplify',{
     props: ['problem','stuff'],
     data: function() {return {
-        from : 0,
-        to : 1
+        from : this.problem.labels[0],
+        to : this.problem.labels[1]
     }},
     methods: {
         on_merge() {
@@ -622,9 +603,116 @@ Vue.component('re-harden-remove',{
         <re-card title="Harden" subtitle="(by removing labels)" :id="'group'+this._uid">
             <re-label-picker :problem="this.problem" v-model="label"></re-label-picker>
             <div class="custom-control custom-switch m-2">
-                <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">Keep Predecessors</p></label>
+                <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">Replace With Predecessors</p></label>
             </div>
             <button type="button" class="btn btn-primary ml-2" v-on:click="on_remove">Remove</button>
+        </re-card>
+    `
+})
+
+
+
+
+
+Vue.component('re-group-simplify',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+        table: this.problem.mapping_label_text.map(x => {
+                let label = x[0];
+                let text = x[1];
+                let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                if( oldtext == null ) {
+                    return [label,text,"",false];
+                } else {
+                    return [label,text,oldtext,false];
+                }
+        }),
+        keep_predecessors : true,
+        to : this.problem.labels[0]
+    }},
+    methods: {
+        on_merge(){
+            let tomerge = this.table.filter(x => x[3]).map(x => x[0]);
+            call_api_generating_problem(
+                this.stuff,
+                {type:"simplifymergegroup", labels:tomerge.map(x => this.problem.map_label_text[x]), to : this.problem.map_label_text[this.to]},
+                simplify_group,[this.problem, tomerge, this.to]
+            );
+        }
+    },
+    template: `
+        <re-card title="Group Simplify" subtitle="(choose a group of labels)" :id="'group'+this._uid">
+            From:
+            <div v-for="(row,index) in this.table">
+                <div class="custom-control custom-switch ml-2">
+                    <label>
+                        <input type="checkbox" class="custom-control-input" v-model="table[index][3]">
+                        <p class="form-control-static custom-control-label">
+                            <span>{{ row[1] }}</span>
+                            <span v-if="row[2]!=''" class="rounded m-1 labelborder">{{ row[2] }}</span>
+                        </p>
+                    </label>  
+                </div>
+            </div> 
+            To: <re-label-picker :problem="this.problem" v-model="to"></re-label-picker>     
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_merge">Merge (simplify)</button>
+        </re-card>
+    `
+})
+
+Vue.component('re-group-harden',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+        table: this.problem.mapping_label_text.map(x => {
+                let label = x[0];
+                let text = x[1];
+                let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                if( oldtext == null ) {
+                    return [label,text,"",false];
+                } else {
+                    return [label,text,oldtext,false];
+                }
+        }),
+        keep_predecessors : true
+    }},
+    methods: {
+        on_remove() {
+            let toremove = this.table.filter(x => x[3]).map(x => x[0]);
+            let tokeep = this.problem.labels.filter(x => !toremove.includes(x));
+            call_api_generating_problem(
+                this.stuff,
+                {type:"hardenkeep", labels:tokeep.map(x => this.problem.map_label_text[x])},
+                harden_keep,[this.problem, tokeep, this.keep_predecessors]
+            );
+        },
+        on_keep() {
+            let tokeep = this.table.filter(x => x[3]).map(x => x[0]);
+            call_api_generating_problem(
+                this.stuff,
+                {type:"hardenkeep", labels:tokeep.map(x => this.problem.map_label_text[x])},
+                harden_keep,[this.problem, tokeep, this.keep_predecessors]
+            );
+        }
+    },
+    template: `
+        <re-card title="Group Harden" subtitle="(choose a group of labels)" :id="'group'+this._uid">
+            <div v-for="(row,index) in this.table">
+                <div class="custom-control custom-switch ml-2">
+                    <label>
+                        <input type="checkbox" class="custom-control-input" v-model="table[index][3]">
+                        <p class="form-control-static custom-control-label">
+                            <span>{{ row[1] }}</span>
+                            <span v-if="row[2]!=''" class="rounded m-1 labelborder">{{ row[2] }}</span>
+                        </p>
+                    </label>  
+                </div>
+            </div>         
+            <hr/>       
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">Replace With Predecessors</p></label>
+            </div>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_remove">Remove (harden)</button>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_keep">Keep (harden)</button>
         </re-card>
     `
 })
@@ -667,7 +755,9 @@ Vue.component('re-tools', {
         <div>
             <re-operations :problem="problem" :stuff="stuff"></re-operations>
             <re-simplify :problem="problem" :stuff="stuff"></re-simplify>
+            <re-group-simplify :problem="problem" :stuff="stuff"></re-group-simplify>
             <re-harden-remove :problem="problem" :stuff="stuff"></re-harden-remove>
+            <re-group-harden :problem="problem" :stuff="stuff"></re-group-harden>
             <re-rename :problem="problem" :stuff="stuff"></re-rename>
         </div>
     `

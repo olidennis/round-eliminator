@@ -46,6 +46,15 @@ where
             new.sort_active_by_strength();
             handler(Response::P(new));
         },
+        Request::SimplifyMergeGroup(problem, labels,to) => {
+            let mut new = problem;
+            for label in labels {
+                new = new.relax_merge(label, to);
+            }
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
         Request::SimplifyAddarrow(problem, a,b) => {
             let mut new = problem.relax_addarrow(a,b);
             new.discard_useless_stuff(false, &mut eh);
@@ -57,6 +66,15 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.harden_remove(label, keep_predecessors);
+            new.discard_useless_stuff(false, &mut eh);
+            new.sort_active_by_strength();
+            handler(Response::P(new));
+        },
+        Request::HardenKeep(mut problem, labels, keep_predecessors) => {
+            if keep_predecessors && problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            let mut new = problem.harden_keep(&labels.into_iter().collect(), keep_predecessors);
             new.discard_useless_stuff(false, &mut eh);
             new.sort_active_by_strength();
             handler(Response::P(new));
@@ -100,8 +118,10 @@ where
 pub enum Request {
     NewProblem(String, String),
     SimplifyMerge(Problem,usize,usize),
+    SimplifyMergeGroup(Problem,Vec<usize>,usize),
     SimplifyAddarrow(Problem,usize,usize),
     HardenRemove(Problem,usize,bool),
+    HardenKeep(Problem,Vec<usize>,bool),
     Speedup(Problem),
     Maximize(Problem),
     MergeEquivalentLabels(Problem),
