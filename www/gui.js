@@ -380,6 +380,71 @@ Vue.component('re-renaming', {
 
 Vue.component('re-diagram', {
     props: ["problem","id"],
+    data : function() {
+        return {
+            physics : true,
+            network : [null]
+        }
+    },
+    computed: {
+        visdata : function() {
+            let nodes = [];
+            for( let node of this.problem.diagram_direct[0] ){
+                nodes.push({ id : node[0], label: node[1].map(x => this.problem.map_label_text[x]).join(",") });
+            }
+            let edges = [];
+            for( let edge of this.problem.diagram_direct[1] ){
+                edges.push({ from : edge[0], to : edge[1], arrows: 'to'});
+            }
+            let visnodes = new vis.DataSet(nodes);
+            let visedges = new vis.DataSet(edges);
+            let visdata = {
+                nodes: visnodes,
+                edges: visedges
+            };
+            return visdata;
+        },
+        options : function() {
+            return {
+                edges:{
+                    physics: true,
+                    smooth: false
+                },
+                physics:{
+                    enabled: this.physics
+                }
+            };
+        }
+    },
+    watch : {
+        'physics' : function() {
+            if(this.network[0] != null){
+                this.network[0].setOptions(this.options);
+            }
+        }
+    },
+    mounted: function() {
+        let id = "diagram" + this.id;
+        let network = new vis.Network(document.getElementById(id), this.visdata, {});
+        network.setOptions(this.options);
+        //prevent vue from adding getters and setters, otherwise some things of vis break
+        this.network[0] = network;
+    },
+    template: `
+        <div>
+            <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this.id" onmouseover="document.body.style.overflow='hidden';"  onmouseout="document.body.style.overflow='auto';">
+            </div>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="physics"><p class="form-control-static custom-control-label">Physics</p></label>
+            </div>
+        </div>
+    `
+})
+
+
+
+Vue.component('re-diagram-old', {
+    props: ["problem","id"],
     computed: {
         visdata : function() {
             let nodes = [];
@@ -408,6 +473,7 @@ Vue.component('re-diagram', {
         </div>
     `
 })
+
 
 
 Vue.component('re-speedup',{
