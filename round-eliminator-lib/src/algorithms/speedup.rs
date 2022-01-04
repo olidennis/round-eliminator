@@ -15,6 +15,7 @@ impl Problem {
             .groups()
             .unique()
             .map(|g| g.0.clone())
+            .sorted_by_key(|v|v.iter().cloned().rev().collect::<Vec<usize>>())
             .enumerate()
             .collect();
         let h_oldlabels_label: HashMap<_, _> = mapping_label_oldlabels
