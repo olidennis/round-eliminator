@@ -1,5 +1,7 @@
 
+import * as api from "./api.js"
 
+/*
 let serialized1 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1]}]},{"parts":[{"gtype":"Star","group":[2]}]}],"is_maximized":false,"degree":"Star"},"passive":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1,2]}]},{"parts":[{"gtype":"One","group":[0,1]},{"gtype":"Star","group":[1]}]}],"is_maximized":true,"degree":"Star"},"mapping_label_text":[[1,"U"],[2,"P"],[0,"M"]],"mapping_label_oldlabels":null,"mapping_oldlabel_text":null,"trivial_sets":[],"coloring_sets":null,"diagram_indirect":[[0,0],[1,1],[2,1],[2,2]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0]],[1,[1]],[2,[2]]],[[2,1]]]}';
 let problem1 = JSON.parse(serialized1);
 console.log(problem1);
@@ -18,7 +20,39 @@ console.log(problem4);
 
 let serialized5 = '{"active":{"lines":[{"parts":[{"gtype":"One","group":[0]},{"gtype":"Star","group":[1]}]},{"parts":[{"gtype":"One","group":[2]},{"gtype":"Star","group":[3]}]}],"is_maximized":false,"degree":"Star"},"passive":{"lines":[{"parts":[{"gtype":"One","group":[0,2]},{"gtype":"Star","group":[1,2,3]}]},{"parts":[{"gtype":"One","group":[0,1,2,3]},{"gtype":"One","group":[2]},{"gtype":"Star","group":[1,2,3]}]},{"parts":[{"gtype":"One","group":[0,1,2]},{"gtype":"Star","group":[1,2]}]}],"is_maximized":true,"degree":"Star"},"mapping_label_text":[[0,"A"],[1,"B"],[2,"C"],[3,"D"]],"mapping_label_oldlabels":[[0,[0]],[1,[1,2]],[2,[0,1]],[3,[1]]],"mapping_oldlabel_text":[[0,"M"],[2,"P"],[1,"U"]],"trivial_sets":[],"coloring_sets":null,"diagram_indirect":[[0,0],[0,2],[1,1],[1,2],[2,2],[3,1],[3,2],[3,3]],"diagram_indirect_old":null,"diagram_direct":[[[0,[0]],[1,[1]],[2,[2]],[3,[3]]],[[0,2],[1,2],[3,1]]]}';
 let problem5 = JSON.parse(serialized5);
-console.log(problem5);
+console.log(problem5);*/
+
+function new_problem(left, right, onresult, onerror) {
+    let ondata = function(x) {
+        if( x.E != null ) {
+            onerror(x.E);
+        }
+        if( x.P != null ){
+            let p = x.P;
+            fix_problem(p);
+            onresult(p);
+        }
+    };
+    api.request({ NewProblem : [left,right] }, ondata , function(){});
+}
+
+function speedup(onresult, progress){
+    let ondata = function(x) {
+        if( x.P != null ){
+            let p = x.P;
+            fix_problem(p);
+            onresult(p);
+        }
+        if( x.Event != null ){
+            progress.type = x.Event[0];
+            if(x.Event.length > 1) {
+                progress.cur = x.Event[1];
+                progress.max = x.Event[2];
+            }
+        }
+    };
+    return api.request({ Speedup : this }, ondata , function(){});
+}
 
 function fix_problem(p) {
     p.map_label_text = vec_to_map(p.mapping_label_text);
@@ -36,13 +70,17 @@ function fix_problem(p) {
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
     p.info = { numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
+    p.speedup = speedup;
 }
 
+/*
 fix_problem(problem1);
 fix_problem(problem2);
 fix_problem(problem3);
 fix_problem(problem4);
-fix_problem(problem5);
+fix_problem(problem5);*/
+
+
 
 
 function vec_to_map(v){
@@ -57,11 +95,6 @@ function labelset_to_string(v, mapping) {
 }
 
 
-Vue.component('re-container', {
-    template: `
-        <span>test</span>
-    `
-})
 
 
 Vue.component('re-performed-action', {
@@ -100,6 +133,20 @@ Vue.component('re-performed-action', {
     `
 })
 
+Vue.component('re-error', {
+    props: ['error'],
+    template: `
+        <div class="card bg-primary text-white m-2 p-2" :id="'current'+this._uid">
+            <span>
+                {{ this.error }}
+                <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </span>
+        </div>
+    `
+})
+
 Vue.component('re-computing', {
     props: ['action'],
     computed: {
@@ -128,6 +175,15 @@ Vue.component('re-computing', {
             }
         }
     },
+    methods : {
+        on_close() {
+            console.log("close button clicked");
+            if(this.action.onstop != null){
+                console.log("stopping some work");
+                this.action.onstop()
+            }
+        }
+    },
     template: `
         <div class="card card-body m-2 bg-light" :id="'current'+this._uid">
             <div class="spinner-border" role="status"></div>
@@ -135,7 +191,7 @@ Vue.component('re-computing', {
             <div v-if="state.bar" class="progress">
                 <div class="progress-bar" role="progressbar" :style="'width : ' + Math.floor(state.cur *100 / state.max) + '%'"></div>
             </div>
-            <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close">
+            <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
                 <span aria-hidden="true">&times;</span>
             </button>
         </div>
@@ -200,7 +256,7 @@ Vue.component('re-constraint', {
                 let original = problem.mapping_label_oldlabels == null ? null : elem.group.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
 
                 let r = {  renamed : renamed, original : original};
-                if( elem.gtype == "One" ){
+                if( elem.gtype == "One" || elem.gtype.Many == 1 ){
                 } else if( elem.gtype == "Star" ){
                     r.star = true;
                 } else {
@@ -314,9 +370,30 @@ Vue.component('re-diagram', {
 
 
 Vue.component('re-speedup',{
-    props: ['problem'],
+    props: ['problem','stuff'],
+    methods: {
+        on_speedup() {
+            let stuff = this.stuff;
+            let progress = { type : "computing", data: {type : "empty", cur : 1, max : 1, onstop : function(){}} };
+            stuff.push(progress);
+            let termination_handle = this.problem.speedup(function(p){
+                let idx = stuff.indexOf(progress);
+                stuff.splice(idx,1);
+                stuff.push({ type : "performed", data: { type : "speedup"} })
+                stuff.push({ type : "problem", data : p });
+            },
+            progress.data);
+            progress.data.onstop = function() {
+                console.log("removing progress bar");
+                let idx = stuff.indexOf(progress);
+                stuff.splice(idx,1);
+                console.log("killing worker");
+                termination_handle();
+            }
+        }
+    },
     template: `
-        <button type="button" class="btn btn-primary ml-2">Speedup</button>
+        <button type="button" class="btn btn-primary ml-2" v-on:click="on_speedup">Speedup</button>
     `
 })
 
@@ -384,28 +461,29 @@ Vue.component('re-auto-ub',{
 })
 
 Vue.component('re-tools', {
-    props: ["problem"],
+    props: ["problem","stuff"],
     computed: {
         
     },
     template: `
         <div>
-            <re-speedup :problem="problem"></re-speedup>
-            <re-merge :problem="problem"></re-merge>
-            <re-edit :problem="problem"></re-edit>
-            <re-simplify-merge :problem="problem"></re-simplify-merge>
-            <re-simplify-addarrow :problem="problem"></re-simplify-addarrow>
-            <re-harden-keep :problem="problem"></re-harden-keep>
-            <re-harden-remove :problem="problem"></re-harden-remove>
-            <re-auto-lb :problem="problem"></re-auto-lb>
-            <re-auto-ub :problem="problem"></re-auto-ub>
+            <re-speedup :problem="problem" :stuff="stuff"></re-speedup>
+            <re-merge :problem="problem" :stuff="stuff"></re-merge>
+            <re-edit :problem="problem" :stuff="stuff"></re-edit>
+            <re-simplify-merge :problem="problem" :stuff="stuff"></re-simplify-merge>
+            <re-simplify-addarrow :problem="problem" :stuff="stuff"></re-simplify-addarrow>
+            <re-harden-keep :problem="problem" :stuff="stuff"></re-harden-keep>
+            <re-harden-remove :problem="problem" :stuff="stuff"></re-harden-remove>
+            <re-auto-lb :problem="problem" :stuff="stuff"></re-auto-lb>
+            <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
         </div>
     `
 })
 
 
+
 Vue.component('re-problem', {
-    props: ["problem"],
+    props: ["problem","stuff"],
     data: function() {
         return {
             mode : "renamed"
@@ -444,8 +522,71 @@ Vue.component('re-problem', {
                     <re-diagram :problem="problem" :id="'diag'+this._uid" ></re-diagram>
                 </re-card>
                 <re-card title="Tools" subtitle="Speedup, edit, simplifications, ..." show="true">
-                    <re-tools :problem="problem"></re-tools>
+                    <re-tools :problem="problem" :stuff="stuff"></re-tools>
                 </re-card>
+            </div>
+        </div>
+    `
+})
+
+
+Vue.component('re-begin', {
+    props: ["stuff"],
+    data: function(){ return {
+            active : "M U^9\nP^10",
+            passive : "M UP^9\nU^10"
+        }
+    },
+    methods: {
+        on_start() {
+            let stuff = this.stuff;
+            new_problem(this.active, this.passive, 
+                function(p){
+                    stuff.push({ type : "performed", data: { type : "initial"} })
+                    stuff.push({ type : "problem", data : p });
+                },
+                function(e){
+                    stuff.push({ type : "error", data : e });
+                }
+            );
+        },
+        on_clear() {
+            this.stuff.splice(0)
+        }
+    },
+    template: `
+    <div class="container-fluid m-0 p-0">
+    <div class="container-fluid rounded bg-light m-0 mb-5 p-5">
+        <div class="row">
+            <div class="col-md">
+                <h4>Active</h4>
+                <textarea rows="4" cols="30" class="form-control" v-model="active"></textarea>
+            </div>
+            <div class="col-md">
+                <h4>Passive</h4>
+                <textarea rows="4" cols="30" class="form-control" v-model="passive"></textarea>
+            </div>
+            <div class="col-sm mt-auto text-right">
+                <button type="button" class="btn btn-primary" v-on:click="on_start">Start</button>
+                <button type="button" class="btn btn-primary" v-on:click="on_clear">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid m-0 p-0" id="steps"></div>
+</div>
+    `
+})
+
+Vue.component('re-stuff', {
+    props: ["stuff"],
+    template: `
+        <div>
+            <div v-for="elem in this.stuff">
+                <re-performed-action :action='elem.data' v-if='elem.type == "performed"'/></re-performed-action>
+                <re-computing :action='elem.data' v-if='elem.type == "computing"'/></re-computing>
+                <re-error :error='elem.data' v-if='elem.type == "error"'/></re-computing>
+                <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"'></re-problem>
             </div>
         </div>
     `
@@ -454,13 +595,15 @@ Vue.component('re-problem', {
 var app = new Vue({
     el: '#vueapp',
     data: {
-        problem1 : problem1,
-        problem2 : problem2,
-        problem3 : problem3,
-        problem4 : problem4,
-        problem5 : problem5
+        stuff : []
     },
-    methods: {}
+    methods: {},
+    template: `
+        <div>
+            <re-begin :stuff="stuff"></re-begin>
+            <re-stuff :stuff="stuff"></re-stuff>
+        </div>
+    `
 })
 
 

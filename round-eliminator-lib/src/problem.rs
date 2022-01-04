@@ -22,15 +22,10 @@ pub struct Problem {
 }
 
 impl Problem {
-    pub fn from_string<S: AsRef<str>>(s: S) -> Result<Self, &'static str> {
-        let s = s.as_ref();
-        let mut lines = s.lines();
+    pub fn from_string_active_passive<S: AsRef<str>>(active: S, passive: S) -> Result<Self, &'static str> {
         let mut mapping_label_text = HashMap::new();
 
-        let active = lines.by_ref().take_while(|l| !l.is_empty()).join("\n");
         let active = Constraint::parse(active, &mut mapping_label_text)?;
-
-        let passive = lines.take_while(|l| !l.is_empty()).join("\n");
         let passive = Constraint::parse(passive, &mut mapping_label_text)?;
 
         let mapping_label_text = mapping_label_text
@@ -51,6 +46,16 @@ impl Problem {
             diagram_indirect_old: None,
         };
         Ok(p)
+    }
+
+    pub fn from_string<S: AsRef<str>>(s: S) -> Result<Self, &'static str> {
+        let s = s.as_ref();
+        let mut lines = s.lines();
+
+        let active = lines.by_ref().take_while(|l| !l.is_empty()).join("\n");
+        let passive = lines.take_while(|l| !l.is_empty()).join("\n");
+        
+        Self::from_string_active_passive(active, passive)
     }
 
     pub fn labels(&self) -> Vec<usize> {
@@ -191,7 +196,7 @@ mod tests {
 
     use std::collections::{HashMap, HashSet};
 
-    //#[test]
+    #[test]
     fn testproblem() {
         let mut eh = EventHandler::with(|(s,a,b)|{print!("                                     \r{} {} {}\r",s,a,b);});
         /*let mut eh = EventHandler::null();
@@ -251,6 +256,7 @@ mod tests {
 
 
         p.discard_useless_stuff(false, &mut eh);
+        p.sort_active_by_strength();
 
         p.rename(&[
             (htl["(<<M>>)"],"M".into()),

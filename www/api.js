@@ -46,6 +46,7 @@ function request_server(req, onresult, oncomplete) {
     let a = new WebSocket("ws://" + location.host + "/api");
     let r = JSON.stringify(req);
     let terminated = false;
+    let opened = false;
 
     let ping = setInterval(function(){
         if( terminated ){
@@ -61,6 +62,7 @@ function request_server(req, onresult, oncomplete) {
 
     let t0;
     a.onopen = function() {
+        opened = true;
         a.send(r);
         t0 = performance.now();
     }
@@ -89,9 +91,20 @@ function request_server(req, onresult, oncomplete) {
 
     let terminate = function(){
         console.log("terminating server thread!");
-        a.send(JSON.stringify("STOP"));
+        if(opened)a.send(JSON.stringify("STOP"));
         a.close();
         terminated = true;
     }
     return terminate;
+}
+
+
+let use_wasm = !window.location.href.includes("server");
+
+export function request(req, onresult, oncomplete) {
+    if( use_wasm ){
+        return request_wasm(req, onresult, oncomplete);
+    } else {
+        return request_server(req, onresult, oncomplete);
+    }
 }
