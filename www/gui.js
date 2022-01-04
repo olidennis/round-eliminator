@@ -212,7 +212,7 @@ Vue.component('re-computing', {
                 case "triviality":
                     return {bar : true, msg: "Computing triviality", max : this.action.max, cur : this.action.cur };
                 default:
-                    return "Unknown " + this.action.type
+                    return {bar : false, msg: ""};
             }
         }
     },
