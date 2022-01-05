@@ -131,6 +131,14 @@ impl Constraint {
         self.lines.iter().any(|line| line.includes(other))
     }
 
+    pub fn is_diagram_predecessor_partial(&self, l1: Label, l2: Label) -> bool {
+        // this function just checks if *every time* a label appears, then also the other appears
+        self.groups().all(|group|{
+            !group.contains(&l1) || group.contains(&l2)
+        })
+    }
+
+
     pub fn is_diagram_predecessor(&self, l1: Label, l2: Label) -> bool {
         // this is commented out so that one may still try to see if a label is a predecessor of another label
         // if the result is true, then it is always correct

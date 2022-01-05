@@ -9,15 +9,11 @@ use super::event::EventHandler;
 
 impl Problem {
     pub fn compute_diagram(&mut self, eh: &mut EventHandler) {
-        
-        self.passive.maximize(eh);
-        self.compute_partial_diagram(eh);
-    }
-
-    pub fn compute_partial_diagram(&mut self, eh: &mut EventHandler) {
         if self.diagram_indirect.is_some() {
             panic!("diagram has been computed already");
         }
+
+        self.passive.maximize(eh);
 
         let labels: Vec<_> = self.labels();
 
@@ -33,7 +29,28 @@ impl Problem {
         }
 
         self.diagram_indirect = Some(diagram);
+        self.compute_direct_diagram();
+    }
 
+    pub fn compute_partial_diagram(&mut self, eh: &mut EventHandler) {
+        if self.diagram_indirect.is_some() {
+            panic!("diagram has been computed already");
+        }
+
+        let labels: Vec<_> = self.labels();
+
+        let mut diagram = vec![];
+
+        for (i, l1) in labels.iter().enumerate() {
+            for (j, l2) in labels.iter().enumerate() {
+                eh.notify("diagram", i * labels.len() + j, labels.len() * labels.len());
+                if l1 == l2 || self.passive.is_diagram_predecessor_partial(*l1, *l2) {
+                    diagram.push((*l1, *l2));
+                }
+            }
+        }
+
+        self.diagram_indirect = Some(diagram);
         self.compute_direct_diagram();
     }
 
