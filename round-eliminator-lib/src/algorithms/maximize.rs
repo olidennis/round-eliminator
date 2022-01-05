@@ -108,6 +108,7 @@ impl Constraint {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
     let t1 = c1.degree_without_star();
     let t2 = c2.degree_without_star();

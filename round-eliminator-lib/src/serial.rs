@@ -163,6 +163,7 @@ pub enum Request {
     Ping,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Deserialize, Serialize)]
 pub enum Response {
     Done,

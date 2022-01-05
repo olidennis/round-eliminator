@@ -85,8 +85,8 @@ impl Comb {
                 res -= cur;
                 j += 1;
             }
-            for k in j..=i {
-                v[k] = 0;
+            for p in v[j..=i].iter_mut(){
+                *p = 0;
             }
             Some(&self.state)
         }
@@ -107,8 +107,8 @@ impl Pairings {
         for &x in &v1 {
             let mut c = Comb::new(x, v2.clone());
             c.next();
-            for i in 0..v2.len() {
-                v2[i] -= c.state[i];
+            for (a,b) in v2.iter_mut().zip(c.state.iter()){
+                *a -= *b;
             }
             s.push(c);
         }

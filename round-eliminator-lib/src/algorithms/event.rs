@@ -1,6 +1,8 @@
 pub struct EventHandler<'a> {
-    tx: Option<Box<dyn FnMut((String, usize, usize)) -> () + 'a>>,
+    tx: Option<EventFunc<'a>>,
 }
+
+type EventFunc<'a> = Box<dyn FnMut((String, usize, usize)) + 'a>;
 
 impl<'a> EventHandler<'a> {
     pub fn null() -> Self {
@@ -9,7 +11,7 @@ impl<'a> EventHandler<'a> {
 
     pub fn with<T>(f: T) -> Self
     where
-        T: FnMut((String, usize, usize)) -> () + 'a,
+        T: FnMut((String, usize, usize)) + 'a,
     {
         Self {
             tx: Some(Box::new(f)),

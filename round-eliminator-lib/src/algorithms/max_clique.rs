@@ -44,6 +44,7 @@ impl Graph {
         best
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn clique_rec(
         &self,
         mut u: &[usize],
