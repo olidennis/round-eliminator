@@ -488,10 +488,11 @@ Vue.component('re-rename',{
                 let label = x[0];
                 let text = x[1];
                 let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                let without_parenthesis = text.replace("(","").replace(")","");
                 if( oldtext == null ) {
-                    return [label,text,"",text];
+                    return [label,text,"",without_parenthesis];
                 } else {
-                    return [label,text,oldtext,text];
+                    return [label,text,oldtext,without_parenthesis];
                 }
         })
     }},
