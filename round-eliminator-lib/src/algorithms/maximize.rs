@@ -65,10 +65,12 @@ impl Constraint {
                 without_one.push(current);
             }
 
+            println!("current number of lines: {}",lines.len());
             for i in 0..lines.len() {
                 let mut candidates2 = empty.clone();
 
                 for j in 0..=i {
+                    println!("{} {}",i,j);
                     let len = lines.len();
                     eh.notify("combining line pairs", i * len + j, len * len);
 
@@ -119,7 +121,7 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
         line.parts
             .iter()
             .map(|part| match part.gtype {
-                GroupType::ONE => 1,
+                //GroupType::ONE => 1,
                 GroupType::Many(x) => x,
                 GroupType::Star => starvalue,
             })
@@ -181,15 +183,15 @@ fn good_unions(l1: &Line, l2: &Line) -> HashMap<Vec<usize>, Vec<(usize, usize)>>
 
     for (i, x) in s1.iter().enumerate() {
         for (j, y) in s2.iter().enumerate() {
-            if x.is_subset(y) || y.is_superset(x) {
+            if x.is_superset(y) || y.is_superset(x) {
                 continue;
             }
 
             let union: Vec<_> = x.union(y).cloned().sorted().collect();
             let same_union: &mut Vec<(usize, usize)> = unions.entry(union).or_default();
 
-            same_union.retain(|&(xc, yc)| !(s1[xc].is_superset(x) && s2[yc].is_superset(y)));
             let len = same_union.len();
+            same_union.retain(|&(xc, yc)| !(s1[xc].is_superset(x) && s2[yc].is_superset(y)));
             if same_union.len() != len
                 || same_union
                     .iter()

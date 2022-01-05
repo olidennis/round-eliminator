@@ -19,7 +19,7 @@ impl Problem {
         }
 
         if v.iter().map(|(_, s)| s).unique().count() != labels.len() {
-            /*for (a,s1) in v {
+            for (a,s1) in v {
                 for (b,s2) in v {
                     if a < b && s1 == s2 {
                         let hlt : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
@@ -36,7 +36,7 @@ impl Problem {
                         println!();
                     }
                 }
-            }*/
+            }
             return Err("Labels are not unique");
         }
 

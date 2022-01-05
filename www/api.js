@@ -103,8 +103,10 @@ let use_wasm = !window.location.href.includes("server");
 
 export function request(req, onresult, oncomplete) {
     if( use_wasm ){
+        console.log("wasm requerst");
         return request_wasm(req, onresult, oncomplete);
     } else {
+        console.log("server requerst");
         return request_server(req, onresult, oncomplete);
     }
 }

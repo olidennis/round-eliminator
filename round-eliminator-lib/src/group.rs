@@ -44,13 +44,35 @@ impl Group {
     }
 
     pub fn intersection(&self, other: &Group) -> Self {
-        Group(
+        assert!(self.is_sorted());
+        assert!(other.is_sorted());
+        let mut it1 = self.iter();
+        let mut it2 = other.iter();
+        let mut v = Vec::with_capacity(std::cmp::min(self.len(),other.len()));
+
+
+        let mut last1 = if let Some(&x) = it1.next() { x } else { return Self(v); };
+        let mut last2 = if let Some(&x) = it2.next() { x } else { return Self(v); };
+
+        loop {
+            while last1 < last2 {
+                last1 = if let Some(&x) = it1.next() { x } else { return Self(v); };
+            }
+            while last2 < last1 {
+                last2 = if let Some(&x) = it2.next() { x } else { return Self(v); };
+            }
+            if last1 == last2 {
+                v.push(last1);
+                last2 = if let Some(&x) = it2.next() { x } else { return Self(v); };
+            }
+        }
+        /*Group(
             self.as_set()
                 .intersection(&other.as_set())
                 .cloned()
                 .sorted()
                 .collect(),
-        )
+        )*/
     }
 
     pub fn union(&self, other: &Group) -> Self {
