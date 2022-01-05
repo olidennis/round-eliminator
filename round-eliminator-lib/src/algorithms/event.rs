@@ -23,6 +23,5 @@ impl<'a> EventHandler<'a> {
         if let Some(tx) = self.tx.as_mut() {
             tx((s.to_string(), x, t));
         }
-
     }
 }

@@ -91,11 +91,11 @@ impl Graph {
             ncols += 1;
             let mut active = remaining.clone();
             while let Some(max) = degrees
-                    .iter()
-                    .cloned()
-                    .enumerate()
-                    .filter(|&(i, _)| active[i])
-                    .max_by_key(|&(_, x)| x)
+                .iter()
+                .cloned()
+                .enumerate()
+                .filter(|&(i, _)| active[i])
+                .max_by_key(|&(_, x)| x)
             {
                 let max = max.0;
                 for &x in &self.adj[max] {

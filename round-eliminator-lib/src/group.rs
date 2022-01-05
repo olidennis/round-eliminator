@@ -93,15 +93,15 @@ impl Group {
         let mut j = 0;
         let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
-            match self[i].cmp(&other[j]){
+            match self[i].cmp(&other[j]) {
                 std::cmp::Ordering::Equal => {
                     v.push(self[i]);
                     i += 1;
                     j += 1;
-                },
+                }
                 std::cmp::Ordering::Less => {
                     i += 1;
-                },
+                }
                 std::cmp::Ordering::Greater => {
                     j += 1;
                 }
@@ -126,8 +126,8 @@ impl std::fmt::Display for GroupType {
         use GroupType::*;
         match self {
             &GroupType::ONE => Ok(()),
-            Many(n) => write!(f,"^{}", n),
-            Star => write!(f,"*"),
+            Many(n) => write!(f, "^{}", n),
+            Star => write!(f, "*"),
         }
     }
 }
