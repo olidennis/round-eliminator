@@ -40,6 +40,37 @@ where
             new.sort_active_by_strength();
             handler(Response::P(new));
         },
+        Request::SpeedupMaximize(mut problem) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            let mut new = problem.speedup(&mut eh);
+            new.compute_diagram(&mut eh);
+            new.discard_useless_stuff(true, &mut eh);
+            new.sort_active_by_strength();
+            new.compute_triviality(&mut eh);
+            if new.passive.degree == Degree::Finite(2) {
+                new.compute_coloring_solvability(&mut eh);
+            }
+            handler(Response::P(new));
+        },
+        Request::SpeedupMaximizeRenamegen(mut problem) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            let mut new = problem.speedup(&mut eh);
+            new.compute_diagram(&mut eh);
+            new.discard_useless_stuff(true, &mut eh);
+            new.sort_active_by_strength();
+            new.compute_triviality(&mut eh);
+            if new.passive.degree == Degree::Finite(2) {
+                new.compute_coloring_solvability(&mut eh);
+            }
+            match new.rename_by_generators() {
+                Ok(()) => { handler(Response::P(new)); },
+                Err(s) => handler(Response::E(s.into())),
+            }  
+        },
         Request::SimplifyMerge(problem, a,b) => {
             let mut new = problem.relax_merge(a,b);
             new.discard_useless_stuff(false, &mut eh);
@@ -125,6 +156,8 @@ pub enum Request {
     HardenRemove(Problem,Label,bool),
     HardenKeep(Problem,Vec<Label>,bool),
     Speedup(Problem),
+    SpeedupMaximize(Problem),
+    SpeedupMaximizeRenamegen(Problem),
     Maximize(Problem),
     MergeEquivalentLabels(Problem),
     RenameGenerators(Problem),
