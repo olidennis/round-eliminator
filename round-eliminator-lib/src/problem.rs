@@ -326,7 +326,7 @@ mod tests {
 
             p = p.speedup(eh);
             p.compute_partial_diagram(eh);
-            p.rename_by_generators();
+            p.rename_by_generators().unwrap();
 
             //println!("\n\nIntermediate problem:\n{}\n\n",p);
 
@@ -378,7 +378,7 @@ mod tests {
 
             p = p.speedup(eh);
             p.compute_partial_diagram(eh);
-            p.rename_by_generators();
+            p.rename_by_generators().unwrap();
 
             let succ = p.diagram_indirect_to_reachability_adj();
 

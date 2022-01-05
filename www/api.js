@@ -76,6 +76,7 @@ function request_server(req, onresult, oncomplete) {
         oncomplete();
     }
     a.onmessage = function(s){
+        if( terminated )return;
         let m = s.data;
         let o = JSON.parse(m);
         if( o == "Pong" ){

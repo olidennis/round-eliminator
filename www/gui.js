@@ -244,7 +244,7 @@ Vue.component('re-computing', {
             <div v-if="state.bar" class="progress">
                 <div class="progress-bar" role="progressbar" :style="'width : ' + Math.floor(state.cur *100 / state.max) + '%'"></div>
             </div>
-            <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
+            <button :data-target="'#current'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
                 <span aria-hidden="true">&times;</span>
             </button>
         </div>

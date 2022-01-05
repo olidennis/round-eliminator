@@ -109,7 +109,7 @@ impl Problem {
         result
     }
 
-    pub fn rename_by_generators(&mut self) {
+    pub fn rename_by_generators(&mut self) -> Result<(), &'static str> {
         let map_label_oldlabels = self.mapping_label_generators();
         let map_oldlabels_text = self.mapping_oldlabel_text.as_ref().expect(
             "rename by generators requires that the current problem is the result of a speedup",
@@ -132,7 +132,7 @@ impl Problem {
                 //}
             })
             .collect();
-        self.rename(&renaming).unwrap();
+        self.rename(&renaming)
     }
 }
 
@@ -184,7 +184,7 @@ mod tests {
         ]);
         p.diagram_indirect_old = Some(vec![(0, 0), (1, 1), (2, 2), (2, 1)]);
         p.mapping_oldlabel_text = Some(vec![(0, "M".into()), (1, "U".into()), (2, "P".into())]);
-        p.rename_by_generators();
+        p.rename_by_generators().unwrap();
         assert_eq!(
             format!("{}", p),
             "(<M>) (<P>)^3\n(<M,U>) (<U>)^3\n\n(<M>)(<M,U>) (<P>)(<U>)(<M,U>)^3\n(<P>)^4\n"
@@ -198,7 +198,7 @@ mod tests {
             (1, vec![1, 2]),
         ]);
         p.mapping_oldlabel_text = Some(vec![(0, "M".into()), (1, "U".into()), (2, "P".into())]);
-        p.rename_by_generators();
+        p.rename_by_generators().unwrap();
         assert_eq!(
             format!("{}", p),
             "(<M>) (<P>)^3\n(<M,U>) (<U>)^3\n\n(<M>)(<M,U>) (<P>)(<U>)(<M,U>)^3\n(<P>)^4\n"

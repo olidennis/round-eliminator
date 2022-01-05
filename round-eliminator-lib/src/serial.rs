@@ -97,8 +97,10 @@ where
             handler(Response::P(problem));
         },
         Request::RenameGenerators(mut problem) => {
-            problem.rename_by_generators();
-            handler(Response::P(problem));
+            match problem.rename_by_generators() {
+                Ok(()) => { handler(Response::P(problem)); },
+                Err(s) => handler(Response::E(s.into())),
+            }  
         },
         Request::Rename(mut problem,renaming) => match problem.rename(&renaming) {
             Ok(()) => {
