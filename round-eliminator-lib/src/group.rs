@@ -47,8 +47,8 @@ impl Group {
     }
 
     pub fn is_superset(&self, other: &Group) -> bool {
-        assert!(self.is_sorted());
-        assert!(other.is_sorted());
+        //assert!(self.is_sorted());
+        //assert!(other.is_sorted());
         let mut it1 = self.iter();
 
         for &elem in other.iter() {
@@ -60,8 +60,9 @@ impl Group {
     }
 
     pub fn intersection(&self, other: &Group) -> Self {
-        assert!(self.is_sorted());
-        assert!(other.is_sorted());
+        //assert!(self.is_sorted());
+        //assert!(other.is_sorted());
+        /*
         let mut it1 = self.iter();
         let mut it2 = other.iter();
         let mut v = Vec::with_capacity(std::cmp::min(self.len(),other.len()));
@@ -81,7 +82,7 @@ impl Group {
                 v.push(last1);
                 last2 = if let Some(&x) = it2.next() { x } else { return Self(v); };
             }
-        }
+        }*/
         /*Group(
             self.as_set()
                 .intersection(&other.as_set())
@@ -89,6 +90,21 @@ impl Group {
                 .sorted()
                 .collect(),
         )*/
+        let mut i = 0;
+        let mut j = 0;
+        let mut v = Vec::with_capacity(std::cmp::min(self.len(),other.len()));
+        while i < self.len() && j < other.len() {
+            if self[i] == other[j] {
+                v.push(self[i]);
+                i += 1;
+                j += 1;
+            } else if self[i] < other[j] {
+                i += 1;
+            } else {
+                j += 1;
+            }
+        }
+        Group(v)
     }
 
     pub fn union(&self, other: &Group) -> Self {
