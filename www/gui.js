@@ -458,6 +458,9 @@ Vue.component('re-diagram', {
         network.on("select", function() {
             p.selected = network.getSelectedNodes();
         });
+        network.on("selectEdge", function() {
+            p.selectedEdges = network.getSelectedEdges().map(x => network.getConnectedNodes(x));
+        });
         //prevent vue from adding getters and setters, otherwise some things of vis break
         this.network[0] = network;
     },
@@ -591,12 +594,21 @@ Vue.component('re-simplify',{
                 {type:"simplificationaddarrow", from:this.problem.map_label_text[this.from], to : this.problem.map_label_text[this.to]},
                 simplify_addarrow,[this.problem, this.from, this.to]
             );
+        },
+        on_from_diagram(){
+            let selected = this.problem.selectedEdges;
+            if( selected != null && selected.length > 0 ){
+                this.from = selected[0][0];
+                this.to = selected[0][1];
+                console.log("set from and to " + this.from + " " + this.to);
+            }
         }
     },
     template: `
         <re-card title="Simplify" subtitle="(by merging or adding arrows)" :id="'group'+this._uid">
-            From: <re-label-picker :problem="this.problem" v-model="from"></re-label-picker>
-            To: <re-label-picker :problem="this.problem" v-model="to"></re-label-picker>
+            <div>From: <re-label-picker :problem="this.problem" v-model="from"></re-label-picker>
+            To: <re-label-picker :problem="this.problem" v-model="to"></re-label-picker></div>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_from_diagram">From diagram selection</button>
             <button type="button" class="btn btn-primary ml-2" v-on:click="on_merge">Merge</button>
             <button type="button" class="btn btn-primary ml-2" v-on:click="on_addarrow">Add Arrow</button>
         </re-card>
@@ -617,7 +629,7 @@ Vue.component('re-harden-remove',{
                 {type:"hardenremove", label:this.problem.map_label_text[this.label]},
                 harden_remove,[this.problem, this.label, this.keep_predecessors]
             );
-        },
+        }
     },
     template: `
         <re-card title="Harden" subtitle="(by removing labels)" :id="'group'+this._uid">
@@ -870,6 +882,13 @@ Vue.component('re-label-picker', {
             })
         }
     },
+    watch : {
+        'value' : function() {
+            console.log("value changed to " + this.value );
+            $(this.$el).val(this.value);
+            $(this.$el).selectpicker('refresh');
+        }
+    },
     mounted: function() {
         let id = "#select" + this._uid;
         let t = this;
@@ -882,7 +901,7 @@ Vue.component('re-label-picker', {
         $(this.$el).selectpicker('destroy');
     },
     template: `
-    <select class="selectpicker" data-live-search="true" :value="value" :id="'select'+this._uid">
+    <select class="selectpicker" data-live-search="true" v-bind:value="value" :id="'select'+this._uid">
         <option v-for="x in this.data" :value="x[0]">
             <span v-if="x.length == 3">[{{ x[2] }}] → </span>{{ x[1] }}
         </option>
