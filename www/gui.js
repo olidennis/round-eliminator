@@ -418,13 +418,28 @@ Vue.component('re-diagram', {
         },
         options : function() {
             return {
+                interaction: {
+                    zoomView: false,
+                    navigationButtons: true,
+                    multiselect : true
+                },
                 edges:{
                     physics: true,
                     smooth: false
                 },
                 physics:{
                     enabled: this.physics
-                }
+                },
+                nodes: {
+                    color:{
+                        highlight: '#FF7f7f'
+                    }
+                },
+                edges: {
+                    color:{
+                        highlight: '#FF7f7f'
+                    }
+                },
             };
         }
     },
@@ -439,12 +454,16 @@ Vue.component('re-diagram', {
         let id = "diagram" + this.id;
         let network = new vis.Network(document.getElementById(id), this.visdata, {});
         network.setOptions(this.options);
+        let p = this.problem;
+        network.on("select", function() {
+            p.selected = network.getSelectedNodes();
+        });
         //prevent vue from adding getters and setters, otherwise some things of vis break
         this.network[0] = network;
     },
     template: `
         <div>
-            <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this.id" onmouseover="document.body.style.overflow='hidden';"  onmouseout="document.body.style.overflow='auto';">
+            <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this.id">
             </div>
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="physics"><p class="form-control-static custom-control-label">Physics</p></label>
@@ -639,6 +658,16 @@ Vue.component('re-group-simplify',{
                 {type:"simplifymergegroup", labels:tomerge.map(x => this.problem.map_label_text[x]), to : this.problem.map_label_text[this.to]},
                 simplify_group,[this.problem, tomerge, this.to]
             );
+        },
+        on_from_diagram(){
+            let selected = this.problem.selected;
+            if( selected != null ){
+                for(let i = 0; i < this.table.length; i++){
+                    let row = this.table[i];
+                    row.splice(3,1,selected.includes(row[0]));
+                    this.table.splice(i,1,row);
+                }
+            }
         }
     },
     template: `
@@ -655,6 +684,7 @@ Vue.component('re-group-simplify',{
                     </label>  
                 </div>
             </div> 
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_from_diagram">From diagram selection</button>
             To: <re-label-picker :problem="this.problem" v-model="to"></re-label-picker>     
             <button type="button" class="btn btn-primary ml-2" v-on:click="on_merge">Merge (simplify)</button>
         </re-card>
@@ -693,6 +723,16 @@ Vue.component('re-group-harden',{
                 {type:"hardenkeep", labels:tokeep.map(x => this.problem.map_label_text[x])},
                 harden_keep,[this.problem, tokeep, this.keep_predecessors]
             );
+        },
+        on_from_diagram(){
+            let selected = this.problem.selected;
+            if( selected != null ){
+                for(let i = 0; i < this.table.length; i++){
+                    let row = this.table[i];
+                    row.splice(3,1,selected.includes(row[0]));
+                    this.table.splice(i,1,row);
+                }
+            }
         }
     },
     template: `
@@ -707,7 +747,8 @@ Vue.component('re-group-harden',{
                         </p>
                     </label>  
                 </div>
-            </div>         
+            </div>  
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_from_diagram">From diagram selection</button>       
             <hr/>       
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">Replace With Predecessors</p></label>
