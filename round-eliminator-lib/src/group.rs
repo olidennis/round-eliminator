@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use serde::Deserialize;
 
-pub type Label = u8;
+pub type Label = u16;
 
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
@@ -44,6 +44,19 @@ impl Group {
 
     pub fn from_set(h: &HashSet<Label>) -> Self {
         Group(h.iter().cloned().sorted().collect())
+    }
+
+    pub fn is_superset(&self, other: &Group) -> bool {
+        assert!(self.is_sorted());
+        assert!(other.is_sorted());
+        let mut it1 = self.iter();
+
+        for &elem in other.iter() {
+            if it1.find(|&&x|x == elem).is_none() {
+                return false;
+            }
+        }
+        true
     }
 
     pub fn intersection(&self, other: &Group) -> Self {

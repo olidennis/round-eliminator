@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{group::{GroupType, Label}, line::Line};
+use crate::{group::{GroupType, Label, Group}, line::Line};
 
 impl Line {
     pub fn includes(&self, other: &Line) -> bool {
@@ -9,7 +9,7 @@ impl Line {
 
     pub fn includes_with_custom_supersets<T>(&self, other: &Line, is_superset: Option<T>) -> bool
     where
-        T: Fn(&HashSet<Label>, &HashSet<Label>) -> bool,
+        T: Fn(&Group, &Group) -> bool,
     {
         let d1 = self.parts.len();
         let d2 = other.parts.len();
@@ -18,7 +18,7 @@ impl Line {
         let maxflow = if self.has_star() { t1 + t2 + 1 } else { t1 };
 
         let n = 2 + d1 + d2;
-        let mut g = contest_algorithms::graph::flow::FlowGraph::new(n, 0);
+        let mut g = contest_algorithms::graph::flow::FlowGraph::new(n, d1*d2);
 
         for i in 0..d1 {
             let value = if let GroupType::Star = self.parts[i].gtype {
@@ -38,6 +38,7 @@ impl Line {
             g.add_edge(1 + d1 + i, n - 1, value as i64, 0, 0);
         }
 
+        /*
         let h1: Vec<HashSet<_>> = self
             .parts
             .iter()
@@ -55,6 +56,21 @@ impl Line {
                 let is_superset = match is_superset.as_ref() {
                     None => g1.is_superset(&h2[j]),
                     Some(f) => f(&g1, &h2[j]),
+                };
+                if is_superset {
+                    g.add_edge(1 + i, 1 + d1 + j, maxflow as i64, 0, 0);
+                }
+            }
+        }*/
+
+        for i in 0..d1 {
+            let g1 = &self.parts[i].group;
+            for j in 0..d2 {
+                let g2 = &other.parts[j].group;
+
+                let is_superset = match is_superset.as_ref() {
+                    None => g1.is_superset(&g2),
+                    Some(f) => f(&g1, &g2),
                 };
                 if is_superset {
                     g.add_edge(1 + i, 1 + d1 + j, maxflow as i64, 0, 0);

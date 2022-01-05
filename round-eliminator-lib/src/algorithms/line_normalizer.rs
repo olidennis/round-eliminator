@@ -29,34 +29,38 @@ impl Line {
             self.parts.push(starred_part);
         }
 
-        let mut h = HashMap::new();
-        let parts = std::mem::take(&mut self.parts);
-        for mut part in parts {
-            part.group.sort();
-            let x = h.get(&part.group).unwrap_or(&GroupType::Many(0));
-
-            use GroupType::*;
-            let mut r = match (x, part.gtype) {
-                //(One, One) => Many(2),
-                //(One, Many(a)) => Many(a + 1),
-                //(Many(a), One) => Many(*a + 1),
-                (Many(a), Many(b)) => Many(*a + b),
-                (Star, _) | (_, Star) => Star,
-            };
-
-            if r == GroupType::Many(1) {
-                r = GroupType::ONE;
-            }
-
-            h.insert(part.group, r);
-        }
-
-        for (group, gtype) in h {
-            if gtype != GroupType::Many(0) {
-                let part = Part { group, gtype };
-                self.parts.push(part);
+        let mut parts = std::mem::take(&mut self.parts);
+        for part in parts.iter_mut() {
+            if !part.group.is_sorted() {
+                part.group.sort();
             }
         }
+
+        parts.sort_by(|part1,part2|part1.group.0.cmp(&part2.group.0));
+        let mut lastgroup = Group(vec![]);
+        let mut lastcount = GroupType::Many(0);
+        let mut rparts = vec![];
+        
+        for part in parts {
+            if part.group != lastgroup {
+                if lastcount != GroupType::Many(0) {
+                    rparts.push(Part{ group : lastgroup, gtype : lastcount});
+                }
+                lastgroup = part.group;
+                lastcount = part.gtype;
+            } else {
+                use GroupType::*;
+                lastcount = match (lastcount, part.gtype) {
+                    (Many(a), Many(b)) => Many(a + b),
+                    (Star, _) | (_, Star) => Star,
+                };
+            }
+        }
+        if lastcount != GroupType::Many(0) {
+            rparts.push(Part{ group : lastgroup, gtype : lastcount});
+        }
+
+        self.parts = rparts;
 
         self.parts.sort();
     }

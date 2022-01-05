@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{problem::Problem, group::Label};
+use crate::{problem::Problem, group::{Label, Group}};
 
 use super::event::EventHandler;
 
@@ -99,7 +99,7 @@ impl Problem {
         // part 2: remove lines by inclusion
         self.active
             .discard_non_maximal_lines_with_custom_supersets(Some(
-                |h1: &HashSet<Label>, h2: &HashSet<Label>| {
+                |h1: &Group, h2: &Group| {
                     // h1 is superset of h2 if all elements of h2 have a successor in h1
                     h2.iter().all(|x| {
                         h1.iter().any(|y| {

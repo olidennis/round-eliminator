@@ -65,12 +65,10 @@ impl Constraint {
                 without_one.push(current);
             }
 
-            println!("current number of lines: {}",lines.len());
             for i in 0..lines.len() {
                 let mut candidates2 = empty.clone();
 
                 for j in 0..=i {
-                    println!("{} {}",i,j);
                     let len = lines.len();
                     eh.notify("combining line pairs", i * len + j, len * len);
 

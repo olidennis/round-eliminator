@@ -34,7 +34,7 @@ impl Constraint {
         newline: Line,
         is_superset: Option<T>,
     ) where
-        T: Fn(&HashSet<Label>, &HashSet<Label>) -> bool + Copy,
+        T: Fn(&Group, &Group) -> bool + Copy,
     {
         self.is_maximized = false;
         let lines = &mut self.lines;
@@ -53,7 +53,7 @@ impl Constraint {
 
     pub fn discard_non_maximal_lines_with_custom_supersets<T>(&mut self, is_superset: Option<T>)
     where
-        T: Fn(&HashSet<Label>, &HashSet<Label>) -> bool + Copy,
+        T: Fn(&Group, &Group) -> bool + Copy,
     {
         self.is_maximized = false;
         let lines = std::mem::take(&mut self.lines);
