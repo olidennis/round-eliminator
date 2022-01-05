@@ -144,7 +144,7 @@ mod tests {
         p.discard_useless_stuff(true, &mut EventHandler::null());
         assert_eq!(format!("{}", p), "A B^2\n\nAB^2\n");
 
-        let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB C").unwrap();
+        let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB ABC").unwrap();
         p.discard_useless_stuff(false, &mut EventHandler::null());
         assert_eq!(format!("{}", p), "A B^2\n\nAB^2\n");
     }

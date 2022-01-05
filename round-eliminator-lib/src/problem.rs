@@ -136,7 +136,7 @@ impl Display for Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::{algorithms::event::EventHandler, group::Label, problem::Problem};
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     #[should_panic]
