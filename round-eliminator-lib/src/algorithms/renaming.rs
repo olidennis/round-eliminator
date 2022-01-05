@@ -145,7 +145,7 @@ impl Problem {
 #[cfg(test)]
 mod tests {
 
-    use crate::problem::Problem;
+    use crate::{algorithms::event::EventHandler, problem::Problem};
 
     #[test]
     fn renaming() {
@@ -213,6 +213,15 @@ mod tests {
 
     #[test]
     fn renaming_by_generators_when_equal_labels() {
-        todo!();
+        let mut eh = EventHandler::null();
+        let eh = &mut eh;
+        let mut p = Problem::from_string("A B C\n\nABC C").unwrap();
+        p.compute_diagram(eh);
+        let mut p = p.speedup(eh);
+        p.rename_by_generators().unwrap();
+        assert_eq!(
+            format!("{}", p),
+            "(<C>) (<A,B>)\n\n(<C>)(<A,B>) (<A,B>)^2\n"
+        );
     }
 }
