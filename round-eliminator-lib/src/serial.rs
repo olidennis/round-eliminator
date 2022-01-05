@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{algorithms::event::EventHandler, problem::Problem, line::Degree};
+use crate::{algorithms::event::EventHandler, problem::Problem, line::Degree, group::Label};
 
 pub fn request_json<F>(req: &str, f: F)
 where
@@ -117,16 +117,16 @@ where
 #[derive(Deserialize, Serialize)]
 pub enum Request {
     NewProblem(String, String),
-    SimplifyMerge(Problem,usize,usize),
-    SimplifyMergeGroup(Problem,Vec<usize>,usize),
-    SimplifyAddarrow(Problem,usize,usize),
-    HardenRemove(Problem,usize,bool),
-    HardenKeep(Problem,Vec<usize>,bool),
+    SimplifyMerge(Problem,Label,Label),
+    SimplifyMergeGroup(Problem,Vec<Label>,Label),
+    SimplifyAddarrow(Problem,Label,Label),
+    HardenRemove(Problem,Label,bool),
+    HardenKeep(Problem,Vec<Label>,bool),
     Speedup(Problem),
     Maximize(Problem),
     MergeEquivalentLabels(Problem),
     RenameGenerators(Problem),
-    Rename(Problem,Vec<(usize,String)>),
+    Rename(Problem,Vec<(Label,String)>),
     Ping,
 }
 

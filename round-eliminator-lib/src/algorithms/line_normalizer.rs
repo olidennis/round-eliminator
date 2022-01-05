@@ -1,5 +1,5 @@
 use crate::constraint::Constraint;
-use crate::group::{Group, GroupType};
+use crate::group::{Group, GroupType, Label};
 use crate::line::Line;
 use crate::part::Part;
 use crate::problem::Problem;
@@ -61,7 +61,7 @@ impl Line {
         self.parts.sort();
     }
 
-    pub fn sort_by_strength(&mut self, reachability: &HashMap<usize, HashSet<usize>>) {
+    pub fn sort_by_strength(&mut self, reachability: &HashMap<Label, HashSet<Label>>) {
         self.parts.sort_by(|a, b| {
             if a.group.len() != 1 || b.group.len() != 1 {
                 a.cmp(b)
@@ -82,7 +82,7 @@ impl Line {
 }
 
 impl Constraint {
-    pub fn sort_lines_by_strength(&mut self, reachability: &HashMap<usize, HashSet<usize>>) {
+    pub fn sort_lines_by_strength(&mut self, reachability: &HashMap<Label, HashSet<Label>>) {
         for line in self.lines.iter_mut() {
             line.sort_by_strength(reachability);
         }

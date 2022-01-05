@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::{group::Group, problem::Problem};
+use crate::{group::{Group, Label}, problem::Problem};
 
 use super::event::EventHandler;
 
@@ -15,8 +15,9 @@ impl Problem {
             .groups()
             .unique()
             .map(|g| g.0.clone())
-            .sorted_by_key(|v|v.iter().cloned().rev().collect::<Vec<usize>>())
+            .sorted_by_key(|v|v.iter().cloned().rev().collect::<Vec<Label>>())
             .enumerate()
+            .map(|(a,b)|(a as Label, b))
             .collect();
         let h_oldlabels_label: HashMap<_, _> = mapping_label_oldlabels
             .iter()

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{group::GroupType, line::Line};
+use crate::{group::{GroupType, Label}, line::Line};
 
 impl Line {
     pub fn includes(&self, other: &Line) -> bool {
@@ -9,7 +9,7 @@ impl Line {
 
     pub fn includes_with_custom_supersets<T>(&self, other: &Line, is_superset: Option<T>) -> bool
     where
-        T: Fn(&HashSet<usize>, &HashSet<usize>) -> bool,
+        T: Fn(&HashSet<Label>, &HashSet<Label>) -> bool,
     {
         let d1 = self.parts.len();
         let d2 = other.parts.len();

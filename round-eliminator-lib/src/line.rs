@@ -1,4 +1,4 @@
-use crate::group::GroupType;
+use crate::group::{GroupType, Label};
 use crate::part::Part;
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
@@ -16,7 +16,7 @@ pub enum Degree {
 }
 
 impl Line {
-    pub fn parse(line: &str, mapping: &mut HashMap<String, usize>) -> Result<Line, &'static str> {
+    pub fn parse(line: &str, mapping: &mut HashMap<String, Label>) -> Result<Line, &'static str> {
         let parts = line
             .split_whitespace()
             .map(|part| Part::parse(part, mapping))
@@ -26,7 +26,7 @@ impl Line {
         Ok(line)
     }
 
-    pub fn to_string(&self, mapping: &HashMap<usize, String>) -> String {
+    pub fn to_string(&self, mapping: &HashMap<Label, String>) -> String {
         self.parts.iter().map(|p| p.to_string(mapping)).join(" ")
     }
 

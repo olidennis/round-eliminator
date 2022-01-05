@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use crate::constraint::Constraint;
+use crate::{constraint::Constraint, group::Label};
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
 
@@ -11,14 +11,14 @@ use serde::{Serialize, Deserialize};
 pub struct Problem {
     pub active: Constraint,
     pub passive: Constraint,
-    pub mapping_label_text: Vec<(usize, String)>,
-    pub mapping_label_oldlabels: Option<Vec<(usize, Vec<usize>)>>,
-    pub mapping_oldlabel_text: Option<Vec<(usize, String)>>,
-    pub trivial_sets: Option<Vec<Vec<usize>>>,
-    pub coloring_sets: Option<Vec<Vec<usize>>>,
-    pub diagram_indirect: Option<Vec<(usize, usize)>>,
-    pub diagram_indirect_old: Option<Vec<(usize, usize)>>,
-    pub diagram_direct: Option<(Vec<(usize, Vec<usize>)>, Vec<(usize, usize)>)>,
+    pub mapping_label_text: Vec<(Label, String)>,
+    pub mapping_label_oldlabels: Option<Vec<(Label, Vec<Label>)>>,
+    pub mapping_oldlabel_text: Option<Vec<(Label, String)>>,
+    pub trivial_sets: Option<Vec<Vec<Label>>>,
+    pub coloring_sets: Option<Vec<Vec<Label>>>,
+    pub diagram_indirect: Option<Vec<(Label, Label)>>,
+    pub diagram_indirect_old: Option<Vec<(Label, Label)>>,
+    pub diagram_direct: Option<(Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>)>,
 }
 
 impl Problem {
@@ -58,14 +58,14 @@ impl Problem {
         Self::from_string_active_passive(active, passive)
     }
 
-    pub fn labels(&self) -> Vec<usize> {
+    pub fn labels(&self) -> Vec<Label> {
         let mut labels: Vec<_> = self.mapping_label_text.iter().map(|(l, _)| *l).collect();
         labels.sort();
         labels
     }
 
-    pub fn diagram_indirect_to_reachability_adj(&self) -> HashMap<usize, HashSet<usize>> {
-        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+    pub fn diagram_indirect_to_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
+        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
         for &(a, b) in self
             .diagram_indirect
             .as_ref()
@@ -79,8 +79,8 @@ impl Problem {
         h
     }
 
-    pub fn diagram_indirect_old_to_reachability_adj(&self) -> HashMap<usize, HashSet<usize>> {
-        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+    pub fn diagram_indirect_old_to_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
+        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
         for &(a, b) in self
             .diagram_indirect_old
             .as_ref()
@@ -100,8 +100,8 @@ impl Problem {
         h
     }
 
-    pub fn diagram_indirect_to_inverse_reachability_adj(&self) -> HashMap<usize, HashSet<usize>> {
-        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+    pub fn diagram_indirect_to_inverse_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
+        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
         for &(a, b) in self
             .diagram_indirect
             .as_ref()
@@ -135,7 +135,7 @@ mod tests {
 
     use itertools::Itertools;
 
-    use crate::{problem::Problem, algorithms::event::EventHandler};
+    use crate::{problem::Problem, algorithms::event::EventHandler, group::Label};
 
     #[test]
     #[should_panic]
@@ -439,7 +439,7 @@ mod tests {
                 p = p.relax_merge(htl[&format!("{}",from)], htl[&format!("{}",to)]);
             }
 
-            let mut successors_of_colors : HashSet<usize> = HashSet::new();
+            let mut successors_of_colors : HashSet<Label> = HashSet::new();
             for &c in &colors {
                 let s = succ[&c].iter().filter(|&&x|x != c).filter(|l|hlt[l] != "X" && hlt[l] != "P");
                 successors_of_colors.extend(s);
@@ -548,8 +548,8 @@ mod tests {
 
 
 impl Problem {
-    pub fn diagram_direct_to_succ_adj(&self) -> HashMap<usize, HashSet<usize>> {
-        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+    pub fn diagram_direct_to_succ_adj(&self) -> HashMap<Label, HashSet<Label>> {
+        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
         for &(a, b) in &self
             .diagram_direct
             .as_ref()
@@ -564,8 +564,8 @@ impl Problem {
         h
     }
 
-    pub fn diagram_direct_to_pred_adj(&self) -> HashMap<usize, HashSet<usize>> {
-        let mut h: HashMap<usize, HashSet<usize>> = HashMap::new();
+    pub fn diagram_direct_to_pred_adj(&self) -> HashMap<Label, HashSet<Label>> {
+        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
         for &(a, b) in &self
             .diagram_direct
             .as_ref()

@@ -1,7 +1,7 @@
-use crate::{constraint::Constraint, group::Group, problem::Problem};
+use crate::{constraint::Constraint, group::{Group, Label}, problem::Problem};
 
 impl Problem {
-    pub fn relax_merge(&self, from: usize, to: usize) -> Self {
+    pub fn relax_merge(&self, from: Label, to: Label) -> Self {
         let active = self.active.relax(from, to, true);
         let passive = self.passive.relax(from, to, true);
 
@@ -19,7 +19,7 @@ impl Problem {
         }
     }
 
-    pub fn relax_addarrow(&self, from: usize, to: usize) -> Self {
+    pub fn relax_addarrow(&self, from: Label, to: Label) -> Self {
         let passive = self.passive.relax(from, to, false);
 
         Problem {
@@ -38,7 +38,7 @@ impl Problem {
 }
 
 impl Constraint {
-    pub fn relax(&self, from: usize, to: usize, remove_from: bool) -> Self {
+    pub fn relax(&self, from: Label, to: Label, remove_from: bool) -> Self {
         self.edited(|g| {
             let v = &g.0;
             if !v.contains(&from) {

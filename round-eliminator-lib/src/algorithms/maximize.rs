@@ -6,7 +6,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     algorithms::multisets_pairing::Pairings,
     constraint::Constraint,
-    group::{Group, GroupType},
+    group::{Group, GroupType, Label},
     line::Line,
     part::Part,
 };
@@ -175,7 +175,7 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
     result
 }
 
-fn good_unions(l1: &Line, l2: &Line) -> HashMap<Vec<usize>, Vec<(usize, usize)>> {
+fn good_unions(l1: &Line, l2: &Line) -> HashMap<Vec<Label>, Vec<(usize, usize)>> {
     let s1: Vec<_> = l1.parts.iter().map(|part| part.group.as_set()).collect();
     let s2: Vec<_> = l2.parts.iter().map(|part| part.group.as_set()).collect();
 

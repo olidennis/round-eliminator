@@ -2,12 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 
-use crate::problem::Problem;
+use crate::{problem::Problem, group::Label};
 
 impl Problem {
-    pub fn rename(&mut self, v: &[(usize, String)]) -> Result<(), &'static str> {
-        let given_labels: HashSet<usize> = v.iter().map(|(l, _)| *l).unique().collect();
-        let labels: HashSet<usize> = self
+    pub fn rename(&mut self, v: &[(Label, String)]) -> Result<(), &'static str> {
+        let given_labels: HashSet<Label> = v.iter().map(|(l, _)| *l).unique().collect();
+        let labels: HashSet<Label> = self
             .mapping_label_text
             .iter()
             .map(|(l, _)| *l)
@@ -19,7 +19,7 @@ impl Problem {
         }
 
         if v.iter().map(|(_, s)| s).unique().count() != labels.len() {
-            for (a,s1) in v {
+            /*for (a,s1) in v {
                 for (b,s2) in v {
                     if a < b && s1 == s2 {
                         let hlt : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
@@ -36,7 +36,7 @@ impl Problem {
                         println!();
                     }
                 }
-            }
+            }*/
             return Err("Labels are not unique");
         }
 
@@ -58,7 +58,7 @@ impl Problem {
         Ok(())
     }
 
-    pub fn mapping_label_generators(&self) -> Vec<(usize, Vec<usize>)> {
+    pub fn mapping_label_generators(&self) -> Vec<(Label, Vec<Label>)> {
         if self.mapping_label_oldlabels.is_none() {
             panic!("mapping label generators requires that the current problem is the result of a speedup");
         }

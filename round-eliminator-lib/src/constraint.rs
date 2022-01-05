@@ -5,7 +5,7 @@ use permutator::copy::CartesianProductIterator;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    group::{Group, GroupType},
+    group::{Group, GroupType, Label},
     line::{Degree, Line},
     part::Part,
 };
@@ -34,7 +34,7 @@ impl Constraint {
         newline: Line,
         is_superset: Option<T>,
     ) where
-        T: Fn(&HashSet<usize>, &HashSet<usize>) -> bool + Copy,
+        T: Fn(&HashSet<Label>, &HashSet<Label>) -> bool + Copy,
     {
         self.is_maximized = false;
         let lines = &mut self.lines;
@@ -53,7 +53,7 @@ impl Constraint {
 
     pub fn discard_non_maximal_lines_with_custom_supersets<T>(&mut self, is_superset: Option<T>)
     where
-        T: Fn(&HashSet<usize>, &HashSet<usize>) -> bool + Copy,
+        T: Fn(&HashSet<Label>, &HashSet<Label>) -> bool + Copy,
     {
         self.is_maximized = false;
         let lines = std::mem::take(&mut self.lines);
@@ -64,7 +64,7 @@ impl Constraint {
 
     pub fn parse<S: AsRef<str>>(
         text: S,
-        mapping: &mut HashMap<String, usize>,
+        mapping: &mut HashMap<String, Label>,
     ) -> Result<Constraint, &'static str> {
         let text = text.as_ref();
         let lines: Vec<_> = text
@@ -90,7 +90,7 @@ impl Constraint {
     fn sets_of_all_choices(&self) -> HashSet<Group> {
         let mut result = HashSet::new();
 
-        fn labels_to_set<T: Iterator<Item = usize>>(labels: T) -> Group {
+        fn labels_to_set<T: Iterator<Item = Label>>(labels: T) -> Group {
             let mut group: Vec<_> = labels.into_iter().collect();
             group.sort();
             Group(group)
@@ -113,9 +113,9 @@ impl Constraint {
         result
     }
 
-    pub fn minimal_sets_of_all_choices(&self) -> Vec<HashSet<usize>> {
+    pub fn minimal_sets_of_all_choices(&self) -> Vec<HashSet<Label>> {
         let all_sets = self.sets_of_all_choices();
-        let mut result: Vec<HashSet<usize>> = vec![];
+        let mut result: Vec<HashSet<Label>> = vec![];
         for set in all_sets.into_iter().sorted() {
             let set = HashSet::from_iter(set.0.into_iter());
             let len = result.len();
@@ -131,7 +131,7 @@ impl Constraint {
         self.lines.iter().any(|line| line.includes(other))
     }
 
-    pub fn is_diagram_predecessor(&self, l1: usize, l2: usize) -> bool {
+    pub fn is_diagram_predecessor(&self, l1: Label, l2: Label) -> bool {
         // this is commented out so that one may still try to see if a label is a predecessor of another label
         // if the result is true, then it is always correct
         // if the result is false, it may just be because of a non-maximized right side
@@ -171,7 +171,7 @@ impl Constraint {
         true
     }
 
-    pub fn labels_appearing(&self) -> HashSet<usize> {
+    pub fn labels_appearing(&self) -> HashSet<Label> {
         let mut h = HashSet::new();
         for group in self.groups() {
             for &label in &group.0 {

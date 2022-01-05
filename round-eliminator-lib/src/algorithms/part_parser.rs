@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::group::{Group, GroupType};
+use crate::group::{Group, GroupType, Label};
 use crate::part::Part;
 
 impl Part {
-    pub fn parse(part: &str, mapping: &mut HashMap<String, usize>) -> Result<Part, &'static str> {
+    pub fn parse(part: &str, mapping: &mut HashMap<String, Label>) -> Result<Part, &'static str> {
         #[derive(Copy, Clone, Eq, PartialEq)]
         enum State {
             Out,
@@ -17,7 +17,7 @@ impl Part {
         let mut current_label_str = String::new();
         let mut group = vec![];
         let mut label_for_str = |s| {
-            let next_label = mapping.len();
+            let next_label = mapping.len() as Label;
             *mapping.entry(s).or_insert(next_label)
         };
         let mut gtype = GroupType::ONE;

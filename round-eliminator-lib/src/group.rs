@@ -7,8 +7,11 @@ use itertools::Itertools;
 use serde::Serialize;
 use serde::Deserialize;
 
+pub type Label = u8;
+
+
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct Group(pub Vec<usize>);
+pub struct Group(pub Vec<Label>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
@@ -21,7 +24,7 @@ impl GroupType {
 }
 
 impl Deref for Group {
-    type Target = Vec<usize>;
+    type Target = Vec<Label>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -35,11 +38,11 @@ impl DerefMut for Group {
 }
 
 impl Group {
-    pub fn as_set(&self) -> HashSet<usize> {
+    pub fn as_set(&self) -> HashSet<Label> {
         self.iter().cloned().collect()
     }
 
-    pub fn from_set(h: &HashSet<usize>) -> Self {
+    pub fn from_set(h: &HashSet<Label>) -> Self {
         Group(h.iter().cloned().sorted().collect())
     }
 

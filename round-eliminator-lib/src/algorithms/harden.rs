@@ -2,19 +2,19 @@ use std::{collections::HashSet, hash::Hash};
 
 use itertools::Itertools;
 
-use crate::{constraint::Constraint, group::Group, problem::Problem};
+use crate::{constraint::Constraint, group::{Group, Label}, problem::Problem};
 
 use super::event::EventHandler;
 
 impl Problem {
 
-    pub fn harden_remove(&self, label : usize, add_predecessors: bool) -> Self {
+    pub fn harden_remove(&self, label : Label, add_predecessors: bool) -> Self {
         let mut h : HashSet<_> = self.labels().into_iter().collect();
         h.remove(&label);
         self.harden_keep(&h, add_predecessors)
     }
 
-    pub fn harden_keep(&self, keep: &HashSet<usize>, add_predecessors: bool) -> Self {
+    pub fn harden_keep(&self, keep: &HashSet<Label>, add_predecessors: bool) -> Self {
         let mut keep = keep.clone();
 
         let mut newpassive = self.passive.clone();
@@ -39,7 +39,7 @@ impl Problem {
             let appearing_active = newactive.labels_appearing();
             let appearing_passive = newpassive.labels_appearing();
 
-            let newkeep: HashSet<usize> = appearing_active
+            let newkeep: HashSet<Label> = appearing_active
                 .intersection(&appearing_passive)
                 .cloned()
                 .collect();
@@ -66,7 +66,7 @@ impl Problem {
 }
 
 impl Constraint {
-    fn harden(&self, keep: &HashSet<usize>) -> Self {
+    fn harden(&self, keep: &HashSet<Label>) -> Self {
         self.edited(|g| Group(g.as_set().intersection(keep).cloned().sorted().collect()))
     }
 }

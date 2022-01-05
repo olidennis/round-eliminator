@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::group::{Group, GroupType};
+use crate::group::{Group, GroupType, Label};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Part {
@@ -11,7 +11,7 @@ pub struct Part {
 }
 
 impl Part {
-    pub fn to_string(&self, mapping: &HashMap<usize, String>) -> String {
+    pub fn to_string(&self, mapping: &HashMap<Label, String>) -> String {
         let mut s = String::new();
         for label in &*self.group {
             s.extend(mapping[&label].chars());
@@ -21,7 +21,7 @@ impl Part {
     }
 
     
-    pub fn _to_string(&self, mapping: &HashMap<usize, String>) -> String {
+    pub fn _to_string(&self, mapping: &HashMap<Label, String>) -> String {
         let mut s = String::new();
         let deg = self.gtype.value();
         for _ in 0..deg {
@@ -39,7 +39,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        group::{Group, GroupType},
+        group::{Group, GroupType, Label},
         part::Part,
     };
 

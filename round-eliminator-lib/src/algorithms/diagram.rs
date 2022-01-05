@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use petgraph::graph::IndexType;
 
-use crate::problem::Problem;
+use crate::{problem::Problem, group::Label};
 
 use super::event::EventHandler;
 
@@ -43,7 +43,7 @@ impl Problem {
         }
 
         let labels: Vec<_> = self.labels();
-        let mapping : HashMap<usize,HashSet<usize>> = self.mapping_label_oldlabels.as_ref().expect("set inclusion diagram can only be computed if the current problem has been obtained through round elimination")
+        let mapping : HashMap<Label,HashSet<Label>> = self.mapping_label_oldlabels.as_ref().expect("set inclusion diagram can only be computed if the current problem has been obtained through round elimination")
             .iter().map(|(label,set)|(*label,set.iter().cloned().collect())).collect();
 
         let mut diagram = vec![];
@@ -62,6 +62,7 @@ impl Problem {
 
     pub fn compute_direct_diagram(&mut self) {
         let diagram = self.diagram_indirect.as_ref().unwrap();
+        let diagram_usize : Vec<_> = self.diagram_indirect.as_ref().unwrap().iter().map(|(a,b)|(*a as usize, *b as usize)).collect();
         // We need to compute the transitive reduction of the diagram.
         // The algorithm for transitive reduction only works in DAGs.
         // We need to first compute the strongly connected components, that are equivalent labels,
@@ -71,17 +72,17 @@ impl Problem {
         let labels : HashSet<_> = self.labels().into_iter().collect();
 
         // compute SCC
-        let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(diagram);
+        let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(diagram_usize);
         let scc = petgraph::algo::kosaraju_scc(&g);
         let mut merged: Vec<_> = scc
             .into_iter()
             .map(|group| {
-                let mut group: Vec<_> = group.into_iter().map(|x| x.index()).collect();
+                let mut group: Vec<_> = group.into_iter().map(|x| x.index() as Label).collect();
                 group.sort();
-                (group[0], group)
+                (group[0] as Label, group)
             })
             // petgraph is adding nodes also for labels that are not present
-            .filter(|(x,_)|labels.contains(x))
+            .filter(|(x,_)|labels.contains(&(*x as Label)))
             .collect();
 
         // compute renaming
@@ -96,7 +97,7 @@ impl Problem {
         let mut new_edges = vec![];
         for (a, b) in diagram {
             if rename[a] != rename[b] {
-                new_edges.push((*rename[a], *rename[b]))
+                new_edges.push((*rename[a] as usize, *rename[b] as usize))
             }
         }
 
@@ -113,7 +114,7 @@ impl Problem {
         let mut edges: Vec<_> = reduction
             .edge_indices()
             .map(|e| reduction.edge_endpoints(e).unwrap())
-            .map(|(u, v)| (topo[u.index()].index(), topo[v.index()].index()))
+            .map(|(u, v)| (topo[u.index()].index() as Label, topo[v.index()].index() as Label))
             .unique()
             .collect();
 
