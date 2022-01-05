@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 
-use crate::{problem::Problem, group::Label};
+use crate::{group::Label, problem::Problem};
 
 impl Problem {
     pub fn rename(&mut self, v: &[(Label, String)]) -> Result<(), &'static str> {
@@ -122,13 +122,19 @@ impl Problem {
                 //if oldset.len() == 1 {
                 //    (label, map_oldlabels_text[&oldset[0]].chars().filter(|&c|c!=')'&&c!='(').collect::<String>())
                 //} else {
-                    (
-                        label,
-                        format!(
-                            "<{}>",
-                            oldset.iter().map(|x| map_oldlabels_text[x].chars().filter(|&c|c!=')'&&c!='(').collect::<String>()).join(",")
-                        ),
-                    )
+                (
+                    label,
+                    format!(
+                        "<{}>",
+                        oldset
+                            .iter()
+                            .map(|x| map_oldlabels_text[x]
+                                .chars()
+                                .filter(|&c| c != ')' && c != '(')
+                                .collect::<String>())
+                            .join(",")
+                    ),
+                )
                 //}
             })
             .collect();

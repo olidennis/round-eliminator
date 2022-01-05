@@ -1,6 +1,4 @@
-use std::collections::HashSet;
-
-use crate::{problem::Problem, group::{Label, Group}};
+use crate::{group::Group, problem::Problem};
 
 use super::event::EventHandler;
 
@@ -38,7 +36,7 @@ impl Problem {
         // zero-round solvability is preserved
         // coloring solvability is preserved
         // diagram may change
-        
+
         self.diagram_indirect = None;
         self.diagram_direct = None;
 
@@ -98,16 +96,13 @@ impl Problem {
 
         // part 2: remove lines by inclusion
         self.active
-            .discard_non_maximal_lines_with_custom_supersets(Some(
-                |h1: &Group, h2: &Group| {
-                    // h1 is superset of h2 if all elements of h2 have a successor in h1
-                    h2.iter().all(|x| {
-                        h1.iter().any(|y| {
-                            x == y || (reachable[x].contains(y) && !reachable[y].contains(x))
-                        })
-                    })
-                },
-            ));
+            .discard_non_maximal_lines_with_custom_supersets(Some(|h1: &Group, h2: &Group| {
+                // h1 is superset of h2 if all elements of h2 have a successor in h1
+                h2.iter().all(|x| {
+                    h1.iter()
+                        .any(|y| x == y || (reachable[x].contains(y) && !reachable[y].contains(x)))
+                })
+            }));
     }
 }
 

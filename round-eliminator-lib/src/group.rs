@@ -4,11 +4,10 @@ use std::{
 };
 
 use itertools::Itertools;
-use serde::Serialize;
 use serde::Deserialize;
+use serde::Serialize;
 
 pub type Label = u16;
-
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Group(pub Vec<Label>);
@@ -52,7 +51,7 @@ impl Group {
         let mut it1 = self.iter();
 
         for &elem in other.iter() {
-            if it1.find(|&&x|x == elem).is_none() {
+            if it1.find(|&&x| x == elem).is_none() {
                 return false;
             }
         }
@@ -92,7 +91,7 @@ impl Group {
         )*/
         let mut i = 0;
         let mut j = 0;
-        let mut v = Vec::with_capacity(std::cmp::min(self.len(),other.len()));
+        let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
             if self[i] == other[j] {
                 v.push(self[i]);

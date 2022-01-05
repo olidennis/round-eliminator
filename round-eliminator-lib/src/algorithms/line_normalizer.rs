@@ -36,15 +36,18 @@ impl Line {
             }
         }
 
-        parts.sort_unstable_by(|part1,part2|part1.group.0.cmp(&part2.group.0));
+        parts.sort_unstable_by(|part1, part2| part1.group.0.cmp(&part2.group.0));
         let mut lastgroup = Group(vec![]);
         let mut lastcount = GroupType::Many(0);
         let mut rparts = Vec::with_capacity(parts.len());
-        
+
         for part in parts {
             if part.group != lastgroup {
                 if lastcount != GroupType::Many(0) {
-                    rparts.push(Part{ group : lastgroup, gtype : lastcount});
+                    rparts.push(Part {
+                        group: lastgroup,
+                        gtype: lastcount,
+                    });
                 }
                 lastgroup = part.group;
                 lastcount = part.gtype;
@@ -57,7 +60,10 @@ impl Line {
             }
         }
         if lastcount != GroupType::Many(0) {
-            rparts.push(Part{ group : lastgroup, gtype : lastcount});
+            rparts.push(Part {
+                group: lastgroup,
+                gtype: lastcount,
+            });
         }
 
         self.parts = rparts;

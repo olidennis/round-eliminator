@@ -86,7 +86,7 @@ impl Constraint {
                         &without_one[i],
                         &without_one[j],
                         &mut seen,
-                        becomes_star
+                        becomes_star,
                     );
                     for newline in candidates {
                         candidates2.add_line_and_discard_non_maximal(newline);
@@ -146,11 +146,10 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
 
     let mut pairings = Pairings::new(v1, v2);
 
-    let mut oldbad : Option<(usize,usize,usize,usize)> = None;
+    let mut oldbad: Option<(usize, usize, usize, usize)> = None;
 
     'outer: while let Some(pairing) = pairings.next() {
-
-        if let Some((i1,i2,j1,j2)) = oldbad {
+        if let Some((i1, i2, j1, j2)) = oldbad {
             if pairing[i1][j1] != 0 && pairing[i2][j2] != 0 {
                 continue 'outer;
             }
@@ -158,7 +157,7 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
         for i1 in 0..c1.parts.len() {
             for j1 in 0..c2.parts.len() {
                 if pairing[i1][j1] != 0 {
-                    for i2 in i1+1..c1.parts.len() {
+                    for i2 in i1 + 1..c1.parts.len() {
                         for j2 in 0..c2.parts.len() {
                             if pairing[i2][j2] != 0 {
                                 let u1 = c1.parts[i1].group.intersection(&c2.parts[j1].group);
@@ -166,8 +165,14 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
                                 let u3 = c1.parts[i1].group.intersection(&c2.parts[j2].group);
                                 let u4 = c1.parts[i2].group.intersection(&c2.parts[j1].group);
 
-                                if (u4.is_superset(&u1) && u3.is_superset(&u2) && (u1 != u4 || u2 != u3)) || (u3.is_superset(&u1) && u4.is_superset(&u2) && (u1 != u3 || u2 != u4)) {
-                                    oldbad = Some((i1,i2,j1,j2));
+                                if (u4.is_superset(&u1)
+                                    && u3.is_superset(&u2)
+                                    && (u1 != u4 || u2 != u3))
+                                    || (u3.is_superset(&u1)
+                                        && u4.is_superset(&u2)
+                                        && (u1 != u3 || u2 != u4))
+                                {
+                                    oldbad = Some((i1, i2, j1, j2));
                                     continue 'outer;
                                 }
                             }
@@ -176,7 +181,6 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
                 }
             }
         }
-
 
         let mut parts = vec![];
         parts.push(union.clone());
@@ -240,7 +244,7 @@ fn combine_lines(
     l1_without_one: &Vec<Line>,
     l2_without_one: &Vec<Line>,
     seen: &mut HashSet<Line>,
-    becomes_star : usize
+    becomes_star: usize,
 ) -> Vec<Line> {
     let mut result = Constraint {
         lines: vec![],

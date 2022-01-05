@@ -1,15 +1,16 @@
-use std::{collections::HashSet, hash::Hash};
+use std::collections::HashSet;
 
 use itertools::Itertools;
 
-use crate::{constraint::Constraint, group::{Group, Label}, problem::Problem};
-
-use super::event::EventHandler;
+use crate::{
+    constraint::Constraint,
+    group::{Group, Label},
+    problem::Problem,
+};
 
 impl Problem {
-
-    pub fn harden_remove(&self, label : Label, add_predecessors: bool) -> Self {
-        let mut h : HashSet<_> = self.labels().into_iter().collect();
+    pub fn harden_remove(&self, label: Label, add_predecessors: bool) -> Self {
+        let mut h: HashSet<_> = self.labels().into_iter().collect();
         h.remove(&label);
         self.harden_keep(&h, add_predecessors)
     }

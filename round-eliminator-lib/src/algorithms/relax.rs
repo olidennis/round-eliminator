@@ -1,4 +1,8 @@
-use crate::{constraint::Constraint, group::{Group, Label}, problem::Problem};
+use crate::{
+    constraint::Constraint,
+    group::{Group, Label},
+    problem::Problem,
+};
 
 impl Problem {
     pub fn relax_merge(&self, from: Label, to: Label) -> Self {

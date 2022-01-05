@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use petgraph::graph::IndexType;
 
-use crate::{problem::Problem, group::Label};
+use crate::{group::Label, problem::Problem};
 
 use super::event::EventHandler;
 
@@ -79,14 +79,20 @@ impl Problem {
 
     pub fn compute_direct_diagram(&mut self) {
         let diagram = self.diagram_indirect.as_ref().unwrap();
-        let diagram_usize : Vec<_> = self.diagram_indirect.as_ref().unwrap().iter().map(|(a,b)|(*a as usize, *b as usize)).collect();
+        let diagram_usize: Vec<_> = self
+            .diagram_indirect
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|(a, b)| (*a as usize, *b as usize))
+            .collect();
         // We need to compute the transitive reduction of the diagram.
         // The algorithm for transitive reduction only works in DAGs.
         // We need to first compute the strongly connected components, that are equivalent labels,
         // replace each SCC with a single label, obtaining a DAG,
         // and then compute the transitive reduction
 
-        let labels : HashSet<_> = self.labels().into_iter().collect();
+        let labels: HashSet<_> = self.labels().into_iter().collect();
 
         // compute SCC
         let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(diagram_usize);
@@ -99,7 +105,7 @@ impl Problem {
                 (group[0] as Label, group)
             })
             // petgraph is adding nodes also for labels that are not present
-            .filter(|(x,_)|labels.contains(&(*x as Label)))
+            .filter(|(x, _)| labels.contains(&(*x as Label)))
             .collect();
 
         // compute renaming
@@ -131,7 +137,12 @@ impl Problem {
         let mut edges: Vec<_> = reduction
             .edge_indices()
             .map(|e| reduction.edge_endpoints(e).unwrap())
-            .map(|(u, v)| (topo[u.index()].index() as Label, topo[v.index()].index() as Label))
+            .map(|(u, v)| {
+                (
+                    topo[u.index()].index() as Label,
+                    topo[v.index()].index() as Label,
+                )
+            })
             .unique()
             .collect();
 

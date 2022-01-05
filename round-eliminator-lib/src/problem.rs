@@ -5,7 +5,7 @@ use std::{
 
 use crate::{constraint::Constraint, group::Label};
 use itertools::Itertools;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Problem {
@@ -22,7 +22,10 @@ pub struct Problem {
 }
 
 impl Problem {
-    pub fn from_string_active_passive<S: AsRef<str>>(active: S, passive: S) -> Result<Self, &'static str> {
+    pub fn from_string_active_passive<S: AsRef<str>>(
+        active: S,
+        passive: S,
+    ) -> Result<Self, &'static str> {
         let mut mapping_label_text = HashMap::new();
 
         let active = Constraint::parse(active, &mut mapping_label_text)?;
@@ -54,7 +57,7 @@ impl Problem {
 
         let active = lines.by_ref().take_while(|l| !l.is_empty()).join("\n");
         let passive = lines.take_while(|l| !l.is_empty()).join("\n");
-        
+
         Self::from_string_active_passive(active, passive)
     }
 
@@ -133,9 +136,7 @@ impl Display for Problem {
 #[cfg(test)]
 mod tests {
 
-    use itertools::Itertools;
-
-    use crate::{problem::Problem, algorithms::event::EventHandler, group::Label};
+    use crate::{algorithms::event::EventHandler, group::Label, problem::Problem};
 
     #[test]
     #[should_panic]
@@ -159,14 +160,14 @@ mod tests {
         p.compute_triviality(&mut eh);
         p.compute_diagram(&mut eh);
         let serialized = serde_json::to_string(&p).unwrap();
-        println!("{}",serialized);
+        println!("{}", serialized);
 
         let mut p = Problem::from_string("A B B\nC D D\n\nAB AB\nCD CD").unwrap();
         let mut eh = EventHandler::null();
         p.compute_triviality(&mut eh);
         p.compute_diagram(&mut eh);
         let serialized = serde_json::to_string(&p).unwrap();
-        println!("{}",serialized);
+        println!("{}", serialized);
 
         let mut p = Problem::from_string("A B B\nC D D\n\nAB CD").unwrap();
         let mut eh = EventHandler::null();
@@ -174,8 +175,7 @@ mod tests {
         p.compute_coloring_solvability(&mut eh);
         p.compute_diagram(&mut eh);
         let serialized = serde_json::to_string(&p).unwrap();
-        println!("{}",serialized);
-
+        println!("{}", serialized);
 
         let mut p = Problem::from_string("A B AB C\n\nAB AB\nC C").unwrap();
         let mut eh = EventHandler::null();
@@ -183,18 +183,19 @@ mod tests {
         p.compute_coloring_solvability(&mut eh);
         p.compute_diagram(&mut eh);
         let serialized = serde_json::to_string(&p).unwrap();
-        println!("{}",serialized);
+        println!("{}", serialized);
 
-        let mut p = Problem::from_string("M U*\nP*\n\nM UP*\nU*").unwrap().speedup(&mut eh);
+        let mut p = Problem::from_string("M U*\nP*\n\nM UP*\nU*")
+            .unwrap()
+            .speedup(&mut eh);
         let mut eh = EventHandler::null();
         p.compute_triviality(&mut eh);
         p.compute_diagram(&mut eh);
         let serialized = serde_json::to_string(&p).unwrap();
-        println!("{}",serialized);
-
+        println!("{}", serialized);
     }
 
-    use std::collections::{HashMap, HashSet};
+    /*    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn testproblem() {
@@ -275,7 +276,7 @@ mod tests {
 
         println!("\n\n\n{}\n\n\n",p);
     }
-    
+
     fn testproblem2() {
         //let s = std::fs::read_to_string("../test.txt").unwrap();
         //let p = Problem::from_string(s).unwrap();
@@ -294,7 +295,7 @@ mod tests {
 
         let mut step = 0;
         let mut last_color = 0;
-        
+
         for _ in 0.. {
             let serialized = serde_json::to_string(&p).unwrap();
             println!("\n\n{}\n\n",serialized);
@@ -400,7 +401,7 @@ mod tests {
                     }
                 }
             }
-            
+
             //println!("AFTER RENAMING\n{}\n\n",p);
 
 
@@ -409,7 +410,7 @@ mod tests {
                 if line.parts.len() == 1 {
                     for (l,s) in p.mapping_label_text.iter_mut() {
                         if *l == line.parts[0].group[0] && s.len() > 1 {
-                            last_color += 1; 
+                            last_color += 1;
                             *s = format!("{}",last_color);
                             break;
                         }
@@ -428,7 +429,7 @@ mod tests {
 
             println!("\n\nProblem BEFORE simplifications\n{}\n\n",p);
 
-            
+
             let htl : HashMap<_,_> = p.mapping_label_text.iter().map(|(a,b)|(b.clone(),a.clone())).collect();
 
             let should_merge = step % nomerge != 0;
@@ -503,7 +504,7 @@ mod tests {
 
             //println!("\n\nJust before checking for path:\n{}\n\n",p);
 
-            
+
             let dirsucc = p.diagram_direct_to_succ_adj();
             let dirpred = p.diagram_direct_to_pred_adj();
             let mut path : Vec<usize> = dirsucc[&label_p].iter().filter(|x|{
@@ -532,7 +533,7 @@ mod tests {
             }
             p.sort_active_by_strength();
             println!("\n\nProblem after more simplifications\n{}\n\n",p);
-            
+
 
             p.discard_useless_stuff(true, eh);
             p.sort_active_by_strength();
@@ -543,9 +544,8 @@ mod tests {
 
 
 
-    }
+    }*/
 }
-
 
 impl Problem {
     pub fn diagram_direct_to_succ_adj(&self) -> HashMap<Label, HashSet<Label>> {

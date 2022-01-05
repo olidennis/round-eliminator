@@ -1,6 +1,7 @@
-use std::collections::HashSet;
-
-use crate::{group::{GroupType, Label, Group}, line::Line};
+use crate::{
+    group::{Group, GroupType},
+    line::Line,
+};
 
 impl Line {
     pub fn includes(&self, other: &Line) -> bool {
@@ -18,7 +19,7 @@ impl Line {
         let maxflow = if self.has_star() { t1 + t2 + 1 } else { t1 };
 
         let n = 2 + d1 + d2;
-        let mut g = contest_algorithms::graph::flow::FlowGraph::new(n, d1*d2);
+        let mut g = contest_algorithms::graph::flow::FlowGraph::new(n, d1 * d2);
 
         for i in 0..d1 {
             let value = if let GroupType::Star = self.parts[i].gtype {

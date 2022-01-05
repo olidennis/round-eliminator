@@ -20,7 +20,6 @@ impl Part {
         s
     }
 
-    
     pub fn _to_string(&self, mapping: &HashMap<Label, String>) -> String {
         let mut s = String::new();
         let deg = self.gtype.value();
@@ -39,7 +38,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        group::{Group, GroupType, Label},
+        group::{Group, GroupType},
         part::Part,
     };
 
