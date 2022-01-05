@@ -146,7 +146,38 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
 
     let mut pairings = Pairings::new(v1, v2);
 
+    let mut oldbad : Option<(usize,usize,usize,usize)> = None;
+
     'outer: while let Some(pairing) = pairings.next() {
+
+        if let Some((i1,i2,j1,j2)) = oldbad {
+            if pairing[i1][j1] != 0 && pairing[i2][j2] != 0 {
+                continue 'outer;
+            }
+        }
+        for i1 in 0..c1.parts.len() {
+            for j1 in 0..c2.parts.len() {
+                if pairing[i1][j1] != 0 {
+                    for i2 in i1+1..c1.parts.len() {
+                        for j2 in 0..c2.parts.len() {
+                            if pairing[i2][j2] != 0 {
+                                let u1 = c1.parts[i1].group.intersection(&c2.parts[j1].group);
+                                let u2 = c1.parts[i2].group.intersection(&c2.parts[j2].group);
+                                let u3 = c1.parts[i1].group.intersection(&c2.parts[j2].group);
+                                let u4 = c1.parts[i2].group.intersection(&c2.parts[j1].group);
+
+                                if (u4.is_superset(&u1) && u3.is_superset(&u2) && (u1 != u4 || u2 != u3)) || (u3.is_superset(&u1) && u4.is_superset(&u2) && (u1 != u3 || u2 != u4)) {
+                                    oldbad = Some((i1,i2,j1,j2));
+                                    continue 'outer;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
         let mut parts = vec![];
         parts.push(union.clone());
         for (i, pa) in c1.parts.iter().enumerate() {
