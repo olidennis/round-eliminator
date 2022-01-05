@@ -51,7 +51,7 @@ impl Group {
         let mut it1 = self.iter();
 
         for &elem in other.iter() {
-            if it1.find(|&&x| x == elem).is_none() {
+            if !it1.any(|&x| x == elem) {
                 return false;
             }
         }
@@ -93,14 +93,18 @@ impl Group {
         let mut j = 0;
         let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
-            if self[i] == other[j] {
-                v.push(self[i]);
-                i += 1;
-                j += 1;
-            } else if self[i] < other[j] {
-                i += 1;
-            } else {
-                j += 1;
+            match self[i].cmp(&other[j]){
+                std::cmp::Ordering::Equal => {
+                    v.push(self[i]);
+                    i += 1;
+                    j += 1;
+                },
+                std::cmp::Ordering::Less => {
+                    i += 1;
+                },
+                std::cmp::Ordering::Greater => {
+                    j += 1;
+                }
             }
         }
         Group(v)
@@ -117,16 +121,18 @@ impl Group {
     }
 }
 
-impl GroupType {
-    pub fn to_string(&self) -> String {
+impl std::fmt::Display for GroupType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use GroupType::*;
         match self {
-            &GroupType::ONE => String::new(),
-            Many(n) => format!("^{}", n),
-            Star => String::from('*'),
+            &GroupType::ONE => Ok(()),
+            Many(n) => write!(f,"^{}", n),
+            Star => write!(f,"*"),
         }
     }
+}
 
+impl GroupType {
     pub fn value(&self) -> usize {
         use GroupType::*;
         match self {

@@ -92,7 +92,7 @@ impl Constraint {
 
         fn labels_to_set<T: Iterator<Item = Label>>(labels: T) -> Group {
             let mut group: Vec<_> = labels.into_iter().collect();
-            group.sort();
+            group.sort_unstable();
             Group(group)
         }
 

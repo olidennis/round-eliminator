@@ -88,7 +88,7 @@ impl Comb {
             for k in j..=i {
                 v[k] = 0;
             }
-            return Some(&self.state);
+            Some(&self.state)
         }
     }
 }

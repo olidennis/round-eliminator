@@ -77,7 +77,7 @@ impl Problem {
                         x == label || !oldreach[label].contains(x) || oldreach[x].contains(label)
                     });
                 }
-                gen.sort();
+                gen.sort_unstable();
                 result.push((*l, gen));
             }
         } else {
@@ -95,7 +95,7 @@ impl Problem {
                         gen.push(*contained);
                     }
                 }
-                gen.sort();
+                gen.sort_unstable();
                 if !gen.is_empty() {
                     result.push((*l, gen));
                 } else {

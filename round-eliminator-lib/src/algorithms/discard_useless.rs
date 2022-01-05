@@ -89,7 +89,7 @@ impl Problem {
                     }
                     newgroup.push(label);
                 }
-                newgroup.sort();
+                newgroup.sort_unstable();
                 part.group.0 = newgroup;
             }
         }

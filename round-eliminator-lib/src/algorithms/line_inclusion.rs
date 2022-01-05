@@ -70,8 +70,8 @@ impl Line {
                 let g2 = &other.parts[j].group;
 
                 let is_superset = match is_superset.as_ref() {
-                    None => g1.is_superset(&g2),
-                    Some(f) => f(&g1, &g2),
+                    None => g1.is_superset(g2),
+                    Some(f) => f(g1, g2),
                 };
                 if is_superset {
                     g.add_edge(1 + i, 1 + d1 + j, maxflow as i64, 0, 0);

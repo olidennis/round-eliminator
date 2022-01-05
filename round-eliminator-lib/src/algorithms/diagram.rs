@@ -101,7 +101,7 @@ impl Problem {
             .into_iter()
             .map(|group| {
                 let mut group: Vec<_> = group.into_iter().map(|x| x.index() as Label).collect();
-                group.sort();
+                group.sort_unstable();
                 (group[0] as Label, group)
             })
             // petgraph is adding nodes also for labels that are not present
@@ -146,8 +146,8 @@ impl Problem {
             .unique()
             .collect();
 
-        merged.sort();
-        edges.sort();
+        merged.sort_unstable();
+        edges.sort_unstable();
 
         self.diagram_direct = Some((merged, edges));
     }

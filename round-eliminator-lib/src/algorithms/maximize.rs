@@ -182,8 +182,7 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
             }
         }
 
-        let mut parts = vec![];
-        parts.push(union.clone());
+        let mut parts = vec![union.clone()];
         for (i, pa) in c1.parts.iter().enumerate() {
             for (j, pb) in c2.parts.iter().enumerate() {
                 let value = GroupType::Many(pairing[i][j]);
@@ -241,8 +240,8 @@ fn good_unions(l1: &Line, l2: &Line) -> HashMap<Vec<Label>, Vec<(usize, usize)>>
 fn combine_lines(
     l1: &Line,
     l2: &Line,
-    l1_without_one: &Vec<Line>,
-    l2_without_one: &Vec<Line>,
+    l1_without_one: &[Line],
+    l2_without_one: &[Line],
     seen: &mut HashSet<Line>,
     becomes_star: usize,
 ) -> Vec<Line> {

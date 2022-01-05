@@ -67,7 +67,7 @@ impl Part {
             return Err("Missing ')'");
         }
 
-        group.sort();
+        group.sort_unstable();
         Ok(Part {
             group: Group(group),
             gtype,

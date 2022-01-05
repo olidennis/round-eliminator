@@ -24,7 +24,7 @@ async fn server(addr: &str) {
 
     let ws = warp::path("api")
         .and(warp::ws())
-        .map(|ws: Ws| ws.on_upgrade(move |socket| serve_client(socket)));
+        .map(|ws: Ws| ws.on_upgrade(serve_client));
 
     let serve = dir_server
         .or(index_server)
@@ -41,7 +41,7 @@ async fn serve_client(ws: WebSocket) {
 
     let (tx, rx) = futures::channel::mpsc::unbounded();
 
-    tokio::spawn(rx.map(|x| Ok(x)).forward(ws_tx));
+    tokio::spawn(rx.map(Ok).forward(ws_tx));
 
     let stop = Arc::new(AtomicBool::new(false));
 

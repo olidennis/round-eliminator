@@ -18,8 +18,10 @@ pub struct Problem {
     pub coloring_sets: Option<Vec<Vec<Label>>>,
     pub diagram_indirect: Option<Vec<(Label, Label)>>,
     pub diagram_indirect_old: Option<Vec<(Label, Label)>>,
-    pub diagram_direct: Option<(Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>)>,
+    pub diagram_direct: Option<DiagramDirect>,
 }
+
+type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
 
 impl Problem {
     pub fn from_string_active_passive<S: AsRef<str>>(
@@ -63,7 +65,7 @@ impl Problem {
 
     pub fn labels(&self) -> Vec<Label> {
         let mut labels: Vec<_> = self.mapping_label_text.iter().map(|(l, _)| *l).collect();
-        labels.sort();
+        labels.sort_unstable();
         labels
     }
 
@@ -123,11 +125,11 @@ impl Display for Problem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mapping = self.mapping_label_text.iter().cloned().collect();
         for line in &self.active.lines {
-            write!(f, "{}\n", line.to_string(&mapping))?;
+            writeln!(f, "{}", line.to_string(&mapping))?;
         }
-        write!(f, "\n")?;
+        writeln!(f)?;
         for line in &self.passive.lines {
-            write!(f, "{}\n", line.to_string(&mapping))?;
+            writeln!(f, "{}", line.to_string(&mapping))?;
         }
         Ok(())
     }

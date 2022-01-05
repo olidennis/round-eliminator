@@ -54,12 +54,10 @@ impl Graph {
         candidates: &mut Vec<usize>,
         best: &mut Vec<usize>,
     ) {
-        if u.is_empty() {
-            if size > *max {
-                *max = size;
-                *found = true;
-                *best = candidates.clone();
-            }
+        if u.is_empty() && size > *max {
+            *max = size;
+            *found = true;
+            *best = candidates.clone();
         }
         while !u.is_empty() {
             if size + u.len() <= *max {
@@ -91,25 +89,21 @@ impl Graph {
         while remaining.iter().any(|&x| x) {
             ncols += 1;
             let mut active = remaining.clone();
-            loop {
-                if let Some(max) = degrees
+            while let Some(max) = degrees
                     .iter()
                     .cloned()
                     .enumerate()
                     .filter(|&(i, _)| active[i])
                     .max_by_key(|&(_, x)| x)
-                {
-                    let max = max.0;
-                    for &x in &self.adj[max] {
-                        active[x] = false;
-                        degrees[x] -= 1;
-                    }
-                    order.push(max);
-                    active[max] = false;
-                    remaining[max] = false;
-                } else {
-                    break;
+            {
+                let max = max.0;
+                for &x in &self.adj[max] {
+                    active[x] = false;
+                    degrees[x] -= 1;
                 }
+                order.push(max);
+                active[max] = false;
+                remaining[max] = false;
             }
         }
         trace!("Upper bound on clique size: {}", ncols);

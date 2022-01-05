@@ -14,9 +14,9 @@ impl Part {
     pub fn to_string(&self, mapping: &HashMap<Label, String>) -> String {
         let mut s = String::new();
         for label in &*self.group {
-            s.extend(mapping[&label].chars());
+            s.push_str(&mapping[label])
         }
-        s.extend(self.gtype.to_string().chars());
+        s.push_str(&self.gtype.to_string());
         s
     }
 
@@ -25,9 +25,9 @@ impl Part {
         let deg = self.gtype.value();
         for _ in 0..deg {
             for label in &*self.group {
-                s.extend(mapping[&label].chars());
+                s.push_str(&mapping[label]);
             }
-            s.extend(" ".chars());
+            s.push(' ');
         }
         s
     }

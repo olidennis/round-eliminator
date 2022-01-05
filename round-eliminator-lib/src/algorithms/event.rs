@@ -18,6 +18,9 @@ impl<'a> EventHandler<'a> {
 
     pub fn notify<S: AsRef<str>>(&mut self, s: S, x: usize, t: usize) {
         let s = s.as_ref();
-        self.tx.as_mut().map(|tx| tx((s.to_string(), x, t)));
+        if let Some(tx) = self.tx.as_mut() {
+            tx((s.to_string(), x, t));
+        }
+
     }
 }
