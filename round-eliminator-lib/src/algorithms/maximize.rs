@@ -186,15 +186,17 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
         let mut parts = vec![union.clone()];
         for (i, pa) in c1.parts.iter().enumerate() {
             for (j, pb) in c2.parts.iter().enumerate() {
-                let value = GroupType::Many(pairing[i][j]);
-                let intersection = pa.group.intersection(&pb.group);
-                if intersection.0.is_empty() {
-                    continue 'outer;
+                if pairing[i][j] > 0 {
+                    let value = GroupType::Many(pairing[i][j]);
+                    let intersection = pa.group.intersection(&pb.group);
+                    if intersection.0.is_empty() {
+                        continue 'outer;
+                    }
+                    parts.push(Part {
+                        gtype: value,
+                        group: intersection,
+                    });
                 }
-                parts.push(Part {
-                    gtype: value,
-                    group: intersection,
-                });
             }
         }
         if let Some(star_intersection) = &star_intersection {
@@ -246,6 +248,7 @@ fn combine_lines(
     seen: &mut HashSet<Line>,
     becomes_star: usize,
 ) -> Vec<Line> {
+
     let mut result = Constraint {
         lines: vec![],
         is_maximized: false,
@@ -280,6 +283,5 @@ fn combine_lines(
             }
         }
     }
-
     result.lines
 }

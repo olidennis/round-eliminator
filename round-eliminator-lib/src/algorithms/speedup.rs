@@ -162,4 +162,13 @@ mod tests {
 
         assert_eq!(v[2].to_string(), "A B*\n\nB AB*\n");
     }
+
+    #[test]
+    fn dont_discard_emptysets_with_exponent_zero() {
+        let mut eh = EventHandler::null();
+        let eh = &mut eh;
+        let p = Problem::from_string("1 2\n\n12 1 1\n12 2 2").unwrap();
+        let p = p.speedup(eh);
+        assert_eq!(p.to_string(),"A^3\n\nA^2\n")
+    }
 }
