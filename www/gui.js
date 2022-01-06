@@ -437,10 +437,6 @@ Vue.component('re-diagram', {
                     navigationButtons: true,
                     multiselect : true
                 },
-                edges:{
-                    physics: true,
-                    smooth: false
-                },
                 physics:{
                     enabled: this.physics
                 },
@@ -450,6 +446,8 @@ Vue.component('re-diagram', {
                     }
                 },
                 edges: {
+                    physics: true,
+                    smooth: false,
                     color:{
                         highlight: '#FF7f7f'
                     }
