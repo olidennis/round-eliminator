@@ -41,6 +41,15 @@ where
             new.sort_active_by_strength();
             handler(Response::P(new));
         }
+        Request::InverseSpeedup(problem) => {
+            if problem.active.degree == Degree::Star {
+                handler(Response::E("Cannot perform inverse speedup if the active side contains a star.".into()));
+            } else {
+                let mut new = problem.inverse_speedup();
+                new.discard_useless_stuff(false, &mut eh);
+                handler(Response::P(new));
+            }
+        }
         Request::SpeedupMaximize(mut problem) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
@@ -154,6 +163,7 @@ pub enum Request {
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),
+    InverseSpeedup(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),
     Maximize(Problem),

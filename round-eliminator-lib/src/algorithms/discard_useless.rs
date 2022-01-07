@@ -22,6 +22,11 @@ impl Problem {
         if let Some(x) = self.mapping_label_oldlabels.as_mut() {
             x.retain(|(l, _)| to_keep.contains(l))
         }
+        if let Some(v) = self.mapping_oldlabel_labels.as_mut() {
+            for (_,x) in v {
+                x.retain(|l|to_keep.contains(l))
+            } 
+        }
 
         // the assumption here is that discard_unused_labels_from_internal_stuff should be called only after changing the labels
         // so after simplifications/hardenings

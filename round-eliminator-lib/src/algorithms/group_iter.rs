@@ -5,9 +5,9 @@ impl Constraint {
         self.lines.iter().flat_map(|line| line.groups())
     }
 
-    pub fn edited<T>(&self, f: T) -> Self
+    pub fn edited<T>(&self, mut f: T) -> Self
     where
-        T: Fn(&Group) -> Group + Copy,
+        T: FnMut(&Group) -> Group,
     {
         let mut c = Constraint {
             lines: vec![],
@@ -15,7 +15,7 @@ impl Constraint {
             degree: self.degree,
         };
         for line in &self.lines {
-            let newline = line.edited(f);
+            let newline = line.edited(&mut f);
             if newline.parts.iter().all(|part| !part.group.0.is_empty()) {
                 c.lines.push(newline);
             }
@@ -29,13 +29,13 @@ impl Line {
         self.parts.iter().map(|part| &part.group)
     }
 
-    pub fn edited<T>(&self, f: T) -> Self
+    pub fn edited<T>(&self, mut f: T) -> Self
     where
-        T: Fn(&Group) -> Group + Copy,
+        T: FnMut(&Group) -> Group,
     {
         let mut line = Line { parts: vec![] };
         for part in &self.parts {
-            let newpart = part.edited(f);
+            let newpart = part.edited(&mut f);
             line.parts.push(newpart);
         }
         line.normalize();
@@ -44,9 +44,9 @@ impl Line {
 }
 
 impl Part {
-    pub fn edited<T>(&self, f: T) -> Self
+    pub fn edited<T>(&self, mut f: T) -> Self
     where
-        T: Fn(&Group) -> Group + Copy,
+        T: FnMut(&Group) -> Group,
     {
         Part {
             gtype: self.gtype,

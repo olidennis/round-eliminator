@@ -113,6 +113,36 @@ impl Constraint {
         result
     }
 
+
+    //panics if there are stars
+    pub fn all_choices(&self, normalize : bool) -> Vec<Line> {
+        let mut result = vec![];
+        let mut seen = HashSet::new();
+        for line in &self.lines {
+            let mut domain = vec![];
+            for part in &line.parts {
+                for _ in 0..part.gtype.value() {
+                    domain.push(&part.group[..]);
+                }
+            }
+            let all = CartesianProductIterator::new(&domain);
+            for choice in all {
+                let mut sorted = choice.clone();
+                sorted.sort_unstable();
+                if !seen.contains(&sorted) {
+                    seen.insert(sorted);
+                    let mut new = Line{ parts: choice.into_iter().map(|g|Part{ group:Group(vec![g]), gtype : GroupType::ONE }).collect() };
+                    if normalize {
+                        new.normalize();
+                    }
+                    result.push(new);
+                }
+
+            }
+        }
+        result
+    }
+
     pub fn minimal_sets_of_all_choices(&self) -> Vec<HashSet<Label>> {
         let all_sets = self.sets_of_all_choices();
         let mut result: Vec<HashSet<Label>> = vec![];

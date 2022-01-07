@@ -1,5 +1,4 @@
 #![feature(is_sorted)]
-
 pub mod algorithms;
 pub mod constraint;
 pub mod group;

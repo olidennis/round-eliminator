@@ -45,6 +45,7 @@ impl Problem {
             passive,
             mapping_label_text: vec![],
             mapping_label_oldlabels: Some(mapping_label_oldlabels),
+            mapping_oldlabel_labels: None,
             mapping_oldlabel_text: Some(self.mapping_label_text.clone()),
             trivial_sets: None,
             coloring_sets: None,
@@ -57,13 +58,27 @@ impl Problem {
     }
 
     pub fn assign_chars(&mut self) {
-        let labels: Vec<_> = self
-            .mapping_label_oldlabels
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|(l, _)| *l)
-            .collect();
+        let labels: Vec<_> = if self.mapping_label_oldlabels.is_some() {
+            self
+                .mapping_label_oldlabels
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|(l, _)| *l)
+                .collect()
+        } else {
+            self
+                .mapping_oldlabel_labels
+                .as_ref()
+                .unwrap()
+                .iter()
+                .flat_map(|(_, labels)| labels.iter().cloned())
+                .unique()
+                .sorted()
+                .collect()
+        };
+        
+        
 
         self.mapping_label_text = labels
             .iter()

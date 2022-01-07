@@ -31,6 +31,11 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
+function inverse_speedup(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ InverseSpeedup : problem }, ondata , function(){});
+}
+
 function speedupmaximize(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ SpeedupMaximize : problem }, ondata , function(){});
@@ -89,6 +94,7 @@ function rename(problem, renaming, onresult, onerror, progress){
 function fix_problem(p) {
     p.map_label_text = vec_to_map(p.mapping_label_text);
     p.map_label_oldlabels = vec_to_map(p.mapping_label_oldlabels) ?? null;
+    p.map_oldlabel_labels = vec_to_map(p.mapping_oldlabel_labels) ?? null;
     p.map_oldlabel_text = vec_to_map(p.mapping_oldlabel_text) ?? null;
     p.labels = p.mapping_label_text.map(x => x[0]);
     let problem = p;
@@ -174,6 +180,8 @@ Vue.component('re-performed-action', {
                     return "Performed Hardening: Removed Label " + this.action.label;
                 case "speedup":
                     return "Performed speedup";
+                case "inversespeedup":
+                    return "Performed inverse speedup";
                 case "speedupmaximize":
                     return "Performed speedup and maximized";
                 case "speedupmaximizerenamegen":
@@ -404,6 +412,27 @@ Vue.component('re-renaming', {
     `
 })
 
+Vue.component('re-inverse-renaming', {
+    props: ["problem"],
+    computed: {
+        table: function() {
+            return this.problem.mapping_oldlabel_labels.map(x => ({
+                cur: labelset_to_string(this.problem.map_oldlabel_labels[x[0]],this.problem.map_label_text), 
+                old: this.problem.map_oldlabel_text[x[0]]
+            }));
+        }
+    },
+    template: `
+        <table class="table">
+            <tr v-for="row in this.table">
+                <td>{{ row.old }}</td>
+                <td><span class="rounded m-1 labelborder">{{ row.cur }}</span></td>
+            </tr>
+        </table>
+    `
+})
+
+
 
 Vue.component('re-diagram', {
     props: ["problem","id"],
@@ -504,6 +533,17 @@ Vue.component('re-speedup',{
     `
 })
 
+Vue.component('re-inverse-speedup',{
+    props: ['problem','stuff'],
+    methods: {
+        on_speedup() {
+            call_api_generating_problem(this.stuff,{type:"inversespeedup"},inverse_speedup,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Inverse Speedup</button>
+    `
+})
 
 Vue.component('re-speedup-maximize',{
     props: ['problem','stuff'],
@@ -833,6 +873,7 @@ Vue.component('re-operations',{
             <div class="m-2"><re-maximize :problem="problem" :stuff="stuff"></re-maximize> maximize passive side (and compute full diagram, triviality, ...)</div>
             <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
             <div class="m-2"><re-edit :problem="problem" :stuff="stuff"></re-edit>copy problem up</div>
+            <div class="m-2"><re-inverse-speedup :problem="problem" :stuff="stuff"></re-inverse-speedup> apply inverse round elimination</div>
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
 
@@ -894,6 +935,9 @@ Vue.component('re-problem', {
                 </re-card>
                 <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_label_oldlabels != null">
                     <re-renaming :problem="problem"></re-renaming>
+                </re-card>
+                <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_oldlabel_labels != null">
+                    <re-inverse-renaming :problem="problem"></re-inverse-renaming>
                 </re-card>
                 <re-card :title="this.problem.passive.is_maximized ? 'Diagram' : 'Partial Diagram'" subtitle="Strength of passive labels" show="true" v-if="this.problem.diagram_direct != null">
                     <re-diagram :problem="problem" :id="'diag'+this._uid" ></re-diagram>
