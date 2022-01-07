@@ -950,10 +950,15 @@ Vue.component('re-label-picker', {
 
 
 Vue.component('re-begin', {
-    props: ["stuff"],
+    props: ["all"],
     data: function(){ return {
-            active : "M U^9\nP^10",
-            passive : "M UP^9\nU^10"
+            active : this.all.active,
+            passive : this.all.passive
+        }
+    },
+    computed : {
+        stuff: function() {
+            return this.all.stuff;
         }
     },
     methods: {
@@ -985,12 +990,28 @@ Vue.component('re-begin', {
             <div class="col-sm mt-auto text-right">
                 <button type="button" class="btn btn-primary" v-on:click="on_start">Start</button>
                 <button type="button" class="btn btn-primary" v-on:click="on_clear">Clear</button>
+                <re-export :stuff="stuff" :active="active" :passive="passive"></re-export>
             </div>
         </div>
     </div>
 
     <div class="container-fluid m-0 p-0" id="steps"></div>
 </div>
+    `
+})
+
+Vue.component('re-export', {
+    props: ["stuff","active","passive"],
+    methods: {
+        on_share : function() {
+            let data = {active:this.active,passive:this.passive,stuff:this.stuff};
+            let uri = window.location.href.split("#")[0];
+            let link = uri + '#' + btoa(JSON.stringify(data));
+            navigator.clipboard.writeText(link);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary" v-on:click="on_share">Export Link To Clipboard</button>
     `
 })
 
@@ -1008,16 +1029,24 @@ Vue.component('re-stuff', {
     `
 })
 
+
+function init_data() {
+    if( window.location.hash ) {
+        let json = atob(window.location.hash.substring(1));
+        let data = JSON.parse(json);
+        return data;
+    } else return {active:"M U^9\nP^10",passive:"M UP^9\nU^10",stuff:[]};
+}
+
 var app = new Vue({
     el: '#vueapp',
     data: {
-        stuff : []
+        all : init_data(),
     },
-    methods: {},
     template: `
         <div>
-            <re-begin :stuff="stuff"></re-begin>
-            <re-stuff :stuff="stuff"></re-stuff>
+            <re-begin :all="all"></re-begin>
+            <re-stuff :stuff="all.stuff"></re-stuff>
         </div>
     `
 })
