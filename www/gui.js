@@ -986,8 +986,8 @@ Vue.component('re-label-picker', {
     },
     template: `
     <select class="selectpicker" data-live-search="true" v-bind:value="value" :id="'select'+this._uid">
-        <option v-for="x in this.data" :value="x[0]">
-            <span v-if="x.length == 3">[{{ x[2] }}] → </span>{{ x[1] }}
+        <option v-for="x in this.data" :value="x[0]" :data-tokens="x.length==3?'['+x[2]+'] → '+x[1]:x[1]">
+            <template v-if="x.length == 3">[{{ x[2] }}] → </template>{{ x[1] }}
         </option>
     </select>
     `
