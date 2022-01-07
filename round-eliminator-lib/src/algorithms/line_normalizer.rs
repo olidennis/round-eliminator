@@ -78,14 +78,19 @@ impl Line {
             } else {
                 let la = a.group[0];
                 let lb = b.group[0];
-                match (
+                match reachability[&la].len().cmp(&reachability[&lb].len()) {
+                    std::cmp::Ordering::Less => std::cmp::Ordering::Greater,
+                    std::cmp::Ordering::Greater => std::cmp::Ordering::Less,
+                    std::cmp::Ordering::Equal => a.cmp(b)
+                }
+                /*match (
                     reachability[&la].contains(&lb),
                     reachability[&lb].contains(&la),
                 ) {
                     (true, false) => std::cmp::Ordering::Less,
                     (false, true) => std::cmp::Ordering::Greater,
                     _ => a.cmp(b),
-                }
+                }*/
             }
         })
     }
