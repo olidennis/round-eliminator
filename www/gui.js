@@ -1000,6 +1000,23 @@ Vue.component('re-begin', {
     `
 })
 
+
+// https://stackoverflow.com/questions/400212/how-do-i-copy-to-the-clipboard-in-javascript
+// navigator.clipboard.writeText(link); only works with HTTPS
+function copyToClipboard(text) {
+    var textArea = document.createElement("textarea");
+    textArea.value = text;    
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+  
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+}
+
 Vue.component('re-export', {
     props: ["stuff","active","passive"],
     methods: {
@@ -1007,7 +1024,8 @@ Vue.component('re-export', {
             let data = {active:this.active,passive:this.passive,stuff:this.stuff};
             let uri = window.location.href.split("#")[0];
             let link = uri + '#' + btoa(JSON.stringify(data));
-            navigator.clipboard.writeText(link);
+            //navigator.clipboard.writeText(link);
+            copyToClipboard(link);
         }
     },
     template: `
