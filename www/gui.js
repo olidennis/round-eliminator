@@ -1,6 +1,7 @@
 
 import * as api from "./api.js"
 
+let version = 1;
 
 function handle_result(x, onresult, onerror, progress) {
     if( x.E != null ) {
@@ -117,14 +118,14 @@ function call_api_generating_problem(stuff, action, f, params) {
     let progress = { type : "computing", data: {type : "empty", cur : 1, max : 1, onstop : function(){}} };
     stuff.push(progress);
     let remove_progress_bar = function() {
-        console.log("removing progress bar");
+        //console.log("removing progress bar");
         let idx = stuff.indexOf(progress);
         stuff.splice(idx,1);
     }
     let termination_handle = f(...params, p => on_new_problem(stuff, action, progress, p),e =>  { remove_progress_bar() ; stuff.push({ type : "error", data : e });} ,progress.data);
     progress.data.onstop = function() {
         remove_progress_bar();
-        console.log("killing worker");
+        //console.log("killing worker");
         termination_handle();
     }
 }
@@ -244,9 +245,9 @@ Vue.component('re-computing', {
     },
     methods : {
         on_close() {
-            console.log("close button clicked");
+            //console.log("close button clicked");
             if(this.action.onstop != null){
-                console.log("stopping some work");
+                //console.log("stopping some work");
                 this.action.onstop()
             }
         }
@@ -637,7 +638,7 @@ Vue.component('re-simplify',{
             if( selected != null && selected.length > 0 ){
                 this.from = selected[0][0];
                 this.to = selected[0][1];
-                console.log("set from and to " + this.from + " " + this.to);
+                //console.log("set from and to " + this.from + " " + this.to);
             }
         }
     },
@@ -923,7 +924,7 @@ Vue.component('re-label-picker', {
     },
     watch : {
         'value' : function() {
-            console.log("value changed to " + this.value );
+            //console.log("value changed to " + this.value );
             $(this.$el).val(this.value);
             $(this.$el).selectpicker('refresh');
         }
@@ -1021,9 +1022,23 @@ Vue.component('re-export', {
     props: ["stuff","active","passive"],
     methods: {
         on_share : function() {
-            let data = {active:this.active,passive:this.passive,stuff:this.stuff};
+            let redata = {active:this.active,passive:this.passive,stuff:this.stuff};
+            let data = {v:version, d : redata};
+            let json = JSON.stringify(data);
+            let compressed = pako.deflateRaw(json,{level:9});
+            console.log("original length: " +json.length);
+            console.log("compressed length: " +compressed.length);
+            //console.log(compressed);
+            // https://github.com/WebReflection/uint8-to-base64/blob/master/index.js
+            var v = [];
+            for (var i = 0, length = compressed.length; i < length; i++) {
+                v.push(String.fromCharCode(compressed[i]));
+            }
+            let s = v.join("");
+            //console.log(s);
+            let b64 =  btoa(s);
             let uri = window.location.href.split("#")[0];
-            let link = uri + '#' + btoa(JSON.stringify(data));
+            let link = uri + '#' + b64;
             //navigator.clipboard.writeText(link);
             copyToClipboard(link);
         }
@@ -1049,11 +1064,19 @@ Vue.component('re-stuff', {
 
 
 function init_data() {
+    let def = {active:"M U^9\nP^10",passive:"M UP^9\nU^10",stuff:[]};
     if( window.location.hash ) {
-        let json = atob(window.location.hash.substring(1));
+        let b64 = window.location.hash.substring(1);
+        let s = atob(b64);
+        let compressed = Uint8Array.from(s, c => c.charCodeAt(0));
+        let json = pako.inflateRaw(compressed, { to: 'string' });
         let data = JSON.parse(json);
-        return data;
-    } else return {active:"M U^9\nP^10",passive:"M UP^9\nU^10",stuff:[]};
+        if( data.v != version ){
+            alert("Sorry, the link comes from a different version of REtor");
+            return def;
+        }
+        return data.d;
+    } else return def;
 }
 
 var app = new Vue({
