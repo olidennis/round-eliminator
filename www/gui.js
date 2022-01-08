@@ -101,7 +101,7 @@ function fix_problem(p) {
     let numlabels = problem.mapping_label_text.length;
     let is_zero = problem.trivial_sets != null && problem.trivial_sets.length > 0;
     let is_nonzero = problem.trivial_sets != null && problem.trivial_sets.length == 0;
-    let numcolors = problem.coloring_sets != null ? problem.coloring_sets.length : 0;
+    let numcolors = problem.coloring_sets != null ? problem.coloring_sets.length : -1;
     let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,problem.map_label_text));
     let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,problem.map_label_text));
     let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
@@ -302,10 +302,15 @@ Vue.component('re-problem-info', {
             <div class="w-100"/>
             <div v-if="this.problem.info.numcolors >= 2" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div>The problem is solvable in zero round given a {{ this.problem.info.numcolors }} coloring.</div>
+                    <div>The problem is solvable in zero rounds given a {{ this.problem.info.numcolors }} coloring.</div>
                     <div>The following sets are colors:
                         <span v-for="set in this.problem.info.coloringsets">{{ set }} </span>
                     </div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.numcolors ==0 && !this.problem.info.is_zero" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem is NOT solvable even if given a 2-coloring.</div>
                 </div>
             </div>
             <div class="w-100"/>
