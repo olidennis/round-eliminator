@@ -170,7 +170,13 @@ function constraint_to_text(constraint,mapping) {
 }
 
 Vue.component('re-performed-action', {
-    props: ['action'],
+    props: ['action','handle','stuff'],
+    methods: {
+        on_close() {
+            let idx = this.stuff.indexOf(this.handle);
+            this.stuff.splice(idx,1);
+        }
+    },
     computed: {
         actionview: function() {
             switch( this.action.type ) {
@@ -213,7 +219,7 @@ Vue.component('re-performed-action', {
         <div class="card bg-primary text-white m-2 p-2" :id="'current'+this._uid">
             <span>
                 {{ actionview }}
-                <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close" aria-label="Close">
+                <button type="button" class="close" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </span>
@@ -222,12 +228,18 @@ Vue.component('re-performed-action', {
 })
 
 Vue.component('re-error', {
-    props: ['error'],
+    props: ['error','handle','stuff'],
+    methods: {
+        on_close() {
+            let idx = this.stuff.indexOf(this.handle);
+            this.stuff.splice(idx,1);
+        }
+    },
     template: `
         <div class="card bg-danger text-white m-2 p-2" :id="'current'+this._uid">
             <span>
                 {{ this.error }}
-                <button data-dismiss="alert" :data-target="'#current'+this._uid" type="button" class="close" aria-label="Close">
+                <button type="button" class="close" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </span>
@@ -283,7 +295,7 @@ Vue.component('re-computing', {
             <div v-if="state.bar" class="progress">
                 <div class="progress-bar" role="progressbar" :style="'width : ' + Math.floor(state.cur *100 / state.max) + '%'"></div>
             </div>
-            <button :data-target="'#current'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
+            <button type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
                 <span aria-hidden="true">&times;</span>
             </button>
         </div>
@@ -966,10 +978,16 @@ Vue.component('re-tools', {
 
 
 Vue.component('re-problem', {
-    props: ["problem","stuff"],
+    props: ["problem","stuff","handle"],
     data: function() {
         return {
             mode : "renamed"
+        }
+    },
+    methods: {
+        on_close() {
+            let idx = this.stuff.indexOf(this.handle);
+            this.stuff.splice(idx,1);
         }
     },
     template: `
@@ -986,7 +1004,7 @@ Vue.component('re-problem', {
                     </div>
                 </div>
                 <div/>
-                <button data-dismiss="alert" :data-target="'#problem'+this._uid" type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close">
+                <button type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -1162,10 +1180,10 @@ Vue.component('re-stuff', {
     template: `
         <div>
             <div v-for="elem in this.stuff">
-                <re-performed-action :action='elem.data' v-if='elem.type == "performed"'/></re-performed-action>
-                <re-computing :action='elem.data' v-if='elem.type == "computing"'/></re-computing>
-                <re-error :error='elem.data' v-if='elem.type == "error"'/></re-computing>
-                <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"'></re-problem>
+                <re-performed-action :stuff="stuff" :action='elem.data' v-if='elem.type == "performed"'  :handle="elem"/></re-performed-action>
+                <re-computing :action='elem.data' v-if='elem.type == "computing"'  :handle="elem"/></re-computing>
+                <re-error :stuff="stuff" :error='elem.data' v-if='elem.type == "error"'  :handle="elem"/></re-computing>
+                <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"' :handle="elem"></re-problem>
             </div>
         </div>
     `
