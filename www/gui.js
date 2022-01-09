@@ -1,7 +1,7 @@
 
 import * as api from "./api.js"
 
-let version = 1;
+let version = 2;
 
 function handle_result(x, onresult, onerror, progress) {
     if( x.E != null ) {
