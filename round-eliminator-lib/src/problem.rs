@@ -20,6 +20,8 @@ pub struct Problem {
     pub diagram_indirect: Option<Vec<(Label, Label)>>,
     pub diagram_indirect_old: Option<Vec<(Label, Label)>>,
     pub diagram_direct: Option<DiagramDirect>,
+    pub orientation_trivial_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
+    pub orientation_coloring_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
 }
 
 type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
@@ -44,13 +46,15 @@ impl Problem {
             passive,
             mapping_label_text,
             mapping_label_oldlabels: None,
-            mapping_oldlabel_labels:None,
+            mapping_oldlabel_labels: None,
             mapping_oldlabel_text: None,
             trivial_sets: None,
             coloring_sets: None,
             diagram_indirect: None,
             diagram_direct: None,
             diagram_indirect_old: None,
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
         };
         Ok(p)
     }

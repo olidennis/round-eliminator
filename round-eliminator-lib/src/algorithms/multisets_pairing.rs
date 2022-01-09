@@ -7,6 +7,7 @@ pub struct Comb {
     max: Vec<usize>,
     state: Vec<usize>,
     first: bool,
+    end: bool,
 }
 
 impl Deref for Comb {
@@ -18,7 +19,7 @@ impl Deref for Comb {
 }
 
 impl Comb {
-    fn new(n: usize, max: Vec<usize>) -> Self {
+    pub fn new(n: usize, max: Vec<usize>) -> Self {
         let mut state = vec![0; max.len()];
         let mut res = n;
         let mut i = 0;
@@ -32,10 +33,11 @@ impl Comb {
             max,
             state,
             first: true,
+            end: false,
         }
     }
 
-    fn transform(&mut self, n: usize, max: impl Iterator<Item = usize>) {
+    pub fn transform(&mut self, n: usize, max: impl Iterator<Item = usize>) {
         let mut i = 0;
         for x in max {
             self.max[i] = x;
@@ -54,19 +56,26 @@ impl Comb {
             self.state[j] = 0;
         }
         self.first = true;
+        self.end = false;
     }
+}
 
-    fn next(&mut self) -> Option<&Vec<usize>> {
+impl StreamingIterator for Comb {
+    type Item = Vec<usize>;
+
+    fn advance(&mut self) {
+        self.end = true;
         if self.first {
             self.first = false;
-            Some(&self.state)
+            self.end = false;
         } else {
             let v = &mut self.state;
             let m = &mut self.max;
             let mut i = 0;
             loop {
                 if i == v.len() - 1 {
-                    return None;
+                    self.end = true;
+                    return;
                 }
                 if v[i] > 0 {
                     v[i + 1] += 1;
@@ -88,6 +97,14 @@ impl Comb {
             for p in v[j..=i].iter_mut() {
                 *p = 0;
             }
+            self.end = false;
+        }
+    }
+
+    fn get(&self) -> Option<&Self::Item> {
+        if self.end {
+            None
+        } else {
             Some(&self.state)
         }
     }

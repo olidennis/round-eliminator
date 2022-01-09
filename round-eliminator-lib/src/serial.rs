@@ -43,7 +43,9 @@ where
         }
         Request::InverseSpeedup(problem) => {
             if problem.active.degree == Degree::Star {
-                handler(Response::E("Cannot perform inverse speedup if the active side contains a star.".into()));
+                handler(Response::E(
+                    "Cannot perform inverse speedup if the active side contains a star.".into(),
+                ));
             } else {
                 let mut new = problem.inverse_speedup();
                 new.discard_useless_stuff(false, &mut eh);

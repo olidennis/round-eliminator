@@ -52,6 +52,8 @@ impl Problem {
             diagram_indirect: None,
             diagram_indirect_old: self.diagram_indirect.clone(),
             diagram_direct: None,
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
         };
         p.assign_chars();
         p
@@ -59,16 +61,14 @@ impl Problem {
 
     pub fn assign_chars(&mut self) {
         let labels: Vec<_> = if self.mapping_label_oldlabels.is_some() {
-            self
-                .mapping_label_oldlabels
+            self.mapping_label_oldlabels
                 .as_ref()
                 .unwrap()
                 .iter()
                 .map(|(l, _)| *l)
                 .collect()
         } else {
-            self
-                .mapping_oldlabel_labels
+            self.mapping_oldlabel_labels
                 .as_ref()
                 .unwrap()
                 .iter()
@@ -77,8 +77,6 @@ impl Problem {
                 .sorted()
                 .collect()
         };
-        
-        
 
         self.mapping_label_text = labels
             .iter()
@@ -184,6 +182,6 @@ mod tests {
         let eh = &mut eh;
         let p = Problem::from_string("1 2\n\n12 1 1\n12 2 2").unwrap();
         let p = p.speedup(eh);
-        assert_eq!(p.to_string(),"A^3\n\nA^2\n")
+        assert_eq!(p.to_string(), "A^3\n\nA^2\n")
     }
 }

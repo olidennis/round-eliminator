@@ -248,7 +248,6 @@ fn combine_lines(
     seen: &mut HashSet<Line>,
     becomes_star: usize,
 ) -> Vec<Line> {
-
     let mut result = Constraint {
         lines: vec![],
         is_maximized: false,

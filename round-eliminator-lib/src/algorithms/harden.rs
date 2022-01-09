@@ -63,6 +63,8 @@ impl Problem {
             diagram_indirect: None,
             diagram_direct: None,
             diagram_indirect_old: self.diagram_indirect_old.clone(),
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
         }
     }
 }

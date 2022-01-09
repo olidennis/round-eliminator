@@ -81,7 +81,7 @@ impl Line {
                 match reachability[&la].len().cmp(&reachability[&lb].len()) {
                     std::cmp::Ordering::Less => std::cmp::Ordering::Greater,
                     std::cmp::Ordering::Greater => std::cmp::Ordering::Less,
-                    std::cmp::Ordering::Equal => a.cmp(b)
+                    std::cmp::Ordering::Equal => a.cmp(b),
                 }
                 /*match (
                     reachability[&la].contains(&lb),

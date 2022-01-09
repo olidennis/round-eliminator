@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     group::{Group, GroupType},
-    line::Line,
+    line::{Degree, Line},
     part::Part,
     problem::Problem,
 };
@@ -17,6 +17,16 @@ impl Problem {
 
         self.passive.maximize(eh);
 
+        if self.passive.lines.is_empty() {
+            self.trivial_sets = Some(vec![]);
+            return;
+        }
+
+        let passive_degree = match self.passive.lines[0].degree() {
+            Degree::Finite(x) => GroupType::Many(x),
+            Degree::Star => GroupType::Star,
+        };
+
         let active_sets = self.active.minimal_sets_of_all_choices();
 
         let mut trivial_sets = vec![];
@@ -27,7 +37,7 @@ impl Problem {
 
             let group = Group(set.into_iter().sorted().collect());
             let part = Part {
-                gtype: GroupType::Star,
+                gtype: passive_degree,
                 group,
             };
             let mut line = Line { parts: vec![part] };
