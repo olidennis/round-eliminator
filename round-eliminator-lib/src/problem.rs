@@ -20,6 +20,7 @@ pub struct Problem {
     pub diagram_indirect: Option<Vec<(Label, Label)>>,
     pub diagram_indirect_old: Option<Vec<(Label, Label)>>,
     pub diagram_direct: Option<DiagramDirect>,
+    pub orientation_given: Option<usize>,
     pub orientation_trivial_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
     pub orientation_coloring_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
 }
@@ -55,6 +56,7 @@ impl Problem {
             diagram_indirect_old: None,
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
+            orientation_given: None,
         };
         Ok(p)
     }

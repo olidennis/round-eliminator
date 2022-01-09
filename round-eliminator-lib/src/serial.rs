@@ -63,6 +63,10 @@ where
             new.compute_triviality(&mut eh);
             if new.passive.degree == Degree::Finite(2) {
                 new.compute_coloring_solvability(&mut eh);
+                if let Some(outdegree) = new.orientation_given {
+                    new.compute_triviality_given_orientation(outdegree, &mut eh);
+                    new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                }
             }
             handler(Response::P(new));
         }
@@ -77,6 +81,10 @@ where
             new.compute_triviality(&mut eh);
             if new.passive.degree == Degree::Finite(2) {
                 new.compute_coloring_solvability(&mut eh);
+                if let Some(outdegree) = new.orientation_given {
+                    new.compute_triviality_given_orientation(outdegree, &mut eh);
+                    new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                }
             }
             match new.rename_by_generators() {
                 Ok(()) => {
@@ -138,6 +146,10 @@ where
             problem.compute_triviality(&mut eh);
             if problem.passive.degree == Degree::Finite(2) {
                 problem.compute_coloring_solvability(&mut eh);
+                if let Some(outdegree) = problem.orientation_given {
+                    problem.compute_triviality_given_orientation(outdegree, &mut eh);
+                    problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                }
             }
             handler(Response::P(problem));
         }
@@ -150,7 +162,19 @@ where
         Request::Rename(mut problem, renaming) => match problem.rename(&renaming) {
             Ok(()) => handler(Response::P(problem)),
             Err(s) => handler(Response::E(s.into())),
-        }, //_ => { unimplemented!() }
+        },
+        Request::Orientation(mut problem, outdegree) => {
+            problem.orientation_given = Some(outdegree);
+            problem.orientation_coloring_sets = None;
+            problem.orientation_trivial_sets = None;
+            if problem.passive.is_maximized {
+                if let Some(outdegree) = problem.orientation_given {
+                    problem.compute_triviality_given_orientation(outdegree, &mut eh);
+                    problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                }
+            }
+            handler(Response::P(problem));
+        } //_ => { unimplemented!() }
     }
 
     handler(Response::Done);
@@ -172,6 +196,7 @@ pub enum Request {
     MergeEquivalentLabels(Problem),
     RenameGenerators(Problem),
     Rename(Problem, Vec<(Label, String)>),
+    Orientation(Problem, usize),
     Ping,
 }
 

@@ -31,6 +31,11 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
+function give_orientation(problem, outdegree, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Orientation : [problem,parseInt(outdegree)] }, ondata , function(){});
+}
+
 function inverse_speedup(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ InverseSpeedup : problem }, ondata , function(){});
@@ -101,13 +106,18 @@ function fix_problem(p) {
     let numlabels = problem.mapping_label_text.length;
     let is_zero = problem.trivial_sets != null && problem.trivial_sets.length > 0;
     let is_nonzero = problem.trivial_sets != null && problem.trivial_sets.length == 0;
+    let orientation_is_zero = problem.orientation_trivial_sets != null && problem.orientation_trivial_sets.length > 0;
+    let orientation_is_nonzero = problem.orientation_trivial_sets != null && problem.orientation_trivial_sets.length == 0;
     let numcolors = problem.coloring_sets != null ? problem.coloring_sets.length : -1;
+    let orientation_numcolors = problem.orientation_coloring_sets != null ? problem.orientation_coloring_sets.length : -1;
     let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,problem.map_label_text));
+    let orientation_zerosets = !orientation_is_zero ? [] : problem.orientation_trivial_sets.map(x => "("+labelset_to_string(x[0],problem.map_label_text)+","+labelset_to_string(x[1],problem.map_label_text)+")");
     let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,problem.map_label_text));
+    let orientation_coloringsets = orientation_numcolors < 2 ? [] : problem.orientation_coloring_sets.map(x => "("+labelset_to_string(x[0],problem.map_label_text)+","+labelset_to_string(x[1],problem.map_label_text)+")");
     let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
-    p.info = { numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
 }
 
 
@@ -178,6 +188,8 @@ Vue.component('re-performed-action', {
                     return "Performed Simplification: Merged Set " + this.action.labels.join("") + "→" + this.action.to;
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
+                case "orientation":
+                    return "Gave input orientation. Outdegree = " + this.action.outdegree;
                 case "speedup":
                     return "Performed speedup";
                 case "inversespeedup":
@@ -246,6 +258,8 @@ Vue.component('re-computing', {
                     return {bar : true, msg: "Maximizing, combining line pairs", max : this.action.max, cur : this.action.cur };
                 case "triviality":
                     return {bar : true, msg: "Computing triviality", max : this.action.max, cur : this.action.cur };
+                case "orientationtriviality":
+                    return {bar : true, msg: "Computing orientation triviality", max : this.action.max, cur : this.action.cur };
                 default:
                     return {bar : false, msg: ""};
             }
@@ -311,6 +325,34 @@ Vue.component('re-problem-info', {
             <div v-if="this.problem.info.numcolors ==0 && !this.problem.info.is_zero" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem is NOT solvable even if given a 2-coloring.</div>
+                </div>
+            </div>
+            <div class="w-100"/>
+            <div v-if="this.problem.info.orientation_is_zero" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem IS zero round solvable with the given orientation.</div>
+                    <div>The following sets allow zero round solvability:
+                        <span v-for="set in this.problem.info.orientation_zerosets">{{ set }} </span>
+                    </div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.orientation_is_nonzero" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem is NOT zero round solvable with the given orientation.</div>
+                </div>
+            </div>
+            <div class="w-100"/>
+            <div v-if="this.problem.info.orientation_numcolors >= 2" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem is solvable in zero rounds given a {{ this.problem.info.orientation_numcolors }} coloring and the orientation.</div>
+                    <div>The following sets are colors:
+                        <span v-for="set in this.problem.info.orientation_coloringsets">{{ set }} </span>
+                    </div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.orientation_numcolors ==0 && !this.problem.info.orientation_is_zero" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem is NOT solvable even if given a 2-coloring and the orientation.</div>
                 </div>
             </div>
             <div class="w-100"/>
@@ -523,7 +565,23 @@ Vue.component('re-diagram', {
 })
 
 
-
+Vue.component('re-orientation-give',{
+    props: ['problem','stuff'],
+    data: function() {
+        return {
+            outdegree : 1
+        }
+    },
+    methods: {
+        on_orientation() {
+            console.log(this.outdegree)
+            call_api_generating_problem(this.stuff,{type:"orientation", outdegree: this.outdegree},give_orientation,[this.problem, this.outdegree]);
+        }
+    },
+    template: `
+        <form class="form-inline m-2"><input class="form-control m-2" type="number" v-model="outdegree"><button type="button" class="btn btn-primary m-1" v-on:click="on_orientation">Fix Outdegree</button></form>
+    `
+})
 
 
 Vue.component('re-speedup',{
@@ -881,7 +939,7 @@ Vue.component('re-operations',{
             <div class="m-2"><re-inverse-speedup :problem="problem" :stuff="stuff"></re-inverse-speedup> apply inverse round elimination</div>
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
-
+            <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
         </re-card>
     `
 })

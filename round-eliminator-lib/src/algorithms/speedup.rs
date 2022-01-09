@@ -54,6 +54,7 @@ impl Problem {
             diagram_direct: None,
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
+            orientation_given: self.orientation_given,
         };
         p.assign_chars();
         p

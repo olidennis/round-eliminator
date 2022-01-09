@@ -31,7 +31,7 @@ impl Constraint {
 
             let mut combs = Comb::new(outdegree, v);
             while let Some(comb) = combs.next() {
-                let mut incoming = Line {
+                let mut outgoing = Line {
                     parts: line
                         .parts
                         .iter()
@@ -42,7 +42,7 @@ impl Constraint {
                         })
                         .collect(),
                 };
-                let mut outgoing = Line {
+                let mut incoming = Line {
                     parts: line
                         .parts
                         .iter()
