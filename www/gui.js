@@ -240,6 +240,8 @@ Vue.component('re-computing', {
     computed: {
         state: function() {
             switch( this.action.type ) {
+                case "coloring graph":
+                    return {bar : true, msg: "Computing graph for determining coloring solvability", max : this.action.max, cur : this.action.cur };
                 case "clique":
                     return {bar : false, msg: "Computing largest clique"};
                 case "diagram":
