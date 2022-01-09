@@ -23,6 +23,7 @@ mod tests {
         let mut p =
             Problem::from_string("A ABC ABC\nD EFG DEFG\n\nAB AB\nC ABC\nDEFG DEFG").unwrap();
         p.compute_diagram(&mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         p.passive.lines.sort();
         let p = p.merge_equivalent_labels();
         assert_eq!(format!("{}", p), "A^3\nD^3\n\nA^2\nD^2\n");

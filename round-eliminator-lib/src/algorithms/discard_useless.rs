@@ -120,14 +120,17 @@ mod tests {
     fn useless1() {
         let mut p = Problem::from_string("A AB AB\n\nB AB").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "A B^2\n\nAB B\n");
 
         let mut p = Problem::from_string("M M M\nP UP UP\n\nM UP\nU U").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "M^3\nP U^2\n\nM PU\nMU U\n");
 
         let mut p = Problem::from_string("A AB AB\n\nAB AB").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "A AB^2\n\nAB^2\n");
     }
 
@@ -135,18 +138,22 @@ mod tests {
     fn useless2() {
         let mut p = Problem::from_string("A A A\nA A B\n A B B\n\nB AB").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "A B^2\n\nAB B\n");
 
         let mut p = Problem::from_string("M M M\nP U P\nP U U\nP P P\n\nM UP\nU U").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "M^3\nP U^2\n\nM PU\nMU U\n");
 
         let mut p = Problem::from_string("A A A\nA A B\n A B B\n\nAB AB").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "A^3\nB A^2\nA B^2\n\nAB^2\n");
 
         let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB C").unwrap();
         p.discard_useless_stuff(true, &mut EventHandler::null());
+        p.passive.maximize(&mut EventHandler::null());
         assert_eq!(format!("{}", p), "A B^2\n\nAB^2\n");
 
         let mut p = Problem::from_string("A A A\nA A B\n A B B\nC C C\n\nAB AB\nB ABC").unwrap();

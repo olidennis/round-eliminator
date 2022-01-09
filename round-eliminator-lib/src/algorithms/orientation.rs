@@ -90,7 +90,7 @@ impl Problem {
             panic!("cannot compute solvability given orientation if the passive side has degree different from 2");
         }
 
-        self.passive.maximize(eh);
+        //self.passive.maximize(eh);
 
         let splits = self.active.minimal_splits(outdegree);
 
@@ -133,7 +133,7 @@ impl Problem {
             panic!("coloring solvability has been computed already");
         }
 
-        self.passive.maximize(eh);
+        //self.passive.maximize(eh);
 
         let splits = self.active.minimal_splits(outdegree);
 

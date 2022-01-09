@@ -19,7 +19,7 @@ impl Problem {
         if self.coloring_sets.is_some() {
             panic!("coloring solvability has been computed already");
         }
-        self.passive.maximize(eh);
+        //self.passive.maximize(eh);
 
         let active_sets = self.active.minimal_sets_of_all_choices();
 

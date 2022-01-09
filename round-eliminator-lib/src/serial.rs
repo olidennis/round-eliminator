@@ -2,6 +2,28 @@ use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::event::EventHandler, group::Label, line::Degree, problem::Problem};
 
+fn fix_problem(new : &mut Problem, sort_by_strength : bool, eh: &mut EventHandler ) {
+    if new.passive.degree == Degree::Finite(2) {
+        new.diagram_indirect = None;
+        new.compute_diagram(eh);
+        new.discard_useless_stuff(true, eh);
+        if sort_by_strength {
+            new.sort_active_by_strength();
+        }
+        new.compute_triviality( eh);
+        new.compute_coloring_solvability( eh);
+        if let Some(outdegree) = new.orientation_given {
+            new.compute_triviality_given_orientation(outdegree,  eh);
+            new.compute_coloring_solvability_given_orientation(outdegree, eh);
+        }
+    } else {
+        new.discard_useless_stuff(false, eh);
+        if sort_by_strength {
+            new.sort_active_by_strength();
+        }
+    }
+}
+
 pub fn request_json<F>(req: &str, f: F)
 where
     F: Fn(String),
@@ -25,8 +47,7 @@ where
         Request::NewProblem(active, passive) => {
             match Problem::from_string_active_passive(active, passive) {
                 Ok(mut new) => {
-                    new.discard_useless_stuff(false, &mut eh);
-                    new.sort_active_by_strength();
+                    fix_problem(&mut new, true, &mut eh);
                     handler(Response::P(new))
                 }
                 Err(s) => handler(Response::E(s.into())),
@@ -37,8 +58,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.speedup(&mut eh);
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::InverseSpeedup(problem) => {
@@ -48,7 +68,7 @@ where
                 ));
             } else {
                 let mut new = problem.inverse_speedup();
-                new.discard_useless_stuff(false, &mut eh);
+                fix_problem(&mut new, false, &mut eh);
                 handler(Response::P(new));
             }
         }
@@ -57,6 +77,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.speedup(&mut eh);
+            new.passive.maximize(&mut eh);
             new.compute_diagram(&mut eh);
             new.discard_useless_stuff(true, &mut eh);
             new.sort_active_by_strength();
@@ -75,6 +96,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.speedup(&mut eh);
+            new.passive.maximize(&mut eh);
             new.compute_diagram(&mut eh);
             new.discard_useless_stuff(true, &mut eh);
             new.sort_active_by_strength();
@@ -95,8 +117,7 @@ where
         }
         Request::SimplifyMerge(problem, a, b) => {
             let mut new = problem.relax_merge(a, b);
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::SimplifyMergeGroup(problem, labels, to) => {
@@ -104,14 +125,12 @@ where
             for label in labels {
                 new = new.relax_merge(label, to);
             }
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::SimplifyAddarrow(problem, a, b) => {
             let mut new = problem.relax_addarrow(a, b);
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::HardenRemove(mut problem, label, keep_predecessors) => {
@@ -119,8 +138,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.harden_remove(label, keep_predecessors);
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::HardenKeep(mut problem, labels, keep_predecessors) => {
@@ -128,18 +146,17 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.harden_keep(&labels.into_iter().collect(), keep_predecessors);
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::MergeEquivalentLabels(problem) => {
             let mut new = problem.merge_equivalent_labels();
-            new.discard_useless_stuff(false, &mut eh);
-            new.sort_active_by_strength();
+            fix_problem(&mut new, true, &mut eh);
             handler(Response::P(new));
         }
         Request::Maximize(mut problem) => {
             problem.diagram_indirect = None;
+            problem.passive.maximize(&mut eh);
             problem.compute_diagram(&mut eh);
             problem.discard_useless_stuff(true, &mut eh);
             problem.sort_active_by_strength();
@@ -167,11 +184,9 @@ where
             problem.orientation_given = Some(outdegree);
             problem.orientation_coloring_sets = None;
             problem.orientation_trivial_sets = None;
-            if problem.passive.is_maximized {
-                if let Some(outdegree) = problem.orientation_given {
-                    problem.compute_triviality_given_orientation(outdegree, &mut eh);
-                    problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
-                }
+            if problem.passive.degree == Degree::Finite(2) {
+                problem.compute_triviality_given_orientation(outdegree, &mut eh);
+                problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
             }
             handler(Response::P(problem));
         } //_ => { unimplemented!() }

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use petgraph::graph::IndexType;
 
-use crate::{group::Label, problem::Problem};
+use crate::{group::Label, problem::Problem, line::Degree};
 
 use super::event::EventHandler;
 
@@ -13,7 +13,9 @@ impl Problem {
             panic!("diagram has been computed already");
         }
 
-        self.passive.maximize(eh);
+        if self.passive.degree != Degree::Finite(2) {
+            self.passive.maximize(eh);
+        }
 
         let labels: Vec<_> = self.labels();
 

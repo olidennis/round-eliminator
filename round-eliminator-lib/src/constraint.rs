@@ -86,7 +86,52 @@ impl Constraint {
     }
 
     pub fn includes(&self, other: &Line) -> bool {
-        self.lines.iter().any(|line| line.includes(other))
+        if self.is_maximized || self.degree != Degree::Finite(2) {
+            self.lines.iter().any(|line| line.includes(other))
+        } else {
+            self.includes_slow(other)
+        }
+    }
+
+    pub fn includes_slow(&self, other: &Line) -> bool {
+        assert!(self.degree == Degree::Finite(2));
+        let a = &other.parts[0].group;
+        let b = if other.parts.len() == 1 {
+            &other.parts[0].group
+        } else {
+            &other.parts[1].group
+        };
+        let lines = self.lines.iter().flat_map(|line|{
+            let cur_a = &line.parts[0].group;
+            let cur_b = if line.parts.len() == 1 {
+                &line.parts[0].group
+            } else {
+                &line.parts[1].group
+            };
+            std::iter::once((cur_a,cur_b)).chain(std::iter::once((cur_b,cur_a)))
+        });
+
+        Constraint::includes_slow_helper(a,b, lines)
+    }
+
+    pub fn includes_slow_helper<'a>(g1 : &Group, g2 : &Group, mut lines : impl Iterator<Item=(&'a Group,&'a Group)> + 'a + Clone) -> bool {
+        if g1.is_empty() || g2.is_empty() {
+            return true;
+        }
+
+        while let Some((o1,o2)) = lines.next() {
+            let int1 = o1.intersection(g1);
+            let int2 = o2.intersection(g2);
+            if !int1.is_empty() && !int2.is_empty() {
+                let diff1 = g1.difference(o1);
+                let diff2 = g2.difference(o2);
+                return Constraint::includes_slow_helper(&int1, &diff2, lines.clone())
+                    && Constraint::includes_slow_helper(&diff1, &int2, lines.clone())
+                    && Constraint::includes_slow_helper(&diff1, &diff2, lines);
+            }
+        }
+
+        false
     }
 
     pub fn is_diagram_predecessor_partial(&self, l1: Label, l2: Label) -> bool {

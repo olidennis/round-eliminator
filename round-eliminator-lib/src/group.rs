@@ -58,6 +58,29 @@ impl Group {
         true
     }
 
+    pub fn difference(&self, other: &Group) -> Self {
+        let mut i = 0;
+        let mut j = 0;
+        let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
+        while i < self.len() && j < other.len() {
+            match self[i].cmp(&other[j]) {
+                std::cmp::Ordering::Equal => {
+                    i += 1;
+                    j += 1;
+                }
+                std::cmp::Ordering::Less => {
+                    v.push(self[i]);
+                    i += 1;
+                }
+                std::cmp::Ordering::Greater => {
+                    j += 1;
+                }
+            }
+        }
+        v.extend(self[i..].iter().cloned());
+        Group(v)
+    }
+
     pub fn intersection(&self, other: &Group) -> Self {
         //assert!(self.is_sorted());
         //assert!(other.is_sorted());

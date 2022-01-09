@@ -15,7 +15,9 @@ impl Problem {
             panic!("triviality has been computed already");
         }
 
-        self.passive.maximize(eh);
+        if self.passive.degree != Degree::Finite(2) {
+            self.passive.maximize(eh);
+        }
 
         if self.passive.lines.is_empty() {
             self.trivial_sets = Some(vec![]);
