@@ -101,25 +101,29 @@ impl Constraint {
         } else {
             &other.parts[1].group
         };
-        let lines = self.lines.iter().flat_map(|line|{
+        let lines = self.lines.iter().flat_map(|line| {
             let cur_a = &line.parts[0].group;
             let cur_b = if line.parts.len() == 1 {
                 &line.parts[0].group
             } else {
                 &line.parts[1].group
             };
-            std::iter::once((cur_a,cur_b)).chain(std::iter::once((cur_b,cur_a)))
+            std::iter::once((cur_a, cur_b)).chain(std::iter::once((cur_b, cur_a)))
         });
 
-        Constraint::includes_slow_helper(a,b, lines)
+        Constraint::includes_slow_helper(a, b, lines)
     }
 
-    pub fn includes_slow_helper<'a>(g1 : &Group, g2 : &Group, mut lines : impl Iterator<Item=(&'a Group,&'a Group)> + 'a + Clone) -> bool {
+    pub fn includes_slow_helper<'a>(
+        g1: &Group,
+        g2: &Group,
+        mut lines: impl Iterator<Item = (&'a Group, &'a Group)> + 'a + Clone,
+    ) -> bool {
         if g1.is_empty() || g2.is_empty() {
             return true;
         }
 
-        while let Some((o1,o2)) = lines.next() {
+        while let Some((o1, o2)) = lines.next() {
             let int1 = o1.intersection(g1);
             let int2 = o2.intersection(g2);
             if !int1.is_empty() && !int2.is_empty() {

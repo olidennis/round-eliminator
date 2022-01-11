@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::event::EventHandler, group::Label, line::Degree, problem::Problem};
 
-fn fix_problem(new : &mut Problem, sort_by_strength : bool, eh: &mut EventHandler ) {
+fn fix_problem(new: &mut Problem, sort_by_strength: bool, eh: &mut EventHandler) {
     if new.passive.degree == Degree::Finite(2) {
         new.diagram_indirect = None;
         new.compute_diagram(eh);
@@ -10,10 +10,10 @@ fn fix_problem(new : &mut Problem, sort_by_strength : bool, eh: &mut EventHandle
         if sort_by_strength {
             new.sort_active_by_strength();
         }
-        new.compute_triviality( eh);
-        new.compute_coloring_solvability( eh);
+        new.compute_triviality(eh);
+        new.compute_coloring_solvability(eh);
         if let Some(outdegree) = new.orientation_given {
-            new.compute_triviality_given_orientation(outdegree,  eh);
+            new.compute_triviality_given_orientation(outdegree, eh);
             new.compute_coloring_solvability_given_orientation(outdegree, eh);
         }
     } else {

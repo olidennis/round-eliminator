@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use petgraph::graph::IndexType;
 
-use crate::{group::Label, problem::Problem, line::Degree};
+use crate::{group::Label, line::Degree, problem::Problem};
 
 use super::event::EventHandler;
 
