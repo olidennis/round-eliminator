@@ -13,7 +13,7 @@ impl Problem {
         let mut passive = Constraint {
             lines: vec![],
             is_maximized: false,
-            degree: self.passive.degree,
+            degree: self.active.degree,
         };
         let mut next_label = 0;
         let mut mapping_oldlabel_labels = HashMap::<Label, Vec<Label>>::new();

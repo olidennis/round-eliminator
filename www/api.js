@@ -79,6 +79,7 @@ function request_server(req, onresult, oncomplete) {
         if( terminated )return;
         let m = s.data;
         let o = JSON.parse(m);
+        //console.log(o);
         if( o == "Pong" ){
         }else if( o != "Done" ){
             onresult(o);
@@ -104,10 +105,10 @@ let use_wasm = !window.location.href.includes("server");
 
 export function request(req, onresult, oncomplete) {
     if( use_wasm ){
-        console.log("wasm requerst");
+        //console.log("wasm request");
         return request_wasm(req, onresult, oncomplete);
     } else {
-        console.log("server requerst");
+        //console.log("server request");
         return request_server(req, onresult, oncomplete);
     }
 }
