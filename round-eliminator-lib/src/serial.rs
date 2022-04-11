@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::event::EventHandler, group::Label, line::Degree, problem::Problem};
 
-fn fix_problem(new: &mut Problem, sort_by_strength: bool, eh: &mut EventHandler) {
+fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and_coloring : bool, eh: &mut EventHandler) {
     if new.passive.degree == Degree::Finite(2) {
         new.diagram_indirect = None;
         new.compute_diagram(eh);
@@ -10,11 +10,13 @@ fn fix_problem(new: &mut Problem, sort_by_strength: bool, eh: &mut EventHandler)
         if sort_by_strength {
             new.sort_active_by_strength();
         }
-        new.compute_triviality(eh);
-        new.compute_coloring_solvability(eh);
-        if let Some(outdegree) = new.orientation_given {
-            new.compute_triviality_given_orientation(outdegree, eh);
-            new.compute_coloring_solvability_given_orientation(outdegree, eh);
+        if compute_triviality_and_coloring {
+            new.compute_triviality(eh);
+            new.compute_coloring_solvability(eh);
+            if let Some(outdegree) = new.orientation_given {
+                new.compute_triviality_given_orientation(outdegree, eh);
+                new.compute_coloring_solvability_given_orientation(outdegree, eh);
+            }
         }
     } else {
         new.discard_useless_stuff(false, eh);
@@ -47,7 +49,7 @@ where
         Request::NewProblem(active, passive) => {
             match Problem::from_string_active_passive(active, passive) {
                 Ok(mut new) => {
-                    fix_problem(&mut new, true, &mut eh);
+                    fix_problem(&mut new, true, true,&mut eh);
                     handler(Response::P(new))
                 }
                 Err(s) => handler(Response::E(s.into())),
@@ -58,7 +60,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.speedup(&mut eh);
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::InverseSpeedup(problem) => {
@@ -68,7 +70,10 @@ where
                 ));
             } else {
                 let mut new = problem.inverse_speedup();
-                fix_problem(&mut new, false, &mut eh);
+                if new.active.degree != Degree::Finite(1) {
+                    new.trivial_sets = Some(vec![]);
+                }
+                fix_problem(&mut new, false, false, &mut eh);
                 handler(Response::P(new));
             }
         }
@@ -117,7 +122,7 @@ where
         }
         Request::SimplifyMerge(problem, a, b) => {
             let mut new = problem.relax_merge(a, b);
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::SimplifyMergeGroup(problem, labels, to) => {
@@ -125,12 +130,12 @@ where
             for label in labels {
                 new = new.relax_merge(label, to);
             }
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::SimplifyAddarrow(problem, a, b) => {
             let mut new = problem.relax_addarrow(a, b);
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::HardenRemove(mut problem, label, keep_predecessors) => {
@@ -138,7 +143,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.harden_remove(label, keep_predecessors);
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::HardenKeep(mut problem, labels, keep_predecessors) => {
@@ -146,12 +151,12 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.harden_keep(&labels.into_iter().collect(), keep_predecessors);
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::MergeEquivalentLabels(problem) => {
             let mut new = problem.merge_equivalent_labels();
-            fix_problem(&mut new, true, &mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
         Request::Maximize(mut problem) => {

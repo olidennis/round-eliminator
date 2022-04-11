@@ -6,3 +6,4 @@ pub mod line;
 pub mod part;
 pub mod problem;
 pub mod serial;
+pub mod directed;
