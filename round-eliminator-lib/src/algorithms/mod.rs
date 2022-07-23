@@ -18,3 +18,4 @@ pub mod problem_triviality;
 pub mod relax;
 pub mod renaming;
 pub mod speedup;
+pub mod autoub;
