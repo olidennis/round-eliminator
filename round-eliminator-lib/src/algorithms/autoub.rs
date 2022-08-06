@@ -3,7 +3,9 @@ use std::collections::{HashSet, HashMap};
 use crate::{problem::Problem, group::Label};
 
 use super::event::EventHandler;
+use itertools::Itertools;
 use permutator::Combination;
+use rand::prelude::SliceRandom;
 
 
 fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
@@ -162,6 +164,45 @@ impl Problem{
 
 }
 
+fn biregular_graph(d1 : usize, d2 : usize, sz : usize) -> (Vec<Vec<usize>>,Vec<Vec<usize>>){
+    let n_left = sz * d2;
+    let n_right = sz * d1;
+    let n_edges = sz * d1 * d2;
+
+    let mut left = vec![vec![]; n_left];
+    let mut right = vec![vec![]; n_right];
+
+    let mut edges_dest : Vec<_> = (0..n_edges).collect();
+    edges_dest.shuffle(&mut rand::thread_rng());
+    
+    for (i,dest) in edges_dest.into_iter().enumerate() {
+        let v1 = i / d1;
+        let p1 = i % d1;
+        let v2 = dest / d2;
+        let p2 = dest % d2;
+        left[v1].push((v2,p1));
+        right[v2].push((v1,p2));
+    }
+
+    for v in left.iter_mut().chain(right.iter_mut()) {
+        v.sort_by_key(|x|x.1);
+    }
+    
+    let left = left.into_iter().map(|v|v.into_iter().map(|x|x.0).collect()).collect();
+    let right = right.into_iter().map(|v|v.into_iter().map(|x|x.0).collect()).collect();
+
+    (left,right)
+}
+
+fn biregular_graph_non_parallel(d1 : usize, d2 : usize, sz : usize) -> (Vec<Vec<usize>>,Vec<Vec<usize>>) {
+    loop {
+        let (left,right) = biregular_graph(d1, d2, sz);
+        if left.iter().all(|v|v.iter().unique().count() == d1) && right.iter().any(|v|v.iter().unique().count() == d2) {
+            return (left,right);
+        } 
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -171,7 +212,7 @@ mod tests {
 
     use crate::{algorithms::event::EventHandler, problem::Problem};
 
-    use super::{automatic_upper_bound, automatic_upper_bound_smaller_parameters};
+    use super::{automatic_upper_bound, automatic_upper_bound_smaller_parameters, biregular_graph_non_parallel};
 
     #[test]
     fn autoub() {
@@ -246,6 +287,9 @@ let mut p = Problem::from_string("z z z
 
             }
         }
+
+        let b = biregular_graph_non_parallel(5, 3, 2);
+        println!("{:?}",b);
 
     }
 }

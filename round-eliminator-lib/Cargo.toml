@@ -14,4 +14,4 @@ petgraph = "0.6.0"
 streaming-iterator = { version = "0.1.5", features = ["std"]}
 serde = { version = "1.0.131", features = ["derive"] }
 serde_json = "1.0.73"
-
+rand = "0.8.5"
