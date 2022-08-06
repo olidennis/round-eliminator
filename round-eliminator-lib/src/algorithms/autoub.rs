@@ -1,27 +1,27 @@
 use std::collections::{HashSet, HashMap};
 
-use crate::{problem::Problem, group::Label, line::Degree};
+use crate::{problem::Problem, group::Label};
 
 use super::event::EventHandler;
-use itertools::Itertools;
 use permutator::Combination;
 
 
-fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) {
+fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
     for max_steps in 1..=max_steps {
         for branching in 1..=branching {
             for max_labels in 1..=max_labels {
                 println!("trying max labels {}, branching {}, max steps {}",max_labels,branching,max_steps);
-                if automatic_upper_bound(orig, max_labels, branching,max_steps) {
-                    return;
+                let r =  automatic_upper_bound(orig, max_labels, branching,max_steps);
+                if r.is_some() {
+                    return r;
                 }
             }
         }
     }
-
+    None
 }
 
-fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) -> bool {
+fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
     let mut eh = EventHandler::null();
     let eh = &mut eh;
     
@@ -34,7 +34,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
     for i in 0..max_steps {
         //println!("i = {}, there are {} problems",i,problems[i].len());
         if problems[i].is_empty() {
-            return false;
+            return None;
         }
         problems.push(vec![]);
         let p_i = problems[i].clone();
@@ -65,7 +65,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                 println!("found a {} rounds upper bound",i+1);
                 return;
             }*/
-            let (old,mut new) = np.split_labels_original_new();
+            let (old, new) = np.split_labels_original_new();
             if old.len() > max_labels {
                 continue;
             }
@@ -112,27 +112,14 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                 hardened.compute_triviality(eh);
                 //println!("computed triviality");
                 if hardened.trivial_sets.as_ref().unwrap().len() > 0 {
-                    let mut sequence = vec![];
+                    let mut sequence = vec![(candidate,np,hardened)];
                     let mut idx = idx;
                     for j in (0..=i).rev() {
                         let (index,l,s,p) = problems[j][idx].clone();
                         sequence.push((l,s,p));
                         idx = index;
                     }
-                    println!("found a {} rounds upper bound",i+1);
-                    for (i,(l,s,p)) in sequence.iter().rev().enumerate() {
-                        println!("{}",i);
-                        if i != 0 {
-                            let mapping : HashMap<_,_> = s.mapping_label_text.iter().cloned().collect();
-                            let mut labels = l.iter().map(|l|&mapping[l]).sorted().join(" ");
-                            println!("perform speedup, then keep labels {}",labels);
-                            println!("problem after speedup is\n{}",s);
-                        }
-                        println!("{}",p.to_string());
-                        println!("");
-
-                    }
-                    return true;
+                    return Some(sequence);
                 }
                 /*
                 if hardened.passive.degree == Degree::Finite(2) {
@@ -150,7 +137,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
         }
     }
 
-    false
+    None
 }
 
 
@@ -175,8 +162,13 @@ impl Problem{
 
 }
 
-
+#[cfg(test)]
 mod tests {
+
+    use std::collections::HashMap;
+
+    use itertools::Itertools;
+
     use crate::{algorithms::event::EventHandler, problem::Problem};
 
     use super::{automatic_upper_bound, automatic_upper_bound_smaller_parameters};
@@ -187,7 +179,7 @@ mod tests {
         let eh = &mut eh;
 
 
-
+/* 
         let mut p = Problem::from_string("                        (0->) (0->) (0->)
         (1<-)                   (1->) (1->)
         (2<-) (2<-)             (2->)
@@ -222,7 +214,7 @@ let mut p = Problem::from_string("z z z
                                     z A
                                     a BA
                                     b CBA").unwrap();
-
+*/
     let mut p = Problem::from_string("                        (0->) (0->) (0->) (0->)
         (1<-)                   (1->) (1->) (1->)
         (2<-) (2<-)             (2->) (2->)
@@ -238,8 +230,22 @@ let mut p = Problem::from_string("z z z
         p.discard_useless_stuff(false, eh);
         p.sort_active_by_strength();
 
-        automatic_upper_bound(&p, 10, 2,10);
         //automatic_upper_bound_smaller_parameters(&p,10,2, 16);
+        if let Some(sequence) = automatic_upper_bound(&p, 10, 2,10) {
+            println!("found a {} rounds upper bound",sequence.len()-1);
+            for (i,(l,s,p)) in sequence.iter().rev().enumerate() {
+                println!("{}",i);
+                if i != 0 {
+                    let mapping : HashMap<_,_> = s.mapping_label_text.iter().cloned().collect();
+                    let labels = l.iter().map(|l|&mapping[l]).sorted().join(" ");
+                    println!("perform speedup, then keep labels {}",labels);
+                    println!("problem after speedup is\n{}",s);
+                }
+                println!("{}",p.to_string());
+                println!("");
+
+            }
+        }
 
     }
 }
