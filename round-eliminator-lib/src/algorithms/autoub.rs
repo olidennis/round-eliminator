@@ -210,7 +210,7 @@ mod tests {
 
     use itertools::Itertools;
 
-    use crate::{algorithms::event::EventHandler, problem::Problem};
+    use crate::{algorithms::event::EventHandler, problem::Problem, group::Group};
 
     use super::{automatic_upper_bound, automatic_upper_bound_smaller_parameters, biregular_graph_non_parallel};
 
@@ -286,10 +286,39 @@ let mut p = Problem::from_string("z z z
                 println!("");
 
             }
+
+            let d1 = sequence[0].2.active.finite_degree();
+            let d2 = sequence[0].2.passive.finite_degree();
+
+            let b = biregular_graph_non_parallel(d1,d2, 2);
+            println!("{:?}",b);
+            let mut state = HashMap::new();
+            let trivial_set = Group(sequence[0].2.trivial_sets.as_ref().unwrap()[0].clone()); 
+            let trivial_line = sequence[0].1.active.lines.iter().find(|line|{
+                let set = line.line_set();
+                trivial_set.is_superset(&set)
+            }).unwrap();
+
+            let mut starting_labels = vec![];
+            for part in &trivial_line.parts {
+                for _ in 0..part.gtype.value() {
+                    starting_labels.push(part.group[0]);
+                }
+            }
+
+            for (u,neighbors) in b.0.iter().enumerate() {
+                for (j,v) in neighbors.iter().enumerate() {
+                    state.insert((u,v),vec![starting_labels[j]]);
+                }
+            }
+
+            for i in 0..sequence.len() {
+                
+            }
+            
         }
 
-        let b = biregular_graph_non_parallel(5, 3, 2);
-        println!("{:?}",b);
+
 
     }
 }

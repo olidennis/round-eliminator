@@ -193,6 +193,13 @@ impl Constraint {
         }
         h
     }
+
+    pub fn finite_degree(&self) -> usize {
+        if let Degree::Finite(d) = self.degree {
+            return d;
+        }
+        panic!("the degree is not finite");
+    }
 }
 
 #[cfg(test)]

@@ -62,22 +62,35 @@ impl Constraint {
 }
 
 impl Line {
-    pub fn sets_of_all_choices(&self, result: &mut HashSet<Group>) {
-        fn labels_to_set<T: Iterator<Item = Label>>(labels: T) -> Group {
-            let mut group: Vec<_> = labels.into_iter().collect();
-            group.sort_unstable();
-            Group(group)
-        }
 
+    pub fn line_set(&self) -> Group {
         let groups = self.parts.iter().map(|part| &part.group);
         if groups.clone().all(|group| group.len() == 1) {
             let labels = groups.map(|group| group[0]).unique();
-            let set = labels_to_set(labels);
+            let set = Self::labels_to_set(labels);
+            set
+        } else {
+            panic!("this function only works when all groups have size 1");
+        }
+
+    }
+
+    fn labels_to_set<T: Iterator<Item = Label>>(labels: T) -> Group {
+        let mut group: Vec<_> = labels.into_iter().collect();
+        group.sort_unstable();
+        Group(group)
+    }
+
+    pub fn sets_of_all_choices(&self, result: &mut HashSet<Group>) {
+        let groups = self.parts.iter().map(|part| &part.group);
+        if groups.clone().all(|group| group.len() == 1) {
+            let labels = groups.map(|group| group[0]).unique();
+            let set = Self::labels_to_set(labels);
             result.insert(set);
         } else {
             let domain: Vec<_> = groups.map(|group| &group[..]).collect();
             for labels in CartesianProductIterator::new(&domain) {
-                let set = labels_to_set(labels.into_iter().unique());
+                let set = Self::labels_to_set(labels.into_iter().unique());
                 result.insert(set);
             }
         }
