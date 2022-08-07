@@ -29,7 +29,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
     
     let mut problems = vec![];
 
-    problems.push(vec![(0,vec![],orig.clone(),orig.clone())]);
+    problems.push(vec![(0,orig.labels(),orig.clone(),orig.clone())]);
 
     let mut seen = HashSet::new();
 
@@ -206,11 +206,13 @@ fn biregular_graph_non_parallel(d1 : usize, d2 : usize, sz : usize) -> (Vec<Vec<
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashMap;
+    use std::{collections::HashMap, fs::File};
 
     use itertools::Itertools;
 
-    use crate::{algorithms::event::EventHandler, problem::Problem, group::Group};
+    use std::io::Write;
+
+    use crate::{algorithms::event::EventHandler, problem::Problem, group::{Group, GroupType}, line::Line, part::Part};
 
     use super::{automatic_upper_bound, automatic_upper_bound_smaller_parameters, biregular_graph_non_parallel};
 
@@ -287,35 +289,119 @@ let mut p = Problem::from_string("z z z
 
             }
 
-            let d1 = sequence[0].2.active.finite_degree();
-            let d2 = sequence[0].2.passive.finite_degree();
+            'outer: loop {
+                let d1 = sequence[0].2.active.finite_degree();
+                let d2 = sequence[0].2.passive.finite_degree();
 
-            let b = biregular_graph_non_parallel(d1,d2, 2);
-            println!("{:?}",b);
-            let mut state = HashMap::new();
-            let trivial_set = Group(sequence[0].2.trivial_sets.as_ref().unwrap()[0].clone()); 
-            let trivial_line = sequence[0].1.active.lines.iter().find(|line|{
-                let set = line.line_set();
-                trivial_set.is_superset(&set)
-            }).unwrap();
+                let b = biregular_graph_non_parallel(d1,d2, 8);
+                let n = b.0.len();
+                //println!("{:?}",b);
+                let mut state = HashMap::new();
+                let trivial_set = Group(sequence[0].2.trivial_sets.as_ref().unwrap()[0].clone()); 
+                let trivial_line = sequence[0].1.active.lines.iter().find(|line|{
+                    let set = line.line_set();
+                    trivial_set.is_superset(&set)
+                }).unwrap();
 
-            let mut starting_labels = vec![];
-            for part in &trivial_line.parts {
-                for _ in 0..part.gtype.value() {
-                    starting_labels.push(part.group[0]);
+                let mut starting_labels = vec![];
+                for part in &trivial_line.parts {
+                    for _ in 0..part.gtype.value() {
+                        starting_labels.push(part.group[0]);
+                    }
                 }
-            }
 
-            for (u,neighbors) in b.0.iter().enumerate() {
-                for (j,v) in neighbors.iter().enumerate() {
-                    state.insert((u,v),vec![starting_labels[j]]);
+                for (u,neighbors) in b.0.iter().enumerate() {
+                    for (j,&v) in neighbors.iter().enumerate() {
+                        state.insert((u,v),vec![starting_labels[j]]);
+                    }
                 }
-            }
 
-            for i in 0..sequence.len() {
+                let mut file = File::create("graph.txt").unwrap();
+
+                for (u,v) in state.keys() {
+                    writeln!(file,"ae {} {}",u,n+v).unwrap();
+                }
+                for i in 0..n {
+                    writeln!(file,"ln {} \"\"",i).unwrap();
+                    writeln!(file,"hn {}",i).unwrap();
+                }
+                for i in n..2*n {
+                    writeln!(file,"ln {} \"\"",i).unwrap();
+                }
+                //println!("ns");
+
+                for i in 0..sequence.len() {
+                    //let mapping : HashMap<_,_> = sequence[i].1.mapping_label_text.iter().cloned().collect();
+                    let colors = ["darkgreen","darkblue","maroon3","red","gold","lawngreen","aqua","fuchsia","cornflowerblue","peachpuff"];
+                    let labelidx : HashMap<_,_> = sequence[i].0.iter().enumerate().map(|(a,b)|(b,a)).collect();
+                    for ((u,v),labels) in state.iter() {
+                        //writeln!(file,"le {} {} \"{: >4}\"",u,n+v,mapping[&labels[0]]).unwrap();
+                        writeln!(file,"he {} {} \"{}\"",u,n+v,colors[labelidx[&labels[0]]]).unwrap();
+                    }
+                    for i in 0..n {
+                        writeln!(file,"hn {}",i).unwrap();
+                    }
+                    writeln!(file,"ns").unwrap();
+
+                    if i == sequence.len() - 1 {
+                        break;
+                    }
+
+                    let map_label_oldlabels : HashMap<_,_> = sequence[i].1.mapping_label_oldlabels.as_ref().unwrap().iter().cloned().collect();
+                    for (_,v) in state.iter_mut() {
+                        *v = map_label_oldlabels[&v[0]].clone();
+                    }
+                    
+                    /*let mapping : HashMap<_,_> = sequence[i+1].1.mapping_label_text.iter().cloned().collect();
+                    for ((u,v),labels) in state.iter() {
+                        writeln!(file,"le {} {} \"{: >4}\"",u,n+v,labels.iter().map(|x|&mapping[x]).join(",")).unwrap();
+                    }
+                    for i in 0..n {
+                        writeln!(file,"hn {}",i).unwrap();
+                    }
+                    writeln!(file,"ns").unwrap();*/
+                    
+                    let order = i%2 == 0;
+                    for (v,neighbors) in (if order {&b.1} else {&b.0}).iter().enumerate() {
+                        let configuration = Line{ parts : neighbors.iter().map(|&u|{
+                            Part{group : Group(state[& if order {(u,v)} else {(v,u)}].clone()), gtype : GroupType::Many(1)}
+                        }).collect()};
+                        let choice = sequence[i+1].2.active.lines.iter().filter_map(|line|configuration.pick_existing_choice(line)).next().unwrap();
+                        for (j,&u) in neighbors.iter().enumerate() {
+                            state.insert(if order {(u,v)} else {(v,u)},vec![choice[j]]);
+                        }
+                    }
+                }
+
+                for i in 0..n {
+                    writeln!(file,"hn {}",i).unwrap();
+                }
+                let mapping : HashMap<_,_> = sequence[sequence.len()-1].1.mapping_label_text.iter().cloned().collect();
+                for ((u,v),labels) in state.iter() {
+                    let out = mapping[&labels[0]].contains("->");
+                    writeln!(file,"he {} {} \"{}\"",u,n+v,if out {"red"} else {"black"}).unwrap();
+                }
                 
+                for (v,neighbors) in b.1.iter().enumerate() {
+                    if neighbors.iter().all(|&u|mapping[&state[&(u,v)][0]].contains("->")) {
+                        break 'outer;
+                    }
+                    if neighbors.iter().all(|&u|mapping[&state[&(u,v)][0]].contains("<-")) {
+                        break 'outer;
+                    }
+                }
+                for (u,neighbors) in b.0.iter().enumerate() {
+                    if neighbors.iter().all(|&v|mapping[&state[&(u,v)][0]].contains("->")) {
+                        break 'outer;
+                    }
+                    if neighbors.iter().all(|&v|mapping[&state[&(u,v)][0]].contains("<-")) {
+                        break 'outer;
+                    }
+                }
+                //if state.iter().any(|(_,v)|mapping[&v[0]].contains("0->")) {
+                //    break;
+                //}
             }
-            
         }
 
 

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    group::{Group, GroupType},
+    group::{Group, GroupType, Label},
     line::Line, part::Part,
 };
 
@@ -17,17 +17,18 @@ impl Line {
         self.matches(other,is_superset).is_some()
     }
 
-    pub fn pick_existing_choice(&self, other: &Line) -> Option<Line> {
+    pub fn pick_existing_choice(&self, other: &Line) -> Option<Vec<Label>> {
         let v = self.matches(other, 
             Some(|g1 : &Group,g2 : &Group| { !g1.intersection(&g2).is_empty()})
         )?;
-        let mut parts = vec![];
+        let mut labels = vec![];
         for ((i,j),r) in v {
-            let group = Group(vec![self.parts[i].group.intersection(&other.parts[j].group)[0]]);
-            let part = Part{ gtype : GroupType::Many(r), group };
-            parts.push(part);
+            let label = self.parts[i].group.intersection(&other.parts[j].group)[0];
+            for _ in 0..r {
+                labels.push(label);
+            }
         }
-        Some(Line{parts})
+        Some(labels)
     }
 
     pub fn matches<T>(&self, other: &Line, can_match: Option<T>) -> Option<Vec<((usize,usize),usize)>>
@@ -147,14 +148,7 @@ mod tests {
                 Part{ gtype : GroupType::Many(1), group : Group(vec![1,2]) },
                 Part{ gtype : GroupType::Many(1), group : Group(vec![1,2]) },
             ] };
-        let result = Line{ parts : 
-            vec![
-                Part{ gtype : GroupType::Many(5), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(1), group : Group(vec![1]) },
-                Part{ gtype : GroupType::Many(1), group : Group(vec![1]) },
-            ] };
-        assert!(line1.pick_existing_choice(&line2) == Some(result));
+        assert!(line1.pick_existing_choice(&line2) == Some(vec![0,0,0,0,0,0,0,1,1]));
         assert!(line2.pick_existing_choice(&line1).is_some());
 
 
