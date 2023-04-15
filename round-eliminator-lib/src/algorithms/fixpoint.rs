@@ -14,6 +14,7 @@ impl Problem {
         let labels = self.labels();
         let diagram_indirect = self.diagram_indirect.as_ref().unwrap();
         let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
+        eh.notify("new labels", 1, 1);
         let rcs = right_closed_subsets(&labels, &successors);
         
         let mapping_label_rightclosed : HashMap<Label,Vec<Label>> = labels.iter().map(|&l|{
@@ -27,6 +28,8 @@ impl Problem {
         }).collect();
 
         let newlabels : Vec<Label> = mapping_rightclosed_newlabel.iter().map(|(_,&l)|l).collect();
+
+        eh.notify("enumerating configurations", 1, 1);
 
         let active = self.active.all_choices(true);
         let passive = self.passive.all_choices(true);

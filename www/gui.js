@@ -275,6 +275,10 @@ Vue.component('re-computing', {
                     return {bar : false, msg: "Discarding labels that appear on at most one side"};
                 case "discard unused internal":
                     return {bar : false, msg: "Discard unused internal variables"};
+                case "new labels":
+                    return {bar : false, msg: "Computing new labels"};
+                case "enumerating configurations":
+                    return {bar : false, msg: "Enumerating configurations"};
                 case "combining line pairs":
                     return {bar : true, msg: "Maximizing, combining line pairs", max : this.action.max, cur : this.action.cur };
                 case "triviality":
