@@ -7,3 +7,5 @@ pub mod part;
 pub mod problem;
 pub mod serial;
 pub mod directed;
+#[cfg(test)]
+pub mod moretests;

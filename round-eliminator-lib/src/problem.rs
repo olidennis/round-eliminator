@@ -77,56 +77,7 @@ impl Problem {
         labels
     }
 
-    pub fn diagram_indirect_to_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in self
-            .diagram_indirect
-            .as_ref()
-            .expect("diagram required, but still not computed")
-        {
-            h.entry(a).or_default().insert(b);
-        }
-        for label in self.labels() {
-            h.entry(label).or_default();
-        }
-        h
-    }
-
-    pub fn diagram_indirect_old_to_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in self
-            .diagram_indirect_old
-            .as_ref()
-            .expect("old diagram required")
-        {
-            h.entry(a).or_default().insert(b);
-        }
-        for label in self
-            .mapping_oldlabel_text
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|(x, _)| *x)
-        {
-            h.entry(label).or_default();
-        }
-        h
-    }
-
-    pub fn diagram_indirect_to_inverse_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in self
-            .diagram_indirect
-            .as_ref()
-            .expect("diagram required, but still not computed")
-        {
-            h.entry(b).or_default().insert(a);
-        }
-        for label in self.labels() {
-            h.entry(label).or_default();
-        }
-        h
-    }
+    
 }
 
 impl Display for Problem {
@@ -206,36 +157,3 @@ mod tests {
     }
 }
 
-impl Problem {
-    pub fn diagram_direct_to_succ_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in &self
-            .diagram_direct
-            .as_ref()
-            .expect("diagram required, but still not computed")
-            .1
-        {
-            h.entry(a).or_default().insert(b);
-        }
-        for label in self.labels() {
-            h.entry(label).or_default();
-        }
-        h
-    }
-
-    pub fn diagram_direct_to_pred_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in &self
-            .diagram_direct
-            .as_ref()
-            .expect("diagram required, but still not computed")
-            .1
-        {
-            h.entry(b).or_default().insert(a);
-        }
-        for label in self.labels() {
-            h.entry(label).or_default();
-        }
-        h
-    }
-}

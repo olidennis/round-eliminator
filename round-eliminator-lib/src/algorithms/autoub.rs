@@ -270,11 +270,61 @@ let mut p = Problem::from_string("z z z
 (1<-)(2<-)(3<-)(4<-)                (2->)(3->) (2->)(3->) (2->)(3->)
                                     (3->) (3->) (3->) (3->)").unwrap();
 
+
+    /*let mut p = Problem::from_string("A B C
+    A F B
+    A H H
+    I I I
+    
+    ABC I
+BC H
+C F").unwrap();*/
+
+/*
+
+M U^2
+H^2 U
+P^2 Q
+P^3
+
+M PU^2
+HU U^2
+HQ^2 PU
+
+this gives an algorithm, but by changing P^2 Q to Q P^2 does not
+if let Some(sequence) = automatic_upper_bound_smaller_parameters(&p,8,4, 12) {
+
+ */
+
+let mut p = Problem::from_string("M U^4
+H^2 U^3
+P^4 Q
+P^5
+
+M PU^4
+HU U^4
+HQ^2 PU^3").unwrap();
+
+let mut p = Problem::from_string("(1s)^3 U
+(2s) (1s) U^2
+(3s) U^3
+P^4
+P^3 (1u)
+P^2 (1u)^2
+P^3 (2u)
+
+(3s) PU^3
+(2s)(2u) (1s)(1u) PU^2
+(1s)(1u)^3 PU
+U^4
+(2s)(1s) U^3
+(1s)^2 U^2").unwrap();
+
         p.discard_useless_stuff(false, eh);
         p.sort_active_by_strength();
 
-        //automatic_upper_bound_smaller_parameters(&p,10,2, 16);
-        if let Some(sequence) = automatic_upper_bound(&p, 10, 2,10) {
+        if let Some(sequence) = automatic_upper_bound_smaller_parameters(&p,10,12, 5) {
+        //if let Some(sequence) = automatic_upper_bound(&p, 10, 2,10) {
             println!("found a {} rounds upper bound",sequence.len()-1);
             for (i,(l,s,p)) in sequence.iter().rev().enumerate() {
                 println!("{}",i);
@@ -288,6 +338,7 @@ let mut p = Problem::from_string("z z z
                 println!("");
 
             }
+            return;
 
             'outer: loop {
                 let d1 = sequence[0].2.active.finite_degree();

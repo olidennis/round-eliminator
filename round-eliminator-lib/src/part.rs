@@ -16,6 +16,9 @@ impl Part {
         for label in &*self.group {
             s.push_str(&mapping[label])
         }
+        if s.is_empty() {
+            s.push_str("∅");
+        }
         s.push_str(&self.gtype.to_string());
         s
     }

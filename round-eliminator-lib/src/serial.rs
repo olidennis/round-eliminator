@@ -63,6 +63,14 @@ where
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
+        Request::Fixpoint(mut problem) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            let mut new = problem.fixpoint(&mut eh);
+            fix_problem(&mut new, true, true, &mut eh);
+            handler(Response::P(new));
+        }
         Request::InverseSpeedup(problem) => {
             if problem.active.degree == Degree::Star {
                 handler(Response::E(
@@ -209,6 +217,7 @@ pub enum Request {
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),
+    Fixpoint(Problem),
     InverseSpeedup(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),

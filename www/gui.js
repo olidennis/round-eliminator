@@ -31,6 +31,11 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
+function fixpoint(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Fixpoint : problem }, ondata , function(){});
+}
+
 function give_orientation(problem, outdegree, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ Orientation : [problem,parseInt(outdegree)] }, ondata , function(){});
@@ -198,6 +203,8 @@ Vue.component('re-performed-action', {
                     return "Gave input orientation. Outdegree = " + this.action.outdegree;
                 case "speedup":
                     return "Performed speedup";
+                case "fixpoint":
+                    return "Generated Fixed Point";
                 case "inversespeedup":
                     return "Performed inverse speedup";
                 case "speedupmaximize":
@@ -610,6 +617,18 @@ Vue.component('re-speedup',{
     `
 })
 
+Vue.component('re-fixpoint',{
+    props: ['problem','stuff'],
+    methods: {
+        on_fixpoint() {
+            call_api_generating_problem(this.stuff,{type:"fixpoint"},fixpoint,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Fixed Point</button>
+    `
+})
+
 Vue.component('re-inverse-speedup',{
     props: ['problem','stuff'],
     methods: {
@@ -954,6 +973,7 @@ Vue.component('re-operations',{
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
+            <div class="m-2"><re-fixpoint :problem="problem" :stuff="stuff"></re-fixpoint> generate fixed point</div>
         </re-card>
     `
 })

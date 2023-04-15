@@ -16,6 +16,17 @@ pub struct Constraint {
 }
 
 impl Constraint {
+
+    pub fn includes_with_custom_supersets<T>(&self, newline : &Line, is_superset: Option<T>) -> bool where
+    T: Fn(&Group, &Group) -> bool + Copy {
+        self.lines.iter().any(|oldline| oldline.includes_with_custom_supersets(newline, is_superset))
+    }
+
+    pub fn includers_with_custom_supersets<T>(&self, newline : &Line, is_superset: Option<T>) -> Vec<Line> where
+    T: Fn(&Group, &Group) -> bool + Copy {
+        self.lines.iter().filter(|oldline| oldline.includes_with_custom_supersets(newline, is_superset)).cloned().collect()
+    }
+
     pub fn add_line_and_discard_non_maximal(&mut self, newline: Line) {
         self.add_line_and_discard_non_maximal_with_custom_supersets(
             newline,

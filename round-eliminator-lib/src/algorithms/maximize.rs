@@ -37,33 +37,7 @@ impl Constraint {
             let mut newconstraint = self.clone();
             let lines = &self.lines;
 
-            let mut without_one = vec![];
-            for line in lines {
-                let mut current = vec![];
-                for (i, part) in line.parts.iter().enumerate() {
-                    let before = &line.parts[0..i];
-                    let mid = match part.gtype {
-                        GroupType::Many(0) => panic!("group of size 0, should not happen"),
-                        GroupType::ONE => None,
-                        GroupType::Many(x) => Some(Part {
-                            group: part.group.clone(),
-                            gtype: GroupType::Many(x - 1),
-                        }),
-                        GroupType::Star => Some(part.clone()),
-                    };
-                    let after = &line.parts[i + 1..];
-                    let line = Line {
-                        parts: before
-                            .iter()
-                            .cloned()
-                            .chain(mid.iter().cloned())
-                            .chain(after.iter().cloned())
-                            .collect(),
-                    };
-                    current.push(line);
-                }
-                without_one.push(current);
-            }
+            let without_one = without_one(lines);
 
             for i in 0..lines.len() {
                 let mut candidates2 = empty.clone();
@@ -87,6 +61,7 @@ impl Constraint {
                         &without_one[j],
                         &mut seen,
                         becomes_star,
+                        false
                     );
                     for newline in candidates {
                         candidates2.add_line_and_discard_non_maximal(newline);
@@ -108,8 +83,40 @@ impl Constraint {
     }
 }
 
+
+pub fn without_one(lines : &Vec<Line>) -> Vec<Vec<Line>> {
+    let mut without_one = vec![];
+    for line in lines {
+        let mut current = vec![];
+        for (i, part) in line.parts.iter().enumerate() {
+            let before = &line.parts[0..i];
+            let mid = match part.gtype {
+                GroupType::Many(0) => panic!("group of size 0, should not happen"),
+                GroupType::ONE => None,
+                GroupType::Many(x) => Some(Part {
+                    group: part.group.clone(),
+                    gtype: GroupType::Many(x - 1),
+                }),
+                GroupType::Star => Some(part.clone()),
+            };
+            let after = &line.parts[i + 1..];
+            let line = Line {
+                parts: before
+                    .iter()
+                    .cloned()
+                    .chain(mid.iter().cloned())
+                    .chain(after.iter().cloned())
+                    .collect(),
+            };
+            current.push(line);
+        }
+        without_one.push(current);
+    }
+    without_one
+}
+
 #[allow(clippy::needless_range_loop)]
-fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
+fn intersections<FS,FI>(union: &Part, c1: &Line, c2: &Line, allow_empty : bool, f_is_superset : FS, f_intersection : FI) -> Vec<Line> where FS : Fn(&Group,&Group) -> bool, FI : Fn(&Group,&Group) -> Group {
     let t1 = c1.degree_without_star();
     let t2 = c2.degree_without_star();
     let d = if c1.has_star() { t1 + t2 } else { t1 };
@@ -128,9 +135,9 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
     };
 
     let star_intersection = if let (Some(s1), Some(s2)) = (c1.get_star(), c2.get_star()) {
-        let group = s1.group.intersection(&s2.group);
-        if group.is_empty() {
-            return vec![];
+        let group = f_intersection(&s1.group,&s2.group);
+        if !allow_empty && group.is_empty() {
+            return vec![]; 
         }
         Some(Part {
             gtype: GroupType::Star,
@@ -161,16 +168,16 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
                     for i2 in i1 + 1..c1.parts.len() {
                         for j2 in 0..c2.parts.len() {
                             if pairing[i2][j2] != 0 {
-                                let u1 = c1.parts[i1].group.intersection(&c2.parts[j1].group);
-                                let u2 = c1.parts[i2].group.intersection(&c2.parts[j2].group);
-                                let u3 = c1.parts[i1].group.intersection(&c2.parts[j2].group);
-                                let u4 = c1.parts[i2].group.intersection(&c2.parts[j1].group);
+                                let u1 = f_intersection(&c1.parts[i1].group,&c2.parts[j1].group);
+                                let u2 = f_intersection(&c1.parts[i2].group,&c2.parts[j2].group);
+                                let u3 = f_intersection(&c1.parts[i1].group,&c2.parts[j2].group);
+                                let u4 = f_intersection(&c1.parts[i2].group,&c2.parts[j1].group); 
 
-                                if (u4.is_superset(&u1)
-                                    && u3.is_superset(&u2)
+                                if (f_is_superset(&u4,&u1)
+                                    && f_is_superset(&u3,&u2) 
                                     && (u1 != u4 || u2 != u3))
-                                    || (u3.is_superset(&u1)
-                                        && u4.is_superset(&u2)
+                                    || (f_is_superset(&u3,&u1) 
+                                        && f_is_superset(&u4,&u2)
                                         && (u1 != u3 || u2 != u4))
                                 {
                                     oldbad = Some((i1, i2, j1, j2));
@@ -188,8 +195,8 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
             for (j, pb) in c2.parts.iter().enumerate() {
                 if pairing[i][j] > 0 {
                     let value = GroupType::Many(pairing[i][j]);
-                    let intersection = pa.group.intersection(&pb.group);
-                    if intersection.0.is_empty() {
+                    let intersection = f_intersection(&pa.group,&pb.group); 
+                    if !allow_empty && intersection.0.is_empty() { 
                         continue 'outer;
                     }
                     parts.push(Part {
@@ -210,27 +217,27 @@ fn intersections(union: &Part, c1: &Line, c2: &Line) -> Vec<Line> {
     result
 }
 
-fn good_unions(l1: &Line, l2: &Line) -> HashMap<Vec<Label>, Vec<(usize, usize)>> {
-    let s1: Vec<_> = l1.parts.iter().map(|part| part.group.as_set()).collect();
-    let s2: Vec<_> = l2.parts.iter().map(|part| part.group.as_set()).collect();
+fn good_unions<FS,FU>(l1: &Line, l2: &Line, f_is_superset : FS, f_union : FU) -> HashMap<Group, Vec<(usize, usize)>> where FS : Fn(&Group,&Group) -> bool, FU : Fn(&Group,&Group) -> Group {
+    let s1: Vec<_> = l1.parts.iter().map(|part| &part.group).collect();
+    let s2: Vec<_> = l2.parts.iter().map(|part| &part.group).collect();
 
     let mut unions = HashMap::new();
 
     for (i, x) in s1.iter().enumerate() {
         for (j, y) in s2.iter().enumerate() {
-            if x.is_superset(y) || y.is_superset(x) {
+            if f_is_superset(x,y) || f_is_superset(y,x) { 
                 continue;
             }
 
-            let union: Vec<_> = x.union(y).cloned().sorted().collect();
+            let union = f_union(x,y);
             let same_union: &mut Vec<(usize, usize)> = unions.entry(union).or_default();
 
             let len = same_union.len();
-            same_union.retain(|&(xc, yc)| !(s1[xc].is_superset(x) && s2[yc].is_superset(y)));
+            same_union.retain(|&(xc, yc)| !(f_is_superset(s1[xc],x) && f_is_superset(s2[yc],y))); 
             if same_union.len() != len
                 || same_union
                     .iter()
-                    .all(|&(xc, yc)| !(x.is_superset(&s1[xc]) && y.is_superset(&s2[yc])))
+                    .all(|&(xc, yc)| !(f_is_superset(x,&s1[xc]) && f_is_superset(y,&s2[yc]))) 
             {
                 same_union.push((i, j));
             }
@@ -240,30 +247,36 @@ fn good_unions(l1: &Line, l2: &Line) -> HashMap<Vec<Label>, Vec<(usize, usize)>>
     unions
 }
 
-fn combine_lines(
+pub fn combine_lines_custom<FS,FU,FI>(
     l1: &Line,
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
     seen: &mut HashSet<Line>,
     becomes_star: usize,
-) -> Vec<Line> {
+    allow_empty : bool,
+    f_is_superset : FS,
+    f_union : FU,
+    f_intersection : FI
+) -> (Vec<Line>,HashMap<Line,HashSet<(usize,usize)>>) where FS : Fn(&Group,&Group) -> bool + Copy, FU : Fn(&Group,&Group) -> Group + Copy, FI : Fn(&Group,&Group) -> Group + Copy {
     let mut result = Constraint {
         lines: vec![],
         is_maximized: false,
         degree: l1.degree(),
     };
-    let unions = good_unions(l1, l2);
+    let unions = good_unions(l1, l2, f_is_superset, f_union);
+
+    let mut line_to_unions : HashMap<Line,HashSet<_>> = HashMap::new();
 
     for (union, v) in unions {
         let union = Part {
-            group: Group(union),
+            group: union,
             gtype: GroupType::ONE,
         };
         for (x, y) in v {
             let c1 = &l1_without_one[x];
             let c2 = &l2_without_one[y];
-            let lines = intersections(&union, c1, c2);
+            let lines = intersections(&union, c1, c2, allow_empty, f_is_superset, f_intersection); 
             for mut newline in lines {
                 if newline.has_star() {
                     for parts in newline.parts.iter_mut() {
@@ -277,10 +290,29 @@ fn combine_lines(
                 newline.normalize();
                 if !seen.contains(&newline) {
                     seen.insert(newline.clone());
-                    result.add_line_and_discard_non_maximal(newline);
+                    line_to_unions.entry(newline.clone()).or_default().insert((x,y));
+                    //result.lines.push(newline);
+                    result.add_line_and_discard_non_maximal_with_custom_supersets(newline, Some(f_is_superset));
                 }
             }
         }
     }
-    result.lines
+    (result.lines,line_to_unions)
+}
+
+
+fn combine_lines(
+    l1: &Line,
+    l2: &Line,
+    l1_without_one: &[Line],
+    l2_without_one: &[Line],
+    seen: &mut HashSet<Line>,
+    becomes_star: usize,
+    allow_empty : bool
+) -> Vec<Line> {
+    let f_is_superset = |g1 : &Group ,g2 : &Group |{ g1.is_superset(g2) };
+    let f_union = |g1 : &Group ,g2 : &Group |{ g1.union(g2) };
+    let f_intersection = |g1 : &Group ,g2 : &Group |{ g1.intersection(g2) };
+
+    combine_lines_custom(l1, l2, l1_without_one, l2_without_one, seen, becomes_star, allow_empty, f_is_superset, f_union, f_intersection).0
 }

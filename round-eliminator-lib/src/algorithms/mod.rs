@@ -19,3 +19,4 @@ pub mod relax;
 pub mod renaming;
 pub mod speedup;
 pub mod autoub;
+pub mod fixpoint;
