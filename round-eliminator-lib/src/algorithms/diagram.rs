@@ -81,77 +81,9 @@ impl Problem {
 
     pub fn compute_direct_diagram(&mut self) {
         let diagram = self.diagram_indirect.as_ref().unwrap();
-        let diagram_usize: Vec<_> = self
-            .diagram_indirect
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|(a, b)| (*a as usize, *b as usize))
-            .collect();
-        // We need to compute the transitive reduction of the diagram.
-        // The algorithm for transitive reduction only works in DAGs.
-        // We need to first compute the strongly connected components, that are equivalent labels,
-        // replace each SCC with a single label, obtaining a DAG,
-        // and then compute the transitive reduction
+        let labels : Vec<_> = self.labels().into_iter().collect();
 
-        let labels: HashSet<_> = self.labels().into_iter().collect();
-
-        // compute SCC
-        let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(diagram_usize);
-        let scc = petgraph::algo::kosaraju_scc(&g);
-        let mut merged: Vec<_> = scc
-            .into_iter()
-            .map(|group| {
-                let mut group: Vec<_> = group.into_iter().map(|x| x.index() as Label).collect();
-                group.sort_unstable();
-                (group[0] as Label, group)
-            })
-            // petgraph is adding nodes also for labels that are not present
-            .filter(|(x, _)| labels.contains(&(*x as Label)))
-            .collect();
-
-        // compute renaming
-        let mut rename = HashMap::new();
-        for (name, group) in &merged {
-            for label in group {
-                rename.insert(label, name);
-            }
-        }
-
-        // compute edges that are not self loops after merging
-        let mut new_edges = vec![];
-        for (a, b) in diagram {
-            if rename[a] != rename[b] {
-                new_edges.push((*rename[a] as usize, *rename[b] as usize))
-            }
-        }
-
-        // create DAG
-        let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(new_edges);
-
-        //compute transitive reduction
-        let topo = petgraph::algo::toposort(&g, None).unwrap();
-        let (topoadj, _revmap) =
-            petgraph::algo::tred::dag_to_toposorted_adjacency_list::<_, usize>(&g, &topo);
-        let (reduction, _closure) =
-            petgraph::algo::tred::dag_transitive_reduction_closure(&topoadj);
-
-        let mut edges: Vec<_> = reduction
-            .edge_indices()
-            .map(|e| reduction.edge_endpoints(e).unwrap())
-            .map(|(u, v)| {
-                (
-                    topo[u.index()].index() as Label,
-                    topo[v.index()].index() as Label,
-                )
-            })
-            .unique()
-            .collect();
-
-        merged.sort_unstable();
-        edges.sort_unstable();
-
-        self.diagram_direct = Some((merged, edges));
+        self.diagram_direct = Some(compute_direct_diagram(&labels,diagram));
     }
 
     pub fn diagram_indirect_to_reachability_adj(&self) -> HashMap<Label, HashSet<Label>> {
@@ -389,4 +321,106 @@ pub fn diagram_indirect_to_reachability_adj(labels : &[Label], diagram : &Vec<(L
         h.entry(l).or_default();
     }
     h
+}
+
+pub fn diagram_to_indirect(labels : &[Label], diagram : &Vec<(Label,Label)>) -> Vec<(Label,Label)> {
+    let mut r = vec![];
+    let mut adj : HashMap::<Label,Vec<_>> = HashMap::new();
+    for &(a,b) in diagram {
+        adj.entry(a).or_default().push(b);
+    }
+    for &l in labels {
+        adj.entry(l).or_default();
+    }
+
+    for &label in labels {
+        let mut visited = HashSet::new();
+        let mut v = vec![];
+        r.push((label,label));
+        v.push(label);
+        visited.insert(label);
+        while let Some(cur) = v.pop() {
+            for &x in &adj[&cur] {
+                if !visited.contains(&x) {
+                    r.push((label,x));
+                    v.push(x);
+                    visited.insert(x);
+                }
+            }
+        }
+    }
+
+    r
+}
+
+pub fn compute_direct_diagram(labels : &[Label], diagram_indirect : &Vec<(Label,Label)>) -> (Vec<(u16, Vec<u16>)>, Vec<(u16, u16)>){
+    let diagram = diagram_indirect;
+    let diagram_usize: Vec<_> = diagram_indirect
+        .iter()
+        .map(|(a, b)| (*a as usize, *b as usize))
+        .collect();
+    // We need to compute the transitive reduction of the diagram.
+    // The algorithm for transitive reduction only works in DAGs.
+    // We need to first compute the strongly connected components, that are equivalent labels,
+    // replace each SCC with a single label, obtaining a DAG,
+    // and then compute the transitive reduction
+
+    let labels: HashSet<_> = labels.into_iter().collect();
+
+    // compute SCC
+    let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(diagram_usize);
+    let scc = petgraph::algo::kosaraju_scc(&g);
+    let mut merged: Vec<_> = scc
+        .into_iter()
+        .map(|group| {
+            let mut group: Vec<_> = group.into_iter().map(|x| x.index() as Label).collect();
+            group.sort_unstable();
+            (group[0] as Label, group)
+        })
+        // petgraph is adding nodes also for labels that are not present
+        .filter(|(x, _)| labels.contains(&(*x as Label)))
+        .collect();
+
+    // compute renaming
+    let mut rename = HashMap::new();
+    for (name, group) in &merged {
+        for label in group {
+            rename.insert(label, name);
+        }
+    }
+
+    // compute edges that are not self loops after merging
+    let mut new_edges = vec![];
+    for (a, b) in diagram {
+        if rename[a] != rename[b] {
+            new_edges.push((*rename[a] as usize, *rename[b] as usize))
+        }
+    }
+
+    // create DAG
+    let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(new_edges);
+
+    //compute transitive reduction
+    let topo = petgraph::algo::toposort(&g, None).unwrap();
+    let (topoadj, _revmap) =
+        petgraph::algo::tred::dag_to_toposorted_adjacency_list::<_, usize>(&g, &topo);
+    let (reduction, _closure) =
+        petgraph::algo::tred::dag_transitive_reduction_closure(&topoadj);
+
+    let mut edges: Vec<_> = reduction
+        .edge_indices()
+        .map(|e| reduction.edge_endpoints(e).unwrap())
+        .map(|(u, v)| {
+            (
+                topo[u.index()].index() as Label,
+                topo[v.index()].index() as Label,
+            )
+        })
+        .unique()
+        .collect();
+
+    merged.sort_unstable();
+    edges.sort_unstable();
+
+    (merged,edges)
 }
