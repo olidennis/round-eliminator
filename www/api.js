@@ -5,9 +5,10 @@ let dontgc = [];
 function request_wasm(req, onresult, oncomplete) {
     let t0 = performance.now();
 
-    var w = new Worker("worker.js");
-    w.onerror = function() {
+    var w = new Worker("worker.js"/*,{type : "module"}*/);
+    w.onerror = function(e) {
         console.log('There is an error with the worker!');
+        console.log(e);
     }
 
     w.onmessage = function (s){

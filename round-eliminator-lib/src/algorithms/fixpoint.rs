@@ -1,10 +1,12 @@
 use std::{collections::{HashSet, HashMap, BTreeSet}, fmt::Display};
 
+use chashmap::CHashMap;
 use itertools::Itertools;
 
 use crate::{problem::Problem, constraint::Constraint, group::{Label, Group}, line::Line, algorithms::diagram::compute_direct_diagram};
 
 use super::{event::EventHandler, maximize::{combine_lines_custom, without_one, Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
+
 
 fn first_diagram(p : &Problem) -> (Vec<(Label,Label)>,HashMap<Label,Label>,Vec<(Label, String)>) {
     let labels = p.labels();
@@ -96,13 +98,13 @@ impl Problem {
             let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
             let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
 
-            let mut tracking = HashMap::new();
-            let mut tracking_passive = HashMap::new();
+            let mut tracking = CHashMap::new();
+            let mut tracking_passive = CHashMap::new();
 
             let mut i = 0;
             let (p,passive_before_edit) = loop {
-                let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text,if i == 0 {None} else { Some(&mut tracking) }, eh);
-                let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text,if i == 0 {None} else {Some(&mut tracking_passive)}, eh);
+                let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text,if i == 0 {None} else { Some(&tracking) }, eh);
+                let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text,if i == 0 {None} else {Some(&tracking_passive)}, eh);
 
                 let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
                 let passive_before_edit = passive.clone();
@@ -142,7 +144,8 @@ impl Problem {
                 let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
                 let mut expressions = HashSet::new();
                 for line in p.active.lines.iter() {
-                    let len = if let Some((_,_,before_norm,_,_)) = tracking.get(line) {
+                    let len = if let Some(rg) = tracking.get(line) {
+                        let (_,_,before_norm,_,_) = &*rg;
                         before_norm.parts.len()
                     } else {
                         line.parts.len()
@@ -154,7 +157,8 @@ impl Problem {
                 }
                 let mut expressions_passive = HashSet::new();
                 for line in passive_before_edit.lines.iter() {
-                    let len = if let Some((_,_,before_norm,_,_)) = tracking.get(line) {
+                    let len = if let Some(rg) = tracking.get(line) {
+                        let (_,_,before_norm,_,_) = &*rg;
                         before_norm.parts.len()
                     } else {
                         line.parts.len()
@@ -324,7 +328,7 @@ pub fn right_closed_subsets(labels : &[Label], successors : &HashMap<Label, Hash
 }
 
 
-fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Vec<(Label, Label)>, mapping : &Vec<(Label, String)>, mut tracking : Option<&mut HashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>, eh: &mut EventHandler) -> Constraint {
+fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Vec<(Label, Label)>, mapping : &Vec<(Label, String)>, mut tracking : Option<&CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>, eh: &mut EventHandler) -> Constraint {
     let becomes_star = 100;
 
 
@@ -371,75 +375,13 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
         Group(vec![intersections[&(g1[0],g2[0])]])
     };
 
-    let mut seen = HashSet::new();
-    let mut seen_pairs = HashSet::new();
-
-    let mut newconstraint = Constraint{ lines: vec![], is_maximized: false, degree: constraint.degree  };
-    for line in &constraint.lines {
-        let mut line = line.clone();
-        line.normalize();
-        seen.insert(line.clone());
-        newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(line.clone(), Some(f_is_superset));
-    }
-
-    let mut constraint = newconstraint;
-    let empty = Constraint{ lines: vec![], is_maximized: false, degree: constraint.degree  };
-
-    loop {
-        let mut newconstraint = constraint.clone();
-        let lines = &constraint.lines;
-
-        let without_one = without_one(lines);
-
-        for i in 0..lines.len() {
-            let mut candidates2 = empty.clone();
-
-            for j in 0..=i {
-                let len = lines.len();
-                eh.notify("combining line pairs", i * len + j, len * len);
-
-                let pair = (lines[i].clone(), lines[j].clone());
-                if seen_pairs.contains(&pair)
-                    || seen_pairs.contains(&(pair.1.clone(), pair.0.clone()))
-                {
-                    continue;
-                }
-                seen_pairs.insert(pair);
+    let mut newconstraint = constraint.clone();
+    newconstraint.is_maximized = false;
 
 
-                let (candidates,_,how) = combine_lines_custom(
-                    &lines[i],
-                    &lines[j],
-                    &without_one[i],
-                    &without_one[j],
-                    &mut seen,
-                    becomes_star,
-                    true,
-                    false,
-                    tracking.is_some(),
-                    f_is_superset, f_union, f_intersection
-                );
-                if let Some(tracking) = tracking.as_mut() {
-                    tracking.extend(how.into_iter());
-                }
-                for newline in candidates {
-                    //println!("New line obtained\n{}\nfrom\n{}\n{}\n",newline.to_string(&mapping),lines[i].to_string(&mapping),lines[j].to_string(&mapping));
-                    candidates2.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
-                }
-            }
+    newconstraint.maximize_custom(eh,true,false,tracking,f_is_superset, f_union, f_intersection);
 
-            for newline in candidates2.lines {
-                newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
-            }
-        }
-
-        if newconstraint == constraint {
-            break;
-        }
-        constraint = newconstraint;
-    }
-
-    constraint
+    newconstraint
 }
 
 
@@ -450,8 +392,9 @@ enum TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Hash +
 }
 
 
-fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &HashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
-    if let Some((l1,l2, _, norm_map, parts)) = how.get(line) {
+fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
+    if let Some(rg) = how.get(line) {
+        let (l1,l2, _, norm_map, parts) = &*rg;
         let (p1,p2,op) = parts[if norm_pos {norm_map[pos][0]} else {pos}];
         let part1 = expression_for_line_at(l1, p1, true, how, mapping);
         let part2 = expression_for_line_at(l2, p2, true, how, mapping);

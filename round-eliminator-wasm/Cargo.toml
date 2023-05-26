@@ -1,3 +1,4 @@
+[workspace]
 [package]
 name = "round-eliminator-wasm"
 version = "0.1.0"
@@ -16,7 +17,7 @@ round-eliminator-lib = {path = "../round-eliminator-lib"}
 js-sys = "0.3"
 console_log = { version = "0.2" }
 log = "0.4"
-
+#wasm-bindgen-rayon = { version = "1.0", features = ["no-bundler"] }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -47,3 +48,4 @@ features = [
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
+

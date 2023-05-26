@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use chashmap::CHashMap;
 use itertools::Itertools;
 use streaming_iterator::StreamingIterator;
 
@@ -14,7 +15,19 @@ use crate::{
 use super::event::EventHandler;
 
 impl Constraint {
-    pub fn maximize(&mut self, eh: &mut EventHandler) {
+
+    
+    pub fn maximize_custom<FS,FU,FI>(
+        &mut self,
+        eh: &mut EventHandler,
+        allow_empty : bool,
+        track_unions : bool,
+        mut tracking : Option<&CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>,
+        f_is_superset : FS,
+        f_union : FU,
+        f_intersection : FI
+    ) where FS : Fn(&Group,&Group) -> bool + Copy + Send + Sync, FU : Fn(&Group,&Group) -> Group + Copy + Send + Sync, FI : Fn(&Group,&Group) -> Group + Copy + Send + Sync {
+ 
         if self.is_maximized || self.lines.is_empty() {
             self.is_maximized = true;
             return;
@@ -22,15 +35,15 @@ impl Constraint {
 
         let becomes_star = 100;
 
-        let mut seen = HashSet::new();
-        let mut seen_pairs = HashSet::new();
+        let mut seen = CHashMap::new();
+        let mut seen_pairs = CHashMap::new();
 
         let lines = std::mem::take(&mut self.lines);
         let empty = self.clone();
         for mut line in lines {
             line.normalize();
-            seen.insert(line.clone());
-            self.add_line_and_discard_non_maximal(line);
+            seen.insert(line.clone(),());
+            self.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(f_is_superset));
         }
 
         loop {
@@ -39,37 +52,115 @@ impl Constraint {
 
             let without_one = without_one(lines);
 
+            #[cfg(not(target_arch = "wasm32"))]
+            crossbeam::scope(|s| {
+
+                let (in_tx, in_rx) =  crossbeam_channel::unbounded();
+                let (out_tx, out_rx) =  crossbeam_channel::unbounded();
+                let n_workers = 8;
+
+                let seen_pairs = &seen_pairs;
+                let seen = &seen;
+                let lines = &lines;
+                let without_one = &without_one;
+
+                for thread_num in 0..n_workers {
+                    let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
+                    let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
+                    s.spawn(move |_|{
+                        while let Ok((i,j)) = in_rx.recv() {
+                            let pair = (lines[i].clone(), lines[j].clone());
+                            if seen_pairs.contains_key(&pair)
+                                || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
+                            {
+                                out_tx.send(vec![]).unwrap();
+                                continue;
+                            }
+                            seen_pairs.insert(pair,());
+
+                            let (candidates,_,how) = combine_lines_custom(
+                                &lines[i],
+                                &lines[j],
+                                &without_one[i],
+                                &without_one[j],
+                                &seen,
+                                becomes_star,
+                                allow_empty,
+                                track_unions,
+                                tracking.is_some(),
+                                f_is_superset, f_union, f_intersection
+                            );
+                            if let Some(tracking) = tracking {
+                                for (a,b) in how.into_iter() {
+                                    tracking.insert(a,b);
+                                }
+                            }
+                            out_tx.send(candidates).unwrap();
+                        }
+                    });
+                }
+
+                for i in 0..lines.len() {
+                    for j in 0..=i {
+                        in_tx.send((i,j)).unwrap();
+                    }
+                }
+                drop(in_tx);
+
+                let len = lines.len();
+                let mut total = len * (len+1)/2;
+                for received in 0..total {
+                    let candidates = out_rx.recv().unwrap();
+                    for newline in candidates {
+                        newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
+                    }
+                    eh.notify("combining line pairs", received, total);
+                }
+            });
+
+            
+
+            #[cfg(target_arch = "wasm32")]
             for i in 0..lines.len() {
                 let mut candidates2 = empty.clone();
 
+                let len = lines.len();
+                eh.notify("combining line pairs", i * (i+1)/2, len * (len+1)/2);
+
                 for j in 0..=i {
-                    let len = lines.len();
-                    eh.notify("combining line pairs", i * len + j, len * len);
 
                     let pair = (lines[i].clone(), lines[j].clone());
-                    if seen_pairs.contains(&pair)
-                        || seen_pairs.contains(&(pair.1.clone(), pair.0.clone()))
+                    if seen_pairs.contains_key(&pair)
+                        || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
                     {
                         continue;
                     }
-                    seen_pairs.insert(pair);
+                    seen_pairs.insert(pair,());
 
-                    let candidates = combine_lines(
+                    let (candidates,_,how) = combine_lines_custom(
                         &lines[i],
                         &lines[j],
                         &without_one[i],
                         &without_one[j],
-                        &mut seen,
+                        &seen,
                         becomes_star,
-                        false
+                        allow_empty,
+                        track_unions,
+                        tracking.is_some(),
+                        f_is_superset, f_union, f_intersection
                     );
+                    if let Some(tracking) = tracking {
+                        for (a,b) in how.into_iter() {
+                            tracking.insert(a,b);
+                        }
+                    }
                     for newline in candidates {
-                        candidates2.add_line_and_discard_non_maximal(newline);
+                        candidates2.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
                     }
                 }
 
                 for newline in candidates2.lines {
-                    newconstraint.add_line_and_discard_non_maximal(newline);
+                    newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
                 }
             }
 
@@ -80,6 +171,13 @@ impl Constraint {
         }
 
         self.is_maximized = true;
+    }
+
+    pub fn maximize(&mut self, eh: &mut EventHandler) {
+        let f_is_superset = |g1 : &Group ,g2 : &Group |{ g1.is_superset(g2) };
+        let f_union = |g1 : &Group ,g2 : &Group |{ g1.union(g2) };
+        let f_intersection = |g1 : &Group ,g2 : &Group |{ g1.intersection(g2) };
+        self.maximize_custom(eh,false,false,None,f_is_superset,f_union,f_intersection);
     }
 }
 
@@ -259,7 +357,7 @@ pub fn combine_lines_custom<FS,FU,FI>(
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
-    seen: &mut HashSet<Line>,
+    seen: &CHashMap<Line,()>,
     becomes_star: usize,
     allow_empty : bool,
     track_unions : bool,
@@ -308,8 +406,8 @@ pub fn combine_lines_custom<FS,FU,FI>(
                         normalization_map.push(old_positions);
                     }
                 }
-                if !seen.contains(&newline) {
-                    seen.insert(newline.clone());
+                if !seen.contains_key(&newline) {
+                    seen.insert(newline.clone(),());
                     if track_unions {
                         line_to_unions.entry(newline.clone()).or_default().insert((x,y));
                     }
@@ -331,7 +429,7 @@ fn combine_lines(
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
-    seen: &mut HashSet<Line>,
+    seen: &CHashMap<Line,()>,
     becomes_star: usize,
     allow_empty : bool
 ) -> Vec<Line> {

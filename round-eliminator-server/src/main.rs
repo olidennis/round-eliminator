@@ -14,12 +14,12 @@ async fn main() {
 }
 
 async fn server(addr: &str) {
-    let dir_server = warp::path("server").and(warp::fs::dir("www"));
+    let dir_server = warp::path("server").and(warp::fs::dir("../www"));
     let index_server = warp::path("server")
         .and(warp::path::end())
         .and(warp::fs::file("www/index.htm"));
 
-    let dir_wasm = warp::fs::dir("www/");
+    let dir_wasm = warp::fs::dir("../www/");
     let index_wasm = warp::path::end().and(warp::fs::file("www/index.htm"));
 
     let ws = warp::path("api")
