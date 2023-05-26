@@ -86,6 +86,8 @@ impl Problem {
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
 
+        let mut all_expressions : HashSet<TreeNode<Label>> = HashSet::new();
+
         let p = loop {
             let active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
             let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
@@ -166,6 +168,15 @@ impl Problem {
                 for expr in expressions_passive {
                     expressions.insert(expr.flip());
                 }
+
+                for (_,&x) in &mapping_label_newlabel {
+                    expressions.insert(TreeNode::Terminal(x));
+                }
+
+                for e in &all_expressions {
+                    expressions.insert(e.convert(&mapping_label_newlabel));
+                }
+
                 println!("The problem is trivial, there are {} subexpressions",expressions.len());
 
                 let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
@@ -202,6 +213,10 @@ impl Problem {
                     TreeNode::Terminal(x) => { Some((label_to_oldlabel[x],l)) },
                     TreeNode::Expr(_,_,_) => None
                 }).collect();
+
+                for (_,e) in &map_label_expr {
+                    all_expressions.insert(e.convert(&label_to_oldlabel));
+                }
 
                 for (x,y) in orig_diagram {
                     diagram.push((mapping_label_newlabel[x],mapping_label_newlabel[y]));
