@@ -280,7 +280,7 @@ Vue.component('re-computing', {
                 case "enumerating configurations":
                     return {bar : false, msg: "Enumerating configurations"};
                 case "combining line pairs":
-                    return {bar : true, msg: "Maximizing, combining line pairs", max : this.action.max, cur : this.action.cur };
+                    return {bar : true, msg: "Maximizing, combining line pairs ("+this.action.max+")", max : this.action.max, cur : this.action.cur };
                 case "triviality":
                     return {bar : true, msg: "Computing triviality", max : this.action.max, cur : this.action.cur };
                 case "orientationtriviality":

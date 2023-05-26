@@ -19,3 +19,4 @@ getrandom = { version = "0.2", features = ["js"] }
 chashmap = "2.2.2"
 crossbeam = "0.8.2"
 crossbeam-channel = "0.5.8"
+num_cpus = "1.0"

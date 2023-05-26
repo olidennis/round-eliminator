@@ -54,16 +54,16 @@ impl Constraint {
 
             #[cfg(not(target_arch = "wasm32"))]
             crossbeam::scope(|s| {
-
+ 
                 let (in_tx, in_rx) =  crossbeam_channel::unbounded();
                 let (out_tx, out_rx) =  crossbeam_channel::unbounded();
-                let n_workers = 8;
+                let n_workers = num_cpus::get();
 
                 let seen_pairs = &seen_pairs;
                 let seen = &seen;
                 let lines = &lines;
                 let without_one = &without_one;
-
+ 
                 for thread_num in 0..n_workers {
                     let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
                     let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
@@ -100,6 +100,7 @@ impl Constraint {
                     });
                 }
 
+                println!("number of lines: {}",lines.len());
                 for i in 0..lines.len() {
                     for j in 0..=i {
                         in_tx.send((i,j)).unwrap();
