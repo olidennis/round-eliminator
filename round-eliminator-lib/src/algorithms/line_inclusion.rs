@@ -1,10 +1,8 @@
-use std::collections::BTreeSet;
-
 use itertools::Itertools;
 
 use crate::{
     group::{Group, GroupType, Label},
-    line::Line, part::Part,
+    line::Line,
 };
 
 impl Line {

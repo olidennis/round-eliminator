@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet};
-
+use std::sync::atomic::{AtomicBool, Ordering};
 use chashmap::CHashMap;
-use itertools::Itertools;
 use streaming_iterator::StreamingIterator;
 
 use crate::{
     algorithms::multisets_pairing::Pairings,
     constraint::Constraint,
-    group::{Group, GroupType, Label},
+    group::{Group, GroupType},
     line::Line,
     part::Part,
 };
@@ -47,125 +46,178 @@ impl Constraint {
         }
 
         loop {
-            let mut newconstraint = self.clone();
             let lines = &self.lines;
 
             let without_one = without_one(lines);
 
             #[cfg(not(target_arch = "wasm32"))]
-            crossbeam::scope(|s| {
- 
-                let (in_tx, in_rx) =  crossbeam_channel::unbounded();
-                let (out_tx, out_rx) =  crossbeam_channel::unbounded();
-                let n_workers = num_cpus::get();
+            let newconstraint = {
+                let v = append_only_vec::AppendOnlyVec::<_>::new();
+                for line in self.lines.iter() {
+                    v.push((AtomicBool::new(false),line.clone()));
+                }
+                let newconstraint = std::sync::Arc::new(v);
 
-                let seen_pairs = &seen_pairs;
-                let seen = &seen;
-                let lines = &lines;
-                let without_one = &without_one;
- 
-                for thread_num in 0..n_workers {
-                    let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
-                    let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
-                    s.spawn(move |_|{
-                        while let Ok((i,j)) = in_rx.recv() {
-                            let pair = (lines[i].clone(), lines[j].clone());
-                            if seen_pairs.contains_key(&pair)
-                                || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
-                            {
-                                out_tx.send(vec![]).unwrap();
-                                continue;
-                            }
-                            seen_pairs.insert(pair,());
+                crossbeam::scope(|s| {
+                    let (in_tx, in_rx) =  crossbeam_channel::unbounded();
+                    let (out_tx, out_rx) =  crossbeam_channel::unbounded();
+                    let (progress_tx, progress_rx) : (crossbeam_channel::Sender<()>,crossbeam_channel::Receiver<()>)  =  crossbeam_channel::unbounded();
 
-                            let (candidates,_,how) = combine_lines_custom(
-                                &lines[i],
-                                &lines[j],
-                                &without_one[i],
-                                &without_one[j],
-                                &seen,
-                                becomes_star,
-                                allow_empty,
-                                track_unions,
-                                tracking.is_some(),
-                                f_is_superset, f_union, f_intersection
-                            );
-                            if let Some(tracking) = tracking {
-                                for (a,b) in how.into_iter() {
-                                    tracking.insert(a,b);
+                    let n_workers = num_cpus::get();
+
+                    let seen_pairs = &seen_pairs;
+                    let seen = &seen;
+                    let lines = &lines;
+                    let without_one = &without_one;
+    
+
+                    for thread_num in 0..n_workers {
+                        let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
+                        let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
+                        s.spawn(move |_|{
+                            while let Ok((i,j)) = in_rx.recv() {
+                                let pair = (lines[i].clone(), lines[j].clone());
+                                if seen_pairs.contains_key(&pair)
+                                    || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
+                                {
+                                    out_tx.send(vec![]).unwrap();
+                                    continue;
                                 }
+                                seen_pairs.insert(pair,());
+
+                                let (candidates,_,how) = combine_lines_custom(
+                                    &lines[i],
+                                    &lines[j],
+                                    &without_one[i],
+                                    &without_one[j],
+                                    &seen,
+                                    becomes_star,
+                                    allow_empty,
+                                    track_unions,
+                                    tracking.is_some(),
+                                    f_is_superset, f_union, f_intersection
+                                );
+                                if let Some(tracking) = tracking {
+                                    for (a,b) in how.into_iter() {
+                                        tracking.insert(a,b);
+                                    }
+                                }
+                                out_tx.send(candidates).unwrap();
                             }
-                            out_tx.send(candidates).unwrap();
+                            println!("done producing new lines");
+                        });
+                    }
+
+                    println!("number of lines: {}",lines.len());
+                    for i in 0..lines.len() {
+                        for j in 0..=i {
+                            in_tx.send((i,j)).unwrap();
                         }
-                        println!("done producing new lines");
-                    });
-                }
-
-                println!("number of lines: {}",lines.len());
-                for i in 0..lines.len() {
-                    for j in 0..=i {
-                        in_tx.send((i,j)).unwrap();
                     }
-                }
-                drop(in_tx);
+                    drop(in_tx);
 
-                let len = lines.len();
-                let mut total = len * (len+1)/2;
-                for received in 0..total {
-                    let candidates = out_rx.recv().unwrap();
-                    let n_candidates = candidates.len();
-                    for newline in candidates {
-                        newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
+                    for thread_num in 0..n_workers {
+                        let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
+                        let (progress_tx, progress_rx) = (progress_tx.clone(), progress_rx.clone());
+                        let newconstraint = newconstraint.clone();
+                        s.spawn(move |_|{
+                            while let Ok(candidates) = out_rx.recv() {
+                                for newline in candidates {
+                                    let (is_not_included,checked_len) = 'outer : {
+                                        let len = newconstraint.len();
+                                        (newconstraint.iter().take(len).rev()
+                                            .filter(|(removed,_)|!removed.load(Ordering::Relaxed))
+                                            .all(|(_,oldline)| !oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))),
+                                        len)
+                                    };
+                                    if is_not_included {
+                                        let added_pos = newconstraint.push((AtomicBool::new(false),newline.clone()));
+                                        if newconstraint.iter().skip(checked_len).take(added_pos-checked_len)
+                                                .any(|(_,oldline)| oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))) {
+                                            newconstraint[added_pos].0.store(true,Ordering::Relaxed);
+                                        } else {
+                                            for (removed,oldline) in newconstraint.iter().take(added_pos) {
+                                                if !removed.load(Ordering::Relaxed) {
+                                                    if newline.includes_with_custom_supersets(oldline, Some(f_is_superset)) {
+                                                        removed.store(true,Ordering::Relaxed);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                }
+                                progress_tx.send(()).unwrap();
+                            }
+                        });
                     }
-                    eh.notify("combining line pairs", received, total);
-                }
-            });
+
+                    let now = std::time::Instant::now();
+                    let len = lines.len();
+                    let mut total = len * (len+1)/2;
+                    for received in 0..total {
+                        progress_rx.recv().unwrap();
+                        eh.notify("combining line pairs", received, total);
+                    }
+                    println!("It took {}s",now.elapsed().as_secs());
+
+                }).unwrap();
+
+                let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
+                let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
+                println!("bad {}, good {}",c2,c1);
+                Constraint{ lines: newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).map(|(_,line)|line.clone()).collect(), is_maximized: false, degree: self.degree }
+            };
 
             
 
             #[cfg(target_arch = "wasm32")]
-            for i in 0..lines.len() {
-                let mut candidates2 = empty.clone();
+            let newconstraint = {
+                let mut newconstraint = self.clone();
+                for i in 0..lines.len() {
+                    let mut candidates2 = empty.clone();
 
-                let len = lines.len();
-                eh.notify("combining line pairs", i * (i+1)/2, len * (len+1)/2);
+                    let len = lines.len();
+                    eh.notify("combining line pairs", i * (i+1)/2, len * (len+1)/2);
 
-                for j in 0..=i {
+                    for j in 0..=i {
 
-                    let pair = (lines[i].clone(), lines[j].clone());
-                    if seen_pairs.contains_key(&pair)
-                        || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
-                    {
-                        continue;
-                    }
-                    seen_pairs.insert(pair,());
+                        let pair = (lines[i].clone(), lines[j].clone());
+                        if seen_pairs.contains_key(&pair)
+                            || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
+                        {
+                            continue;
+                        }
+                        seen_pairs.insert(pair,());
 
-                    let (candidates,_,how) = combine_lines_custom(
-                        &lines[i],
-                        &lines[j],
-                        &without_one[i],
-                        &without_one[j],
-                        &seen,
-                        becomes_star,
-                        allow_empty,
-                        track_unions,
-                        tracking.is_some(),
-                        f_is_superset, f_union, f_intersection
-                    );
-                    if let Some(tracking) = tracking {
-                        for (a,b) in how.into_iter() {
-                            tracking.insert(a,b);
+                        let (candidates,_,how) = combine_lines_custom(
+                            &lines[i],
+                            &lines[j],
+                            &without_one[i],
+                            &without_one[j],
+                            &seen,
+                            becomes_star,
+                            allow_empty,
+                            track_unions,
+                            tracking.is_some(),
+                            f_is_superset, f_union, f_intersection
+                        );
+                        if let Some(tracking) = tracking {
+                            for (a,b) in how.into_iter() {
+                                tracking.insert(a,b);
+                            }
+                        }
+                        for newline in candidates {
+                            candidates2.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
                         }
                     }
-                    for newline in candidates {
-                        candidates2.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
+
+                    for newline in candidates2.lines {
+                        newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
                     }
                 }
-
-                for newline in candidates2.lines {
-                    newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
-                }
-            }
+                newconstraint
+            };
 
             if &newconstraint == self {
                 break;
@@ -226,7 +278,7 @@ pub enum Operation {
 }
 
 #[allow(clippy::needless_range_loop)]
-fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Line, allow_empty : bool, f_is_superset : FS, f_intersection : FI) -> (Vec<Vec<(usize,usize,Operation,Part)>>) where FS : Fn(&Group,&Group) -> bool, FI : Fn(&Group,&Group) -> Group {
+fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Line, allow_empty : bool, f_is_superset : FS, f_intersection : FI) -> Vec<Vec<(usize,usize,Operation,Part)>> where FS : Fn(&Group,&Group) -> bool, FI : Fn(&Group,&Group) -> Group {
     let t1 = c1.degree_without_star();
     let t2 = c2.degree_without_star();
     let d = if c1.has_star() { t1 + t2 } else { t1 };
@@ -368,7 +420,7 @@ pub fn combine_lines_custom<FS,FU,FI>(
     f_is_superset : FS,
     f_union : FU,
     f_intersection : FI
-) -> (Vec<Line>,HashMap<Line,HashSet<(usize,usize)>>,HashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>) where FS : Fn(&Group,&Group) -> bool + Copy, FU : Fn(&Group,&Group) -> Group + Copy, FI : Fn(&Group,&Group) -> Group + Copy {
+) -> (Vec<Line>,HashMap<Line,HashSet<(usize,usize)>>,HashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>) where FS : Fn(&Group,&Group) -> bool + Copy + Sync, FU : Fn(&Group,&Group) -> Group + Copy, FI : Fn(&Group,&Group) -> Group + Copy {
     let mut result = Constraint {
         lines: vec![],
         is_maximized: false,

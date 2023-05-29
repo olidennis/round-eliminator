@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::{problem::Problem, constraint::Constraint, group::{Label, Group}, line::Line, algorithms::diagram::compute_direct_diagram};
 
-use super::{event::EventHandler, maximize::{combine_lines_custom, without_one, Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
+use super::{event::EventHandler, maximize::{Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
 
 
 fn first_diagram(p : &Problem) -> (Vec<(Label,Label)>,HashMap<Label,Label>,Vec<(Label, String)>) {

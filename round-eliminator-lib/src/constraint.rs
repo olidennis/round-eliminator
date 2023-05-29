@@ -31,36 +31,39 @@ impl Constraint {
         self.add_line_and_discard_non_maximal_with_custom_supersets(
             newline,
             None::<fn(&'_ _, &'_ _) -> _>,
-        )
+        );
     }
 
     pub fn discard_non_maximal_lines(&mut self) {
         self.discard_non_maximal_lines_with_custom_supersets(None::<fn(&'_ _, &'_ _) -> _>)
     }
 
+
+    pub fn is_included_with_custom_supersets<T>(&self, newline : &Line,is_superset: Option<T>,
+    ) -> bool where T: Fn(&Group, &Group) -> bool + Copy + Sync {
+        // a line is likely to be included in the lines added recently, so rev() is useful
+        !self.lines.iter().rev().all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
+    }
+
     pub fn add_line_and_discard_non_maximal_with_custom_supersets<T>(
         &mut self,
         newline: Line,
         is_superset: Option<T>,
-    ) where
-        T: Fn(&Group, &Group) -> bool + Copy,
+    ) -> bool where
+        T: Fn(&Group, &Group) -> bool + Copy + Sync,
     {
-        self.is_maximized = false;
-        let lines = &mut self.lines;
-        // a line is likely to be included in the lines added recently, so rev() is useful
-        let not_included = lines
-            .iter().rev()
-            .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset));
-        if !not_included {
-            return;
+        if self.is_included_with_custom_supersets(&newline, is_superset) {
+            return false;
         }
-        lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
-        lines.push(newline);
+        self.is_maximized = false;
+        self.lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
+        self.lines.push(newline);
+        true
     }
 
     pub fn discard_non_maximal_lines_with_custom_supersets<T>(&mut self, is_superset: Option<T>)
     where
-        T: Fn(&Group, &Group) -> bool + Copy,
+        T: Fn(&Group, &Group) -> bool + Copy + Sync,
     {
         self.is_maximized = false;
         let lines = std::mem::take(&mut self.lines);
