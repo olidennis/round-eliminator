@@ -97,6 +97,7 @@ impl Constraint {
                             }
                             out_tx.send(candidates).unwrap();
                         }
+                        println!("done producing new lines");
                     });
                 }
 
@@ -112,6 +113,7 @@ impl Constraint {
                 let mut total = len * (len+1)/2;
                 for received in 0..total {
                     let candidates = out_rx.recv().unwrap();
+                    let n_candidates = candidates.len();
                     for newline in candidates {
                         newconstraint.add_line_and_discard_non_maximal_with_custom_supersets(newline,Some(f_is_superset));
                     }

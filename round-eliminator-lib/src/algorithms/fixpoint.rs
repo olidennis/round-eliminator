@@ -101,44 +101,36 @@ impl Problem {
             let mut tracking = CHashMap::new();
             let mut tracking_passive = CHashMap::new();
 
-            let mut i = 0;
-            let (p,passive_before_edit) = loop {
-                let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text,if i == 0 {None} else { Some(&tracking) }, eh);
-                let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text,if i == 0 {None} else {Some(&tracking_passive)}, eh);
+            let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text, Some(&tracking), eh);
+            let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, Some(&tracking_passive), eh);
 
-                let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
-                let passive_before_edit = passive.clone();
-                let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+            let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
+            let passive_before_edit = passive.clone();
+            let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
 
-                let mut p = Problem {
-                    active,
-                    passive,
-                    mapping_label_text: vec![],
-                    mapping_label_oldlabels: None,
-                    mapping_oldlabel_labels: None,
-                    mapping_oldlabel_text: None,
-                    trivial_sets: None,
-                    coloring_sets: None,
-                    diagram_indirect: None,
-                    diagram_indirect_old: None,
-                    diagram_direct: None,
-                    orientation_coloring_sets: None,
-                    orientation_trivial_sets: None,
-                    orientation_given: None,
-                };
-
-                p.mapping_label_text = mapping_newlabel_text.clone();
-
-                p.compute_triviality(eh);
-                if p.trivial_sets.as_ref().unwrap().is_empty() {
-                    break (p,passive_before_edit);
-                }
-                i += 1;
-                if i==2 {
-                    break (p,passive_before_edit);
-                }
-                println!("zero round");
+            let mut p = Problem {
+                active,
+                passive,
+                mapping_label_text: vec![],
+                mapping_label_oldlabels: None,
+                mapping_oldlabel_labels: None,
+                mapping_oldlabel_text: None,
+                trivial_sets: None,
+                coloring_sets: None,
+                diagram_indirect: None,
+                diagram_indirect_old: None,
+                diagram_direct: None,
+                orientation_coloring_sets: None,
+                orientation_trivial_sets: None,
+                orientation_given: None,
             };
+
+            p.mapping_label_text = mapping_newlabel_text.clone();
+
+            p.compute_triviality(eh);
+
+
+            println!("zero round");
             
             if !p.trivial_sets.as_ref().unwrap().is_empty() {
                 let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();

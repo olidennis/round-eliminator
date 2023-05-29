@@ -47,17 +47,15 @@ impl Constraint {
     {
         self.is_maximized = false;
         let lines = &mut self.lines;
-        // computing and checking len is not needed, but it allows to skip the second check if something already changed,
-        // assuming that there are only maximal lines at the moment
-        let len = lines.len();
-        lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
-        if lines.len() != len
-            || lines
-                .iter()
-                .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
-        {
-            lines.push(newline);
+        // a line is likely to be included in the lines added recently, so rev() is useful
+        let not_included = lines
+            .iter().rev()
+            .all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset));
+        if !not_included {
+            return;
         }
+        lines.retain(|oldline| !newline.includes_with_custom_supersets(oldline, is_superset));
+        lines.push(newline);
     }
 
     pub fn discard_non_maximal_lines_with_custom_supersets<T>(&mut self, is_superset: Option<T>)

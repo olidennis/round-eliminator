@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use itertools::Itertools;
 
 use crate::{
@@ -35,6 +37,7 @@ impl Line {
     where
         T: Fn(&Group, &Group) -> bool,
     {
+
         let d1 = self.parts.len();
         let d2 = other.parts.len();
         let t1 = self.degree_without_star();
@@ -95,6 +98,7 @@ impl Line {
 
         for i in 0..d1 {
             let g1 = &self.parts[i].group;
+            let mut at_least_one = false;
             for j in 0..d2 {
                 let g2 = &other.parts[j].group;
 
@@ -103,14 +107,19 @@ impl Line {
                     Some(f) => f(g1, g2),
                 };
                 if is_superset {
+                    at_least_one = true;
                     g.add_edge(1 + i, 1 + d1 + j, maxflow as i64, 0, 0);
                     edges.push((1 + i, 1 + d1 + j));
                     edges.push((1 + d1 + j,1 + i));
                 }
             }
+            if !at_least_one && self.parts[i].gtype != GroupType::Many(0) {
+                return None;
+            }
         }
 
         let (flowvalue, flow) = g.dinic(0, n - 1);
+
         if flowvalue == maxflow as i64 {
             let matching = flow.into_iter().enumerate()
                 .filter(|&(_, f)| f > 0)
