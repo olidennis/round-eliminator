@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
 use chashmap::CHashMap;
 use streaming_iterator::StreamingIterator;
+use std::time::Instant;
 
 use crate::{
     algorithms::multisets_pairing::Pairings,
@@ -161,9 +162,13 @@ impl Constraint {
                     let now = std::time::Instant::now();
                     let len = lines.len();
                     let mut total = len * (len+1)/2;
+                    let mut last_notify = Instant::now();
                     for received in 0..total {
                         progress_rx.recv().unwrap();
-                        eh.notify("combining line pairs", received, total);
+                        if last_notify.elapsed().as_millis() > 100 {
+                            eh.notify("combining line pairs", (2. *received as f64).sqrt() as usize, len);
+                            last_notify = Instant::now();
+                        }
                     }
                     println!("It took {}s",now.elapsed().as_secs());
 
