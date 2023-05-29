@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
 use chashmap::CHashMap;
 use streaming_iterator::StreamingIterator;
 
@@ -36,12 +36,13 @@ impl Constraint {
 
         let mut seen = CHashMap::new();
         let mut seen_pairs = CHashMap::new();
+        let mut next_id = AtomicUsize::new(1);
 
         let lines = std::mem::take(&mut self.lines);
         let empty = self.clone();
         for mut line in lines {
             line.normalize();
-            seen.insert(line.clone(),());
+            seen.insert(line.clone(),next_id.fetch_add(1,Ordering::SeqCst));
             self.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(f_is_superset));
         }
 
@@ -74,9 +75,13 @@ impl Constraint {
                     for thread_num in 0..n_workers {
                         let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
                         let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
+                        let next_id = &next_id;
                         s.spawn(move |_|{
                             while let Ok((i,j)) = in_rx.recv() {
-                                let pair = (lines[i].clone(), lines[j].clone());
+                                let id1 = *seen.get(&lines[i]).unwrap();
+                                let id2 = *seen.get(&lines[j]).unwrap();
+                                let pair = (id1,id2);
+                                //let pair = (lines[i].clone(), lines[j].clone());
                                 if seen_pairs.contains_key(&pair)
                                     || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
                                 {
@@ -91,6 +96,7 @@ impl Constraint {
                                     &without_one[i],
                                     &without_one[j],
                                     &seen,
+                                    Some(&next_id),
                                     becomes_star,
                                     allow_empty,
                                     track_unions,
@@ -412,7 +418,8 @@ pub fn combine_lines_custom<FS,FU,FI>(
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
-    seen: &CHashMap<Line,()>,
+    seen: &CHashMap<Line,usize>,
+    line_id: Option<&AtomicUsize>,
     becomes_star: usize,
     allow_empty : bool,
     track_unions : bool,
@@ -462,7 +469,7 @@ pub fn combine_lines_custom<FS,FU,FI>(
                     }
                 }
                 if !seen.contains_key(&newline) {
-                    seen.insert(newline.clone(),());
+                    seen.insert(newline.clone(),if let Some(line_id) = line_id { line_id.fetch_add(1, Ordering::SeqCst) } else {0});
                     if track_unions {
                         line_to_unions.entry(newline.clone()).or_default().insert((x,y));
                     }
@@ -484,7 +491,7 @@ fn combine_lines(
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
-    seen: &CHashMap<Line,()>,
+    seen: &CHashMap<Line,usize>,
     becomes_star: usize,
     allow_empty : bool
 ) -> Vec<Line> {
@@ -492,5 +499,5 @@ fn combine_lines(
     let f_union = |g1 : &Group ,g2 : &Group |{ g1.union(g2) };
     let f_intersection = |g1 : &Group ,g2 : &Group |{ g1.intersection(g2) };
 
-    combine_lines_custom(l1, l2, l1_without_one, l2_without_one, seen, becomes_star, allow_empty, false, false, f_is_superset, f_union, f_intersection).0
+    combine_lines_custom(l1, l2, l1_without_one, l2_without_one, seen, None, becomes_star, allow_empty, false, false, f_is_superset, f_union, f_intersection).0
 }
