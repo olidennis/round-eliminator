@@ -111,11 +111,11 @@ impl Constraint {
                                 }
                                 out_tx.send(candidates).unwrap();
                             }
-                            println!("done producing new lines");
+                            //println!("done producing new lines");
                         });
                     }
 
-                    println!("number of lines: {}",lines.len());
+                    //println!("number of lines: {}",lines.len());
                     for i in 0..lines.len() {
                         for j in 0..=i {
                             in_tx.send((i,j)).unwrap();
@@ -176,7 +176,7 @@ impl Constraint {
 
                 let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
                 let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
-                println!("bad {}, good {}",c2,c1);
+                //println!("bad {}, good {}",c2,c1);
                 Constraint{ lines: newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).map(|(_,line)|line.clone()).collect(), is_maximized: false, degree: self.degree }
             };
 

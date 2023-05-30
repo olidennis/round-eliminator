@@ -8,167 +8,331 @@ use crate::{problem::Problem, constraint::Constraint, group::{Label, Group}, lin
 use super::{event::EventHandler, maximize::{Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
 
 
-fn first_diagram(p : &Problem) -> (Vec<(Label,Label)>,HashMap<Label,Label>,Vec<(Label, String)>) {
-    let labels = p.labels();
-    let diagram_indirect = p.diagram_indirect.as_ref().unwrap();
-    let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
-
-    let rcs = right_closed_subsets(&labels, &successors);
-    
-    let mapping_label_rightclosed : HashMap<Label,Vec<Label>> = labels.iter().map(|&l|{
-        let mut r = successors[&l].clone();
-        r.insert(l);
-        (l,r.into_iter().sorted().collect())
-    }).collect();
-
-    let mapping_rightclosed_newlabel : HashMap<Vec<Label>,Label> = rcs.iter().enumerate().map(|(i,r)|{
-        (r.clone(),i as Label)
-    }).collect();
-
-    let mut diagram = vec![];
-    
-    for s1 in &rcs {
-        for s2 in &rcs {
-            let set_s1 : HashSet<Label> = HashSet::from_iter(s1.iter().cloned());
-            let set_s2 : HashSet<Label> = HashSet::from_iter(s2.iter().cloned());
-            let new_s1 = mapping_rightclosed_newlabel[s1];
-            let new_s2 = mapping_rightclosed_newlabel[s2];
-            if set_s1.is_superset(&set_s2) {
-                diagram.push((new_s1,new_s2));
-            }
-        }
-    }
-
-    let oldtext : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
-
-    let onechar = oldtext.iter().all(|(_,t)|t.len() == 1);
-
-    let new_mapping_label_text : Vec<_> = mapping_rightclosed_newlabel.iter().map(|(r,&l)|{
-        if onechar {
-            let mut text = r.iter().map(|ol|&oldtext[ol]).sorted().join("");
-            if text == "" {
-                text = "∅".into();
-            }
-            if text.chars().count() > 1 {
-                text = format!("({})",text);
-            }
-            (l,text)
-        } else {
-            let mut text = format!("({})",
-                r.iter().map(|ol|
-                    oldtext[ol].chars().filter(|&c|c!='('&&c!=')').collect::<String>()
-                ).sorted().join("_")
-            );
-            if text == "()" {
-                text = "∅".into();
-            }
-            (l,text)
-        }
-    }).collect();
-
-    let mut mapping_label_newlabel = HashMap::new();
-    for &l in &labels {
-        let newl = mapping_rightclosed_newlabel[&mapping_label_rightclosed[&l]];
-        mapping_label_newlabel.insert(l, newl);
-    }
-
-    (diagram,mapping_label_newlabel,new_mapping_label_text)
+struct FixpointDiagram {
+    additional_orig : Vec<Label>,
+    orig_labels : Vec<Label>,
+    rightclosed : Vec<Vec<Label>>,
+    diagram : Vec<(Label,Label)>,
+    mapping_oldlabel_text : Vec<(Label, String)>,
+    mapping_rightclosed_newlabel : Vec<(Vec<Label>,Label)>,
+    mapping_label_newlabel : Vec<(Label,Label)>,
+    mapping_newlabel_text : Vec<(Label, String)>,
 }
+
+impl FixpointDiagram {
+    fn new(p : &Problem) -> FixpointDiagram {
+        let labels = p.labels();
+        let diagram_indirect = p.diagram_indirect.as_ref().unwrap();
+        let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
+
+        let rcs = right_closed_subsets(&labels, &successors);
+
+        let mut fd = FixpointDiagram {
+            orig_labels : labels,
+            rightclosed : rcs,
+            diagram : vec![],
+            additional_orig : vec![],
+            mapping_newlabel_text : vec![],
+            mapping_oldlabel_text : p.mapping_label_text.iter().cloned().collect(),
+            mapping_label_newlabel : vec![],
+            mapping_rightclosed_newlabel : vec![]
+        };
+        fd.compute_mappings();
+        fd.assign_text();
+        fd.compute_diagram();
+
+        fd
+    }
+
+    fn compute_mappings(&mut self){
+
+        self.mapping_rightclosed_newlabel = self.rightclosed.iter().enumerate().map(|(i,r)|{
+            (r.clone(),i as Label)
+        }).collect();
+
+
+        let mapping_label_rightclosed : HashMap<Label,Vec<Label>> = self.orig_labels.iter().map(|&l|{
+            let mut containing : Vec<_> = self.rightclosed.iter().filter(|set|set.contains(&l)).collect();
+            containing.sort_by_key(|x|x.len());
+            (l,containing[0].clone())
+        }).collect();
+
+        let mapping_rightclosed_newlabel : HashMap<_,_> = self.mapping_rightclosed_newlabel.iter().cloned().collect();
+        let mut mapping_label_newlabel = HashMap::new();
+        for &l in &self.orig_labels {
+            let newl = mapping_rightclosed_newlabel[&mapping_label_rightclosed[&l]];
+            mapping_label_newlabel.insert(l, newl);
+        }
+        self.mapping_label_newlabel = mapping_label_newlabel.into_iter().collect();
+
+    }
+
+    fn compute_diagram(&mut self){
+        let mut diagram = vec![];
+        let mapping_rightclosed_newlabel : HashMap<_,_> = self.mapping_rightclosed_newlabel.iter().cloned().collect();
+
+        let rcs = &self.rightclosed;
+        
+        for s1 in rcs {
+            for s2 in rcs {
+                let set_s1 : HashSet<Label> = HashSet::from_iter(s1.iter().cloned());
+                let set_s2 : HashSet<Label> = HashSet::from_iter(s2.iter().cloned());
+                let new_s1 = mapping_rightclosed_newlabel[s1];
+                let new_s2 = mapping_rightclosed_newlabel[s2];
+                if set_s1.is_superset(&set_s2) {
+                    diagram.push((new_s1,new_s2));
+                }
+            }
+        }
+
+        self.diagram = diagram;
+    }
+
+    fn assign_text(&mut self) {
+        let oldtext : HashMap<_,_> = self.mapping_oldlabel_text.iter().cloned()
+            .chain(self.additional_orig.iter().enumerate().map(|(i,&l)|(l,format!("(dup{})",i))))
+            .collect();
+        let onechar = oldtext.iter().all(|(_,t)|t.len() == 1);
+        self.mapping_newlabel_text = self.mapping_rightclosed_newlabel.iter().map(|(r,l)|{
+            if onechar {
+                let mut text = r.iter().map(|ol|&oldtext[ol]).sorted().join("");
+                if text == "" {
+                    text = "∅".into();
+                }
+                if text.chars().count() > 1 {
+                    text = format!("({})",text);
+                }
+                (*l,text)
+            } else {
+                let mut text = format!("({})",
+                    r.iter().map(|ol|
+                        oldtext[ol].chars().filter(|&c|c!='('&&c!=')').collect::<String>()
+                    ).sorted().join("_")
+                );
+                if text == "()" {
+                    text = "∅".into();
+                }
+                (*l,text)
+            }
+        }).collect();
+    }
+
+    fn duplicate_labels(&mut self, groups : &Vec<Vec<Label>>){
+        let newlabel_to_rightclosed : HashMap<_,_> = self.mapping_rightclosed_newlabel.iter().map(|(r,n)|(*n,r.clone())).collect();
+        let mut sets : Vec<_> = self.mapping_rightclosed_newlabel.iter().map(|(r,_)|HashSet::from_iter(r.iter().cloned())).collect();
+        let mut next_fresh = self.mapping_oldlabel_text.iter().map(|(o,t)|*o).max().unwrap() + 1;
+        let mut additional_orig = vec![];
+
+        for group in groups {
+            let group : Vec<HashSet<Label>> = group.iter().map(|l|HashSet::from_iter(newlabel_to_rightclosed[l].iter().cloned())).collect();
+
+            let mut labels_to_add = vec![];
+            for set in sets.iter_mut() {
+                if group.iter().any(|todup|{
+                    let hset : HashSet<Label> = HashSet::from_iter(set.iter().cloned());
+                    let hdup : HashSet<Label> = HashSet::from_iter(todup.iter().cloned());
+                    let added : HashSet<Label> = HashSet::from_iter(additional_orig.iter().cloned());
+                    let mut diff = hset.difference(&hdup);
+                    hset.is_superset(&hdup) && diff.all(|d|added.contains(d))
+                }) {
+                    let mut set = set.clone();
+                    set.insert(next_fresh);
+                    labels_to_add.push(set);
+                } else {
+                    if group.iter().any(|set_to_dup|set_to_dup.is_subset(set)) {
+                        set.insert(next_fresh);
+                    }
+                }
+            }
+            sets.extend(labels_to_add.into_iter());
+
+            additional_orig.push(next_fresh);
+            next_fresh += 1;
+        }
+
+
+        /* 
+        let all_dup : HashSet<Label> = groups.iter().flat_map(|group|group.iter().cloned()).collect();
+        for label in all_dup {
+            let mut origs = vec![];
+            for (i,group) in groups.iter().enumerate() {
+                if group.contains(&label) {
+                    origs.push(additional_orig[i]);
+                }
+            }
+            for toadd in origs.iter().cloned().powerset() {
+                let set = newlabel_to_rightclosed[&label].iter().cloned().chain(toadd.into_iter()).collect();
+                sets.push(set);
+            }
+        }*/
+
+        let mut result = HashSet::new();
+        for set in sets {
+            let mut set : Vec<_> = set.into_iter().collect();
+            set.sort();
+            result.insert(set);
+        }
+
+        self.rightclosed = result.into_iter().collect();
+        self.additional_orig = additional_orig;
+        self.compute_mappings();
+        self.assign_text();
+        self.compute_diagram();
+    }
+
+}
+
+type Tracking = (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>);
+
+impl Problem {
+
+    pub fn fixpoint_test(&self, eh: &mut EventHandler) -> Self {
+        self.fixpoint_dup(None, eh)
+    }
+
+    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, eh: &mut EventHandler) -> Self {
+        let mut fd = FixpointDiagram::new(self);
+        if let Some(dup) = dup {
+            fd.duplicate_labels(&dup);
+        }
+        let mapping_label_newlabel = fd.mapping_label_newlabel;
+        let mapping_newlabel_text = fd.mapping_newlabel_text;
+        let diagram = fd.diagram;
+        //println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
+
+        self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh).0
+    }
+
+    pub fn fixpoint_default_diagram(&self) -> (String,Vec<(Label,String)>) {
+        let fd = FixpointDiagram::new(self);
+        let mapping_label_newlabel = fd.mapping_label_newlabel;
+        let mapping_newlabel_text = fd.mapping_newlabel_text;
+        let diagram = fd.diagram;
+        let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
+
+        let diagram = diagram_to_indirect(&newlabels,&diagram);
+        let (_,diagram) = compute_direct_diagram(&newlabels, &diagram);
+        let mapping_newlabel_text : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+
+        let diagram = diagram.iter().map(|(a,b)|{
+            format!("{} -> {}",mapping_newlabel_text[a],mapping_newlabel_text[b])
+        }).join("\n");
+        let mapping_label_text = mapping_label_newlabel.iter().map(|(l,n)|(*l,mapping_newlabel_text[n].clone())).collect();
+        (diagram,mapping_label_text)
+    }
+
+    pub fn fixpoint_custom(&self, text_diag : String, mapping_label_text : Vec<(Label,String)>, eh: &mut EventHandler) -> Self {
+        let mapping_newlabel_text : Vec<_> = text_diag.split_whitespace().filter(|&s|s != "->").unique().enumerate().map(|(l,s)|(l as Label,s.to_owned())).collect();
+        let mapping_text_newlabel : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
+        let mapping_label_newlabel : Vec<_> = mapping_label_text.iter().map(|(l,s)|{
+            (*l,mapping_text_newlabel[s])
+        }).collect();
+
+        let diagram = text_diag.split("\n").map(|line|{
+            let mut line = line.split(" -> ");
+            let a = line.next().unwrap();
+            let b = line.next().unwrap();
+            (mapping_text_newlabel[a],mapping_text_newlabel[b])
+        }).collect();
+        
+        println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
+
+        self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh).0
+    }
+
+    pub fn fixpoint_onestep(&self, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> (Self,Constraint) {
+        let active = self.active.all_choices(true);
+        let passive = self.passive.all_choices(true);
+        let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
+        let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
+        let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
+        let active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+        let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+        let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
+        let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
+        let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
+        let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text, tracking, eh);
+        let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh);
+        let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
+        let passive_before_edit = passive.clone();
+        let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+
+        let mut p = Problem {
+            active,
+            passive,
+            mapping_label_text: vec![],
+            mapping_label_oldlabels: None,
+            mapping_oldlabel_labels: None,
+            mapping_oldlabel_text: None,
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
+            diagram_indirect_old: None,
+            diagram_direct: None,
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
+            orientation_given: None,
+        };
+        p.mapping_label_text = mapping_newlabel_text.clone();
+        (p,passive_before_edit)
+    }
+
+}
+
 
 
 impl Problem {
     pub fn fixpoint(&self, eh: &mut EventHandler) -> Self {
         
         let orig_diagram = self.diagram_indirect.as_ref().unwrap();
-        let orig_mapping : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
-        let (mut diagram,mut mapping_label_newlabel,mut mapping_newlabel_text) = first_diagram(self);
-
-        let active = self.active.all_choices(true);
-        let passive = self.passive.all_choices(true);
-        let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
-        let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
+        let fd = FixpointDiagram::new(self);
+        let mut diagram = fd.diagram;
+        let mapping_label_newlabel = fd.mapping_label_newlabel;
+        let mut mapping_newlabel_text = fd.mapping_newlabel_text;
+        let mut mapping_label_newlabel : HashMap<_, _> = mapping_label_newlabel.iter().cloned().collect();
 
         let mut all_expressions : HashSet<TreeNode<Label>> = HashSet::new();
 
         let p = loop {
-            let active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
-            let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
 
-            let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
-            let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
-            let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
+            let tracking = CHashMap::new();
+            let tracking_passive = CHashMap::new();
 
-            let mut tracking = CHashMap::new();
-            let mut tracking_passive = CHashMap::new();
-
-            let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text, Some(&tracking), eh);
-            let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, Some(&tracking_passive), eh);
-
-            let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
-            let passive_before_edit = passive.clone();
-            let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
-
-            let mut p = Problem {
-                active,
-                passive,
-                mapping_label_text: vec![],
-                mapping_label_oldlabels: None,
-                mapping_oldlabel_labels: None,
-                mapping_oldlabel_text: None,
-                trivial_sets: None,
-                coloring_sets: None,
-                diagram_indirect: None,
-                diagram_indirect_old: None,
-                diagram_direct: None,
-                orientation_coloring_sets: None,
-                orientation_trivial_sets: None,
-                orientation_given: None,
-            };
-
-            p.mapping_label_text = mapping_newlabel_text.clone();
-
+            // run the fixpoint procedure, keep track of how each line has been obtained
+            let (mut p,passive_before_edit) = self.fixpoint_onestep(&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh);
             p.compute_triviality(eh);
 
-
-            println!("zero round");
-            
+            // if the problem is trivial, we need to repeat with a different diagram
             if !p.trivial_sets.as_ref().unwrap().is_empty() {
                 let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+
+                // we extract all subexpressions for all lines obtained, both active and passive
                 let mut expressions = HashSet::new();
-                for line in p.active.lines.iter() {
-                    let len = if let Some(rg) = tracking.get(line) {
-                        let (_,_,before_norm,_,_) = &*rg;
-                        before_norm.parts.len()
-                    } else {
-                        line.parts.len()
-                    };
-                    for i in 0..len {
-                        let expr = expression_for_line_at(line,i,false, &tracking,&mapping).reduce_rep();
-                        expr.get_all_subexpressions(&mut expressions);
+                for (lines,tracking,flip) in [(p.active.lines,tracking,false),(passive_before_edit.lines,tracking_passive,true)] {
+                    let mut exprs = HashSet::new();
+                    for line in lines {
+                        let len = if let Some(rg) = tracking.get(&line) {
+                            let (_,_,before_norm,_,_) = &*rg;
+                            before_norm.parts.len()
+                        } else {
+                            line.parts.len()
+                        };
+                        for i in 0..len {
+                            let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                            expr.get_all_subexpressions(&mut exprs);
+                        }
                     }
-                }
-                let mut expressions_passive = HashSet::new();
-                for line in passive_before_edit.lines.iter() {
-                    let len = if let Some(rg) = tracking.get(line) {
-                        let (_,_,before_norm,_,_) = &*rg;
-                        before_norm.parts.len()
-                    } else {
-                        line.parts.len()
-                    };
-                    for i in 0..len {
-                        let expr = expression_for_line_at(line,i,false, &tracking_passive,&mapping).reduce_rep();
-                        expr.get_all_subexpressions(&mut expressions_passive);
+                    for expr in exprs {
+                        expressions.insert(if flip { expr.flip() } else {expr});
                     }
                 }
 
-                for expr in expressions_passive {
-                    expressions.insert(expr.flip());
-                }
-
+                // if something goes wrong, the original labels may not appear in the result, so we add them
                 for (_,&x) in &mapping_label_newlabel {
                     expressions.insert(TreeNode::Terminal(x));
                 }
 
+                // we also add all expressions obtained in previous attempts
                 for e in &all_expressions {
                     expressions.insert(e.convert(&mapping_label_newlabel));
                 }
@@ -178,6 +342,7 @@ impl Problem {
                 let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
                 let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();
                 
+                // the first edges of the diagram are just given by the structure of the expressions
                 let mut new_diagram = vec![];
                 for (&l,e) in &map_label_expr {
                     if let TreeNode::Expr(a,b,op) = e {
@@ -192,16 +357,12 @@ impl Problem {
                     }
                 }
 
+                // we now just compute some mappings
                 let label_to_oldlabel : HashMap<_,_> = mapping_label_newlabel.iter().map(|(&l,&n)|(n,l)).collect();
 
                 diagram = new_diagram;
                 mapping_newlabel_text = map_label_expr.iter().map(|(&l,e)|{
                     (l,e.convert(&mapping).to_string()) 
-                    /*let mut s = e.result().into_iter().sorted().map(|x|&mapping[&x]).join("");
-                    if s == "" {
-                        s.push('_');
-                    }
-                    (l,s)*/
                 }).collect();
 
 
@@ -210,10 +371,12 @@ impl Problem {
                     TreeNode::Expr(_,_,_) => None
                 }).collect();
 
+                // the current expressions are added to the ones that we use in the next try
                 for (_,e) in &map_label_expr {
                     all_expressions.insert(e.convert(&label_to_oldlabel));
                 }
 
+                // we also add to the current diagram the edges of the original diagram
                 for (x,y) in orig_diagram {
                     diagram.push((mapping_label_newlabel[x],mapping_label_newlabel[y]));
                 }
@@ -222,6 +385,7 @@ impl Problem {
                 diagram = diagram_to_indirect(&newlabels,&diagram);
                 diagram.sort();
 
+                // we fix the diagram: a node that is the union of (a,b) must point to all common successors of a and b 
                 loop{
                     let before_edit = diagram.clone();
                     let diagram_rev : Vec<_> = diagram.iter().map(|&(a,b)|(b,a)).collect();
@@ -252,6 +416,7 @@ impl Problem {
                     }
                 }
 
+                // we add a source and a sink to make sure that every pair of labels has some common successor and predecessor
                 let max = mapping_newlabel_text.iter().map(|(l,_)|l).max().unwrap();
                 let source = (max+1) as Label;
                 let sink = (max+2) as Label;
@@ -259,12 +424,12 @@ impl Problem {
                     diagram.push((source,l));
                     diagram.push((l,sink));
                 }
-                mapping_newlabel_text.push((source,"S".to_owned()));
-                mapping_newlabel_text.push((sink,"T".to_owned()));
+                mapping_newlabel_text.push((source,"(Source)".to_owned()));
+                mapping_newlabel_text.push((sink,"(Sink)".to_owned()));
 
-
+                // we merge equivalent labels
                 let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
-                let (merges,direct) = compute_direct_diagram(&newlabels, &diagram);
+                let (merges,_) = compute_direct_diagram(&newlabels, &diagram);
                 for (l,g) in merges {
                     for l2 in g {
                         if l2 != l {
@@ -278,21 +443,11 @@ impl Problem {
                         }
                     }
                 }
-                /*
-                let newmapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
-                for (a,b) in &direct {
-                    println!("{} {}",newmapping[a].replace(" ",""),newmapping[b].replace(" ",""));
-                }
-                println!("{:?}",mapping_newlabel_text);
-                println!("{:?}",diagram);
-                println!("{:?}",mapping_label_newlabel);*/
 
             } else {
                 break p;
             }
         };
-
-
 
         p
     }
@@ -320,7 +475,7 @@ pub fn right_closed_subsets(labels : &[Label], successors : &HashMap<Label, Hash
 }
 
 
-fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Vec<(Label, Label)>, mapping : &Vec<(Label, String)>, mut tracking : Option<&CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>, eh: &mut EventHandler) -> Constraint {
+fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Vec<(Label, Label)>, mapping : &Vec<(Label, String)>, mut tracking : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Constraint {
     let becomes_star = 100;
 
 
