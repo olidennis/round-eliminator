@@ -186,7 +186,7 @@ type Tracking = (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation
 
 impl Problem {
 
-    pub fn fixpoint_test(&self, eh: &mut EventHandler) -> Self {
+    pub fn fixpoint(&self, eh: &mut EventHandler) -> Self {
         self.fixpoint_dup(None, eh)
     }
 
@@ -203,8 +203,9 @@ impl Problem {
         self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh).0
     }
 
-    pub fn fixpoint_default_diagram(&self) -> (String,Vec<(Label,String)>) {
+    pub fn fixpoint_default_diagram(&self) -> String {
         let fd = FixpointDiagram::new(self);
+        let mapping_oldlabel_text : HashMap<_,_> = fd.mapping_oldlabel_text.iter().cloned().collect();
         let mapping_label_newlabel = fd.mapping_label_newlabel;
         let mapping_newlabel_text = fd.mapping_newlabel_text;
         let diagram = fd.diagram;
@@ -217,26 +218,35 @@ impl Problem {
         let diagram = diagram.iter().map(|(a,b)|{
             format!("{} -> {}",mapping_newlabel_text[a],mapping_newlabel_text[b])
         }).join("\n");
-        let mapping_label_text = mapping_label_newlabel.iter().map(|(l,n)|(*l,mapping_newlabel_text[n].clone())).collect();
-        (diagram,mapping_label_text)
+        let mapping = mapping_label_newlabel.iter().map(|(l,n)|format!("{} = {}",mapping_oldlabel_text[l],mapping_newlabel_text[n].clone())).join("\n");
+        format!("{}\n{}",mapping,diagram)
     }
 
-    pub fn fixpoint_custom(&self, text_diag : String, mapping_label_text : Vec<(Label,String)>, eh: &mut EventHandler) -> Self {
-        let mapping_newlabel_text : Vec<_> = text_diag.split_whitespace().filter(|&s|s != "->").unique().enumerate().map(|(l,s)|(l as Label,s.to_owned())).collect();
+    pub fn fixpoint_custom(&self, text_diag : String, eh: &mut EventHandler) -> Self {
+        let text_mapping = text_diag.lines().filter(|line|line.contains(" = ")).join("\n");
+        let text_diagram = text_diag.lines().filter(|line|line.contains(" -> ")).join("\n");
+
+        let mapping_newlabel_text : Vec<_> = text_diagram.split_whitespace().filter(|&s|s != "->").unique().enumerate().map(|(l,s)|(l as Label,s.to_owned())).collect();
         let mapping_text_newlabel : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
-        let mapping_label_newlabel : Vec<_> = mapping_label_text.iter().map(|(l,s)|{
-            (*l,mapping_text_newlabel[s])
+        let mapping_oldtext_newtext : HashMap<_,_> = text_mapping.lines().map(|line|{
+            let mut line = line.split(" = ");
+            let a = line.next().unwrap();
+            let b = line.next().unwrap();
+            (a.to_owned(),b.to_owned())
         }).collect();
 
-        let diagram = text_diag.split("\n").map(|line|{
+
+        let mapping_label_newlabel : Vec<_> = self.mapping_label_text.iter().map(|(l,s)|{
+            (*l,mapping_text_newlabel[&mapping_oldtext_newtext[s]])
+        }).collect();
+
+        let diagram = text_diagram.split("\n").map(|line|{
             let mut line = line.split(" -> ");
             let a = line.next().unwrap();
             let b = line.next().unwrap();
             (mapping_text_newlabel[a],mapping_text_newlabel[b])
         }).collect();
         
-        println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
-
         self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh).0
     }
 
@@ -277,12 +287,8 @@ impl Problem {
         (p,passive_before_edit)
     }
 
-}
 
-
-
-impl Problem {
-    pub fn fixpoint(&self, eh: &mut EventHandler) -> Self {
+    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Self {
         
         let orig_diagram = self.diagram_indirect.as_ref().unwrap();
         let fd = FixpointDiagram::new(self);
