@@ -63,13 +63,53 @@ where
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
-        Request::Fixpoint(mut problem) => {
+        Request::FixpointBasic(mut problem) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
             }
-            let mut new = problem.fixpoint(&mut eh);
-            fix_problem(&mut new, true, true, &mut eh);
-            handler(Response::P(new));
+            match problem.fixpoint(&mut eh) {
+                Ok(mut new) => {
+                    fix_problem(&mut new, true, true, &mut eh);
+                    handler(Response::P(new));
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
+        }
+        Request::FixpointLoop(mut problem) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            match problem.fixpoint_loop(&mut eh) {
+                Ok(mut new) => {
+                    fix_problem(&mut new, true, true, &mut eh);
+                    handler(Response::P(new));
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
+        }
+        Request::FixpointCustom(mut problem, diagram) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            match problem.fixpoint_custom(diagram, &mut eh) {
+                Ok(mut new) => {
+                    fix_problem(&mut new, true, true, &mut eh);
+                    handler(Response::P(new));
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
+        }
+        Request::FixpointDup(mut problem, dups) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            match problem.fixpoint_dup(Some(dups),&mut eh) {
+                Ok(mut new) => {
+                    fix_problem(&mut new, true, true, &mut eh);
+                    handler(Response::P(new));
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
         }
         Request::InverseSpeedup(problem) => {
             if problem.active.degree == Degree::Star {
@@ -202,6 +242,10 @@ where
                 problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
             }
             handler(Response::P(problem));
+        },
+        Request::DefaultDiagram(mut problem) => {
+            problem.compute_default_fixpoint_diagram();
+            handler(Response::P(problem));
         } //_ => { unimplemented!() }
     }
 
@@ -217,7 +261,10 @@ pub enum Request {
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),
-    Fixpoint(Problem),
+    FixpointBasic(Problem),
+    FixpointLoop(Problem),
+    FixpointCustom(Problem,String),
+    FixpointDup(Problem,Vec<Vec<Label>>),
     InverseSpeedup(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),
@@ -226,6 +273,7 @@ pub enum Request {
     RenameGenerators(Problem),
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
+    DefaultDiagram(Problem),
     Ping,
 }
 

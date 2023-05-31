@@ -6,6 +6,7 @@ use std::{
 use crate::{constraint::Constraint, group::Label};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use crate::algorithms::fixpoint::FixpointDiagram;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Problem {
@@ -23,9 +24,10 @@ pub struct Problem {
     pub orientation_given: Option<usize>,
     pub orientation_trivial_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
     pub orientation_coloring_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
+    pub fixpoint_diagram : Option<FixpointDiagram>
 }
 
-type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
+pub type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
 
 impl Problem {
     pub fn from_string_active_passive<S: AsRef<str>>(
@@ -57,6 +59,7 @@ impl Problem {
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
             orientation_given: None,
+            fixpoint_diagram : None
         };
         Ok(p)
     }

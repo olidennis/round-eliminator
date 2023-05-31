@@ -31,9 +31,29 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
-function fixpoint(problem, onresult, onerror, progress){
+function fixpoint_gendefault(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ Fixpoint : problem }, ondata , function(){});
+    return api.request({ DefaultDiagram : problem }, ondata , function(){});
+}
+
+function fixpoint_basic(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FixpointBasic : problem }, ondata , function(){});
+}
+
+function fixpoint_loop(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FixpointLoop : problem }, ondata , function(){});
+}
+
+function fixpoint_custom(problem, diagram, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FixpointCustom : [problem, diagram] }, ondata , function(){});
+}
+
+function fixpoint_dup(problem, dups, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FixpointDup : [problem, dups] }, ondata , function(){});
 }
 
 function give_orientation(problem, outdegree, onresult, onerror, progress){
@@ -122,6 +142,10 @@ function fix_problem(p) {
     let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
+    if( p.fixpoint_diagram !== null ){
+        p.fixpoint_diagram.map_label_text = vec_to_map(p.fixpoint_diagram.mapping_newlabel_text);
+
+    }
     p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
 }
 
@@ -158,8 +182,8 @@ function vec_to_map(v){
     return Object.assign({}, ...v.map((x) => ({[x[0]]: x[1]})));
 }
 
-function labelset_to_string(v, mapping) {
-    return v.map(x => mapping[x]).join("");
+function labelset_to_string(v, mapping, sep = "") {
+    return v.map(x => mapping[x]).join(sep);
 }
 
 
@@ -203,8 +227,16 @@ Vue.component('re-performed-action', {
                     return "Gave input orientation. Outdegree = " + this.action.outdegree;
                 case "speedup":
                     return "Performed speedup";
-                case "fixpoint":
-                    return "Generated Fixed Point";
+                case "fixpoint-basic":
+                    return "Generated Fixed Point (with default diagram)";
+                case "fixpoint-gendefault":
+                    return "Generated Default Diagram";
+                case "fixpoint-loop":
+                    return "Generated Fixed Point (with automatic diagram fixing)";
+                case "fixpoint-custom":
+                    return "Generated Fixed Point (with custom diagram)";
+                case "fixpoint-dup":
+                    return "Generated Fixed Point (with label duplication)";
                 case "inversespeedup":
                     return "Performed inverse speedup";
                 case "speedupmaximize":
@@ -621,17 +653,7 @@ Vue.component('re-speedup',{
     `
 })
 
-Vue.component('re-fixpoint',{
-    props: ['problem','stuff'],
-    methods: {
-        on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint"},fixpoint,[this.problem]);
-        }
-    },
-    template: `
-        <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Fixed Point</button>
-    `
-})
+
 
 Vue.component('re-inverse-speedup',{
     props: ['problem','stuff'],
@@ -977,7 +999,6 @@ Vue.component('re-operations',{
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
-            <div class="m-2"><re-fixpoint :problem="problem" :stuff="stuff"></re-fixpoint> generate fixed point</div>
         </re-card>
     `
 })
@@ -995,6 +1016,7 @@ Vue.component('re-tools', {
             <re-harden-remove :problem="problem" :stuff="stuff"></re-harden-remove>
             <re-group-harden :problem="problem" :stuff="stuff"></re-group-harden>
             <re-rename :problem="problem" :stuff="stuff"></re-rename>
+            <re-fixpoint :problem="problem" :stuff="stuff"></re-fixpoint>
         </div>
     `
 })
@@ -1152,6 +1174,119 @@ Vue.component('re-begin', {
     `
 })
 
+
+Vue.component('re-fixpoint',{
+    props: ['problem','stuff'],
+    template: `
+        <re-card :show="this.problem.fixpoint_diagram !== null" title="Generate Fixed Point" subtitle="(automatic procedure for fixed point generation)" :id="'group'+this._uid">
+            <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff"></re-fixpoint-basic> (with default diagram)</div>
+            <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
+            <div v-if="this.problem.fixpoint_diagram === null" class="m-2">
+                <re-fixpoint-gendefault :problem="problem" :stuff="stuff"></re-fixpoint-gendefault> for additional options, click here
+            </div>
+            <div v-else class="m-2">
+                <re-fixpoint-dup :problem="problem" :stuff="stuff"></re-fixpoint-dup>
+                <re-fixpoint-custom :problem="problem" :stuff="stuff"></re-fixpoint-custom>
+            </div>
+        </re-card>
+    `
+})
+
+Vue.component('re-fixpoint-gendefault',{
+    props: ['problem','stuff'],
+    methods: {
+        on_fixpoint() {
+            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault"},fixpoint_gendefault,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-2" v-on:click="on_fixpoint">Generate Default Diagram</button>
+    `
+})
+
+Vue.component('re-fixpoint-basic',{
+    props: ['problem','stuff'],
+    methods: {
+        on_fixpoint() {
+            call_api_generating_problem(this.stuff,{type:"fixpoint-basic"},fixpoint_basic,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-2" v-on:click="on_fixpoint">Basic</button>
+    `
+})
+
+Vue.component('re-fixpoint-loop',{
+    props: ['problem','stuff'],
+    methods: {
+        on_fixpoint() {
+            call_api_generating_problem(this.stuff,{type:"fixpoint-loop"},fixpoint_loop,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-2" v-on:click="on_fixpoint">Loop</button>
+    `
+})
+
+Vue.component('re-fixpoint-custom',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+            text : this.problem.fixpoint_diagram.text,
+        }    
+    },
+    methods: {
+        on_fixpoint() {
+            call_api_generating_problem(this.stuff,{type:"fixpoint-custom"},fixpoint_custom,[this.problem, this.text]);
+        }
+    },
+    template: `
+        <re-card show="true" title="With Custom Diagram" subtitle="(you can edit the diagram)" :id="'group'+this._uid">
+            <textarea rows="4" cols="30" class="form-control m-1" v-model="text"></textarea>
+            <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Generate Fixed Point</button>
+        </re-card>
+    `
+})
+
+
+Vue.component('re-fixpoint-dup',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+        dups : [],  
+    }},
+    methods: {
+        on_delete(index) {
+            this.dups.splice(index, 1);
+        },
+        on_from_diagram(){
+            let selected = this.problem.fixpoint_diagram.selected;
+            if( selected != null && selected.length > 0 ){
+                this.dups.push(selected)
+            }
+        },
+        on_fixpoint() {
+            call_api_generating_problem(this.stuff,{type:"fixpoint-dup"},fixpoint_dup,[this.problem, this.dups]);
+        },
+        convert(x){
+            return labelset_to_string(x,this.problem.fixpoint_diagram.map_label_text,", ")
+        }
+    },
+    template: `
+        <re-card show="true" title="With Label Duplication" subtitle="(choose groups of labels to duplicate)" :id="'group'+this._uid">
+            <re-diagram :problem="problem.fixpoint_diagram" :id="'diag'+this._uid" ></re-diagram>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_from_diagram">Add from diagram selection</button>
+            <button type="button" class="btn btn-secondary m-1" data-toggle="tooltip" data-placement="top" title="A good strategy could be the following. First run the basic procedure. Then take the lines that contribute to the 0 round solvability. Take each label L appearing there. L is a set of original labels. For each l ∊ L, take the set of labels that are edge-compatible with it. Take the intersection of the obtained sets. This gives a label L' of the diagram. Take all labels in the shortest path between L and L' and create a group of labels to duplicate.">?</button>
+            <table class="table">
+                <tr v-for="(group, index) in dups" :key="index">
+                    <td><div class="m-1"><span>{{ convert(group) }}</span></div></td>
+                    <td>
+                        <button type="button" class="btn btn-primary btn-sm" v-on:click="on_delete(index)">Delete</button>
+                    </td>
+                </tr>
+            </table>
+            <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Generate Fixed Point</button>
+        </re-card>
+    `
+})
 
 // https://stackoverflow.com/questions/400212/how-do-i-copy-to-the-clipboard-in-javascript
 // navigator.clipboard.writeText(link); only works with HTTPS
