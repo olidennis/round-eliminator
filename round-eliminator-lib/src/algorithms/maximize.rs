@@ -187,13 +187,13 @@ impl Constraint {
                 let mut newconstraint = self.clone();
                 for i in 0..lines.len() {
                     let mut candidates2 = empty.clone();
-
                     let len = lines.len();
-                    eh.notify("combining line pairs", i * (i+1)/2, len * (len+1)/2);
-
                     for j in 0..=i {
+                        eh.notify("combining line pairs", (2. * (i * (i+1)/2 + j) as f64).sqrt() as usize, len);
 
-                        let pair = (lines[i].clone(), lines[j].clone());
+                        let id1 = *seen.get(&lines[i]).unwrap();
+                        let id2 = *seen.get(&lines[j]).unwrap();
+                        let pair = (id1,id2);
                         if seen_pairs.contains_key(&pair)
                             || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
                         {
@@ -207,6 +207,7 @@ impl Constraint {
                             &without_one[i],
                             &without_one[j],
                             &seen,
+                            Some(&next_id),
                             becomes_star,
                             allow_empty,
                             track_unions,
