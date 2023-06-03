@@ -40,6 +40,7 @@ impl Constraint {
         let next_id = AtomicUsize::new(1);
 
         let lines = std::mem::take(&mut self.lines);
+        let empty = self.clone();
         for mut line in lines {
             line.normalize();
             seen.insert(line.clone(),next_id.fetch_add(1,Ordering::SeqCst));
