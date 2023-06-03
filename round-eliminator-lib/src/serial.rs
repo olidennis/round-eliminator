@@ -262,6 +262,16 @@ where
                 handler(Response::AutoUb(len,sequence));
             }, &mut eh_ignore);
         },
+        Request::AutoAutoUb(problem, allow_discard_old) => {
+            eh.notify("autoub",0,0);
+            problem.autoautoub(allow_discard_old, |len,mut sequence|{
+                for p in sequence.iter_mut() {
+                    fix_problem(&mut p.1, true, true, &mut eh);
+                }
+                handler(Response::AutoUb(len,sequence));
+                eh.notify("autoub",0,0);
+            }, &mut eh_ignore);
+        },
         Request::DefaultDiagram(mut problem) => {
             problem.compute_default_fixpoint_diagram();
             handler(Response::P(problem));
@@ -294,6 +304,7 @@ pub enum Request {
     Orientation(Problem, usize),
     DefaultDiagram(Problem),
     AutoUb(Problem, usize, usize, usize, bool),
+    AutoAutoUb(Problem, bool),
     Ping,
 }
 

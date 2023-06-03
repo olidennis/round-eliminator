@@ -139,6 +139,11 @@ function autoub(problem, max_labels, branching, max_steps, allow_discard_old, on
     return api.request({ AutoUb : [problem, parseInt(max_labels), parseInt(branching), parseInt(max_steps), allow_discard_old] }, ondata, oncomplete);
 }
 
+function autoautoub(problem, allow_discard_old, onresult, onerror, progress, oncomplete){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ AutoAutoUb : [problem, allow_discard_old] }, ondata, oncomplete);
+}
+
 function fix_problem(p) {
     p.map_label_text = vec_to_map(p.mapping_label_text);
     p.map_label_oldlabels = vec_to_map(p.mapping_label_oldlabels) ?? null;
@@ -305,6 +310,8 @@ Vue.component('re-performed-action', {
                     return "Renamed";
                 case "autoub":
                     return "Automatic Upper Bound (max labels: "+ this.action.max_labels + ", branching: "+ this.action.branching + ", max steps: " + this.action.max_steps + "). Obtained Upper Bound of " + this.action.len + " Rounds.";
+                case "autoautoub":
+                    return "Automatic Upper Bound with Automatic Parameters. Obtained Upper Bound of " + this.action.len + " Rounds.";
                 default:
                     return "Unknown " + this.action.type
             }
@@ -1048,6 +1055,9 @@ Vue.component('re-auto-ub',{
     methods: {
         on_autoub() {
             call_api_generating_sequence(this.stuff,{type:"autoub", max_labels : this.max_labels, branching : this.branching, max_steps : this.max_steps},autoub,[this.problem, this.max_labels, this.branching, this.max_steps, this.allow_discard_old], false);
+        },
+        on_autoautoub() {
+            call_api_generating_sequence(this.stuff,{type:"autoautoub"},autoautoub,[this.problem, this.allow_discard_old], false);
         }
     },
     template: `
@@ -1059,6 +1069,11 @@ Vue.component('re-auto-ub',{
                 <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
             </div>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Upper Bound</button>
+            <hr/>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
+            </div>
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_autoautoub">Automatic Upper Bound with Automatic Parameters</button>
         </re-card>
     `
 })
