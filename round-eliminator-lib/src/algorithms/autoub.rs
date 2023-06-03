@@ -30,7 +30,7 @@ impl Problem {
     pub fn autoautoub<F>(&self, allow_discard_old : bool, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
         let mut max_steps = usize::MAX;
         for i in 1.. {
-            self.autoub(i,i,std::cmp::min(i,max_steps),allow_discard_old,|len,seq|{
+            self.autoub(i,i,std::cmp::min(2*i,max_steps),allow_discard_old,|len,seq|{
                 if len < max_steps {
                     max_steps = len-1;
                     handler(len,seq);
