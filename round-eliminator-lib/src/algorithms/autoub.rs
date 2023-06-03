@@ -9,9 +9,8 @@ use rand::prelude::SliceRandom;
 
 
 impl Problem {
-    pub fn autoub<F>(&self, max_labels : usize, branching : usize, mut max_steps : usize, allow_discard_old : bool, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
-        let mut best_ub = usize::MAX;
-        let (limited_by_branching, r) = automatic_upper_bound(self, max_labels, branching, max_steps, allow_discard_old, eh);
+    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, allow_discard_old : bool, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+        let (_, r) = automatic_upper_bound(self, max_labels, branching, max_steps, allow_discard_old, eh);
         if let Some((len,v)) = r {
             let mut sequence = vec![];
             sequence.push((AutoOperation::Initial,v[v.len()-1].2.clone()));
@@ -19,11 +18,7 @@ impl Problem {
                 sequence.push((AutoOperation::Speedup,after_speedup));
                 sequence.push((AutoOperation::Harden(kept_labels),after_harden));
             }
-            if len < best_ub {
-                handler(len,sequence);
-                best_ub = len;
-                max_steps = best_ub - 1;
-            }
+            handler(len,sequence);
         }
     }
 
@@ -31,7 +26,9 @@ impl Problem {
         let mut max_steps = usize::MAX;
         for i in 1.. {
             self.autoub(i,i,std::cmp::min(2*i,max_steps),allow_discard_old,|len,seq|{
+                println!("found ub of {} rounds",len);
                 if len < max_steps {
+                    println!("sending");
                     max_steps = len-1;
                     handler(len,seq);
                 }

@@ -183,11 +183,12 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
         stuff.push({ type : "performed", data: action });
         stuff.push({ type : "problem", data : p });
     }else if( what == "sequence" ){
+        let action_copy = JSON.parse(JSON.stringify(action));
         let len = p[0];
         let sequence = p[1];
         let substuff = [];
-        action.len = len;
-        substuff.push({ type : "performed", data: action });
+        action_copy.len = len;
+        substuff.push({ type : "performed", data: action_copy });
         for( var step of sequence ){
             let operation = step[0];
             if( operation == "Initial" ){
