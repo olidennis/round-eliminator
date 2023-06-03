@@ -9,8 +9,8 @@ use rand::prelude::SliceRandom;
 
 
 impl Problem {
-    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
-        if let Some((len,v)) = automatic_upper_bound(self, max_labels, branching, max_steps, eh) {
+    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, allow_discard_old : bool, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+        if let Some((len,v)) = automatic_upper_bound(self, max_labels, branching, max_steps, allow_discard_old, eh) {
             let mut sequence = vec![];
             sequence.push((AutoOperation::Initial,v[v.len()-1].2.clone()));
             for (kept_labels,after_speedup, after_harden) in v.into_iter().rev().skip(1) {
@@ -27,7 +27,7 @@ fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize,
         for branching in 1..=branching {
             for max_labels in 1..=max_labels {
                 println!("trying max labels {}, branching {}, max steps {}",max_labels,branching,max_steps);
-                let r =  automatic_upper_bound(orig, max_labels, branching,max_steps, eh);
+                let r =  automatic_upper_bound(orig, max_labels, branching,max_steps, false, eh);
                 if r.is_some() {
                     return Some(r.unwrap().1);
                 }
@@ -37,7 +37,7 @@ fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize,
     None
 }
 
-fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, eh: &mut EventHandler) -> Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)> {
+fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize,  allow_discard_old : bool, eh: &mut EventHandler) -> Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)> {
     //let mut eh = EventHandler::null();
     //let eh = &mut eh;
     
@@ -48,7 +48,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
     let mut seen = HashSet::new();
 
     for i in 0..max_steps {
-        //println!("i = {}, there are {} problems",i,problems[i].len());
+        println!("i = {}, there are {} problems",i,problems[i].len());
         if problems[i].is_empty() {
             return None;
         }
@@ -58,17 +58,17 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
 
             let p_s = p.to_string();
             if seen.contains(&p_s) {
-                //println!("skipping already seen problem");
+                println!("skipping already seen problem");
                 continue;
             } else {
                 seen.insert(p_s);
             }
 
-            //println!("handling problem {}",idx+1);
+            println!("handling problem {}",idx+1);
             let mut np = p.speedup(eh);
-            //println!("performed speedup");
+            println!("performed speedup");
             if seen.contains(&np.to_string()) {
-                //println!("skipping already seen problem");
+                println!("skipping already seen problem");
                 continue;
             }
             np.discard_useless_stuff(false, eh);
@@ -81,12 +81,20 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                 println!("found a {} rounds upper bound",i+1);
                 return;
             }*/
-            let (old, new) = np.split_labels_original_new();
+
+            let (old, new) = if !allow_discard_old {
+                np.split_labels_original_new()
+            } else {
+                (vec![],np.labels())
+            };
+
             if old.len() > max_labels {
+                println!("old len > max labels, skipping");
                 continue;
             }
             
             let mut tochoose = max_labels - old.len();
+            println!("need to chose {} labels ({} {})", tochoose, max_labels, old.len());
             if tochoose > new.len() {
                 tochoose = new.len();
             }
@@ -99,7 +107,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                 tokeep.extend(old.iter().cloned());
                 candidates.push(tokeep);
             } else {
-                //println!("going over candidates {} {}",tochoose, new.len());
+                println!("going over candidates {} {}",tochoose, new.len());
                 //new.sort_by_key(|l|map[l].len());
                 //let new : Vec<_> = new.iter().cloned().take(tochoose+branching).collect();
                 for choice in new.combination(tochoose) {
@@ -118,15 +126,15 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
 
 
             for candidate in candidates.into_iter().take(branching) {
-                //println!("candidate {}",candidate.len());
+                println!("candidate {}",candidate.len());
                 let tokeep = candidate.iter().cloned().collect();
                 let mut hardened = np.harden_keep(&tokeep, true);
-                //println!("hardened");
+                println!("hardened");
                 hardened.discard_useless_stuff(false, eh);
-                //println!("discarded useless, remaining labels are {}",hardened.labels().len());
+                println!("discarded useless, remaining labels are {}",hardened.labels().len());
                 hardened.sort_active_by_strength();
                 hardened.compute_triviality(eh);
-                //println!("computed triviality");
+                println!("computed triviality");
                 if hardened.trivial_sets.as_ref().unwrap().len() > 0 {
                     let mut sequence = vec![(candidate,np,hardened)];
                     let mut idx = idx;

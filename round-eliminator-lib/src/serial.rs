@@ -253,9 +253,9 @@ where
             }
             handler(Response::P(problem));
         },
-        Request::AutoUb(problem, max_labels, branching, max_steps) => {
+        Request::AutoUb(problem, max_labels, branching, max_steps, allow_discard_old) => {
             eh.notify("autoub",0,0);
-            problem.autoub(max_labels, branching, max_steps, |len,mut sequence|{
+            problem.autoub(max_labels, branching, max_steps, allow_discard_old, |len,mut sequence|{
                 for p in sequence.iter_mut() {
                     fix_problem(&mut p.1, true, true, &mut eh);
                 }
@@ -293,7 +293,7 @@ pub enum Request {
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
     DefaultDiagram(Problem),
-    AutoUb(Problem, usize, usize, usize),
+    AutoUb(Problem, usize, usize, usize, bool),
     Ping,
 }
 

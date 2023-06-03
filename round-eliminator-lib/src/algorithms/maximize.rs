@@ -170,7 +170,7 @@ impl Constraint {
                             last_notify = Instant::now();
                         }
                     }
-                    println!("It took {}s",now.elapsed().as_secs());
+                    //println!("It took {}s",now.elapsed().as_secs());
 
                 }).unwrap();
 
@@ -231,7 +231,7 @@ impl Constraint {
                 newconstraint
             };
 
-            println!("seen elements: {}, seen_pairs elements: {}",seen.len(),seen_pairs.len());
+            //println!("seen elements: {}, seen_pairs elements: {}",seen.len(),seen_pairs.len());
 
             if &newconstraint == self {
                 break;
