@@ -1063,6 +1063,11 @@ Vue.component('re-auto-ub',{
     },
     template: `
         <re-card title="Automatic Upper Bound" subtitle="" :id="'group'+this._uid">
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
+            </div>
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_autoautoub">Automatic Upper Bound with Automatic Parameters</button>
+            <hr/>
             <div>Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
             <div>Branching: <input class="form-control m-2" type="number" v-model="branching"></div>
             <div>Max Steps: <input class="form-control m-2" type="number" v-model="max_steps"></div>
@@ -1070,11 +1075,7 @@ Vue.component('re-auto-ub',{
                 <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
             </div>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Upper Bound</button>
-            <hr/>
-            <div class="custom-control custom-switch m-2">
-                <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
-            </div>
-            <button type="button" class="btn btn-primary m-2" v-on:click="on_autoautoub">Automatic Upper Bound with Automatic Parameters</button>
+            
         </re-card>
     `
 })
