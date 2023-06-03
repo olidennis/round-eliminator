@@ -28,17 +28,27 @@ fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and
 
 pub fn request_json<F>(req: &str, f: F)
 where
-    F: Fn(String),
+    F: Fn(String, bool),
 {
     let req: Request = serde_json::from_str(req).unwrap();
     let handler = |resp: Response| {
         let s = serde_json::to_string(&resp).unwrap();
-        f(s);
+        f(s, true);
     };
 
     let mut eh = EventHandler::with(|x: (String, usize, usize)| {
         let resp = Response::Event(x.0, x.1, x.2);
         handler(resp);
+    });
+
+    let handler_ignore = |resp: Response| {
+        let s = serde_json::to_string(&resp).unwrap();
+        f(s, false);
+    };
+
+    let mut eh_ignore = EventHandler::with(|x: (String, usize, usize)| {
+        let resp = Response::Event(x.0, x.1, x.2);
+        handler_ignore(resp);
     });
 
     match req {
@@ -243,6 +253,15 @@ where
             }
             handler(Response::P(problem));
         },
+        Request::AutoUb(problem, max_labels, branching, max_steps) => {
+            eh.notify("autoub",0,0);
+            problem.autoub(max_labels, branching, max_steps, |len,mut sequence|{
+                for p in sequence.iter_mut() {
+                    fix_problem(&mut p.1, true, true, &mut eh);
+                }
+                handler(Response::AutoUb(len,sequence));
+            }, &mut eh_ignore);
+        },
         Request::DefaultDiagram(mut problem) => {
             problem.compute_default_fixpoint_diagram();
             handler(Response::P(problem));
@@ -274,6 +293,7 @@ pub enum Request {
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
     DefaultDiagram(Problem),
+    AutoUb(Problem, usize, usize, usize),
     Ping,
 }
 
@@ -285,4 +305,13 @@ pub enum Response {
     Event(String, usize, usize),
     P(Problem),
     E(String),
+    AutoUb(usize,Vec<(AutoOperation,Problem)>),
+    AutoLb(usize,Vec<(AutoOperation,Problem)>),
+}
+
+#[derive(Serialize,Deserialize,Clone)]
+pub enum AutoOperation{
+    Initial,
+    Harden(Vec<Label>),
+    Speedup
 }

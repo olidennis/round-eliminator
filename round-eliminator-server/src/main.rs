@@ -57,12 +57,14 @@ async fn serve_client(ws: WebSocket) {
                         let tx = tx.clone();
                         let stop = stop.clone();
                         let fun = move || {
-                            round_eliminator_lib::serial::request_json(&request, |s| {
+                            round_eliminator_lib::serial::request_json(&request, |s, send_to_client| {
                                 if stop.load(Ordering::Acquire) {
                                     panic!("stopping thread");
                                 }
-                                tx.unbounded_send(Message::text(s))
-                                    .expect("unbounded_send failed!");
+                                if send_to_client {
+                                    tx.unbounded_send(Message::text(s))
+                                        .expect("unbounded_send failed!");
+                                }
                             });
                         };
                         tokio::task::spawn_blocking(fun);

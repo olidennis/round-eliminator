@@ -1,6 +1,6 @@
 use std::collections::{HashSet, HashMap};
 
-use crate::{problem::Problem, group::Label};
+use crate::{problem::Problem, group::Label, serial::AutoOperation};
 
 use super::event::EventHandler;
 use itertools::Itertools;
@@ -8,14 +8,28 @@ use permutator::Combination;
 use rand::prelude::SliceRandom;
 
 
-fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
+impl Problem {
+    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+        if let Some((len,v)) = automatic_upper_bound(self, max_labels, branching, max_steps, eh) {
+            let mut sequence = vec![];
+            sequence.push((AutoOperation::Initial,v[v.len()-1].2.clone()));
+            for (kept_labels,after_speedup, after_harden) in v.into_iter().rev().skip(1) {
+                sequence.push((AutoOperation::Speedup,after_speedup));
+                sequence.push((AutoOperation::Harden(kept_labels),after_harden));
+            }
+            handler(len,sequence);
+        }
+    }
+}
+
+fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, eh: &mut EventHandler) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
     for max_steps in 1..=max_steps {
         for branching in 1..=branching {
             for max_labels in 1..=max_labels {
                 println!("trying max labels {}, branching {}, max steps {}",max_labels,branching,max_steps);
-                let r =  automatic_upper_bound(orig, max_labels, branching,max_steps);
+                let r =  automatic_upper_bound(orig, max_labels, branching,max_steps, eh);
                 if r.is_some() {
-                    return r;
+                    return Some(r.unwrap().1);
                 }
             }
         }
@@ -23,9 +37,9 @@ fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize,
     None
 }
 
-fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
-    let mut eh = EventHandler::null();
-    let eh = &mut eh;
+fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, eh: &mut EventHandler) -> Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)> {
+    //let mut eh = EventHandler::null();
+    //let eh = &mut eh;
     
     let mut problems = vec![];
 
@@ -121,7 +135,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                         sequence.push((l,s,p));
                         idx = index;
                     }
-                    return Some(sequence);
+                    return Some((i+1,sequence));
                 }
                 /*
                 if hardened.passive.degree == Degree::Finite(2) {

@@ -74,7 +74,7 @@ function request_server(req, onresult, oncomplete) {
     }
     a.onclose = function(e){
         if( !e.wasClean && !terminated )alert("Something bad happened.");
-        oncomplete();
+        //oncomplete();
     }
     a.onmessage = function(s){
         if( terminated )return;
@@ -85,7 +85,7 @@ function request_server(req, onresult, oncomplete) {
         }else if( o != "Done" ){
             onresult(o);
         } else {
-            //oncomplete();
+            oncomplete();
             let t1 = performance.now();
             console.log("Computation took "+(t1-t0)+" ms.");
             a.close();

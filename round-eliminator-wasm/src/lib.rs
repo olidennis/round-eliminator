@@ -10,10 +10,12 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
 pub fn request_json(req: &str, f: &js_sys::Function) {
-    round_eliminator_lib::serial::request_json(req, |s| {
-        let this = JsValue::NULL;
-        let s = JsValue::from(s);
-        let _ = f.call1(&this, &s);
+    round_eliminator_lib::serial::request_json(req, |s, send_to_client| {
+        if send_to_client {
+            let this = JsValue::NULL;
+            let s = JsValue::from(s);
+            let _ = f.call1(&this, &s);
+        }
     });
 }
 
