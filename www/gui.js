@@ -228,15 +228,15 @@ Vue.component('re-performed-action', {
                 case "speedup":
                     return "Performed speedup";
                 case "fixpoint-basic":
-                    return "Generated Fixed Point (with default diagram)";
+                    return "Generated Fixed Point with Default Diagram.";
                 case "fixpoint-gendefault":
                     return "Generated Default Diagram";
                 case "fixpoint-loop":
-                    return "Generated Fixed Point (with automatic diagram fixing)";
+                    return "Generated Fixed Point with Automatic Diagram Fixing.";
                 case "fixpoint-custom":
-                    return "Generated Fixed Point (with custom diagram)";
+                    return "Generated Fixed Point with Custom Diagram:\n" + this.action.diagram;
                 case "fixpoint-dup":
-                    return "Generated Fixed Point (with label duplication)";
+                    return "Generated Fixed Point With Label Duplication: "+ this.action.dups;
                 case "inversespeedup":
                     return "Performed inverse speedup";
                 case "speedupmaximize":
@@ -256,9 +256,7 @@ Vue.component('re-performed-action', {
     },
     template: `
         <div class="card bg-primary text-white m-2 p-2" :id="'current'+this._uid">
-            <span>
-                {{ actionview }}
-                <button type="button" class="close" aria-label="Close" v-on:click="on_close">
+            <span style="white-space: break-spaces;">{{ actionview }}<button type="button" class="close" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </span>
@@ -1236,7 +1234,7 @@ Vue.component('re-fixpoint-custom',{
     },
     methods: {
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-custom"},fixpoint_custom,[this.problem, this.text]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-custom", diagram: this.text},fixpoint_custom,[this.problem, this.text]);
         }
     },
     template: `
@@ -1264,7 +1262,7 @@ Vue.component('re-fixpoint-dup',{
             }
         },
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-dup"},fixpoint_dup,[this.problem, this.dups]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups]);
         },
         convert(x){
             return labelset_to_string(x,this.problem.fixpoint_diagram.map_label_text,", ")

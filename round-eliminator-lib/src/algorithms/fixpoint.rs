@@ -527,7 +527,7 @@ pub fn right_closed_subsets(labels : &[Label], successors : &HashMap<Label, Hash
 }
 
 
-fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Vec<(Label, Label)>, mapping : &Vec<(Label, String)>, mut tracking : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<Constraint, &'static str> {
+fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Vec<(Label, Label)>, mapping : &Vec<(Label, String)>, tracking : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<Constraint, &'static str> {
     let becomes_star = 100;
 
 

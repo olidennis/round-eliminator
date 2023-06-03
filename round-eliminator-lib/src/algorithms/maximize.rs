@@ -22,7 +22,7 @@ impl Constraint {
         eh: &mut EventHandler,
         allow_empty : bool,
         track_unions : bool,
-        mut tracking : Option<&CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>,
+        tracking : Option<&CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>,
         f_is_superset : FS,
         f_union : FU,
         f_intersection : FI
@@ -35,12 +35,11 @@ impl Constraint {
 
         let becomes_star = 100;
 
-        let mut seen = CHashMap::new();
-        let mut seen_pairs = CHashMap::new();
-        let mut next_id = AtomicUsize::new(1);
+        let seen = CHashMap::new();
+        let seen_pairs = CHashMap::new();
+        let next_id = AtomicUsize::new(1);
 
         let lines = std::mem::take(&mut self.lines);
-        let empty = self.clone();
         for mut line in lines {
             line.normalize();
             seen.insert(line.clone(),next_id.fetch_add(1,Ordering::SeqCst));
@@ -230,6 +229,8 @@ impl Constraint {
                 }
                 newconstraint
             };
+
+            println!("seen elements: {}, seen_pairs elements: {}",seen.len(),seen_pairs.len());
 
             if &newconstraint == self {
                 break;
