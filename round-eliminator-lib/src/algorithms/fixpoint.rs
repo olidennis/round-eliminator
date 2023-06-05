@@ -585,6 +585,10 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
 
 
     newconstraint.maximize_custom(eh,true,false,tracking,f_is_superset, f_union, f_intersection);
+    /*println!("obtained constraint");
+    for line in &newconstraint.lines {
+        println!("{}",line.to_string(&mapping));
+    }*/
 
     Ok(newconstraint)
 }

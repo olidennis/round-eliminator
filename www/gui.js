@@ -134,14 +134,14 @@ function rename(problem, renaming, onresult, onerror, progress){
     return api.request({ Rename : [problem,renaming] }, ondata , function(){});
 }
 
-function autoub(problem, max_labels, branching, max_steps, allow_discard_old, onresult, onerror, progress, oncomplete){
+function autoub(problem, max_labels, branching, max_steps, allow_discard_old, coloring_given, coloring, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoUb : [problem, parseInt(max_labels), parseInt(branching), parseInt(max_steps), allow_discard_old] }, ondata, oncomplete);
+    return api.request({ AutoUb : [problem, parseInt(max_labels), parseInt(branching), parseInt(max_steps), allow_discard_old, coloring_given, parseInt(coloring)] }, ondata, oncomplete);
 }
 
-function autoautoub(problem, allow_discard_old, onresult, onerror, progress, oncomplete){
+function autoautoub(problem, allow_discard_old, coloring_given, coloring, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoAutoUb : [problem, allow_discard_old] }, ondata, oncomplete);
+    return api.request({ AutoAutoUb : [problem, allow_discard_old, coloring_given, parseInt(coloring)] }, ondata, oncomplete);
 }
 
 function fix_problem(p) {
@@ -1050,15 +1050,17 @@ Vue.component('re-auto-ub',{
             max_labels : this.problem.labels.length + 4,
             branching : 4,
             max_steps : 8,
-            allow_discard_old : false
+            allow_discard_old : false,
+            coloring_given : false,
+            coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
         }
     },
     methods: {
         on_autoub() {
-            call_api_generating_sequence(this.stuff,{type:"autoub", max_labels : this.max_labels, branching : this.branching, max_steps : this.max_steps},autoub,[this.problem, this.max_labels, this.branching, this.max_steps, this.allow_discard_old], false);
+            call_api_generating_sequence(this.stuff,{type:"autoub", max_labels : this.max_labels, branching : this.branching, max_steps : this.max_steps},autoub,[this.problem, this.max_labels, this.branching, this.max_steps, this.allow_discard_old, this.coloring_given, this.coloring], false);
         },
         on_autoautoub() {
-            call_api_generating_sequence(this.stuff,{type:"autoautoub"},autoautoub,[this.problem, this.allow_discard_old], false);
+            call_api_generating_sequence(this.stuff,{type:"autoautoub"},autoautoub,[this.problem, this.allow_discard_old, this.coloring_given, this.coloring], false);
         }
     },
     template: `
@@ -1066,16 +1068,19 @@ Vue.component('re-auto-ub',{
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
             </div>
+            <div v-if="this.problem.passive.degree.Finite === 2">
+                <div class="custom-control custom-switch m-2">
+                    <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
+                </div>
+                <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+            </div>
+            <hr/>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoautoub">Automatic Upper Bound with Automatic Parameters</button>
             <hr/>
             <div>Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
             <div>Branching: <input class="form-control m-2" type="number" v-model="branching"></div>
             <div>Max Steps: <input class="form-control m-2" type="number" v-model="max_steps"></div>
-            <div class="custom-control custom-switch m-2">
-                <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
-            </div>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Upper Bound</button>
-            
         </re-card>
     `
 })

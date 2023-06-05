@@ -253,21 +253,21 @@ where
             }
             handler(Response::P(problem));
         },
-        Request::AutoUb(problem, max_labels, branching, max_steps, allow_discard_old) => {
+        Request::AutoUb(problem, max_labels, branching, max_steps, allow_discard_old, coloring_given, coloring) => {
             eh.notify("autoub",0,0);
-            problem.autoub(max_labels, branching, max_steps, allow_discard_old, |len,mut sequence|{
-                for p in sequence.iter_mut() {
-                    fix_problem(&mut p.1, true, true, &mut eh);
-                }
+            problem.autoub(max_labels, branching, max_steps, allow_discard_old, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
+                //for p in sequence.iter_mut() {
+                //    fix_problem(&mut p.1, true, true, &mut eh);
+                //}
                 handler(Response::AutoUb(len,sequence));
             }, &mut eh_ignore);
         },
-        Request::AutoAutoUb(problem, allow_discard_old) => {
+        Request::AutoAutoUb(problem, allow_discard_old, coloring_given, coloring) => {
             eh.notify("autoub",0,0);
-            problem.autoautoub(allow_discard_old, |len,mut sequence|{
-                for p in sequence.iter_mut() {
-                    fix_problem(&mut p.1, true, true, &mut eh);
-                }
+            problem.autoautoub(allow_discard_old, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
+                //for p in sequence.iter_mut() {
+                //    fix_problem(&mut p.1, true, true, &mut eh);
+                //}
                 handler(Response::AutoUb(len,sequence));
                 eh.notify("autoub",0,0);
             }, &mut eh_ignore);
@@ -303,8 +303,8 @@ pub enum Request {
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
     DefaultDiagram(Problem),
-    AutoUb(Problem, usize, usize, usize, bool),
-    AutoAutoUb(Problem, bool),
+    AutoUb(Problem, usize, usize, usize, bool, bool, usize),
+    AutoAutoUb(Problem, bool, bool, usize),
     Ping,
 }
 
