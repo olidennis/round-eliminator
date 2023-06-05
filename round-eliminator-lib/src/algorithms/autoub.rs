@@ -9,8 +9,8 @@ use rand::prelude::SliceRandom;
 
 
 impl Problem {
-    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, allow_discard_old : bool, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
-        let (_, r) = automatic_upper_bound(self, max_labels, branching, max_steps, allow_discard_old, coloring, eh);
+    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+        let (_, r) = automatic_upper_bound(self, max_labels, branching, max_steps, coloring, eh);
         if let Some((len,v)) = r {
             let mut sequence = vec![];
             sequence.push((AutoOperation::Initial,v[v.len()-1].2.clone()));
@@ -22,11 +22,19 @@ impl Problem {
         }
     }
 
-    pub fn autoautoub<F>(&self, allow_discard_old : bool, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
-        let mut max_steps = usize::MAX;
+    pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+        if b_max_labels && b_branching && b_max_steps {
+            return self.autoub(max_labels, branching, max_steps, coloring, handler, eh);
+        }
+
+        let mut max_steps = if b_max_steps {max_steps} else {usize::MAX};
         for i in 1.. {
-            self.autoub(self.labels().len() + i,i,std::cmp::min(2*i,max_steps),allow_discard_old,coloring,|len,seq|{
-                if len < max_steps {
+            let i_max_labels = if b_max_labels { max_labels } else { self.labels().len() + i };
+            let i_branching = if b_branching { branching } else { i };
+            let i_max_steps = if b_max_steps { max_steps } else { std::cmp::min(3*i,max_steps) };
+
+            self.autoub(i_max_labels, i_branching, i_max_steps, coloring,|len,seq|{
+                if len <= max_steps {
                     max_steps = len-1;
                     handler(len,seq);
                 }
@@ -40,7 +48,7 @@ fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize,
         for branching in 1..=branching {
             for max_labels in 1..=max_labels {
                 println!("trying max labels {}, branching {}, max steps {}",max_labels,branching,max_steps);
-                let (limited_by_branching,r) =  automatic_upper_bound(orig, max_labels, branching,max_steps, false, None, eh);
+                let (limited_by_branching,r) =  automatic_upper_bound(orig, max_labels, branching,max_steps, None, eh);
                 if r.is_some() {
                     return Some(r.unwrap().1);
                 }
@@ -50,7 +58,7 @@ fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize,
     None
 }
 
-fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize,  allow_discard_old : bool, coloring : Option<usize>, eh: &mut EventHandler) -> (bool,Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)>) {
+fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, eh: &mut EventHandler) -> (bool,Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)>) {
     //let mut eh = EventHandler::null();
     //let eh = &mut eh;
     
@@ -97,16 +105,8 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                 return;
             }*/
 
-            let (old, new) = if !allow_discard_old {
-                np.split_labels_original_new()
-            } else {
-                (vec![],np.labels())
-            };
 
-            if old.len() > max_labels {
-                //println!("old len > max labels, skipping");
-                continue;
-            }
+            let (old, new) = np.split_labels_original_new();
             
             let mut tochoose = max_labels - old.len();
             //println!("need to chose {} labels ({} {})", tochoose, max_labels, old.len());
@@ -133,6 +133,15 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
                         candidates.push(tokeep);
                     }
                     //println!("done");
+                }
+            }
+
+            if candidates.len() < branching {
+                let labels = np.labels();
+                for choice in labels.combination(std::cmp::min(labels.len(),max_labels)) {
+                    let mut tokeep = Vec::new();
+                    tokeep.extend(choice.iter().map(|x|**x));
+                    candidates.push(tokeep);
                 }
             }
 
@@ -193,7 +202,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
 
 
 impl Problem{
-    fn split_labels_original_new(&self) -> (Vec<Label>,Vec<Label>){
+    pub fn split_labels_original_new(&self) -> (Vec<Label>,Vec<Label>){
         let map_label_oldlabels = self.mapping_label_generators();
 
         let mut old_labels = vec![];

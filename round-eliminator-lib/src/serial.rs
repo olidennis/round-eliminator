@@ -253,23 +253,21 @@ where
             }
             handler(Response::P(problem));
         },
-        Request::AutoUb(problem, max_labels, branching, max_steps, allow_discard_old, coloring_given, coloring) => {
+        Request::AutoUb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring) => {
             eh.notify("autoub",0,0);
-            problem.autoub(max_labels, branching, max_steps, allow_discard_old, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
-                //for p in sequence.iter_mut() {
-                //    fix_problem(&mut p.1, true, true, &mut eh);
-                //}
-                handler(Response::AutoUb(len,sequence));
-            }, &mut eh_ignore);
-        },
-        Request::AutoAutoUb(problem, allow_discard_old, coloring_given, coloring) => {
-            eh.notify("autoub",0,0);
-            problem.autoautoub(allow_discard_old, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
+            problem.autoautoub( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
                 //for p in sequence.iter_mut() {
                 //    fix_problem(&mut p.1, true, true, &mut eh);
                 //}
                 handler(Response::AutoUb(len,sequence));
                 eh.notify("autoub",0,0);
+            }, &mut eh_ignore);
+        },
+        Request::AutoLb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring) => {
+            eh.notify("autolb",0,0);
+            problem.autoautolb( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
+                handler(Response::AutoLb(len,sequence));
+                eh.notify("autolb",0,0);
             }, &mut eh_ignore);
         },
         Request::DefaultDiagram(mut problem) => {
@@ -303,8 +301,8 @@ pub enum Request {
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
     DefaultDiagram(Problem),
-    AutoUb(Problem, usize, usize, usize, bool, bool, usize),
-    AutoAutoUb(Problem, bool, bool, usize),
+    AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize),
+    AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize),
     Ping,
 }
 
@@ -324,5 +322,6 @@ pub enum Response {
 pub enum AutoOperation{
     Initial,
     Harden(Vec<Label>),
+    Merge(Vec<(Label,Label)>),
     Speedup
 }

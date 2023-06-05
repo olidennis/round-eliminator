@@ -134,15 +134,17 @@ function rename(problem, renaming, onresult, onerror, progress){
     return api.request({ Rename : [problem,renaming] }, ondata , function(){});
 }
 
-function autoub(problem, max_labels, branching, max_steps, allow_discard_old, coloring_given, coloring, onresult, onerror, progress, oncomplete){
+function autoub(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoUb : [problem, parseInt(max_labels), parseInt(branching), parseInt(max_steps), allow_discard_old, coloring_given, parseInt(coloring)] }, ondata, oncomplete);
+    return api.request({ AutoUb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching), b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring)] }, ondata, oncomplete);
 }
 
-function autoautoub(problem, allow_discard_old, coloring_given, coloring, onresult, onerror, progress, oncomplete){
+function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoAutoUb : [problem, allow_discard_old, coloring_given, parseInt(coloring)] }, ondata, oncomplete);
+    return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring)] }, ondata, oncomplete);
 }
+
+
 
 function fix_problem(p) {
     p.map_label_text = vec_to_map(p.mapping_label_text);
@@ -197,6 +199,10 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
                 substuff.push({ type : "performed", data: {type:"speedup"} });
             } else if( operation.Harden != null) {
                 substuff.push({ type : "performed", data: {type:"hardenkeep", labels:operation.Harden.map(x => step[1].map_label_text[x])} });
+            } else if( operation.Merge != null) {
+                for( let merge of operation.Merge ){
+                    substuff.push({ type : "performed", data: {type:"simplificationmerge", from: step[1].map_label_text[merge[0]], to : step[1].map_label_text[merge[1]]} });
+                }
             }
             substuff.push({ type : "problem", data : step[1] });
         }
@@ -310,9 +316,9 @@ Vue.component('re-performed-action', {
                 case "rename":
                     return "Renamed";
                 case "autoub":
-                    return "Automatic Upper Bound (max labels: "+ this.action.max_labels + ", branching: "+ this.action.branching + ", max steps: " + this.action.max_steps + "). Obtained Upper Bound of " + this.action.len + " Rounds.";
-                case "autoautoub":
-                    return "Automatic Upper Bound with Automatic Parameters. Obtained Upper Bound of " + this.action.len + " Rounds.";
+                    return "Automatic Upper Bound. Obtained Upper Bound of " + this.action.len + " Rounds.";
+                case "autolb":
+                    return "Automatic Lower Bound. Obtained Lower Bound of " + this.action.len + " Rounds.";
                 default:
                     return "Unknown " + this.action.type
             }
@@ -355,6 +361,8 @@ Vue.component('re-computing', {
             switch( this.action.type ) {
                 case "autoub":
                     return {bar : false, msg: "Computing an Upper Bound Automatically"}; 
+                case "autolb":
+                    return {bar : false, msg: "Computing a Lower Bound Automatically"}; 
                 case "coloring graph":
                     return {bar : true, msg: "Computing graph for determining coloring solvability", max : this.action.max, cur : this.action.cur };
                 case "clique":
@@ -1037,8 +1045,48 @@ Vue.component('re-group-harden',{
 
 Vue.component('re-auto-lb',{
     props: ['problem','stuff'],
+    data: function() {
+        return {
+            b_max_labels : false,
+            b_branching : false,
+            b_max_steps : false,
+            max_labels : this.problem.labels.length + 4,
+            max_steps : 15,
+            branching : 4,
+            coloring_given : false,
+            coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
+        }
+    },
+    methods: {
+        on_autolb() {
+            call_api_generating_sequence(this.stuff,{type:"autolb"},autolb,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring], false);
+        },
+    },
     template: `
         <re-card title="Automatic Lower Bound" subtitle="" :id="'group'+this._uid">
+            <div v-if="this.problem.passive.degree.Finite === 2">
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
+            </div>
+                <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+            </div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_max_labels"><p class="form-control-static custom-control-label">Manually set Max Labels</p></label>
+            </div>
+            <div v-if="this.b_max_labels">Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_branching"><p class="form-control-static custom-control-label">Manually set Branching</p></label>
+            </div>
+            <div v-if="this.b_branching">Branching: <input class="form-control m-2" type="number" v-model="branching"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_max_steps"><p class="form-control-static custom-control-label">Manually set Max Steps</p></label>
+            </div>
+            <div v-if="this.b_max_steps">Max Steps: <input class="form-control m-2" type="number" v-model="max_steps"></div>
+
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_autolb">Automatic Lower Bound</button>
         </re-card>
     `
 })
@@ -1047,39 +1095,46 @@ Vue.component('re-auto-ub',{
     props: ['problem','stuff'],
     data: function() {
         return {
+            b_max_labels : false,
+            b_branching : false,
+            b_max_steps : false,
             max_labels : this.problem.labels.length + 4,
             branching : 4,
             max_steps : 8,
-            allow_discard_old : false,
             coloring_given : false,
             coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
         }
     },
     methods: {
         on_autoub() {
-            call_api_generating_sequence(this.stuff,{type:"autoub", max_labels : this.max_labels, branching : this.branching, max_steps : this.max_steps},autoub,[this.problem, this.max_labels, this.branching, this.max_steps, this.allow_discard_old, this.coloring_given, this.coloring], false);
+            call_api_generating_sequence(this.stuff,{type:"autoub"},autoub,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring], false);
         },
-        on_autoautoub() {
-            call_api_generating_sequence(this.stuff,{type:"autoautoub"},autoautoub,[this.problem, this.allow_discard_old, this.coloring_given, this.coloring], false);
-        }
     },
     template: `
         <re-card title="Automatic Upper Bound" subtitle="" :id="'group'+this._uid">
-            <div class="custom-control custom-switch m-2">
-                <label><input type="checkbox" class="custom-control-input" v-model="allow_discard_old"><p class="form-control-static custom-control-label">Allow Discarding Old Labels</p></label>
-            </div>
+
             <div v-if="this.problem.passive.degree.Finite === 2">
                 <div class="custom-control custom-switch m-2">
                     <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
                 </div>
                 <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
             </div>
-            <hr/>
-            <button type="button" class="btn btn-primary m-2" v-on:click="on_autoautoub">Automatic Upper Bound with Automatic Parameters</button>
-            <hr/>
-            <div>Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
-            <div>Branching: <input class="form-control m-2" type="number" v-model="branching"></div>
-            <div>Max Steps: <input class="form-control m-2" type="number" v-model="max_steps"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_max_labels"><p class="form-control-static custom-control-label">Manually set Max Labels</p></label>
+            </div>
+            <div v-if="this.b_max_labels">Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_branching"><p class="form-control-static custom-control-label">Manually set Branching</p></label>
+            </div>
+            <div v-if="this.b_branching">Branching: <input class="form-control m-2" type="number" v-model="branching"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_max_steps"><p class="form-control-static custom-control-label">Manually set Max Steps</p></label>
+            </div>
+            <div v-if="this.b_max_steps">Max Steps: <input class="form-control m-2" type="number" v-model="max_steps"></div>
+
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Upper Bound</button>
         </re-card>
     `
@@ -1115,6 +1170,7 @@ Vue.component('re-tools', {
             <re-group-harden :problem="problem" :stuff="stuff"></re-group-harden>
             <re-rename :problem="problem" :stuff="stuff"></re-rename>
             <re-fixpoint :problem="problem" :stuff="stuff"></re-fixpoint>
+            <re-auto-lb :problem="problem" :stuff="stuff"></re-auto-lb>
             <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
         </div>
     `
