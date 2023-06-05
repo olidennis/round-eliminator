@@ -117,21 +117,23 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
             let map : HashMap<_,_> = np.mapping_label_generators().into_iter().collect();
 
             let mut candidates = vec![];
-            if tochoose == 0 {
-                let mut tokeep = Vec::new();
-                tokeep.extend(old.iter().cloned());
-                candidates.push(tokeep);
-            } else {
-                //println!("going over candidates {} {}",tochoose, new.len());
-                //new.sort_by_key(|l|map[l].len());
-                //let new : Vec<_> = new.iter().cloned().take(tochoose+branching).collect();
-                for choice in new.combination(tochoose) {
+            for tochoose_i in 0..=tochoose{
+                if tochoose_i == 0 {
                     let mut tokeep = Vec::new();
                     tokeep.extend(old.iter().cloned());
-                    tokeep.extend(choice.iter().map(|x|**x));
                     candidates.push(tokeep);
+                } else {
+                    //println!("going over candidates {} {}",tochoose, new.len());
+                    //new.sort_by_key(|l|map[l].len());
+                    //let new : Vec<_> = new.iter().cloned().take(tochoose+branching).collect();
+                    for choice in new.combination(tochoose_i) {
+                        let mut tokeep = Vec::new();
+                        tokeep.extend(old.iter().cloned());
+                        tokeep.extend(choice.iter().map(|x|**x));
+                        candidates.push(tokeep);
+                    }
+                    //println!("done");
                 }
-                //println!("done");
             }
 
             if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
@@ -145,7 +147,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
             } else {
                 let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
                 candidates.sort_by_cached_key(|labels|{
-                    labels.iter().map(|l|map[l].len()).sum::<usize>() + labels.iter().filter(|x|!colors.contains(x)).count()
+                    labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
                 });
             }
             //println!("built candidates");
