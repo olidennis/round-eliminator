@@ -9,6 +9,7 @@ function request_wasm(req, onresult, oncomplete) {
     w.onerror = function(e) {
         console.log('There is an error with the worker!');
         console.log(e);
+        alert("Something bad happened.");
     }
 
     w.onmessage = function (s){
@@ -69,7 +70,7 @@ function request_server(req, onresult, oncomplete) {
     }
     a.onerror = function(e) {
         //onclose will be called even if onerror is called
-        //alert("Something bad happened.");
+        alert("Something bad happened.");
         //oncomplete();
     }
     a.onclose = function(e){

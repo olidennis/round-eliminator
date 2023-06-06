@@ -10,16 +10,11 @@ use rand::prelude::SliceRandom;
 
 impl Problem {
     pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
-        let (_, r) = automatic_upper_bound(self, max_labels, branching, max_steps, coloring, eh);
-        if let Some((len,v)) = r {
-            let mut sequence = vec![];
-            sequence.push((AutoOperation::Initial,v[v.len()-1].2.clone()));
-            for (kept_labels,after_speedup, after_harden) in v.into_iter().rev().skip(1) {
-                sequence.push((AutoOperation::Speedup,after_speedup));
-                sequence.push((AutoOperation::Harden(kept_labels),after_harden));
-            }
-            handler(len,sequence);
-        }
+        let mut problems = vec![(self.labels(),self.clone(),self.clone(),self.to_string())];
+        let mut best = usize::MAX;
+        let mut seen = HashMap::new();
+        
+        automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, &mut handler, eh);
     }
 
     pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
@@ -33,32 +28,146 @@ impl Problem {
             let i_branching = if b_branching { branching } else { i };
             let i_max_steps = if b_max_steps { max_steps } else { std::cmp::min(3*i,max_steps) };
 
-            self.autoub(i_max_labels, i_branching, i_max_steps, coloring,|len,seq|{
-                if len <= max_steps {
-                    max_steps = len-1;
-                    handler(len,seq);
-                }
-            },eh);
-        }
-    }
-}
-
-fn automatic_upper_bound_smaller_parameters(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, eh: &mut EventHandler) -> Option<Vec<(Vec<Label>,Problem,Problem)>> {
-    for max_steps in 1..=max_steps {
-        for branching in 1..=branching {
-            for max_labels in 1..=max_labels {
-                println!("trying max labels {}, branching {}, max steps {}",max_labels,branching,max_steps);
-                let (limited_by_branching,r) =  automatic_upper_bound(orig, max_labels, branching,max_steps, None, eh);
-                if r.is_some() {
-                    return Some(r.unwrap().1);
-                }
+            for j_max_steps in 1..i_max_steps {
+                println!("{} {} {}",i_max_labels,i_branching,j_max_steps);
+                self.autoub(i_max_labels, i_branching, j_max_steps, coloring,|len,seq|{
+                    if len <= max_steps {
+                        max_steps = len-1;
+                        handler(len,seq);
+                    }
+                },eh);
             }
         }
     }
-    None
 }
 
-fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, eh: &mut EventHandler) -> (bool,Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)>) {
+
+
+fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+    {
+        let p_s = &problems.last().unwrap().3;
+        if problems.len() >=2 {
+            for i in (0..problems.len()-2).rev() {
+                if &problems[i].3 == p_s {
+                    return;
+                }
+            }
+        }
+        if seen.contains_key(p_s) && seen[p_s] < problems.len() {
+            return;
+        }
+        //if seen.len() < 1_000_000 {
+            seen.insert(p_s.clone(),problems.len());
+        //}
+
+        let p = &mut problems.last_mut().unwrap().2;   
+
+        if p.trivial_sets.is_none() {
+            p.compute_triviality(eh);
+        }
+        if p.passive.degree == Degree::Finite(2) && coloring.is_some() && p.coloring_sets.is_none() {
+            p.compute_coloring_solvability(eh);
+        }
+
+        if p.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
+            *best = problems.len();
+            let mut sequence = vec![];
+            sequence.push((AutoOperation::Initial,problems[0].2.clone()));
+            for (kept_labels,after_speedup, after_harden,_) in problems.iter().skip(1) {
+                sequence.push((AutoOperation::Speedup,after_speedup.clone()));
+                sequence.push((AutoOperation::Harden(kept_labels.clone()),after_harden.clone()));
+            }
+            handler(problems.len() - 1,sequence);
+            return;
+        }
+    }
+    let p = &problems.last().unwrap().2;  
+
+    if problems.len() > max_steps {
+        return;
+    }
+
+    let mut np = p.speedup(eh);
+    np.discard_useless_stuff(false, eh);
+    np.sort_active_by_strength();
+
+    let (old, new) = np.split_labels_original_new();
+    
+    let mut tochoose = max_labels as isize - old.len() as isize;
+    if tochoose > new.len() as isize {
+        tochoose = new.len() as isize;
+    }
+
+    let map : HashMap<_,_> = np.mapping_label_generators().into_iter().collect();
+
+    let mut candidates = vec![];
+    for tochoose_i in 0..=tochoose{
+        if tochoose_i == 0 {
+            let mut tokeep = Vec::new();
+            tokeep.extend(old.iter().cloned());
+            candidates.push(tokeep);
+        } else if new.len() > 0 {
+            for choice in new.combination(tochoose_i as usize) {
+                let mut tokeep = Vec::new();
+                tokeep.extend(old.iter().cloned());
+                tokeep.extend(choice.iter().map(|x|**x));
+                candidates.push(tokeep);
+            }
+        }
+    }
+
+    if candidates.len() < branching {
+        let labels = np.labels();
+        if labels.len() > 0 {
+            for choice in labels.combination(std::cmp::min(labels.len(),max_labels)) {
+                let mut tokeep = Vec::new();
+                tokeep.extend(choice.iter().map(|x|**x));
+                candidates.push(tokeep);
+            }
+        }
+    }
+
+    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        np.compute_coloring_solvability(eh);
+    }
+
+    if np.coloring_sets.is_none() {
+        candidates.sort_by_cached_key(|labels|{
+            labels.iter().map(|l|map[l].len()).sum::<usize>()
+        });
+    } else {
+        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
+        candidates.sort_by_cached_key(|labels|{
+            labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
+        });
+    }
+
+    for candidate in candidates.into_iter().take(branching) {
+        if *best <= problems.len() + 1 {
+            return;
+        } 
+
+        let tokeep = candidate.iter().cloned().collect();
+        let mut hardened = np.harden_keep(&tokeep, true);
+        hardened.discard_useless_stuff(false, eh);
+        hardened.sort_active_by_strength();
+        hardened.compute_triviality(eh);
+        if hardened.passive.degree == Degree::Finite(2) && coloring.is_some() {
+            hardened.compute_coloring_solvability(eh);
+        }
+        let h_s = hardened.to_string();
+
+        problems.push((candidate,np.clone(),hardened.clone(),h_s));
+        automatic_upper_bound_rec(seen, problems, best, max_labels, branching, max_steps, coloring, handler, eh);
+        problems.pop();
+    }
+
+    
+}
+
+
+/* 
+fn automatic_upper_bound_old(orig : &Problem, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, eh: &mut EventHandler) -> (bool,Option<(usize,Vec<(Vec<Label>,Problem,Problem)>)>) {
     //let mut eh = EventHandler::null();
     //let eh = &mut eh;
     
@@ -198,7 +307,7 @@ fn automatic_upper_bound(orig : &Problem, max_labels : usize, branching : usize,
     }
 
     (limited_by_branching,None)
-}
+}*/
 
 
 impl Problem{
