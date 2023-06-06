@@ -27,15 +27,21 @@ impl Problem {
             let i_max_labels = if b_max_labels { max_labels } else { self.labels().len() + i };
             let i_branching = if b_branching { branching } else { i };
             let i_max_steps = if b_max_steps { max_steps } else { std::cmp::min(3*i,max_steps) };
-
-            for j_max_steps in 1..i_max_steps {
-                println!("{} {} {}",i_max_labels,i_branching,j_max_steps);
+            let mut j_max_steps = 1;
+            while j_max_steps <= i_max_steps && j_max_steps <= max_steps {
                 self.autoub(i_max_labels, i_branching, j_max_steps, coloring,|len,seq|{
                     if len <= max_steps {
                         max_steps = len-1;
                         handler(len,seq);
                     }
                 },eh);
+                if j_max_steps == i_max_steps {
+                    break;
+                }
+                j_max_steps *= 2;
+                if j_max_steps > i_max_steps {
+                    j_max_steps = i_max_steps;
+                }
             }
         }
     }
@@ -44,6 +50,7 @@ impl Problem {
 
 
 fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+    
     {
         let p_s = &problems.last().unwrap().3;
         if problems.len() >=2 {
@@ -53,12 +60,12 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
                 }
             }
         }
-        if seen.contains_key(p_s) && seen[p_s] < problems.len() {
+        if seen.contains_key(p_s) && seen[p_s] <= problems.len() {
             return;
         }
-        //if seen.len() < 1_000_000 {
+        if problems.len() < 6 && seen.len() < 100_000 {
             seen.insert(p_s.clone(),problems.len());
-        //}
+        }
 
         let p = &mut problems.last_mut().unwrap().2;   
 
@@ -99,6 +106,22 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
     }
 
     let map : HashMap<_,_> = np.mapping_label_generators().into_iter().collect();
+    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        np.compute_coloring_solvability(eh);
+    }
+
+    let label_weights : HashMap<_,_> = if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
+        np.labels().into_iter().map(|l|{
+            let weight = map[&l].len() + 10* if !colors.contains(&l){1}else{0};
+            (l,weight)
+        }).collect()
+    } else {
+        np.labels().into_iter().map(|l|{
+            let weight = map[&l].len();
+            (l,weight)
+        }).collect()
+    };
 
     let mut candidates = vec![];
     for tochoose_i in 0..=tochoose{
@@ -107,6 +130,7 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
             tokeep.extend(old.iter().cloned());
             candidates.push(tokeep);
         } else if new.len() > 0 {
+            let new = new.iter().cloned().sorted_by_key(|l|label_weights[l]).take(tochoose_i as usize + branching).collect::<Vec<_>>();
             for choice in new.combination(tochoose_i as usize) {
                 let mut tokeep = Vec::new();
                 tokeep.extend(old.iter().cloned());
@@ -119,7 +143,9 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
     if candidates.len() < branching {
         let labels = np.labels();
         if labels.len() > 0 {
-            for choice in labels.combination(std::cmp::min(labels.len(),max_labels)) {
+            let tochoose = std::cmp::min(labels.len(),max_labels);
+            let labels = labels.iter().cloned().sorted_by_key(|l|label_weights[l]).take(tochoose + branching).collect::<Vec<_>>();
+            for choice in labels.combination(tochoose) {
                 let mut tokeep = Vec::new();
                 tokeep.extend(choice.iter().map(|x|**x));
                 candidates.push(tokeep);
@@ -127,20 +153,17 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         }
     }
 
-    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
-        np.compute_coloring_solvability(eh);
-    }
-
-    if np.coloring_sets.is_none() {
-        candidates.sort_by_cached_key(|labels|{
-            labels.iter().map(|l|map[l].len()).sum::<usize>()
-        });
-    } else {
+    
+    if np.passive.degree == Degree::Finite(2) && p.coloring_sets.is_some() {
         let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
         candidates.sort_by_cached_key(|labels|{
             labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
         });
-    }
+    } else {
+        candidates.sort_by_cached_key(|labels|{
+            labels.iter().map(|l|map[l].len()).sum::<usize>()
+        });
+    } 
 
     for candidate in candidates.into_iter().take(branching) {
         if *best <= problems.len() + 1 {
