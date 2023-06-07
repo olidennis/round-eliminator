@@ -322,6 +322,6 @@ pub enum Response {
 pub enum AutoOperation{
     Initial,
     Harden(Vec<Label>),
-    Merge(Vec<(Label,Label)>),
+    Merge(Vec<(Label,Label)>,Problem),
     Speedup
 }

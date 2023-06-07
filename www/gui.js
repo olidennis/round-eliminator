@@ -200,8 +200,10 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
             } else if( operation.Harden != null) {
                 substuff.push({ type : "performed", data: {type:"hardenkeep", labels:operation.Harden.map(x => step[1].map_label_text[x])} });
             } else if( operation.Merge != null) {
-                for( let merge of operation.Merge ){
-                    substuff.push({ type : "performed", data: {type:"simplificationmerge", from: step[1].map_label_text[merge[0]], to : step[1].map_label_text[merge[1]]} });
+                let before_merge = operation.Merge[1];
+                for( let merge of operation.Merge[0] ){
+                    fix_problem(before_merge);
+                    substuff.push({ type : "performed", data: {type:"simplificationmerge", from: before_merge.map_label_text[merge[0]], to : before_merge.map_label_text[merge[1]]} });
                 }
             }
             substuff.push({ type : "problem", data : step[1] });
@@ -318,7 +320,11 @@ Vue.component('re-performed-action', {
                 case "autoub":
                     return "Automatic Upper Bound. Obtained Upper Bound of " + this.action.len + " Rounds.";
                 case "autolb":
-                    return "Automatic Lower Bound. Obtained Lower Bound of " + this.action.len + " Rounds.";
+                    if(this.action.len == 999 ){
+                        return "Automatic Lower Bound. Obtained a Fixed Point."
+                    }else {
+                        return "Automatic Lower Bound. Obtained Lower Bound of " + this.action.len + " Rounds.";
+                    }
                 default:
                     return "Unknown " + this.action.type
             }
