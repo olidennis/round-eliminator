@@ -10,11 +10,28 @@ use rand::prelude::SliceRandom;
 
 impl Problem {
     pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
-        let mut problems = vec![(self.labels(),self.clone(),self.clone(),self.to_string())];
-        let mut best = usize::MAX;
-        let mut seen = HashMap::new();
-        
-        automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, &mut handler, eh);
+        if self.labels().len() <= max_labels {
+            let mut problems = vec![(self.labels(),self.clone(),self.clone(),self.to_string())];
+            let mut best = usize::MAX;
+            let mut seen = HashMap::new();
+            automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, &mut handler, eh);
+        } else {
+            let mut best = usize::MAX;
+            let mut seen = HashMap::new();
+            for candidate in best_hardenings(self, branching, max_labels, coloring, eh).into_iter().take(branching) {        
+                let tokeep = candidate.iter().cloned().collect();
+                let mut hardened = self.harden_keep(&tokeep, true);
+                hardened.discard_useless_stuff(false, eh);
+                hardened.sort_active_by_strength();
+                hardened.compute_triviality(eh);
+                if hardened.passive.degree == Degree::Finite(2) && coloring.is_some() {
+                    hardened.compute_coloring_solvability(eh);
+                }
+                let h_s = hardened.to_string();
+                let mut problems = vec![(candidate,self.clone(),hardened.clone(),h_s)];
+                automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, &mut handler, eh);
+            }
+        }
     }
 
     pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
@@ -27,27 +44,93 @@ impl Problem {
             let i_max_labels = if b_max_labels { max_labels } else { self.labels().len() + i };
             let i_branching = if b_branching { branching } else { i };
             let i_max_steps = if b_max_steps { max_steps } else { std::cmp::min(3*i,max_steps) };
-            let mut j_max_steps = 1;
-            while j_max_steps <= i_max_steps && j_max_steps <= max_steps {
+            for j_max_steps in 1..=i_max_steps {
+                if j_max_steps > max_steps {
+                    break;
+                }
                 self.autoub(i_max_labels, i_branching, j_max_steps, coloring,|len,seq|{
                     if len <= max_steps {
                         max_steps = len-1;
                         handler(len,seq);
                     }
                 },eh);
-                if j_max_steps == i_max_steps {
-                    break;
-                }
-                j_max_steps *= 2;
-                if j_max_steps > i_max_steps {
-                    j_max_steps = i_max_steps;
-                }
             }
         }
     }
 }
 
+fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, coloring : Option<usize>, eh: &mut EventHandler) -> Vec<Vec<Label>> {
+    if np.mapping_label_oldlabels.is_none() {
+        return np.labels().combination(max_labels).take(branching).map(|s|s.into_iter().cloned().collect()).collect();
+    }
 
+    let map : HashMap<_,_> = np.mapping_label_generators().into_iter().collect();
+
+    let labels = np.labels();
+    let (old, new) = np.split_labels_original_new();
+    let label_weights : HashMap<_,_> = if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
+        np.labels().into_iter().map(|l|{
+            let weight = map[&l].len() + 10* if !colors.contains(&l){1}else{0};
+            (l,weight)
+        }).collect()
+    } else {
+        np.labels().into_iter().map(|l|{
+            let weight = map[&l].len();
+            (l,weight)
+        }).collect()
+    };
+
+
+    let mut candidates = HashSet::new();
+
+    for max_labels_i in old.len()..=std::cmp::min(max_labels,labels.len()) {
+        let to_choose = max_labels_i - old.len();
+        if to_choose == 0 {
+            let mut tokeep = Vec::new();
+            tokeep.extend(old.iter().cloned());
+            candidates.insert(tokeep);
+        } else {
+            let new = new.iter().cloned().sorted_by_key(|l|label_weights[l]).take(to_choose + branching).collect::<Vec<_>>();
+            for choice in new.combination(to_choose) {
+                let mut tokeep = Vec::new();
+                tokeep.extend(old.iter().cloned());
+                tokeep.extend(choice.iter().map(|x|**x));
+                candidates.insert(tokeep);
+            }
+        }
+    }
+
+    if candidates.len() < branching {
+        let to_choose = std::cmp::min(labels.len(),max_labels);
+        if to_choose == 0 {
+            let mut tokeep = Vec::new();
+            tokeep.extend(labels.iter().cloned());
+            candidates.insert(tokeep);
+        } else {
+            let labels = labels.iter().cloned().sorted_by_key(|l|label_weights[l]).take(to_choose + branching).collect::<Vec<_>>();
+            for choice in labels.combination(to_choose) {
+                let mut tokeep = Vec::new();
+                tokeep.extend(choice.iter().map(|x|**x));
+                candidates.insert(tokeep);
+            }
+        }
+    }
+
+    let mut candidates : Vec<_> = candidates.into_iter().collect();
+    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
+        candidates.sort_by_cached_key(|labels|{
+            labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
+        });
+    } else {
+        candidates.sort_by_cached_key(|labels|{
+            labels.iter().map(|l|map[l].len()).sum::<usize>()
+        });
+    } 
+
+    candidates.into_iter().take(branching).collect()
+}
 
 fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
     
@@ -79,7 +162,10 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         if p.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
             *best = problems.len();
             let mut sequence = vec![];
-            sequence.push((AutoOperation::Initial,problems[0].2.clone()));
+            sequence.push((AutoOperation::Initial,problems[0].1.clone()));
+            if problems[0].1 != problems[0].2 {
+                sequence.push((AutoOperation::Harden(problems[0].0.clone()),problems[0].2.clone()));
+            }
             for (kept_labels,after_speedup, after_harden,_) in problems.iter().skip(1) {
                 sequence.push((AutoOperation::Speedup,after_speedup.clone()));
                 sequence.push((AutoOperation::Harden(kept_labels.clone()),after_harden.clone()));
@@ -97,74 +183,12 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
     let mut np = p.speedup(eh);
     np.discard_useless_stuff(false, eh);
     np.sort_active_by_strength();
-
-    let (old, new) = np.split_labels_original_new();
-    
-    let mut tochoose = max_labels as isize - old.len() as isize;
-    if tochoose > new.len() as isize {
-        tochoose = new.len() as isize;
-    }
-
-    let map : HashMap<_,_> = np.mapping_label_generators().into_iter().collect();
     if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
         np.compute_coloring_solvability(eh);
     }
 
-    let label_weights : HashMap<_,_> = if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
-        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
-        np.labels().into_iter().map(|l|{
-            let weight = map[&l].len() + 10* if !colors.contains(&l){1}else{0};
-            (l,weight)
-        }).collect()
-    } else {
-        np.labels().into_iter().map(|l|{
-            let weight = map[&l].len();
-            (l,weight)
-        }).collect()
-    };
-
-    let mut candidates = vec![];
-    for tochoose_i in 0..=tochoose{
-        if tochoose_i == 0 {
-            let mut tokeep = Vec::new();
-            tokeep.extend(old.iter().cloned());
-            candidates.push(tokeep);
-        } else if new.len() > 0 {
-            let new = new.iter().cloned().sorted_by_key(|l|label_weights[l]).take(tochoose_i as usize + branching).collect::<Vec<_>>();
-            for choice in new.combination(tochoose_i as usize) {
-                let mut tokeep = Vec::new();
-                tokeep.extend(old.iter().cloned());
-                tokeep.extend(choice.iter().map(|x|**x));
-                candidates.push(tokeep);
-            }
-        }
-    }
-
-    if candidates.len() < branching {
-        let labels = np.labels();
-        if labels.len() > 0 {
-            let tochoose = std::cmp::min(labels.len(),max_labels);
-            let labels = labels.iter().cloned().sorted_by_key(|l|label_weights[l]).take(tochoose + branching).collect::<Vec<_>>();
-            for choice in labels.combination(tochoose) {
-                let mut tokeep = Vec::new();
-                tokeep.extend(choice.iter().map(|x|**x));
-                candidates.push(tokeep);
-            }
-        }
-    }
-
+    let candidates = best_hardenings(&np, branching, max_labels, coloring, eh);
     
-    if np.passive.degree == Degree::Finite(2) && p.coloring_sets.is_some() {
-        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
-        candidates.sort_by_cached_key(|labels|{
-            labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
-        });
-    } else {
-        candidates.sort_by_cached_key(|labels|{
-            labels.iter().map(|l|map[l].len()).sum::<usize>()
-        });
-    } 
-
     for candidate in candidates.into_iter().take(branching) {
         if *best <= problems.len() + 1 {
             return;

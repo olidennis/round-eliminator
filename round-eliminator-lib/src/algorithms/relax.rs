@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     constraint::Constraint,
     group::{Group, Label},
@@ -8,6 +10,45 @@ impl Problem {
     pub fn relax_merge(&self, from: Label, to: Label) -> Self {
         let active = self.active.relax(from, to, true);
         let passive = self.passive.relax(from, to, true);
+
+        Problem {
+            active,
+            passive,
+            mapping_label_text: self.mapping_label_text.clone(),
+            mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
+            mapping_oldlabel_labels: self.mapping_oldlabel_labels.clone(),
+            mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
+            diagram_direct: None,
+            diagram_indirect_old: self.diagram_indirect_old.clone(),
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
+            orientation_given: self.orientation_given,
+            fixpoint_diagram : None
+        }
+    }
+
+    pub fn relax_many_merges(&self, merges : &Vec<(Label,Label)>) -> Self {
+        let mut active = self.active.clone();
+        let mut passive = self.passive.clone();
+        let mut merges = merges.clone();
+        for i in 0..merges.len() {
+            let (from,to) = merges[i];
+            if from != to {
+                active = active.relax(from, to, true);
+                passive = passive.relax(from, to, true);
+                for j in i+1..merges.len() {
+                    if merges[j].0 == from {
+                        merges[j].0 = to;
+                    }
+                    if merges[j].1 == from {
+                        merges[j].1 = to;
+                    }
+                }
+            }
+        }
 
         Problem {
             active,
