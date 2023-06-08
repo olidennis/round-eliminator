@@ -397,8 +397,7 @@ dependencies = [
 [[package]]
 name = "permutator"
 version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9c6f38fc32835c34be344aa470f8f198b1788986eab65fc2a04d25a6f2510d6"
+source = "git+https://github.com/olidennis/permutator.git#ffd176ff557d958be01756aa8966bd896325a183"
 dependencies = [
  "num",
 ]

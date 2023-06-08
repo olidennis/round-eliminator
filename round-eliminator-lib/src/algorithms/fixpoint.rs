@@ -389,7 +389,7 @@ impl Problem {
                     expressions.insert(e.convert(&mapping_label_newlabel));
                 }
 
-                println!("The problem is trivial, there are {} subexpressions",expressions.len());
+                //println!("The problem is trivial, there are {} subexpressions",expressions.len());
 
                 let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
                 let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();

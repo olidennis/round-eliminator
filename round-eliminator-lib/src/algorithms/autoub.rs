@@ -134,6 +134,20 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
 
 fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
     
+    let mut send_sequence = |problems : &Vec<(Vec<Label>,Problem,Problem,String)>|{
+        *best = problems.len();
+        let mut sequence = vec![];
+        sequence.push((AutoOperation::Initial,problems[0].1.clone()));
+        if problems[0].1 != problems[0].2 {
+            sequence.push((AutoOperation::Harden(problems[0].0.clone()),problems[0].2.clone()));
+        }
+        for (kept_labels,after_speedup, after_harden,_) in problems.iter().skip(1) {
+            sequence.push((AutoOperation::Speedup,after_speedup.clone()));
+            sequence.push((AutoOperation::Harden(kept_labels.clone()),after_harden.clone()));
+        }
+        handler(problems.len() - 1,sequence);
+    };
+
     {
         let p_s = &problems.last().unwrap().3;
         if problems.len() >=2 {
@@ -160,17 +174,7 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         }
 
         if p.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
-            *best = problems.len();
-            let mut sequence = vec![];
-            sequence.push((AutoOperation::Initial,problems[0].1.clone()));
-            if problems[0].1 != problems[0].2 {
-                sequence.push((AutoOperation::Harden(problems[0].0.clone()),problems[0].2.clone()));
-            }
-            for (kept_labels,after_speedup, after_harden,_) in problems.iter().skip(1) {
-                sequence.push((AutoOperation::Speedup,after_speedup.clone()));
-                sequence.push((AutoOperation::Harden(kept_labels.clone()),after_harden.clone()));
-            }
-            handler(problems.len() - 1,sequence);
+            send_sequence(problems);
             return;
         }
     }
@@ -180,12 +184,22 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         return;
     }
 
+
+
     let mut np = p.speedup(eh);
     np.discard_useless_stuff(false, eh);
     np.sort_active_by_strength();
+    np.compute_triviality(eh);
     if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
         np.compute_coloring_solvability(eh);
     }
+
+    if np.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && np.coloring_sets.is_some() && np.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
+        problems.push((np.labels(),np.clone(),np.clone(),np.to_string()));
+        send_sequence(problems);
+        return;
+    }
+
 
     let candidates = best_hardenings(&np, branching, max_labels, coloring, eh);
     

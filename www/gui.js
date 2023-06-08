@@ -640,6 +640,7 @@ Vue.component('re-diagram', {
                 nodes: visnodes,
                 edges: visedges
             };
+            console.log(this.id + " " + visnodes.length);
             return visdata;
         },
         options : function() {
@@ -687,6 +688,8 @@ Vue.component('re-diagram', {
         });
         //prevent vue from adding getters and setters, otherwise some things of vis break
         this.network[0] = network;
+        console.log(this.id + " " + this.visdata.nodes.length);
+
     },
     template: `
         <div>
@@ -1187,6 +1190,7 @@ Vue.component('re-tools', {
 Vue.component('re-problem', {
     props: ["problem","stuff","handle"],
     data: function() {
+        console.log("problem"+this._uid + " " + this.problem.labels.length);
         return {
             mode : "renamed"
         }
