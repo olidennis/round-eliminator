@@ -208,7 +208,7 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
             }
             substuff.push({ type : "problem", data : step[1] });
         }
-        stuff.push({ type : "sub", data : substuff });
+        stuff.splice(idx+1,0,{ type : "sub", data : substuff });
     }
 }
 
