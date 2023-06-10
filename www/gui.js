@@ -182,7 +182,7 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
         stuff.splice(idx,1);
     }
     if( what == "problem" ){
-        stuff.push({ type : "performed", data: action });
+        stuff.push({ type : "performed", data : action });
         stuff.push({ type : "problem", data : p });
     }else if( what == "sequence" ){
         let action_copy = JSON.parse(JSON.stringify(action));
@@ -190,20 +190,20 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
         let sequence = p[1];
         let substuff = [];
         action_copy.len = len;
-        substuff.push({ type : "performed", data: action_copy });
+        substuff.push({ type : "performed", data : action_copy });
         for( var step of sequence ){
             let operation = step[0];
             if( operation == "Initial" ){
-                substuff.push({ type : "performed", data: {type:"initial"} });
+                substuff.push({ type : "performed", data : {type:"initial"} });
             } else if( operation == "Speedup" ){
-                substuff.push({ type : "performed", data: {type:"speedup"} });
+                substuff.push({ type : "performed", data : {type:"speedup"} });
             } else if( operation.Harden != null) {
-                substuff.push({ type : "performed", data: {type:"hardenkeep", labels:operation.Harden.map(x => step[1].map_label_text[x])} });
+                substuff.push({ type : "performed", data : {type:"hardenkeep", labels:operation.Harden.map(x => step[1].map_label_text[x])} });
             } else if( operation.Merge != null) {
                 let before_merge = operation.Merge[1];
                 for( let merge of operation.Merge[0] ){
                     fix_problem(before_merge);
-                    substuff.push({ type : "performed", data: {type:"simplificationmerge", from: before_merge.map_label_text[merge[0]], to : before_merge.map_label_text[merge[1]]} });
+                    substuff.push({ type : "performed", data : {type:"simplificationmerge", from: before_merge.map_label_text[merge[0]], to : before_merge.map_label_text[merge[1]]} });
                 }
             }
             substuff.push({ type : "problem", data : step[1] });
@@ -223,7 +223,7 @@ function call_api_generating_sequence(stuff, action, f, params, removeprogress =
 
 
 function call_api_generating_what(stuff, action, f, params, what, removeprogress = true) {
-    let progress = { type : "computing", data: {type : "empty", cur : 1, max : 1, onstop : function(){}} };
+    let progress = { type : "computing", data : {type : "empty", cur : 1, max : 1, onstop : function(){}} };
     stuff.push(progress);
     let remove_progress_bar = function() {
         console.log("removing progress bar");
@@ -331,7 +331,7 @@ Vue.component('re-performed-action', {
         }
     },
     template: `
-        <div class="card bg-primary text-white m-2 p-2" :id="'current'+this._uid">
+        <div class="card bg-primary text-white m-2 p-2">
             <span style="white-space: break-spaces;">{{ actionview }}<button type="button" class="close" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -349,7 +349,7 @@ Vue.component('re-error', {
         }
     },
     template: `
-        <div class="card bg-danger text-white m-2 p-2" :id="'current'+this._uid">
+        <div class="card bg-danger text-white m-2 p-2">
             <span>
                 {{ this.error }}
                 <button type="button" class="close" aria-label="Close" v-on:click="on_close">
@@ -410,7 +410,7 @@ Vue.component('re-computing', {
         }
     },
     template: `
-        <div class="card card-body m-2 bg-light" :id="'current'+this._uid">
+        <div class="card card-body m-2 bg-light">
             <div class="spinner-border" role="status"></div>
             {{ state.msg }}
             <div v-if="state.bar" class="progress">
@@ -617,7 +617,7 @@ Vue.component('re-inverse-renaming', {
 
 
 Vue.component('re-diagram', {
-    props: ["problem","id"],
+    props: ["problem"],
     data : function() {
         return {
             physics : true,
@@ -640,7 +640,6 @@ Vue.component('re-diagram', {
                 nodes: visnodes,
                 edges: visedges
             };
-            console.log(this.id + " " + visnodes.length);
             return visdata;
         },
         options : function() {
@@ -668,15 +667,9 @@ Vue.component('re-diagram', {
             };
         }
     },
-    watch : {
-        'physics' : function() {
-            if(this.network[0] != null){
-                this.network[0].setOptions(this.options);
-            }
-        }
-    },
-    mounted: function() {
-        let id = "diagram" + this.id;
+    methods: {
+        show_diagram : function() {
+            let id = "diagram" + this._uid;
         let network = new vis.Network(document.getElementById(id), this.visdata, {});
         network.setOptions(this.options);
         let p = this.problem;
@@ -688,12 +681,26 @@ Vue.component('re-diagram', {
         });
         //prevent vue from adding getters and setters, otherwise some things of vis break
         this.network[0] = network;
-        console.log(this.id + " " + this.visdata.nodes.length);
-
+        //console.log(this.id + " " + this.visdata.nodes.length);
+        }
+    },
+    watch : {
+        'physics' : function() {
+            if(this.network[0] != null){
+                this.network[0].setOptions(this.options);
+            }
+        },
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this));
+            this.show_diagram();
+        }
+    },
+    mounted: function() {
+        this.show_diagram();
     },
     template: `
-        <div>
-            <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this.id">
+        <div> 
+            <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this._uid">
             </div>
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="physics"><p class="form-control-static custom-control-label">Physics</p></label>
@@ -705,7 +712,7 @@ Vue.component('re-diagram', {
 
 Vue.component('re-orientation-give',{
     props: ['problem','stuff'],
-    data: function() {
+    data : function() {
         return {
             outdegree : 1
         }
@@ -799,13 +806,20 @@ Vue.component('re-rename',{
                 }
         })
     }},
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_rename() {
             call_api_generating_problem(this.stuff,{type:"rename"},rename,[this.problem,this.table.map(x => [x[0],x[3]])]);
         }
     },
     template: `
-    <re-card title="New renaming" subtitle="(manually rename labels)" :id="'group'+this._uid">
+    <re-card title="New renaming" subtitle="(manually rename labels)">
         <table class="table">
             <tr v-for="(row,index) in this.table">
                 <td class="align-middle" v-if="row[2]!=''"><span class="rounded m-1 labelborder">{{ row[2] }}</span></td>
@@ -861,6 +875,13 @@ Vue.component('re-simplify',{
         from : this.problem.labels[0],
         to : this.problem.labels[1]
     }},
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_merge() {
             call_api_generating_problem(
@@ -886,7 +907,7 @@ Vue.component('re-simplify',{
         }
     },
     template: `
-        <re-card title="Simplify" subtitle="(by merging or adding arrows)" :id="'group'+this._uid">
+        <re-card title="Simplify" subtitle="(by merging or adding arrows)">
             <div>From: <re-label-picker :problem="this.problem" v-model="from"></re-label-picker>
             To: <re-label-picker :problem="this.problem" v-model="to"></re-label-picker></div>
             <button type="button" class="btn btn-primary ml-2" v-on:click="on_from_diagram">From diagram selection</button>
@@ -899,7 +920,7 @@ Vue.component('re-simplify',{
 
 Vue.component('re-harden-remove',{
     props: ['problem','stuff'],
-    data: function() {return {
+    data : function() {return {
         label : 0,
         keep_predecessors : true
     }},
@@ -913,7 +934,7 @@ Vue.component('re-harden-remove',{
         }
     },
     template: `
-        <re-card title="Harden" subtitle="(by removing labels)" :id="'group'+this._uid">
+        <re-card title="Harden" subtitle="(by removing labels)">
             <re-label-picker :problem="this.problem" v-model="label"></re-label-picker>
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">Replace With Predecessors</p></label>
@@ -943,6 +964,13 @@ Vue.component('re-group-simplify',{
         keep_predecessors : true,
         to : this.problem.labels[0]
     }},
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_merge(){
             let tomerge = this.table.filter(x => x[3]).map(x => x[0]);
@@ -964,7 +992,7 @@ Vue.component('re-group-simplify',{
         }
     },
     template: `
-        <re-card title="Group Simplify" subtitle="(choose a group of labels)" :id="'group'+this._uid">
+        <re-card title="Group Simplify" subtitle="(choose a group of labels)">
             From:
             <div v-for="(row,index) in this.table">
                 <div class="custom-control custom-switch ml-2">
@@ -999,6 +1027,13 @@ Vue.component('re-group-harden',{
         }),
         keep_predecessors : true
     }},
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_remove() {
             let toremove = this.table.filter(x => x[3]).map(x => x[0]);
@@ -1029,7 +1064,7 @@ Vue.component('re-group-harden',{
         }
     },
     template: `
-        <re-card title="Group Harden" subtitle="(choose a group of labels)" :id="'group'+this._uid">
+        <re-card title="Group Harden" subtitle="(choose a group of labels)">
             <div v-for="(row,index) in this.table">
                 <div class="custom-control custom-switch ml-2">
                     <label>
@@ -1066,13 +1101,20 @@ Vue.component('re-auto-lb',{
             coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
         }
     },
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_autolb() {
             call_api_generating_sequence(this.stuff,{type:"autolb"},autolb,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring], false);
         },
     },
     template: `
-        <re-card title="Automatic Lower Bound" subtitle="" :id="'group'+this._uid">
+        <re-card title="Automatic Lower Bound" subtitle="">
             <div v-if="this.problem.passive.degree.Finite === 2">
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
@@ -1114,14 +1156,20 @@ Vue.component('re-auto-ub',{
             coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
         }
     },
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_autoub() {
             call_api_generating_sequence(this.stuff,{type:"autoub"},autoub,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring], false);
         },
     },
     template: `
-        <re-card title="Automatic Upper Bound" subtitle="" :id="'group'+this._uid">
-
+        <re-card title="Automatic Upper Bound" subtitle="">
             <div v-if="this.problem.passive.degree.Finite === 2">
                 <div class="custom-control custom-switch m-2">
                     <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
@@ -1152,7 +1200,7 @@ Vue.component('re-auto-ub',{
 Vue.component('re-operations',{
     props: ['problem','stuff'],
     template: `
-        <re-card title="Operations" subtitle="(speedup, maximize, edit, gen renaming, merge)" :id="'group'+this._uid">
+        <re-card title="Operations" subtitle="(speedup, maximize, edit, gen renaming, merge)">
             <div class="m-2"><re-speedup :problem="problem" :stuff="stuff"></re-speedup> apply round elimination</div>
             <div class="m-2"><re-maximize :problem="problem" :stuff="stuff"></re-maximize> maximize passive side (and compute full diagram, triviality, ...)</div>
             <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
@@ -1189,8 +1237,7 @@ Vue.component('re-tools', {
 
 Vue.component('re-problem', {
     props: ["problem","stuff","handle"],
-    data: function() {
-        console.log("problem"+this._uid + " " + this.problem.labels.length);
+    data : function() {
         return {
             mode : "renamed"
         }
@@ -1202,7 +1249,7 @@ Vue.component('re-problem', {
         }
     },
     template: `
-        <div class="card card-body m-2 p-2 bg-light position-relative" :id="'problem'+this._uid">
+        <div class="card card-body m-2 p-2 bg-light position-relative">
             <div class="row p-0 m-0 justify-content-between">
                 <div v-if="this.problem.mapping_label_oldlabels != null">
                     <div class="btn-group btn-group-toggle pt-3 pl-3" data-toggle="buttons">
@@ -1234,7 +1281,7 @@ Vue.component('re-problem', {
                     <re-inverse-renaming :problem="problem"></re-inverse-renaming>
                 </re-card>
                 <re-card :title="this.problem.passive.is_maximized ? 'Diagram' : 'Partial Diagram'" subtitle="Strength of passive labels" show="true" v-if="this.problem.diagram_direct != null">
-                    <re-diagram :problem="problem" :id="'diag'+this._uid" ></re-diagram>
+                    <re-diagram :problem="problem"></re-diagram>
                 </re-card>
                 <re-card title="Tools" subtitle="Speedup, edit, simplifications, ..." show="true">
                     <re-tools :problem="problem" :stuff="stuff"></re-tools>
@@ -1247,7 +1294,7 @@ Vue.component('re-problem', {
 Vue.component('re-label-picker', {
     props: ["problem", "value"],
     computed : {
-        data : function() {
+        data: function() {
             return this.problem.mapping_label_text.map(x => {
                 let label = x[0];
                 let text = x[1];
@@ -1290,7 +1337,7 @@ Vue.component('re-label-picker', {
 
 Vue.component('re-begin', {
     props: ["all"],
-    data: function(){ return {
+    data : function(){ return {
             active : this.all.active,
             passive : this.all.passive
         }
@@ -1343,7 +1390,7 @@ Vue.component('re-begin', {
 Vue.component('re-fixpoint',{
     props: ['problem','stuff'],
     template: `
-        <re-card :show="this.problem.fixpoint_diagram !== null" title="Generate Fixed Point" subtitle="(automatic procedure for fixed point generation)" :id="'group'+this._uid">
+        <re-card :show="this.problem.fixpoint_diagram !== null" title="Generate Fixed Point" subtitle="(automatic procedure for fixed point generation)">
             <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff"></re-fixpoint-basic> (with default diagram)</div>
             <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
             <div v-if="this.problem.fixpoint_diagram === null" class="m-2">
@@ -1399,13 +1446,20 @@ Vue.component('re-fixpoint-custom',{
             text : this.problem.fixpoint_diagram.text,
         }    
     },
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     methods: {
         on_fixpoint() {
             call_api_generating_problem(this.stuff,{type:"fixpoint-custom", diagram: this.text},fixpoint_custom,[this.problem, this.text]);
         }
     },
     template: `
-        <re-card show="true" title="With Custom Diagram" subtitle="(you can edit the diagram)" :id="'group'+this._uid">
+        <re-card show="true" title="With Custom Diagram" subtitle="(you can edit the diagram)">
             <textarea rows="4" cols="30" class="form-control m-1" v-model="text"></textarea>
             <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Generate Fixed Point</button>
         </re-card>
@@ -1415,7 +1469,7 @@ Vue.component('re-fixpoint-custom',{
 
 Vue.component('re-fixpoint-dup',{
     props: ['problem','stuff'],
-    data: function(){ return {
+    data : function(){ return {
         dups : [],  
     }},
     methods: {
@@ -1436,8 +1490,8 @@ Vue.component('re-fixpoint-dup',{
         }
     },
     template: `
-        <re-card show="true" title="With Label Duplication" subtitle="(choose groups of labels to duplicate)" :id="'group'+this._uid">
-            <re-diagram :problem="problem.fixpoint_diagram" :id="'diag'+this._uid" ></re-diagram>
+        <re-card show="true" title="With Label Duplication" subtitle="(choose groups of labels to duplicate)">
+            <re-diagram :problem="problem.fixpoint_diagram"></re-diagram>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_from_diagram">Add from diagram selection</button>
             <button type="button" class="btn btn-secondary m-1" data-toggle="tooltip" data-placement="top" title="A good strategy could be the following. First run the basic procedure. Then take the lines that contribute to the 0 round solvability. Take each label L appearing there. L is a set of original labels. For each l ∊ L, take the set of labels that are edge-compatible with it. Take the intersection of the obtained sets. This gives a label L' of the diagram. Take all labels in the shortest path between L and L' and create a group of labels to duplicate.">?</button>
             <table class="table">
@@ -1509,7 +1563,7 @@ Vue.component('re-stuff', {
     },
     template: `
         <div>
-            <div class="card bg-light pr-4 m-2" :id="'current'+this._uid" v-if="this.supstuff != null">
+            <div class="card bg-light pr-4 m-2" v-if="this.supstuff != null">
                 <button type="button" class="close position-absolute top-0 end-0 p-2" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1556,7 +1610,7 @@ function init_data() {
 
 var app = new Vue({
     el: '#vueapp',
-    data: {
+    data : {
         all : init_data(),
     },
     template: `
