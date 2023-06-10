@@ -255,7 +255,7 @@ where
         },
         Request::AutoUb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring) => {
             eh.notify("autoub",0,0);
-            problem.autoautoub( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
+            problem.autoautoub( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, |len,is_trivial,mut sequence|{
                 //for p in sequence.iter_mut() {
                 //    fix_problem(&mut p.1, true, true, &mut eh);
                 //}

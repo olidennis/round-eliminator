@@ -9,7 +9,7 @@ use rand::prelude::SliceRandom;
 
 
 impl Problem {
-    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
         if self.labels().len() <= max_labels {
             let mut problems = vec![(self.labels(),self.clone(),self.clone(),self.to_string())];
             let mut best = usize::MAX;
@@ -34,7 +34,7 @@ impl Problem {
         }
     }
 
-    pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+    pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
         if b_max_labels && b_branching && b_max_steps {
             return self.autoub(max_labels, branching, max_steps, coloring, handler, eh);
         }
@@ -48,10 +48,10 @@ impl Problem {
                 if j_max_steps > max_steps {
                     break;
                 }
-                self.autoub(i_max_labels, i_branching, j_max_steps, coloring,|len,seq|{
+                self.autoub(i_max_labels, i_branching, j_max_steps, coloring,|len,trivial,seq|{
                     if len <= max_steps {
                         max_steps = len-1;
-                        handler(len,seq);
+                        handler(len,trivial,seq);
                     }
                 },eh);
                 if max_steps == 0 {
@@ -135,7 +135,7 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
     candidates.into_iter().take(branching).collect()
 }
 
-fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
     
     let mut send_sequence = |problems : &Vec<(Vec<Label>,Problem,Problem,String)>|{
         *best = problems.len();
@@ -148,7 +148,7 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
             sequence.push((AutoOperation::Speedup,after_speedup.clone()));
             sequence.push((AutoOperation::Harden(kept_labels.clone()),after_harden.clone()));
         }
-        handler(problems.len() - 1,sequence);
+        handler(problems.len() - 1,!problems.last().as_ref().unwrap().2.trivial_sets.as_ref().unwrap().is_empty(), sequence);
     };
 
     {
