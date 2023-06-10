@@ -54,6 +54,9 @@ impl Problem {
                         handler(len,seq);
                     }
                 },eh);
+                if max_steps == 0 {
+                    return;
+                }
             }
         }
     }

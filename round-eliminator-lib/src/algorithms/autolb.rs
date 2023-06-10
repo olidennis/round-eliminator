@@ -8,18 +8,21 @@ use permutator::Combination;
 
 
 impl Problem {
-    pub fn autolb<F>(&self, max_labels : usize, branching : usize, min_steps : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+    pub fn autolb<F>(&self, max_labels : usize, branching : usize, min_steps : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler)  -> bool  where F : FnMut(usize, Vec<(AutoOperation,Problem)>){
         let mut problems = vec![(vec![],self.clone(),self.clone(),self.to_string())];
         let mut best = usize::MAX;
         let mut seen = HashMap::new();
     
         automatic_lower_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, min_steps, max_steps, coloring, &mut handler, eh);
+
+        return best >= max_steps;
     }
 
 
     pub fn autoautolb<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
         if b_max_labels && b_branching && b_max_steps {
-            return self.autolb(max_labels, branching, 1, max_steps, coloring, handler, eh);
+            self.autolb(max_labels, branching, 1, max_steps, coloring, handler, eh);
+            return;
         }
 
         let mut min_steps = 1;
@@ -28,12 +31,14 @@ impl Problem {
             let i_branching = if b_branching { branching } else { i };
             let max_steps = if b_max_steps { max_steps } else { 15 };
 
-            self.autolb(i_max_labels, i_branching, min_steps, max_steps, coloring,|len,seq|{
+            if self.autolb(i_max_labels, i_branching, min_steps, max_steps, coloring,|len,seq|{
                 if len >= min_steps {
                     min_steps = len+1;
                     handler(len,seq);
                 }
-            },eh);
+            },eh) {
+                return;
+            }
         }
     }
 }
@@ -191,6 +196,9 @@ fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         problems.push((merges,np.clone(),merged.clone(),m_s));
         automatic_lower_bound_rec(seen, problems, best, max_labels, branching, min_steps, max_steps, coloring, handler, eh);
         problems.pop();
+        if *best > max_steps {
+            return;
+        }
     }
 
     
