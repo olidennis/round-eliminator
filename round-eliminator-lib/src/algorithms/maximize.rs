@@ -65,7 +65,12 @@ impl Constraint {
                     let (out_tx, out_rx) =  crossbeam_channel::unbounded();
                     let (progress_tx, progress_rx) : (crossbeam_channel::Sender<()>,crossbeam_channel::Receiver<()>)  =  crossbeam_channel::unbounded();
 
-                    let n_workers = num_cpus::get();
+
+                    let n_workers = if let Ok(val) = std::env::var("RE_NUM_THREADS") {
+                        val.parse::<usize>().unwrap()
+                    } else {
+                        num_cpus::get()
+                    };
 
                     let seen_pairs = &seen_pairs;
                     let seen = &seen;

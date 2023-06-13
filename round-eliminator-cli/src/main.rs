@@ -53,7 +53,7 @@ impl fmt::Display for Bound {
 }
 impl fmt::Display for BoundRange {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.lb, self.ub)
+        write!(f, "bound ({}, {})", self.lb, self.ub)
     }
 }
 
@@ -90,7 +90,6 @@ fn automatic_upper_bound(p : &Problem, c : Option<usize>, bound : Arc<Mutex<Boun
         } else {
             bound.lock().unwrap().new_ub(Bound::LogStar);
         }
-        println!("Upper bound of {} rounds",len);
         println!("{}", bound.lock().unwrap());
     }, &mut eh);
 }
@@ -128,16 +127,20 @@ fn just_speedups(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>
     let mut i = 0;
     loop {
         p.compute_triviality(&mut eh);
-        let is_trivial = if c.is_some() && p.passive.degree == Degree::Finite(2) {
+        let is_trivial = p.trivial_sets.as_ref().unwrap().len() > 0;
+        let is_trivial_with_coloring = if c.is_some() && p.passive.degree == Degree::Finite(2) {
             p.compute_coloring_solvability(&mut eh);
             p.coloring_sets.as_ref().unwrap().len() >= c.unwrap()
         } else {
-            p.trivial_sets.as_ref().unwrap().len() > 0 
+            false
         };
         if is_trivial {
             bound.lock().unwrap().new_ub(Bound::Rounds(i));
         } else {
             bound.lock().unwrap().new_lb(Bound::Rounds(i+1));
+        }
+        if is_trivial_with_coloring {
+            bound.lock().unwrap().new_ub(Bound::LogStar);
         }
         println!("{}", bound.lock().unwrap());
         p = p.speedup(&mut eh);
@@ -148,11 +151,17 @@ fn just_speedups(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>
 fn automatic_bounds(p : &Problem, c : Option<usize>) {
     let bound = Arc::new(Mutex::new(BoundRange::new()));
     thread::scope(|s| {
+        let b0 = bound.clone();
         let b1 = bound.clone();
         let b2 = bound.clone();
         let b3 = bound.clone();
         let b4 = bound.clone();
         let b5 = bound.clone();
+        if c.is_some() {
+            s.spawn(|| {
+                automatic_upper_bound(p,None,b0);
+            });
+        }
         s.spawn(|| {
             automatic_upper_bound(p,c,b1);
         });
