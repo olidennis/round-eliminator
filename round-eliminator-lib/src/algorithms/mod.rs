@@ -21,3 +21,4 @@ pub mod speedup;
 pub mod autoub;
 pub mod autolb;
 pub mod fixpoint;
+pub mod multigraph;

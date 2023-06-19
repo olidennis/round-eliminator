@@ -148,6 +148,28 @@ fn just_speedups(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>
     }
 }
 
+fn speedups_with_fixpoint(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = get_eh(bound.clone());
+    let mut p = p.clone();
+    loop {
+        if p.diagram_indirect.is_none() {
+            p.compute_partial_diagram(&mut eh);
+        }
+        match p.fixpoint(&mut eh) {
+            Ok(mut new) => {
+                new.compute_triviality(&mut eh);
+                let is_trivial = new.trivial_sets.as_ref().unwrap().len() > 0;
+                if !is_trivial {
+                    bound.lock().unwrap().new_lb(Bound::Log);
+                    println!("{}", bound.lock().unwrap());
+                }
+            }
+            Err(s) => {  }
+        }
+        p = p.speedup(&mut eh);
+    }
+}
+
 fn automatic_bounds(p : &Problem, c : Option<usize>) {
     let bound = Arc::new(Mutex::new(BoundRange::new()));
     thread::scope(|s| {
@@ -157,6 +179,8 @@ fn automatic_bounds(p : &Problem, c : Option<usize>) {
         let b3 = bound.clone();
         let b4 = bound.clone();
         let b5 = bound.clone();
+        let b6 = bound.clone();
+
         if c.is_some() {
             s.spawn(|| {
                 automatic_upper_bound(p,None,b0);
@@ -176,6 +200,9 @@ fn automatic_bounds(p : &Problem, c : Option<usize>) {
         });
         s.spawn(|| {
             just_speedups(p,c,b5);
+        });
+        s.spawn(|| {
+            speedups_with_fixpoint(p,c,b6);
         });
     });
 }

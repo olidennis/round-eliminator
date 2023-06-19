@@ -356,146 +356,9 @@ impl Problem {
 
             // if the problem is trivial, we need to repeat with a different diagram
             if !p.trivial_sets.as_ref().unwrap().is_empty() {
-                let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
-
-                // we extract all subexpressions for all lines obtained, both active and passive
-                let mut expressions = HashSet::new();
-                for (lines,tracking,flip) in [(p.active.lines,tracking,false),(passive_before_edit.lines,tracking_passive,true)] {
-                    let mut exprs = HashSet::new();
-                    for line in lines {
-                        let len = if let Some(rg) = tracking.get(&line) {
-                            let (_,_,before_norm,_,_) = &*rg;
-                            before_norm.parts.len()
-                        } else {
-                            line.parts.len()
-                        };
-                        for i in 0..len {
-                            let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
-                            expr.get_all_subexpressions(&mut exprs);
-                        }
-                    }
-                    for expr in exprs {
-                        expressions.insert(if flip { expr.flip() } else {expr});
-                    }
-                }
-
-                // if something goes wrong, the original labels may not appear in the result, so we add them
-                for (_,&x) in &mapping_label_newlabel {
-                    expressions.insert(TreeNode::Terminal(x));
-                }
-
-                // we also add all expressions obtained in previous attempts
-                for e in &all_expressions {
-                    expressions.insert(e.convert(&mapping_label_newlabel));
-                }
-
-                //println!("The problem is trivial, there are {} subexpressions",expressions.len());
-
-                let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
-                let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();
-                
-                // the first edges of the diagram are just given by the structure of the expressions
-                let mut new_diagram = vec![];
-                for (&l,e) in &map_label_expr {
-                    if let TreeNode::Expr(a,b,op) = e {
-                        if op == &Operation::Union {
-                            new_diagram.push((map_expr_label[a],l));
-                            new_diagram.push((map_expr_label[b],l));
-                        }
-                        if op == &Operation::Intersection {
-                            new_diagram.push((l,map_expr_label[a]));
-                            new_diagram.push((l,map_expr_label[b]));
-                        }
-                    }
-                }
-
-                // we now just compute some mappings
-                let label_to_oldlabel : HashMap<_,_> = mapping_label_newlabel.iter().map(|(&l,&n)|(n,l)).collect();
-
-                diagram = new_diagram;
-                mapping_newlabel_text = map_label_expr.iter().map(|(&l,e)|{
-                    (l,e.convert(&mapping).to_string()) 
-                }).collect();
-
-
-                mapping_label_newlabel = map_label_expr.iter().filter_map(|(&l,e)| match e {
-                    TreeNode::Terminal(x) => { Some((label_to_oldlabel[x],l)) },
-                    TreeNode::Expr(_,_,_) => None
-                }).collect();
-
-                // the current expressions are added to the ones that we use in the next try
-                for (_,e) in &map_label_expr {
-                    all_expressions.insert(e.convert(&label_to_oldlabel));
-                }
-
-                // we also add to the current diagram the edges of the original diagram
-                for (x,y) in orig_diagram {
-                    diagram.push((mapping_label_newlabel[x],mapping_label_newlabel[y]));
-                }
-
-                let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
-                diagram = diagram_to_indirect(&newlabels,&diagram);
-                diagram.sort();
-
-                // we fix the diagram: a node that is the union of (a,b) must point to all common successors of a and b 
-                loop{
-                    let before_edit = diagram.clone();
-                    let diagram_rev : Vec<_> = diagram.iter().map(|&(a,b)|(b,a)).collect();
-                    let successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram);
-                    let predecessors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_rev);
-                    for (&l,e) in &map_label_expr {
-                        if let TreeNode::Expr(a,b,op) = e {
-                            let a = map_expr_label[a];
-                            let b = map_expr_label[b];
-                            if op == &Operation::Union {
-                                let commons : Vec<_> = successors[&a].intersection(&successors[&b]).collect();
-                                for &common in commons {
-                                    diagram.push((l,common));
-                                }
-                            }
-                            if op == &Operation::Intersection {
-                                let commons : Vec<_> = predecessors[&a].intersection(&predecessors[&b]).collect();
-                                for &common in commons {
-                                    diagram.push((common,l));
-                                }
-                            }
-                        }
-                    }
-                    diagram = diagram_to_indirect(&newlabels,&diagram);
-                    diagram.sort();
-                    if before_edit == diagram {
-                        break;
-                    }
-                }
-
-                // we add a source and a sink to make sure that every pair of labels has some common successor and predecessor
-                let max = mapping_newlabel_text.iter().map(|(l,_)|l).max().unwrap();
-                let source = (max+1) as Label;
-                let sink = (max+2) as Label;
-                for &(l,_) in &mapping_newlabel_text {
-                    diagram.push((source,l));
-                    diagram.push((l,sink));
-                }
-                mapping_newlabel_text.push((source,"(Source)".to_owned()));
-                mapping_newlabel_text.push((sink,"(Sink)".to_owned()));
-
-                // we merge equivalent labels
-                let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
-                let (merges,_) = compute_direct_diagram(&newlabels, &diagram);
-                for (l,g) in merges {
-                    for l2 in g {
-                        if l2 != l {
-                            diagram.retain(|&(a,b)|a != l2 && b != l2);
-                            mapping_newlabel_text.retain(|&(a,_)|a != l2);
-                            for (k,v) in mapping_label_newlabel.iter().map(|(&k,&v)|(k,v)).collect::<Vec<_>>().into_iter() {
-                                if v == l2 {
-                                    mapping_label_newlabel.insert(k,l);
-                                }
-                            }
-                        }
-                    }
-                }
-
+                //
+                let new_exprs = [(p.active.lines,tracking,false),(passive_before_edit.lines,tracking_passive,true)];
+                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&new_exprs, &mut all_expressions, orig_diagram, &mapping_newlabel_text, &mapping_label_newlabel);
             } else {
                 break p;
             }
@@ -505,6 +368,149 @@ impl Problem {
     }
 
 
+}
+
+fn diagram_for_expressions(new_exprs : &[(Vec<Line>, CHashMap<Line,Tracking>,bool)], all_expressions : &mut HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_newlabel_text : &Vec<(Label,String)>, mapping_label_newlabel : &HashMap<Label,Label>) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
+    let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+
+    // we extract all subexpressions for all lines obtained, both active and passive
+    let mut expressions = HashSet::new();
+    for (lines,tracking,flip) in new_exprs {
+        let mut exprs = HashSet::new();
+        for line in lines {
+            let len = if let Some(rg) = tracking.get(&line) {
+                let (_,_,before_norm,_,_) = &*rg;
+                before_norm.parts.len()
+            } else {
+                line.parts.len()
+            };
+            for i in 0..len {
+                let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                expr.get_all_subexpressions(&mut exprs);
+            }
+        }
+        for expr in exprs {
+            expressions.insert(if *flip { expr.flip() } else {expr});
+        }
+    }
+
+    // if something goes wrong, the original labels may not appear in the result, so we add them
+    for (_,&x) in mapping_label_newlabel {
+        expressions.insert(TreeNode::Terminal(x));
+    }
+
+    // we also add all expressions obtained in previous attempts
+    for e in all_expressions.iter() {
+        expressions.insert(e.convert(&mapping_label_newlabel));
+    }
+
+    //println!("The problem is trivial, there are {} subexpressions",expressions.len());
+
+    let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
+    let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();
+    
+    // the first edges of the diagram are just given by the structure of the expressions
+    let mut new_diagram = vec![];
+    for (&l,e) in &map_label_expr {
+        if let TreeNode::Expr(a,b,op) = e {
+            if op == &Operation::Union {
+                new_diagram.push((map_expr_label[a],l));
+                new_diagram.push((map_expr_label[b],l));
+            }
+            if op == &Operation::Intersection {
+                new_diagram.push((l,map_expr_label[a]));
+                new_diagram.push((l,map_expr_label[b]));
+            }
+        }
+    }
+
+    // we now just compute some mappings
+    let label_to_oldlabel : HashMap<_,_> = mapping_label_newlabel.iter().map(|(&l,&n)|(n,l)).collect();
+
+    let mut new_mapping_newlabel_text : Vec<_> = map_label_expr.iter().map(|(&l,e)|{
+        (l,e.convert(&mapping).to_string()) 
+    }).collect();
+
+
+    let mut new_mapping_label_newlabel : HashMap<_,_> = map_label_expr.iter().filter_map(|(&l,e)| match e {
+        TreeNode::Terminal(x) => { Some((label_to_oldlabel[x],l)) },
+        TreeNode::Expr(_,_,_) => None
+    }).collect();
+
+    // the current expressions are added to the ones that we use in the next try
+    for (_,e) in &map_label_expr {
+        all_expressions.insert(e.convert(&label_to_oldlabel));
+    }
+
+    // we also add to the current diagram the edges of the original diagram
+    for (x,y) in orig_diagram {
+        new_diagram.push((new_mapping_label_newlabel[x],new_mapping_label_newlabel[y]));
+    }
+
+    let newlabels : Vec<Label> = new_mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
+    new_diagram = diagram_to_indirect(&newlabels,&new_diagram);
+    new_diagram.sort();
+
+    // we fix the diagram: a node that is the union of (a,b) must point to all common successors of a and b 
+    loop{
+        let before_edit = new_diagram.clone();
+        let diagram_rev : Vec<_> = new_diagram.iter().map(|&(a,b)|(b,a)).collect();
+        let successors = diagram_indirect_to_reachability_adj(&newlabels,&new_diagram);
+        let predecessors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_rev);
+        for (&l,e) in &map_label_expr {
+            if let TreeNode::Expr(a,b,op) = e {
+                let a = map_expr_label[a];
+                let b = map_expr_label[b];
+                if op == &Operation::Union {
+                    let commons : Vec<_> = successors[&a].intersection(&successors[&b]).collect();
+                    for &common in commons {
+                        new_diagram.push((l,common));
+                    }
+                }
+                if op == &Operation::Intersection {
+                    let commons : Vec<_> = predecessors[&a].intersection(&predecessors[&b]).collect();
+                    for &common in commons {
+                        new_diagram.push((common,l));
+                    }
+                }
+            }
+        }
+        new_diagram = diagram_to_indirect(&newlabels,&new_diagram);
+        new_diagram.sort();
+        if before_edit == new_diagram {
+            break;
+        }
+    }
+
+    // we add a source and a sink to make sure that every pair of labels has some common successor and predecessor
+    let max = new_mapping_newlabel_text.iter().map(|(l,_)|l).max().unwrap();
+    let source = (max+1) as Label;
+    let sink = (max+2) as Label;
+    for &(l,_) in &new_mapping_newlabel_text {
+        new_diagram.push((source,l));
+        new_diagram.push((l,sink));
+    }
+    new_mapping_newlabel_text.push((source,"(Source)".to_owned()));
+    new_mapping_newlabel_text.push((sink,"(Sink)".to_owned()));
+
+    // we merge equivalent labels
+    let newlabels : Vec<Label> = new_mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
+    let (merges,_) = compute_direct_diagram(&newlabels, &new_diagram);
+    for (l,g) in merges {
+        for l2 in g {
+            if l2 != l {
+                new_diagram.retain(|&(a,b)|a != l2 && b != l2);
+                new_mapping_newlabel_text.retain(|&(a,_)|a != l2);
+                for (k,v) in new_mapping_label_newlabel.iter().map(|(&k,&v)|(k,v)).collect::<Vec<_>>().into_iter() {
+                    if v == l2 {
+                        new_mapping_label_newlabel.insert(k,l);
+                    }
+                }
+            }
+        }
+    }
+
+    (new_diagram,new_mapping_newlabel_text,new_mapping_label_newlabel)
 }
 
 fn rcs_helper(labels : &[Label], right: &HashMap<Label,HashSet<Label>>, result: &mut Vec<HashSet<Label>>, added: HashSet<Label>) {
