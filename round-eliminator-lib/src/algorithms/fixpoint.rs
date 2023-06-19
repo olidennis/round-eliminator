@@ -356,9 +356,41 @@ impl Problem {
 
             // if the problem is trivial, we need to repeat with a different diagram
             if !p.trivial_sets.as_ref().unwrap().is_empty() {
-                //
-                let new_exprs = [(p.active.lines,tracking,false),(passive_before_edit.lines,tracking_passive,true)];
-                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&new_exprs, &mut all_expressions, orig_diagram, &mapping_newlabel_text, &mapping_label_newlabel);
+
+                // we extract all subexpressions for all lines obtained, both active and passive
+                let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+                let mut expressions = HashSet::new();
+                for (lines,tracking,flip) in [(p.active.lines,tracking,false),(passive_before_edit.lines,tracking_passive,true)] {
+                    let mut exprs = HashSet::new();
+                    for line in lines {
+                        let len = if let Some(rg) = tracking.get(&line) {
+                            let (_,_,before_norm,_,_) = &*rg;
+                            before_norm.parts.len()
+                        } else {
+                            line.parts.len()
+                        };
+                        for i in 0..len {
+                            let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                            expr.get_all_subexpressions(&mut exprs);
+                        }
+                    }
+                    for expr in exprs {
+                        expressions.insert(if flip { expr.flip() } else {expr});
+                    }
+                }
+
+                // if something goes wrong, the original labels may not appear in the result, so we add them
+                for (_,&x) in &mapping_label_newlabel {
+                    expressions.insert(TreeNode::Terminal(x));
+                }
+
+                // the current expressions are added to the ones that we use in the next try
+                let label_to_oldlabel : HashMap<_,_> = mapping_label_newlabel.iter().map(|(&l,&n)|(n,l)).collect();
+                for e in &expressions {
+                    all_expressions.insert(e.convert(&label_to_oldlabel));
+                }
+
+                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&all_expressions, orig_diagram, &mapping_newlabel_text);
             } else {
                 break p;
             }
@@ -370,45 +402,12 @@ impl Problem {
 
 }
 
-fn diagram_for_expressions(new_exprs : &[(Vec<Line>, CHashMap<Line,Tracking>,bool)], all_expressions : &mut HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_newlabel_text : &Vec<(Label,String)>, mapping_label_newlabel : &HashMap<Label,Label>) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
-    let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
-
-    // we extract all subexpressions for all lines obtained, both active and passive
-    let mut expressions = HashSet::new();
-    for (lines,tracking,flip) in new_exprs {
-        let mut exprs = HashSet::new();
-        for line in lines {
-            let len = if let Some(rg) = tracking.get(&line) {
-                let (_,_,before_norm,_,_) = &*rg;
-                before_norm.parts.len()
-            } else {
-                line.parts.len()
-            };
-            for i in 0..len {
-                let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
-                expr.get_all_subexpressions(&mut exprs);
-            }
-        }
-        for expr in exprs {
-            expressions.insert(if *flip { expr.flip() } else {expr});
-        }
-    }
-
-    // if something goes wrong, the original labels may not appear in the result, so we add them
-    for (_,&x) in mapping_label_newlabel {
-        expressions.insert(TreeNode::Terminal(x));
-    }
-
-    // we also add all expressions obtained in previous attempts
-    for e in all_expressions.iter() {
-        expressions.insert(e.convert(&mapping_label_newlabel));
-    }
-
-    //println!("The problem is trivial, there are {} subexpressions",expressions.len());
+fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_label_text : &Vec<(Label,String)>) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
 
     let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
     let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();
-    
+    let mapping : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
+
     // the first edges of the diagram are just given by the structure of the expressions
     let mut new_diagram = vec![];
     for (&l,e) in &map_label_expr {
@@ -425,22 +424,17 @@ fn diagram_for_expressions(new_exprs : &[(Vec<Line>, CHashMap<Line,Tracking>,boo
     }
 
     // we now just compute some mappings
-    let label_to_oldlabel : HashMap<_,_> = mapping_label_newlabel.iter().map(|(&l,&n)|(n,l)).collect();
-
     let mut new_mapping_newlabel_text : Vec<_> = map_label_expr.iter().map(|(&l,e)|{
         (l,e.convert(&mapping).to_string()) 
     }).collect();
 
 
     let mut new_mapping_label_newlabel : HashMap<_,_> = map_label_expr.iter().filter_map(|(&l,e)| match e {
-        TreeNode::Terminal(x) => { Some((label_to_oldlabel[x],l)) },
+        TreeNode::Terminal(x) => { Some((*x,l)) },
         TreeNode::Expr(_,_,_) => None
     }).collect();
 
-    // the current expressions are added to the ones that we use in the next try
-    for (_,e) in &map_label_expr {
-        all_expressions.insert(e.convert(&label_to_oldlabel));
-    }
+
 
     // we also add to the current diagram the edges of the original diagram
     for (x,y) in orig_diagram {
