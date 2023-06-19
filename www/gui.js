@@ -365,6 +365,8 @@ Vue.component('re-computing', {
     computed: {
         state: function() {
             switch( this.action.type ) {
+                case "fixpoint autofix":
+                    return {bar : false, msg: "Computing Fixed Point with Automatic Diagram Fixing ("+this.action.max+" labels)"}; 
                 case "autoub":
                     return {bar : false, msg: "Computing an Upper Bound Automatically"}; 
                 case "autolb":

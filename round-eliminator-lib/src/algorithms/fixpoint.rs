@@ -353,7 +353,6 @@ impl Problem {
             // run the fixpoint procedure, keep track of how each line has been obtained
             let (mut p,passive_before_edit) = self.fixpoint_onestep(&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh)?;
             p.compute_triviality(eh);
-
             // if the problem is trivial, we need to repeat with a different diagram
             if !p.trivial_sets.as_ref().unwrap().is_empty() {
 
@@ -390,7 +389,8 @@ impl Problem {
                     all_expressions.insert(e.convert(&label_to_oldlabel));
                 }
 
-                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&all_expressions, orig_diagram, &mapping_newlabel_text);
+                eh.notify("fixpoint autofix", 0, all_expressions.len());
+                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&all_expressions, orig_diagram, &self.mapping_label_text);
             } else {
                 break p;
             }
@@ -403,10 +403,9 @@ impl Problem {
 }
 
 fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_label_text : &Vec<(Label,String)>) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
-
+    let mapping_label_text : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
     let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
     let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();
-    let mapping : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
 
     // the first edges of the diagram are just given by the structure of the expressions
     let mut new_diagram = vec![];
@@ -424,10 +423,7 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
     }
 
     // we now just compute some mappings
-    let mut new_mapping_newlabel_text : Vec<_> = map_label_expr.iter().map(|(&l,e)|{
-        (l,e.convert(&mapping).to_string()) 
-    }).collect();
-
+    let mut new_labels : Vec<Label> = map_label_expr.keys().cloned().collect();
 
     let mut new_mapping_label_newlabel : HashMap<_,_> = map_label_expr.iter().filter_map(|(&l,e)| match e {
         TreeNode::Terminal(x) => { Some((*x,l)) },
@@ -441,16 +437,15 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
         new_diagram.push((new_mapping_label_newlabel[x],new_mapping_label_newlabel[y]));
     }
 
-    let newlabels : Vec<Label> = new_mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
-    new_diagram = diagram_to_indirect(&newlabels,&new_diagram);
+    new_diagram = diagram_to_indirect(&new_labels,&new_diagram);
     new_diagram.sort();
 
     // we fix the diagram: a node that is the union of (a,b) must point to all common successors of a and b 
     loop{
         let before_edit = new_diagram.clone();
         let diagram_rev : Vec<_> = new_diagram.iter().map(|&(a,b)|(b,a)).collect();
-        let successors = diagram_indirect_to_reachability_adj(&newlabels,&new_diagram);
-        let predecessors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_rev);
+        let successors = diagram_indirect_to_reachability_adj(&new_labels,&new_diagram);
+        let predecessors = diagram_indirect_to_reachability_adj(&new_labels,&diagram_rev);
         for (&l,e) in &map_label_expr {
             if let TreeNode::Expr(a,b,op) = e {
                 let a = map_expr_label[a];
@@ -469,7 +464,7 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
                 }
             }
         }
-        new_diagram = diagram_to_indirect(&newlabels,&new_diagram);
+        new_diagram = diagram_to_indirect(&new_labels,&new_diagram);
         new_diagram.sort();
         if before_edit == new_diagram {
             break;
@@ -477,24 +472,23 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
     }
 
     // we add a source and a sink to make sure that every pair of labels has some common successor and predecessor
-    let max = new_mapping_newlabel_text.iter().map(|(l,_)|l).max().unwrap();
+    let max = new_labels.iter().max().unwrap();
     let source = (max+1) as Label;
     let sink = (max+2) as Label;
-    for &(l,_) in &new_mapping_newlabel_text {
+    for &l in &new_labels {
         new_diagram.push((source,l));
         new_diagram.push((l,sink));
     }
-    new_mapping_newlabel_text.push((source,"(Source)".to_owned()));
-    new_mapping_newlabel_text.push((sink,"(Sink)".to_owned()));
+    new_labels.push(source);
+    new_labels.push(sink);
 
     // we merge equivalent labels
-    let newlabels : Vec<Label> = new_mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
-    let (merges,_) = compute_direct_diagram(&newlabels, &new_diagram);
+    let (merges,_) = compute_direct_diagram(&new_labels, &new_diagram);
     for (l,g) in merges {
         for l2 in g {
             if l2 != l {
                 new_diagram.retain(|&(a,b)|a != l2 && b != l2);
-                new_mapping_newlabel_text.retain(|&(a,_)|a != l2);
+                new_labels.retain(|&a|a != l2);
                 for (k,v) in new_mapping_label_newlabel.iter().map(|(&k,&v)|(k,v)).collect::<Vec<_>>().into_iter() {
                     if v == l2 {
                         new_mapping_label_newlabel.insert(k,l);
@@ -503,6 +497,74 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
             }
         }
     }
+
+    // the diagram may still not satisfy the requirements
+    // we first compute some sets that would contain the same relations as the diagram that we just computed
+    new_diagram = diagram_to_indirect(&new_labels,&new_diagram);
+    let reachability : Vec<(Label,BTreeSet<Label>)> = diagram_indirect_to_reachability_adj(&new_labels,&new_diagram).into_iter().map(|(k,mut v)|{v.insert(k); (k,v.into_iter().collect())}).collect();
+    let mut sets : Vec<_> = reachability.iter().map(|(_,v)|v.clone()).collect();
+
+    loop {
+        // we now check if something is wrong, and in case we add new labels
+        let mut to_add = HashSet::new();
+        for l1 in &sets {
+            for l2 in &sets {
+                let intersection : BTreeSet<Label> = l1.intersection(l2).cloned().collect();
+                let mut common : Vec<_> = sets.iter().filter(|l|l.is_subset(&intersection)).cloned().collect();
+                for l in common.clone().into_iter() {
+                    common.retain(|x| x == &l || !x.is_subset(&l));
+                }
+                if common.len() != 1 {
+                    to_add.insert(intersection);
+                }
+                let union : BTreeSet<Label> = l1.union(l2).cloned().collect();
+                let mut common : Vec<_> = sets.iter().filter(|l|l.is_superset(&union)).cloned().collect();
+                for l in common.clone().into_iter() {
+                    common.retain(|x| x == &l || !x.is_superset(&l));
+                }
+                if common.len() != 1 {
+                    to_add.insert(union);
+                }
+            }
+        }
+        if to_add.is_empty() {
+            break;
+        } else {
+            sets = sets.into_iter().chain(to_add.into_iter()).unique().collect();
+        }
+    }
+
+    let mapping_set_newlabel : HashMap<_,_> = sets.iter().cloned().enumerate().map(|(l,s)|(s,l as Label)).collect();
+    let mapping_newlabel_set : HashMap<_,_> = sets.iter().cloned().enumerate().map(|(l,s)|(l as Label,s)).collect();
+    let new_labels : Vec<Label> = mapping_newlabel_set.keys().cloned().collect();
+
+    let mut new_diagram = vec![];
+    for &l1 in &new_labels {
+        for &l2 in &new_labels {
+            let s_l1 = &mapping_newlabel_set[&l1];
+            let s_l2 = &mapping_newlabel_set[&l2];
+            if s_l1 != s_l2 && s_l1.is_superset(s_l2) {
+                new_diagram.push((l1,l2));
+            }
+        }
+    }
+
+    let mapping_oldoldlabel_oldlabel = new_mapping_label_newlabel;
+    let mapping_oldlabel_set : HashMap<_,_> = reachability.iter().cloned().collect();
+    let mapping_set_oldlabel : HashMap<_,_> = reachability.iter().cloned().map(|(k,v)|(v,k)).collect();
+    let mapping_oldlabel_oldoldlabel : HashMap<Label,Label> = mapping_oldoldlabel_oldlabel.iter().map(|(&k,&v)|(v,k)).collect();
+    let new_mapping_label_newlabel : HashMap<_,_> = mapping_oldoldlabel_oldlabel.into_iter().map(|(l,n)|{
+        (l,mapping_set_newlabel[&mapping_oldlabel_set[&n]])
+    }).collect();
+
+    let old_labels : HashSet<_> = new_mapping_label_newlabel.values().cloned().collect();
+    let new_mapping_newlabel_text = mapping_newlabel_set.iter().map(|(&l,s)|{
+        if old_labels.contains(&l) {
+            (l,mapping_label_text[&mapping_oldlabel_oldoldlabel[&mapping_set_oldlabel[s]]].to_owned())
+        } else {
+            (l,format!("({})",l))
+        }
+    }).collect();
 
     (new_diagram,new_mapping_newlabel_text,new_mapping_label_newlabel)
 }
@@ -542,7 +604,6 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
     for &l1 in labels {
         for &l2 in labels {
             let mut common : HashSet<Label> = successors[&l1].intersection(&successors[&l2]).cloned().collect();
-            let len = common.len();
             for l in common.clone().into_iter() {
                 for r in successors[&l].iter().filter(|&&x|x != l) {
                     common.remove(r);
