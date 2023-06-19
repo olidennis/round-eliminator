@@ -344,9 +344,9 @@ impl Problem {
         let mut mapping_label_newlabel : HashMap<_, _> = mapping_label_newlabel.iter().cloned().collect();
 
         let mut all_expressions : HashSet<TreeNode<Label>> = HashSet::new();
-
+        //let mut i=0;
         let p = loop {
-
+            //i += 1;
             let tracking = CHashMap::new();
             let tracking_passive = CHashMap::new();
 
@@ -354,7 +354,7 @@ impl Problem {
             let (mut p,passive_before_edit) = self.fixpoint_onestep(&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh)?;
             p.compute_triviality(eh);
             // if the problem is trivial, we need to repeat with a different diagram
-            if !p.trivial_sets.as_ref().unwrap().is_empty() {
+            if !p.trivial_sets.as_ref().unwrap().is_empty() /*&& i <4*/ {
 
                 // we extract all subexpressions for all lines obtained, both active and passive
                 let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
@@ -390,7 +390,7 @@ impl Problem {
                 }
 
                 eh.notify("fixpoint autofix", 0, all_expressions.len());
-                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&all_expressions, orig_diagram, &self.mapping_label_text);
+                (diagram,mapping_newlabel_text,mapping_label_newlabel) = diagram_for_expressions(&all_expressions, orig_diagram, &self.mapping_label_text, eh);
             } else {
                 break p;
             }
@@ -402,7 +402,7 @@ impl Problem {
 
 }
 
-fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_label_text : &Vec<(Label,String)>) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
+fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_label_text : &Vec<(Label,String)>, eh: &mut EventHandler) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
     let mapping_label_text : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
     let map_label_expr : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(a as Label,b)).collect();
     let map_expr_label : HashMap<_,_> = expressions.iter().cloned().enumerate().map(|(a,b)|(b,a as Label)).collect();
@@ -509,6 +509,8 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
         let mut to_add = HashSet::new();
         for l1 in &sets {
             for l2 in &sets {
+                eh.notify("fixpoint autofix", 0, sets.len() + to_add.len());
+
                 let intersection : BTreeSet<Label> = l1.intersection(l2).cloned().collect();
                 let mut common : Vec<_> = sets.iter().filter(|l|l.is_subset(&intersection)).cloned().collect();
                 for l in common.clone().into_iter() {
