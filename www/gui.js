@@ -79,6 +79,11 @@ function inverse_speedup(problem, onresult, onerror, progress){
     return api.request({ InverseSpeedup : problem }, ondata , function(){});
 }
 
+function compute_coloring_solvability(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ ColoringSolvability : problem }, ondata , function(){});
+}
+
 function speedupmaximize(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ SpeedupMaximize : problem }, ondata , function(){});
@@ -307,6 +312,8 @@ Vue.component('re-performed-action', {
                     return "Generated Fixed Point With Label Duplication: "+ this.action.dups;
                 case "inversespeedup":
                     return "Performed inverse speedup";
+                case "coloring":
+                    return "Computed hypergraph strong coloring solvability";
                 case "speedupmaximize":
                     return "Performed speedup and maximized";
                 case "speedupmaximizerenamegen":
@@ -754,6 +761,18 @@ Vue.component('re-inverse-speedup',{
     },
     template: `
         <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Inverse Speedup</button>
+    `
+})
+
+Vue.component('re-coloring',{
+    props: ['problem','stuff'],
+    methods: {
+        on_click() {
+            call_api_generating_problem(this.stuff,{type:"coloring"},compute_coloring_solvability,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_click">Coloring</button>
     `
 })
 
@@ -1223,6 +1242,7 @@ Vue.component('re-operations',{
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
+            <div class="m-2"><re-coloring :problem="problem" :stuff="stuff"></re-coloring> compute hypergraph strong coloring solvability</div>
         </re-card>
     `
 })

@@ -87,7 +87,7 @@ impl Problem {
 
         self.passive.maximize(eh);
 
-        let active_sets : Vec<_> = self.active.minimal_sets_of_all_choices().into_iter().enumerate().collect();
+        let active_sets : Vec<_> = self.active.minimal_sets_of_all_choices().into_iter().flat_map(|set|std::iter::repeat(set).take(self.passive.finite_degree()-1)).enumerate().collect();
 
         let mut hyperedges = vec![];
         let len = active_sets.iter().combinations(self.passive.finite_degree()).count();

@@ -145,7 +145,7 @@ where
             new.discard_useless_stuff(true, &mut eh);
             new.sort_active_by_strength();
             new.compute_triviality(&mut eh);
-            if new.passive.degree == Degree::Finite(2) || new.passive.degree == Degree::Finite(3) {
+            if new.passive.degree == Degree::Finite(2) {
                 new.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = new.orientation_given {
                     new.compute_triviality_given_orientation(outdegree, &mut eh);
@@ -164,7 +164,7 @@ where
             new.discard_useless_stuff(true, &mut eh);
             new.sort_active_by_strength();
             new.compute_triviality(&mut eh);
-            if new.passive.degree == Degree::Finite(2) || new.passive.degree == Degree::Finite(3) {
+            if new.passive.degree == Degree::Finite(2) {
                 new.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = new.orientation_given {
                     new.compute_triviality_given_orientation(outdegree, &mut eh);
@@ -224,7 +224,7 @@ where
             problem.discard_useless_stuff(true, &mut eh);
             problem.sort_active_by_strength();
             problem.compute_triviality(&mut eh);
-            if problem.passive.degree == Degree::Finite(2) || problem.passive.degree == Degree::Finite(3) {
+            if problem.passive.degree == Degree::Finite(2) {
                 problem.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = problem.orientation_given {
                     problem.compute_triviality_given_orientation(outdegree, &mut eh);
@@ -270,6 +270,10 @@ where
                 eh.notify("autolb",0,0);
             }, &mut eh_ignore);
         },
+        Request::ColoringSolvability(mut problem) => {
+            problem.compute_coloring_solvability(&mut eh);
+            handler(Response::P(problem));
+        }
         Request::DefaultDiagram(mut problem) => {
             problem.compute_default_fixpoint_diagram();
             handler(Response::P(problem));
@@ -303,6 +307,7 @@ pub enum Request {
     DefaultDiagram(Problem),
     AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
+    ColoringSolvability(Problem),
     Ping,
 }
 

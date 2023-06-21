@@ -191,7 +191,7 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
         s.spawn(|| {
             automatic_upper_bound(p,c,pc,b1);
         });
-        s.spawn(|| {
+        /*s.spawn(|| {
             just_speedups(p,c,pc,b5);
         });
         if c.is_some() || pc.is_some() {
@@ -211,7 +211,7 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
 
         s.spawn(|| {
             speedups_with_fixpoint(p,c,pc,b6);
-        }); 
+        }); */
     });
 }
 
