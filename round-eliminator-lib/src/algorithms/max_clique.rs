@@ -1,5 +1,8 @@
 // This is a conversion into Rust of the C code of Cliquer (https://users.aalto.fi/~pat/cliquer.html)
 
+use std::collections::{HashMap, HashSet, BTreeSet};
+
+use itertools::Itertools;
 use log::trace;
 
 pub struct Graph {
@@ -111,4 +114,63 @@ impl Graph {
         assert!(order.len() == n);
         order
     }
+}
+
+
+
+pub struct HyperGraph {
+    nodes: usize,
+    adj: HashMap<usize,Vec<BTreeSet<usize>>>,
+    m: HashSet<BTreeSet<usize>>,
+    rank : usize
+}
+
+impl HyperGraph {
+
+    pub fn from_hyperedges(vh: Vec<Vec<usize>>) -> Self {
+        let nodes = vh.iter().flat_map(|h|h.iter()).max().map(|&x|x+1).unwrap_or(0);
+        let rank = if !vh.is_empty() { vh[0].len() } else {2};
+
+        let mut adj = HashMap::<_,Vec<BTreeSet<_>>>::new();
+        let mut m = HashSet::<BTreeSet<_>>::new();
+
+        for h in vh {
+            let sh : BTreeSet<_> = h.iter().cloned().collect();
+            for v in h {
+                adj.entry(v).or_default().push(sh.clone());
+            }
+            m.insert(sh);
+        }
+        
+        Self { nodes, adj, m, rank }
+    }
+
+    pub fn max_clique(&self) -> Vec<usize> {
+        let mut nodes : Vec<usize> = self.adj.keys().cloned().collect();
+        let mut best_set = vec![];
+        for i in self.rank..=self.nodes {
+            let mut next_nodes = HashSet::new();
+            for set in nodes.iter().cloned().combinations(i) {
+                if self.is_clique(&set) {
+                    next_nodes.extend(set.iter().cloned());
+                    best_set = set;
+                }
+            }
+            if best_set.len() != i {
+                break;
+            }
+            nodes = next_nodes.into_iter().collect();
+        } 
+        best_set
+    }
+
+    pub fn is_clique(&self, v : &Vec<usize>) -> bool {
+        for h in v.iter().cloned().combinations(self.rank) {
+            if !self.m.contains(&h.into_iter().collect()) {
+                return false;
+            }
+        }
+        true
+    }
+
 }

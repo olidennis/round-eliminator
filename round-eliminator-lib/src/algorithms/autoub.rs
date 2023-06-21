@@ -9,12 +9,12 @@ use rand::prelude::SliceRandom;
 
 
 impl Problem {
-    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
+    pub fn autoub<F>(&self, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
         if self.labels().len() <= max_labels {
             let mut problems = vec![(self.labels(),self.clone(),self.clone(),self.to_string())];
             let mut best = usize::MAX;
             let mut seen = HashMap::new();
-            automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, &mut handler, eh);
+            automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, coloring_passive, &mut handler, eh);
         } else {
             let mut best = usize::MAX;
             let mut seen = HashMap::new();
@@ -24,19 +24,19 @@ impl Problem {
                 hardened.discard_useless_stuff(false, eh);
                 hardened.sort_active_by_strength();
                 hardened.compute_triviality(eh);
-                if hardened.passive.degree == Degree::Finite(2) && coloring.is_some() {
+                if coloring.is_some() {
                     hardened.compute_coloring_solvability(eh);
                 }
                 let h_s = hardened.to_string();
                 let mut problems = vec![(candidate,self.clone(),hardened.clone(),h_s)];
-                automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, &mut handler, eh);
+                automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, coloring_passive, &mut handler, eh);
             }
         }
     }
 
-    pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
+    pub fn autoautoub<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
         if b_max_labels && b_branching && b_max_steps {
-            return self.autoub(max_labels, branching, max_steps, coloring, handler, eh);
+            return self.autoub(max_labels, branching, max_steps, coloring, coloring_passive, handler, eh);
         }
 
         let mut max_steps = if b_max_steps {max_steps} else {usize::MAX};
@@ -48,7 +48,7 @@ impl Problem {
                 if j_max_steps > max_steps {
                     break;
                 }
-                self.autoub(i_max_labels, i_branching, j_max_steps, coloring,|len,trivial,seq|{
+                self.autoub(i_max_labels, i_branching, j_max_steps, coloring, coloring_passive, |len,trivial,seq|{
                     if len <= max_steps {
                         max_steps = len-1;
                         handler(len,trivial,seq);
@@ -71,7 +71,7 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
 
     let labels = np.labels();
     let (old, new) = np.split_labels_original_new();
-    let label_weights : HashMap<_,_> = if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+    let label_weights : HashMap<_,_> = if coloring.is_some() {
         let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
         np.labels().into_iter().map(|l|{
             let weight = map[&l].len() + 10* if !colors.contains(&l){1}else{0};
@@ -121,7 +121,7 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
     }
 
     let mut candidates : Vec<_> = candidates.into_iter().collect();
-    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+    if coloring.is_some() {
         let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
         candidates.sort_by_cached_key(|labels|{
             labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
@@ -135,7 +135,7 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
     candidates.into_iter().take(branching).collect()
 }
 
-fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
+fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
     
     let mut send_sequence = |problems : &Vec<(Vec<Label>,Problem,Problem,String)>|{
         *best = problems.len();
@@ -172,7 +172,7 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         if p.trivial_sets.is_none() {
             p.compute_triviality(eh);
         }
-        if p.passive.degree == Degree::Finite(2) && coloring.is_some() && p.coloring_sets.is_none() {
+        if coloring.is_some() && p.coloring_sets.is_none() {
             p.compute_coloring_solvability(eh);
         }
 
@@ -188,12 +188,13 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
     }
 
 
+    let (coloring,coloring_passive) = (coloring_passive,coloring);
 
     let mut np = p.speedup(eh);
     np.discard_useless_stuff(false, eh);
     np.sort_active_by_strength();
     np.compute_triviality(eh);
-    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+    if coloring.is_some() {
         np.compute_coloring_solvability(eh);
     }
 
@@ -216,13 +217,13 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         hardened.discard_useless_stuff(false, eh);
         hardened.sort_active_by_strength();
         hardened.compute_triviality(eh);
-        if hardened.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        if coloring.is_some() {
             hardened.compute_coloring_solvability(eh);
         }
         let h_s = hardened.to_string();
 
         problems.push((candidate,np.clone(),hardened.clone(),h_s));
-        automatic_upper_bound_rec(seen, problems, best, max_labels, branching, max_steps, coloring, handler, eh);
+        automatic_upper_bound_rec(seen, problems, best, max_labels, branching, max_steps, coloring, coloring_passive, handler, eh);
         problems.pop();
     }
 

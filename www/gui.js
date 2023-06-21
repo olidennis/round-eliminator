@@ -134,14 +134,14 @@ function rename(problem, renaming, onresult, onerror, progress){
     return api.request({ Rename : [problem,renaming] }, ondata , function(){});
 }
 
-function autoub(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, onresult, onerror, progress, oncomplete){
+function autoub(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, coloring_given_passive, coloring_passive, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoUb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching), b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring)] }, ondata, oncomplete);
+    return api.request({ AutoUb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching), b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
-function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, onresult, onerror, progress, oncomplete){
+function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, coloring_given_passive, coloring_passive, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring)] }, ondata, oncomplete);
+    return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
 
@@ -1100,7 +1100,9 @@ Vue.component('re-auto-lb',{
             max_steps : 15,
             branching : 4,
             coloring_given : false,
-            coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
+            coloring : (this.problem.active.degree.Finite != null && this.problem.passive.degree.Finite != null) ? (this.problem.active.degree.Finite*(this.problem.passive.degree.Finite - 1) +1) : 4,
+            coloring_given_passive : false,
+            coloring_passive : (this.problem.active.degree.Finite != null && this.problem.passive.degree.Finite != null) ? (this.problem.passive.degree.Finite*(this.problem.active.degree.Finite - 1) +1) : 4,
         }
     },
     watch: { 
@@ -1112,17 +1114,21 @@ Vue.component('re-auto-lb',{
     },
     methods: {
         on_autolb() {
-            call_api_generating_sequence(this.stuff,{type:"autolb"},autolb,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring], false);
+            call_api_generating_sequence(this.stuff,{type:"autolb"},autolb,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring, this.coloring_given_passive, this.coloring_passive], false);
         },
     },
     template: `
         <re-card title="Automatic Lower Bound" subtitle="">
-            <div v-if="this.problem.passive.degree.Finite === 2">
+            <div v-if="this.problem.active.degree.Finite > 2 && this.problem.passive.degree.Finite > 2">On Hypergraphs, coloring here refers to strong coloring.</div>
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
             </div>
-                <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+            <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="coloring_given_passive"><p class="form-control-static custom-control-label">A coloring is given (passive side)</p></label>
             </div>
+            <div v-if="this.coloring_given_passive">Coloring: <input class="form-control m-2" type="number" v-model="coloring_passive"></div>
 
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="b_max_labels"><p class="form-control-static custom-control-label">Manually set Max Labels</p></label>
@@ -1155,7 +1161,9 @@ Vue.component('re-auto-ub',{
             branching : 4,
             max_steps : 8,
             coloring_given : false,
-            coloring : this.problem.active.degree.Finite != null ? this.problem.active.degree.Finite +1 : 4
+            coloring : (this.problem.active.degree.Finite != null && this.problem.passive.degree.Finite != null) ? (this.problem.active.degree.Finite*(this.problem.passive.degree.Finite - 1) +1) : 4,
+            coloring_given_passive : false,
+            coloring_passive : (this.problem.active.degree.Finite != null && this.problem.passive.degree.Finite != null) ? (this.problem.passive.degree.Finite*(this.problem.active.degree.Finite - 1) +1) : 4,
         }
     },
     watch: { 
@@ -1167,17 +1175,21 @@ Vue.component('re-auto-ub',{
     },
     methods: {
         on_autoub() {
-            call_api_generating_sequence(this.stuff,{type:"autoub"},autoub,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring], false);
+            call_api_generating_sequence(this.stuff,{type:"autoub"},autoub,[this.problem, this.b_max_labels, this.max_labels, this.b_branching, this.branching, this.b_max_steps, this.max_steps, this.coloring_given, this.coloring, this.coloring_given_passive, this.coloring_passive], false);
         },
     },
     template: `
         <re-card title="Automatic Upper Bound" subtitle="">
-            <div v-if="this.problem.passive.degree.Finite === 2">
-                <div class="custom-control custom-switch m-2">
-                    <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
-                </div>
-                <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+            <div v-if="this.problem.active.degree.Finite > 2 && this.problem.passive.degree.Finite > 2">On Hypergraphs, coloring here refers to strong coloring.</div>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="coloring_given"><p class="form-control-static custom-control-label">A coloring is given</p></label>
             </div>
+            <div v-if="this.coloring_given">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="coloring_given_passive"><p class="form-control-static custom-control-label">A coloring is given (passive side)</p></label>
+            </div>
+            <div v-if="this.coloring_given_passive">Coloring: <input class="form-control m-2" type="number" v-model="coloring_passive"></div>
 
             <div class="custom-control custom-switch m-2">
                 <label><input type="checkbox" class="custom-control-input" v-model="b_max_labels"><p class="form-control-static custom-control-label">Manually set Max Labels</p></label>

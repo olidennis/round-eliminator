@@ -8,20 +8,20 @@ use permutator::Combination;
 
 
 impl Problem {
-    pub fn autolb<F>(&self, max_labels : usize, branching : usize, min_steps : usize, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler)  -> bool  where F : FnMut(usize, Vec<(AutoOperation,Problem)>){
+    pub fn autolb<F>(&self, max_labels : usize, branching : usize, min_steps : usize, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, mut handler : F, eh: &mut EventHandler)  -> bool  where F : FnMut(usize, Vec<(AutoOperation,Problem)>){
         let mut problems = vec![(vec![],self.clone(),self.clone(),self.to_string())];
         let mut best = usize::MAX;
         let mut seen = HashMap::new();
     
-        automatic_lower_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, min_steps, max_steps, coloring, &mut handler, eh);
+        automatic_lower_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, min_steps, max_steps, coloring, coloring_passive, &mut handler, eh);
 
         return best >= max_steps;
     }
 
 
-    pub fn autoautolb<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+    pub fn autoautolb<F>(&self, b_max_labels : bool, max_labels : usize, b_branching : bool, branching : usize, b_max_steps : bool, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, mut handler : F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
         if b_max_labels && b_branching && b_max_steps {
-            self.autolb(max_labels, branching, 1, max_steps, coloring, handler, eh);
+            self.autolb(max_labels, branching, 1, max_steps, coloring, coloring_passive, handler, eh);
             return;
         }
 
@@ -31,7 +31,7 @@ impl Problem {
             let i_branching = if b_branching { branching } else { i };
             let max_steps = if b_max_steps { max_steps } else { 15 };
 
-            if self.autolb(i_max_labels, i_branching, min_steps, max_steps, coloring,|len,seq|{
+            if self.autolb(i_max_labels, i_branching, min_steps, max_steps, coloring, coloring_passive, |len,seq|{
                 if len >= min_steps {
                     min_steps = len+1;
                     handler(len,seq);
@@ -124,7 +124,7 @@ fn best_merges(np : &Problem, branching : usize, max_labels : usize, coloring : 
     candidates.into_iter().take(branching).map(|v|v.into_iter().map(|(p,_)|p).collect()).collect()
 }
 
-fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<(Label,Label)>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, min_steps : usize, max_steps : usize, coloring : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
+fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<(Label,Label)>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, min_steps : usize, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, Vec<(AutoOperation,Problem)>) {
 
     let mut send_sequence = |len : usize, problems : &Vec<(Vec<(Label,Label)>,Problem,Problem,String)>|{
         *best = len + 1;
@@ -161,7 +161,7 @@ fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         if p.trivial_sets.is_none() {
             p.compute_triviality(eh);
         }
-        if p.passive.degree == Degree::Finite(2) && coloring.is_some() && p.coloring_sets.is_none() {
+        if coloring.is_some() && p.coloring_sets.is_none() {
             p.compute_coloring_solvability(eh);
         }
     }
@@ -173,10 +173,11 @@ fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         return;
     }
     
+    let (coloring,coloring_passive) = (coloring_passive,coloring);
     let mut np = p.speedup(eh);
     np.discard_useless_stuff(false, eh);
     np.sort_active_by_strength();
-    if np.passive.degree == Degree::Finite(2) && coloring.is_some() {
+    if coloring.is_some() {
         np.compute_coloring_solvability(eh);
     }
 
@@ -188,13 +189,13 @@ fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         merged.discard_useless_stuff(false, eh);
         merged.sort_active_by_strength();
         merged.compute_triviality(eh);
-        if merged.passive.degree == Degree::Finite(2) && coloring.is_some() {
+        if coloring.is_some() {
             merged.compute_coloring_solvability(eh);
         }
         let m_s = merged.to_string();
 
         problems.push((merges,np.clone(),merged.clone(),m_s));
-        automatic_lower_bound_rec(seen, problems, best, max_labels, branching, min_steps, max_steps, coloring, handler, eh);
+        automatic_lower_bound_rec(seen, problems, best, max_labels, branching, min_steps, max_steps, coloring, coloring_passive, handler, eh);
         problems.pop();
         if *best > max_steps {
             return;

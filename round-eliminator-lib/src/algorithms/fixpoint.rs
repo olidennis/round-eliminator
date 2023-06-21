@@ -344,9 +344,9 @@ impl Problem {
         let mut mapping_label_newlabel : HashMap<_, _> = mapping_label_newlabel.iter().cloned().collect();
 
         let mut all_expressions : HashSet<TreeNode<Label>> = HashSet::new();
-        //let mut i=0;
+        let mut i=0;
         let p = loop {
-            //i += 1;
+            i += 1;
             let tracking = CHashMap::new();
             let tracking_passive = CHashMap::new();
 
@@ -354,7 +354,7 @@ impl Problem {
             let (mut p,passive_before_edit) = self.fixpoint_onestep(&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh)?;
             p.compute_triviality(eh);
             // if the problem is trivial, we need to repeat with a different diagram
-            if !p.trivial_sets.as_ref().unwrap().is_empty() /*&& i <4*/ {
+            if !p.trivial_sets.as_ref().unwrap().is_empty() /*&& i <3*/ {
 
                 // we extract all subexpressions for all lines obtained, both active and passive
                 let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
@@ -502,42 +502,50 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
     // we first compute some sets that would contain the same relations as the diagram that we just computed
     new_diagram = diagram_to_indirect(&new_labels,&new_diagram);
     let reachability : Vec<(Label,BTreeSet<Label>)> = diagram_indirect_to_reachability_adj(&new_labels,&new_diagram).into_iter().map(|(k,mut v)|{v.insert(k); (k,v.into_iter().collect())}).collect();
-    let mut sets : Vec<_> = reachability.iter().map(|(_,v)|v.clone()).collect();
+    let mut sets : HashMap<_,_> = reachability.iter().map(|(l,v)|(v.clone(),{
+        if l != &source && l != &sink {
+            map_label_expr[l].convert(&mapping_label_text).to_string()
+        } else if l == &source {
+            "(Source)".into()
+        } else {
+            "(Sink)".into()
+        }
+    })).collect();
 
     loop {
         // we now check if something is wrong, and in case we add new labels
-        let mut to_add = HashSet::new();
-        for l1 in &sets {
-            for l2 in &sets {
+        let mut to_add = HashMap::new();
+        for l1 in sets.keys() {
+            for l2 in sets.keys() {
                 eh.notify("fixpoint autofix", 0, sets.len() + to_add.len());
 
                 let intersection : BTreeSet<Label> = l1.intersection(l2).cloned().collect();
-                let mut common : Vec<_> = sets.iter().filter(|l|l.is_subset(&intersection)).cloned().collect();
+                let mut common : Vec<_> = sets.keys().filter(|l|l.is_subset(&intersection)).cloned().collect();
                 for l in common.clone().into_iter() {
                     common.retain(|x| x == &l || !x.is_subset(&l));
                 }
                 if common.len() != 1 {
-                    to_add.insert(intersection);
+                    to_add.insert(intersection, format!("({}_INT_{})",sets[l1].replace("(","[").replace(")","]"),sets[l2].replace("(","[").replace(")","]")));
                 }
                 let union : BTreeSet<Label> = l1.union(l2).cloned().collect();
-                let mut common : Vec<_> = sets.iter().filter(|l|l.is_superset(&union)).cloned().collect();
+                let mut common : Vec<_> = sets.keys().filter(|l|l.is_superset(&union)).cloned().collect();
                 for l in common.clone().into_iter() {
                     common.retain(|x| x == &l || !x.is_superset(&l));
                 }
                 if common.len() != 1 {
-                    to_add.insert(union);
+                    to_add.insert(union, format!("({}_UNI_{})",sets[l1].replace("(","[").replace(")","]"),sets[l2].replace("(","[").replace(")","]")));
                 }
             }
         }
         if to_add.is_empty() {
             break;
         } else {
-            sets = sets.into_iter().chain(to_add.into_iter()).unique().collect();
+            sets.extend(to_add.into_iter());
         }
     }
 
-    let mapping_set_newlabel : HashMap<_,_> = sets.iter().cloned().enumerate().map(|(l,s)|(s,l as Label)).collect();
-    let mapping_newlabel_set : HashMap<_,_> = sets.iter().cloned().enumerate().map(|(l,s)|(l as Label,s)).collect();
+    let mapping_set_newlabel : HashMap<_,_> = sets.keys().cloned().enumerate().map(|(l,s)|(s,l as Label)).collect();
+    let mapping_newlabel_set : HashMap<_,_> = sets.keys().cloned().enumerate().map(|(l,s)|(l as Label,s)).collect();
     let new_labels : Vec<Label> = mapping_newlabel_set.keys().cloned().collect();
 
     let mut new_diagram = vec![];
@@ -566,6 +574,7 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
         } else {
             (l,format!("({})",l))
         }
+        //(l,sets[s].clone())
     }).collect();
 
     (new_diagram,new_mapping_newlabel_text,new_mapping_label_newlabel)

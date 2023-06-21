@@ -13,7 +13,9 @@ struct Args {
     #[arg(short, long)]
     file: String,
     #[arg(short, long)]
-    coloring : Option<usize>
+    coloring : Option<usize>,
+    #[arg(short, long)]
+    passive_coloring : Option<usize>,
 }
 
 #[derive(Copy,Clone,Eq,PartialEq)]
@@ -30,14 +32,12 @@ struct BoundRange {
     ub : Bound
 }
 
-fn get_eh(bound : Arc<Mutex<BoundRange>>) -> EventHandler<'static> {
-    EventHandler::with(move |x: (String, usize, usize)| {
-        let bound = bound.lock().unwrap();
-        if bound.lb == bound.ub && bound.lb != Bound::Unknown {
-            //this is ugly
-            std::process::exit(0);
-        }
-    })
+fn check_exit(bound : Arc<Mutex<BoundRange>>) {
+    let bound = bound.lock().unwrap();
+    if bound.lb == bound.ub && bound.lb != Bound::Unknown {
+        //this is ugly
+        std::process::exit(0);
+    }
 }
 
 impl fmt::Display for Bound {
@@ -82,47 +82,51 @@ impl BoundRange {
 
 }
 
-fn automatic_upper_bound(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
-    let mut eh = get_eh(bound.clone());
-    p.autoautoub(false, 0, false, 0, false, 0, c, |len,is_trivial,mut sequence|{
+fn automatic_upper_bound(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
+    p.autoautoub(false, 0, false, 0, false, 0, c, pc, |len,is_trivial,_|{
         if is_trivial {
             bound.lock().unwrap().new_ub(Bound::Rounds(len));
         } else {
             bound.lock().unwrap().new_ub(Bound::LogStar);
         }
         println!("{}", bound.lock().unwrap());
+        check_exit(bound.clone());
     }, &mut eh);
 }
 
-fn automatic_lower_bound_1(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
-    let mut eh = get_eh(bound.clone());
-    p.autoautolb(false, 0, false, 0, true, 30, c, |len,mut sequence|{
+fn automatic_lower_bound_1(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
+    p.autoautolb(false, 0, false, 0, true, 30, c, pc, |len,_|{
         bound.lock().unwrap().new_lb(Bound::Rounds(len));
         println!("{}", bound.lock().unwrap());
+        check_exit(bound.clone());
     }, &mut eh);
 }
 
-fn automatic_lower_bound_2(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
-    let mut eh = get_eh(bound.clone());
-    p.autoautolb(false, 0, true, 100, true, 30, c, |len,mut sequence|{
+fn automatic_lower_bound_2(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
+    p.autoautolb(false, 0, true, 100, true, 30, c, pc, |len,_|{
         bound.lock().unwrap().new_lb(Bound::Rounds(len));
         println!("{}", bound.lock().unwrap());
+        check_exit(bound.clone());
     }, &mut eh);
 }
 
-fn automatic_fixed_point(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
-    let mut eh = get_eh(bound.clone());
+fn automatic_fixed_point(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
     match p.fixpoint_loop(&mut eh) {
         Ok(mut new) => {
             bound.lock().unwrap().new_lb(Bound::Log);
             println!("{}", bound.lock().unwrap());
+            check_exit(bound.clone());
         }
         Err(s) => {  }
     }
 }
 
-fn just_speedups(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
-    let mut eh = get_eh(bound.clone());
+fn just_speedups(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
     let mut p = p.clone();
     let mut i = 0;
     loop {
@@ -143,13 +147,14 @@ fn just_speedups(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>
             bound.lock().unwrap().new_ub(Bound::LogStar);
         }
         println!("{}", bound.lock().unwrap());
+        check_exit(bound.clone());
         p = p.speedup(&mut eh);
         i += 1;
     }
 }
 
-fn speedups_with_fixpoint(p : &Problem, c : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
-    let mut eh = get_eh(bound.clone());
+fn speedups_with_fixpoint(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
     let mut p = p.clone();
     loop {
         if p.diagram_indirect.is_none() {
@@ -162,6 +167,7 @@ fn speedups_with_fixpoint(p : &Problem, c : Option<usize>, bound : Arc<Mutex<Bou
                 if !is_trivial {
                     bound.lock().unwrap().new_lb(Bound::Log);
                     println!("{}", bound.lock().unwrap());
+                    check_exit(bound.clone());
                 }
             }
             Err(s) => {  }
@@ -170,7 +176,7 @@ fn speedups_with_fixpoint(p : &Problem, c : Option<usize>, bound : Arc<Mutex<Bou
     }
 }
 
-fn automatic_bounds(p : &Problem, c : Option<usize>) {
+fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
     let bound = Arc::new(Mutex::new(BoundRange::new()));
     thread::scope(|s| {
         let b0 = bound.clone();
@@ -181,29 +187,31 @@ fn automatic_bounds(p : &Problem, c : Option<usize>) {
         let b5 = bound.clone();
         let b6 = bound.clone();
 
-        if c.is_some() {
+
+        s.spawn(|| {
+            automatic_upper_bound(p,c,pc,b1);
+        });
+        s.spawn(|| {
+            just_speedups(p,c,pc,b5);
+        });
+        if c.is_some() || pc.is_some() {
             s.spawn(|| {
-                automatic_upper_bound(p,None,b0);
+                automatic_upper_bound(p,None,None,b0);
             });
         }
         s.spawn(|| {
-            automatic_upper_bound(p,c,b1);
+            automatic_lower_bound_1(p,c,pc,b2);
         });
         s.spawn(|| {
-            automatic_lower_bound_1(p,c,b2);
+            automatic_lower_bound_2(p,c,pc,b3);
         });
         s.spawn(|| {
-            automatic_lower_bound_2(p,c,b3);
+            automatic_fixed_point(p,c,pc,b4);
         });
+
         s.spawn(|| {
-            automatic_fixed_point(p,c,b4);
-        });
-        s.spawn(|| {
-            just_speedups(p,c,b5);
-        });
-        s.spawn(|| {
-            speedups_with_fixpoint(p,c,b6);
-        });
+            speedups_with_fixpoint(p,c,pc,b6);
+        }); 
     });
 }
 
@@ -211,6 +219,8 @@ fn main() {
     let args = Args::parse();
     let file = args.file;
     let coloring = args.coloring;
+    let passive_coloring = args.passive_coloring;
+
     let problem = if file != "-" {
         std::fs::read_to_string(file).unwrap()
     } else {
@@ -222,6 +232,10 @@ fn main() {
     if let Some(c) = coloring {
         println!("A {} coloring is given\n", c);
     }
+    if let Some(c) = passive_coloring {
+        println!("A {} coloring is given (passive side)\n", c);
+    }
     problem.compute_partial_diagram(&mut EventHandler::null());
-    automatic_bounds(&problem, coloring);
+    std::env::set_var("RE_NUM_THREADS", "1");    
+    automatic_bounds(&problem, coloring, passive_coloring);
 }

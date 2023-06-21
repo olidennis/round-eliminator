@@ -145,7 +145,7 @@ where
             new.discard_useless_stuff(true, &mut eh);
             new.sort_active_by_strength();
             new.compute_triviality(&mut eh);
-            if new.passive.degree == Degree::Finite(2) {
+            if new.passive.degree == Degree::Finite(2) || new.passive.degree == Degree::Finite(3) {
                 new.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = new.orientation_given {
                     new.compute_triviality_given_orientation(outdegree, &mut eh);
@@ -164,7 +164,7 @@ where
             new.discard_useless_stuff(true, &mut eh);
             new.sort_active_by_strength();
             new.compute_triviality(&mut eh);
-            if new.passive.degree == Degree::Finite(2) {
+            if new.passive.degree == Degree::Finite(2) || new.passive.degree == Degree::Finite(3) {
                 new.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = new.orientation_given {
                     new.compute_triviality_given_orientation(outdegree, &mut eh);
@@ -224,7 +224,7 @@ where
             problem.discard_useless_stuff(true, &mut eh);
             problem.sort_active_by_strength();
             problem.compute_triviality(&mut eh);
-            if problem.passive.degree == Degree::Finite(2) {
+            if problem.passive.degree == Degree::Finite(2) || problem.passive.degree == Degree::Finite(3) {
                 problem.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = problem.orientation_given {
                     problem.compute_triviality_given_orientation(outdegree, &mut eh);
@@ -253,9 +253,9 @@ where
             }
             handler(Response::P(problem));
         },
-        Request::AutoUb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring) => {
+        Request::AutoUb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, coloring_given_passive, coloring_passive) => {
             eh.notify("autoub",0,0);
-            problem.autoautoub( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, |len,is_trivial,mut sequence|{
+            problem.autoautoub( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, if coloring_given_passive {Some(coloring_passive)} else {None}, |len,is_trivial,mut sequence|{
                 //for p in sequence.iter_mut() {
                 //    fix_problem(&mut p.1, true, true, &mut eh);
                 //}
@@ -263,9 +263,9 @@ where
                 eh.notify("autoub",0,0);
             }, &mut eh_ignore);
         },
-        Request::AutoLb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring) => {
+        Request::AutoLb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, coloring_given_passive, coloring_passive) => {
             eh.notify("autolb",0,0);
-            problem.autoautolb( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, |len,mut sequence|{
+            problem.autoautolb( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, if coloring_given_passive {Some(coloring_passive)} else {None}, |len,mut sequence|{
                 handler(Response::AutoLb(len,sequence));
                 eh.notify("autolb",0,0);
             }, &mut eh_ignore);
@@ -301,8 +301,8 @@ pub enum Request {
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
     DefaultDiagram(Problem),
-    AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize),
-    AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize),
+    AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
+    AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     Ping,
 }
 

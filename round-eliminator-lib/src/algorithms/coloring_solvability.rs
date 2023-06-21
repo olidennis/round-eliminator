@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use itertools::Itertools;
 
 use crate::{
@@ -8,13 +10,14 @@ use crate::{
     problem::Problem,
 };
 
-use super::event::EventHandler;
+use super::{event::EventHandler, max_clique::HyperGraph};
 
 impl Problem {
     /// Computes the number of independent actions. If that number is x, then given an x coloring it is possible to solve the problem in 0 rounds.
     pub fn compute_coloring_solvability(&mut self, eh: &mut EventHandler) {
         if self.passive.degree != Degree::Finite(2) {
-            panic!("cannot compute coloring solvability if the passive side has degree different from 2");
+            return self.compute_hypergraph_coloring_solvability(eh);
+            //panic!("cannot compute coloring solvability if the passive side has degree different from 2");
         }
         if self.coloring_sets.is_some() {
             panic!("coloring solvability has been computed already");
@@ -72,6 +75,55 @@ impl Problem {
             .max_clique()
             .into_iter()
             .map(|x| active_sets[x].iter().cloned().sorted().collect())
+            .collect();
+        coloring_sets.sort();
+        self.coloring_sets = Some(coloring_sets);
+    }
+
+    pub fn compute_hypergraph_coloring_solvability(&mut self, eh: &mut EventHandler) {
+        if self.coloring_sets.is_some() {
+            panic!("coloring solvability has been computed already");
+        }
+
+        self.passive.maximize(eh);
+
+        let active_sets : Vec<_> = self.active.minimal_sets_of_all_choices().into_iter().enumerate().collect();
+
+        let mut hyperedges = vec![];
+        let len = active_sets.iter().combinations(self.passive.finite_degree()).count();
+        for (i,sets) in active_sets.iter().combinations(self.passive.finite_degree()).enumerate() {
+            eh.notify(
+                "coloring graph",
+                i,
+                len,
+            );
+            let mut line = Line { parts : vec![]};
+            for set in &sets {
+                let group = Group(set.1.iter().cloned().sorted().collect());
+                let part = Part {
+                    gtype: GroupType::ONE,
+                    group: group,
+                };
+                line.parts.push(part);
+            }
+
+            if self.passive.includes(&line) {
+                hyperedges.push(sets.iter().map(|x|x.0).collect());
+            }
+        }
+
+        if hyperedges.is_empty() {
+            self.coloring_sets = Some(vec![]);
+            return;
+        }
+
+        let active_sets : HashMap<_,_> = active_sets.into_iter().collect();
+        let g = HyperGraph::from_hyperedges(hyperedges);
+        eh.notify("clique", 1, 1);
+        let mut coloring_sets: Vec<_> = g
+            .max_clique()
+            .into_iter()
+            .map(|x| active_sets[&x].iter().cloned().sorted().collect())
             .collect();
         coloring_sets.sort();
         self.coloring_sets = Some(coloring_sets);
