@@ -82,9 +82,10 @@ impl BoundRange {
 
 }
 
-fn automatic_upper_bound(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+fn automatic_upper_bound(p : &Problem, c : Option<usize>, pc : Option<usize>, b_limit : bool, bound : Arc<Mutex<BoundRange>>) {
     let mut eh = EventHandler::null();
-    p.autoautoub(false, 0, false, 0, false, 0, c, pc, |len,is_trivial,_|{
+    let max_labels = (p.active.finite_degree()-1) * p.passive.finite_degree() +1 +3;
+    p.autoautoub(b_limit, max_labels, false, 0, false, 0, c, pc, |len,is_trivial,_|{
         if is_trivial {
             bound.lock().unwrap().new_ub(Bound::Rounds(len));
         } else {
@@ -94,6 +95,7 @@ fn automatic_upper_bound(p : &Problem, c : Option<usize>, pc : Option<usize>, bo
         check_exit(bound.clone());
     }, &mut eh);
 }
+
 
 fn automatic_lower_bound_1(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
     let mut eh = EventHandler::null();
@@ -186,17 +188,22 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
         let b4 = bound.clone();
         let b5 = bound.clone();
         let b6 = bound.clone();
+        let b7 = bound.clone();
 
 
         s.spawn(|| {
-            automatic_upper_bound(p,c,pc,b1);
+            automatic_upper_bound(p,c,pc,true,b7);
         });
-        /*s.spawn(|| {
+        /*
+        s.spawn(|| {
+            automatic_upper_bound(p,c,pc,false,b1);
+        });
+        s.spawn(|| {
             just_speedups(p,c,pc,b5);
         });
         if c.is_some() || pc.is_some() {
             s.spawn(|| {
-                automatic_upper_bound(p,None,None,b0);
+                automatic_upper_bound(p,None,None,false,b0);
             });
         }
         s.spawn(|| {
@@ -236,6 +243,6 @@ fn main() {
         println!("A {} coloring is given (passive side)\n", c);
     }
     problem.compute_partial_diagram(&mut EventHandler::null());
-    std::env::set_var("RE_NUM_THREADS", "1");    
+    //std::env::set_var("RE_NUM_THREADS", "1");    
     automatic_bounds(&problem, coloring, passive_coloring);
 }
