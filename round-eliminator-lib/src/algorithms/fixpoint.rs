@@ -318,7 +318,6 @@ impl Problem {
             p.discard_useless_stuff(true, eh);
             let fixpoint_labels : HashSet<_> = newlabel_to_label.values().cloned().collect();
             let merge_groups = p.diagram_direct.as_ref().unwrap().0.clone();
-            println!("{:?}",merge_groups);
             for (_, group) in merge_groups {
                 let mut rename_to = group.iter().filter(|l|fixpoint_labels.contains(l));
                 if let Some(dest) = rename_to.next() {

@@ -301,15 +301,15 @@ Vue.component('re-performed-action', {
                 case "speedup":
                     return "Performed speedup";
                 case "fixpoint-basic":
-                    return "Generated Fixed Point with Default Diagram.";
+                    return "Generated Fixed Point with Default Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
                 case "fixpoint-gendefault":
-                    return "Generated Default Diagram";
+                    return "Generated Default Fixed Point Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
                 case "fixpoint-loop":
-                    return "Generated Fixed Point with Automatic Diagram Fixing.";
+                    return "Generated Fixed Point with Automatic Diagram Fixing" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
                 case "fixpoint-custom":
-                    return "Generated Fixed Point with Custom Diagram:\n" + this.action.diagram;
+                    return "Generated Fixed Point with Custom Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "") + ":\n" + this.action.diagram;
                 case "fixpoint-dup":
-                    return "Generated Fixed Point With Label Duplication: "+ this.action.dups;
+                    return "Generated Fixed Point With Label Duplication" + (this.action.sub !== null ? " for labels " + this.action.sub : "") + ": "+ this.action.dups;
                 case "inversespeedup":
                     return "Performed inverse speedup";
                 case "coloring":
@@ -1487,7 +1487,8 @@ Vue.component('re-fixpoint-gendefault',{
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
-            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault"},fixpoint_gendefault,[this.problem,this.partial,sublabels]);
+            let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
+            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault", sub : sublabels_text},fixpoint_gendefault,[this.problem,this.partial,sublabels]);
         }
     },
     template: `
@@ -1500,7 +1501,8 @@ Vue.component('re-fixpoint-basic',{
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
-            call_api_generating_problem(this.stuff,{type:"fixpoint-basic"},fixpoint_basic,[this.problem,this.partial,sublabels]);
+            let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
+            call_api_generating_problem(this.stuff,{type:"fixpoint-basic",sub : sublabels_text},fixpoint_basic,[this.problem,this.partial,sublabels]);
         }
     },
     template: `
@@ -1513,7 +1515,8 @@ Vue.component('re-fixpoint-loop',{
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
-            call_api_generating_problem(this.stuff,{type:"fixpoint-loop"},fixpoint_loop,[this.problem,this.partial,sublabels]);
+            let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
+            call_api_generating_problem(this.stuff,{type:"fixpoint-loop",sub : sublabels_text},fixpoint_loop,[this.problem,this.partial,sublabels]);
         }
     },
     template: `
@@ -1537,7 +1540,8 @@ Vue.component('re-fixpoint-custom',{
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
-            call_api_generating_problem(this.stuff,{type:"fixpoint-custom", diagram: this.text},fixpoint_custom,[this.problem,this.text,this.partial,sublabels]);
+            let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
+            call_api_generating_problem(this.stuff,{type:"fixpoint-custom",sub : sublabels_text, diagram: this.text},fixpoint_custom,[this.problem,this.text,this.partial,sublabels]);
         }
     },
     template: `
@@ -1566,7 +1570,8 @@ Vue.component('re-fixpoint-dup',{
         },
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
-            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, sublabels]);
+            let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
+            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", sub : sublabels_text, dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, sublabels]);
         },
         convert(x){
             return labelset_to_string(x,this.problem.fixpoint_diagram[1].map_label_text,", ")
