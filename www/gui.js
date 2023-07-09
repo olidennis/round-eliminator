@@ -44,29 +44,29 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
-function fixpoint_gendefault(problem, onresult, onerror, progress){
+function fixpoint_gendefault(problem, partial, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ DefaultDiagram : problem }, ondata , function(){});
+    return api.request({ DefaultDiagram : [problem,partial,sublabels] }, ondata , function(){});
 }
 
-function fixpoint_basic(problem, onresult, onerror, progress){
+function fixpoint_basic(problem, partial,sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointBasic : problem }, ondata , function(){});
+    return api.request({ FixpointBasic : [problem,partial,sublabels] }, ondata , function(){});
 }
 
-function fixpoint_loop(problem, onresult, onerror, progress){
+function fixpoint_loop(problem, partial, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointLoop : problem }, ondata , function(){});
+    return api.request({ FixpointLoop : [problem,partial,sublabels] }, ondata , function(){});
 }
 
-function fixpoint_custom(problem, diagram, onresult, onerror, progress){
+function fixpoint_custom(problem, diagram, partial, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointCustom : [problem, diagram] }, ondata , function(){});
+    return api.request({ FixpointCustom : [problem, diagram, partial, sublabels] }, ondata , function(){});
 }
 
-function fixpoint_dup(problem, dups, onresult, onerror, progress){
+function fixpoint_dup(problem, dups, partial, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointDup : [problem, dups] }, ondata , function(){});
+    return api.request({ FixpointDup : [problem, dups, partial, sublabels] }, ondata , function(){});
 }
 
 function give_orientation(problem, outdegree, onresult, onerror, progress){
@@ -173,7 +173,7 @@ function fix_problem(p) {
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
     if( p.fixpoint_diagram !== null ){
-        p.fixpoint_diagram.map_label_text = vec_to_map(p.fixpoint_diagram.mapping_newlabel_text);
+        p.fixpoint_diagram[1].map_label_text = vec_to_map(p.fixpoint_diagram[1].mapping_newlabel_text);
 
     }
     p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
@@ -1423,26 +1423,71 @@ Vue.component('re-begin', {
 
 Vue.component('re-fixpoint',{
     props: ['problem','stuff'],
+    data: function(){ return {
+        table: this.problem.mapping_label_text.map(x => {
+                let enabled = this.problem.fixpoint_diagram !== null && this.problem.fixpoint_diagram[0] !== null && this.problem.fixpoint_diagram[0].indexOf(x[0]) !== -1;
+                let label = x[0];
+                let text = x[1];
+                let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                if( oldtext == null ) {
+                    return [label,text,"",enabled];
+                } else {
+                    return [label,text,oldtext,enabled];
+                }
+        }),
+        partial : this.problem.fixpoint_diagram !== null && this.problem.fixpoint_diagram[0] !== null
+    }},
+    watch: { 
+        // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
+        // this is a workaround
+        problem: function(newVal, oldVal) { 
+            Object.assign(this.$data, this.$options.data.apply(this))
+        }
+    },
     template: `
-        <re-card :show="this.problem.fixpoint_diagram !== null" title="Generate Fixed Point" subtitle="(automatic procedure for fixed point generation)">
-            <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff"></re-fixpoint-basic> (with default diagram)</div>
-            <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
+        <re-card :show="this.problem.fixpoint_diagram !== null" title="Partial Fixpointing" subtitle="(automatic procedure for fixed point generation)">
+            <div class="custom-control custom-switch ml-2">
+                <label>
+                    <input type="checkbox" class="custom-control-input" v-model="partial">
+                    <p class="form-control-static custom-control-label">
+                        <span class="rounded m-1 labelborder">Partial</span>
+                    </p>
+                </label>  
+            </div>
+            <hr/>
+            <div v-if="partial">
+                <div v-for="(row,index) in this.table">
+                    <div class="custom-control custom-switch ml-2">
+                        <label>
+                            <input type="checkbox" class="custom-control-input" v-model="table[index][3]">
+                            <p class="form-control-static custom-control-label">
+                                <span>{{ row[1] }}</span>
+                                <span v-if="row[2]!=''" class="rounded m-1 labelborder">{{ row[2] }}</span>
+                            </p>
+                        </label>  
+                    </div>
+                </div>
+                <hr/>
+            </div>
+            <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-basic> (with default diagram)</div>
+            <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
             <div v-if="this.problem.fixpoint_diagram === null" class="m-2">
-                <re-fixpoint-gendefault :problem="problem" :stuff="stuff"></re-fixpoint-gendefault> for additional options, click here
+                <re-fixpoint-gendefault :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-gendefault> for additional options, click here
             </div>
             <div v-else class="m-2">
-                <re-fixpoint-dup :problem="problem" :stuff="stuff"></re-fixpoint-dup>
-                <re-fixpoint-custom :problem="problem" :stuff="stuff"></re-fixpoint-custom>
+                <re-fixpoint-dup :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-dup>
+                <re-fixpoint-custom :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-custom>
             </div>
         </re-card>
     `
 })
 
 Vue.component('re-fixpoint-gendefault',{
-    props: ['problem','stuff'],
+    props: ['problem','stuff','partial','table'],
     methods: {
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault"},fixpoint_gendefault,[this.problem]);
+            let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
+            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault"},fixpoint_gendefault,[this.problem,this.partial,sublabels]);
         }
     },
     template: `
@@ -1451,10 +1496,11 @@ Vue.component('re-fixpoint-gendefault',{
 })
 
 Vue.component('re-fixpoint-basic',{
-    props: ['problem','stuff'],
+    props: ['problem','stuff','partial','table'],
     methods: {
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-basic"},fixpoint_basic,[this.problem]);
+            let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
+            call_api_generating_problem(this.stuff,{type:"fixpoint-basic"},fixpoint_basic,[this.problem,this.partial,sublabels]);
         }
     },
     template: `
@@ -1463,10 +1509,11 @@ Vue.component('re-fixpoint-basic',{
 })
 
 Vue.component('re-fixpoint-loop',{
-    props: ['problem','stuff'],
+    props: ['problem','stuff','partial','table'],
     methods: {
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-loop"},fixpoint_loop,[this.problem]);
+            let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
+            call_api_generating_problem(this.stuff,{type:"fixpoint-loop"},fixpoint_loop,[this.problem,this.partial,sublabels]);
         }
     },
     template: `
@@ -1475,9 +1522,9 @@ Vue.component('re-fixpoint-loop',{
 })
 
 Vue.component('re-fixpoint-custom',{
-    props: ['problem','stuff'],
+    props: ['problem','stuff','partial','table'],
     data: function(){ return {
-            text : this.problem.fixpoint_diagram.text,
+            text : this.problem.fixpoint_diagram[1].text,
         }    
     },
     watch: { 
@@ -1489,7 +1536,8 @@ Vue.component('re-fixpoint-custom',{
     },
     methods: {
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-custom", diagram: this.text},fixpoint_custom,[this.problem, this.text]);
+            let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
+            call_api_generating_problem(this.stuff,{type:"fixpoint-custom", diagram: this.text},fixpoint_custom,[this.problem,this.text,this.partial,sublabels]);
         }
     },
     template: `
@@ -1502,7 +1550,7 @@ Vue.component('re-fixpoint-custom',{
 
 
 Vue.component('re-fixpoint-dup',{
-    props: ['problem','stuff'],
+    props: ['problem','stuff','partial','table'],
     data : function(){ return {
         dups : [],  
     }},
@@ -1511,21 +1559,22 @@ Vue.component('re-fixpoint-dup',{
             this.dups.splice(index, 1);
         },
         on_from_diagram(){
-            let selected = this.problem.fixpoint_diagram.selected;
+            let selected = this.problem.fixpoint_diagram[1].selected;
             if( selected != null && selected.length > 0 ){
                 this.dups.push(selected)
             }
         },
         on_fixpoint() {
-            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups]);
+            let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
+            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, sublabels]);
         },
         convert(x){
-            return labelset_to_string(x,this.problem.fixpoint_diagram.map_label_text,", ")
+            return labelset_to_string(x,this.problem.fixpoint_diagram[1].map_label_text,", ")
         }
     },
     template: `
         <re-card show="true" title="With Label Duplication" subtitle="(choose groups of labels to duplicate)">
-            <re-diagram :problem="problem.fixpoint_diagram"></re-diagram>
+            <re-diagram :problem="problem.fixpoint_diagram[1]"></re-diagram>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_from_diagram">Add from diagram selection</button>
             <button type="button" class="btn btn-secondary m-1" data-toggle="tooltip" data-placement="top" title="A good strategy could be the following. First run the basic procedure. Then take the lines that contribute to the 0 round solvability. Take each label L appearing there. L is a set of original labels. For each l ∊ L, take the set of labels that are edge-compatible with it. Take the intersection of the obtained sets. This gives a label L' of the diagram. Take all labels in the shortest path between L and L' and create a group of labels to duplicate.">?</button>
             <table class="table">

@@ -3,7 +3,7 @@ use std::{collections::{HashSet, HashMap, BTreeSet}, fmt::Display};
 use chashmap::CHashMap;
 use itertools::Itertools;
 
-use crate::{problem::{Problem, DiagramDirect}, constraint::Constraint, group::{Label, Group}, line::Line, algorithms::diagram::compute_direct_diagram};
+use crate::{problem::{Problem, DiagramDirect}, constraint::Constraint, group::{Label, Group, GroupType}, line::Line, algorithms::diagram::compute_direct_diagram, part::Part};
 use serde::{Deserialize, Serialize};
 use super::{event::EventHandler, maximize::{Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
 
@@ -216,18 +216,138 @@ impl FixpointDiagram {
 
 type Tracking = (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>);
 
+pub enum FixpointType{
+    Basic,
+    Dup(Vec<Vec<Label>>),
+    Custom(String),
+    Loop
+}
+
 impl Problem {
 
-    pub fn compute_default_fixpoint_diagram(&mut self) {
-        self.fixpoint_diagram = Some(FixpointDiagram::new(self));
+    pub fn compute_default_fixpoint_diagram(&mut self, labels : Option<Vec<Label>>, eh: &mut EventHandler) {
+        if let Some(sublabels) = &labels {
+            let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
+            subproblem.discard_useless_stuff(false, eh);
+            self.fixpoint_diagram = Some((labels,FixpointDiagram::new(&subproblem)));
+        } else {
+            self.fixpoint_diagram = Some((None,FixpointDiagram::new(self)));
+        }
     }
 
-    pub fn fixpoint(&self, eh: &mut EventHandler) -> Result<Self, &'static str> {
+
+    pub fn fixpoint_generic(&self, sublabels : Option<Vec<Label>>, fptype : FixpointType, eh: &mut EventHandler ) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+        if let Some(sublabels) = sublabels {
+            let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
+            subproblem.discard_useless_stuff(false, eh);
+            subproblem.fixpoint_diagram = self.fixpoint_diagram.clone();
+            let (fixpoint, diagram, mapping_label_newlabel) = subproblem.fixpoint_generic(None, fptype, eh).unwrap();
+            let mut newlabel_to_label : HashMap<Label,Label> = mapping_label_newlabel.into_iter().filter(|(l,_)|sublabels.contains(l)).map(|(l,n)|(n,l)).collect();
+            let mut orig_newlabels : HashSet<_> = newlabel_to_label.keys().cloned().collect();
+            let mut next_fresh = *self.labels().iter().max().unwrap_or(&0) + 1;
+            let active_fp = fixpoint.active.edited(|g|{
+                Group(g.0.iter().map(|&l|{
+                    if newlabel_to_label.contains_key(&l) {
+                        newlabel_to_label[&l]
+                    } else {
+                        next_fresh += 1;
+                        *newlabel_to_label.entry(l).or_insert(next_fresh)
+                    }
+                }).collect())
+            });
+            let passive_fp = fixpoint.passive.edited(|g|{
+                Group(g.0.iter().map(|&l|{
+                    if newlabel_to_label.contains_key(&l) {
+                        newlabel_to_label[&l]
+                    } else {
+                        next_fresh += 1;
+                        *newlabel_to_label.entry(l).or_insert(next_fresh)
+                    }
+                }).collect())
+            });
+            let mut active = self.active.clone();
+            let mut passive = self.passive.clone();
+            let mut mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+            for (l,t) in &fixpoint.mapping_label_text {
+                if newlabel_to_label.contains_key(&l) && !mapping_label_text.contains_key(&newlabel_to_label[&l]) {
+                    mapping_label_text.insert(newlabel_to_label[&l],t.clone());
+                }
+            }
+            let mapping_label_text : Vec<_> = mapping_label_text.into_iter().unique().collect();
+            for line in active_fp.lines {
+                active.lines.push(line);
+            }
+            passive.maximize(eh);
+            let reachability = diagram_indirect_to_reachability_adj(&fixpoint.labels(),&diagram);
+            let mut passive = passive.edited(|g|{
+                let mut g = HashSet::from_iter(g.0.iter().cloned());
+                let mut to_add = vec![];
+                for (n,l) in &newlabel_to_label {
+                    let real_successors : HashSet<_> = reachability[n].iter().filter(|succ|orig_newlabels.contains(succ)).cloned().collect();
+                    if real_successors.is_subset(&g) {
+                        to_add.push(l);
+                    }
+                }
+                g.extend(to_add.into_iter());
+                Group(g.into_iter().sorted().collect())
+            });
+            for line in passive_fp.lines {
+                passive.lines.push(line);
+            }
+
+            /* 
+                for (r,n) in &fd.mapping_rightclosed_newlabel {
+                    let rightold : HashSet<_> = r.iter().cloned().collect();
+                    let mut compatible = HashSet::new();
+                    for line in &orig_passive_maximized.lines {
+                        let line_a : HashSet<_> = line.parts[0].group.iter().cloned().sorted().collect();
+                        let line_b : HashSet<_> = line.parts[line.parts.len()-1].group.iter().cloned().sorted().collect();
+                        if line_a.is_superset(&rightold) {
+                            compatible.extend(line_b.iter().cloned());
+                        }
+                        if line_b.is_superset(&rightold) {
+                            compatible.extend(line_a.iter().cloned());
+                        }
+                    }
+                    if newlabel_to_label.contains_key(n) {
+                        passive.lines.push(Line{ parts : vec![Part{group : Group(vec![newlabel_to_label[&n]]), gtype : GroupType::Many(1)}, Part{group : Group(compatible.into_iter().collect()), gtype : GroupType::Many(1)} ] });
+                    }
+                }*/
+
+            return Ok((Problem {
+                    active,
+                    passive,
+                    mapping_label_text,
+                    mapping_label_oldlabels: None,
+                    mapping_oldlabel_labels: None,
+                    mapping_oldlabel_text: None,
+                    trivial_sets: None,
+                    coloring_sets: None,
+                    diagram_indirect: None,
+                    diagram_indirect_old: None,
+                    diagram_direct: None,
+                    orientation_coloring_sets: None,
+                    orientation_trivial_sets: None,
+                    orientation_given: None,
+                    fixpoint_diagram : None
+            },diagram,self.labels().into_iter().map(|x|(x,x)).collect()));
+        } else {
+            match fptype {
+                FixpointType::Basic => { self.fixpoint_dup(None, eh) },
+                FixpointType::Dup(dups) => { self.fixpoint_dup(Some(dups),eh) }
+                FixpointType::Loop => { self.fixpoint_loop(eh) },
+                FixpointType::Custom(s) => { self.fixpoint_custom(s,eh) },
+
+            }
+        }
+    }
+
+    pub fn fixpoint(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         self.fixpoint_dup(None, eh)
     }
 
-    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, eh: &mut EventHandler) -> Result<Self, &'static str> {
-        let mut fd = if let Some(fd) = self.fixpoint_diagram.clone() {
+    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+        let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
             FixpointDiagram::new(self)
@@ -235,16 +355,16 @@ impl Problem {
         if let Some(dup) = dup {
             fd.duplicate_labels(&dup);
         }
-        let mapping_label_newlabel = fd.mapping_label_newlabel;
-        let mapping_newlabel_text = fd.mapping_newlabel_text;
-        let diagram = fd.diagram;
+        let mapping_label_newlabel = fd.mapping_label_newlabel.clone();
+        let mapping_newlabel_text = fd.mapping_newlabel_text.clone();
+        let diagram = fd.diagram.clone();
         //println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
 
-        Ok(self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0)
+        Ok((self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
     }
 
 
-    pub fn fixpoint_custom(&self, text_diag : String, eh: &mut EventHandler) -> Result<Self, &'static str> {
+    pub fn fixpoint_custom(&self, text_diag : String, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         let text_mapping = text_diag.lines().filter(|line|!line.starts_with("#") && line.contains("=")).join("\n");
         let text_diagram = text_diag.lines().filter(|line|!line.starts_with("#") && (line.contains("->") || line.contains("<-"))).join("\n");
 
@@ -289,7 +409,7 @@ impl Problem {
             } 
             v.into_iter()
         }).collect();
-        Ok(self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0)
+        Ok((self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0,diagram,mapping_label_newlabel))
     }
 
     pub fn fixpoint_onestep(&self, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<(Self,Constraint), &'static str> {
@@ -331,8 +451,8 @@ impl Problem {
     }
 
 
-    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<Self,&'static str> {
-        let fd = if let Some(fd) = self.fixpoint_diagram.clone() {
+    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+        let fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
             FixpointDiagram::new(self)
@@ -396,7 +516,7 @@ impl Problem {
             }
         };
 
-        Ok(p)
+        Ok((p,diagram,mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect()))
     }
 
 
