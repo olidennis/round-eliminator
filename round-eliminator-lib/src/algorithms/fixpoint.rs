@@ -243,7 +243,7 @@ impl Problem {
             subproblem.fixpoint_diagram = self.fixpoint_diagram.clone();
             let (fixpoint, diagram, mapping_label_newlabel) = subproblem.fixpoint_generic(None, fptype, eh).unwrap();
             let mut newlabel_to_label : HashMap<Label,Label> = mapping_label_newlabel.into_iter().filter(|(l,_)|sublabels.contains(l)).map(|(l,n)|(n,l)).collect();
-            let mut orig_newlabels : HashSet<_> = newlabel_to_label.keys().cloned().collect();
+            let orig_newlabels : HashSet<_> = newlabel_to_label.keys().cloned().collect();
             let mut next_fresh = *self.labels().iter().max().unwrap_or(&0) + 1;
             let active_fp = fixpoint.active.edited(|g|{
                 Group(g.0.iter().map(|&l|{
@@ -277,13 +277,15 @@ impl Problem {
             for line in active_fp.lines {
                 active.lines.push(line);
             }
+
+            let map : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
             passive.maximize(eh);
             let reachability = diagram_indirect_to_reachability_adj(&fixpoint.labels(),&diagram);
             let mut passive = passive.edited(|g|{
                 let mut g = HashSet::from_iter(g.0.iter().cloned());
                 let mut to_add = vec![];
                 for (n,l) in &newlabel_to_label {
-                    let real_successors : HashSet<_> = reachability[n].iter().filter(|succ|orig_newlabels.contains(succ)).cloned().collect();
+                    let real_successors : HashSet<_> = reachability[n].iter().filter(|succ|orig_newlabels.contains(succ)).map(|succ|newlabel_to_label[succ]).collect();
                     if real_successors.is_subset(&g) {
                         to_add.push(l);
                     }
@@ -295,42 +297,38 @@ impl Problem {
                 passive.lines.push(line);
             }
 
-            /* 
-                for (r,n) in &fd.mapping_rightclosed_newlabel {
-                    let rightold : HashSet<_> = r.iter().cloned().collect();
-                    let mut compatible = HashSet::new();
-                    for line in &orig_passive_maximized.lines {
-                        let line_a : HashSet<_> = line.parts[0].group.iter().cloned().sorted().collect();
-                        let line_b : HashSet<_> = line.parts[line.parts.len()-1].group.iter().cloned().sorted().collect();
-                        if line_a.is_superset(&rightold) {
-                            compatible.extend(line_b.iter().cloned());
-                        }
-                        if line_b.is_superset(&rightold) {
-                            compatible.extend(line_a.iter().cloned());
-                        }
+            let mut p = Problem {
+                active,
+                passive,
+                mapping_label_text,
+                mapping_label_oldlabels: None,
+                mapping_oldlabel_labels: None,
+                mapping_oldlabel_text: None,
+                trivial_sets: None,
+                coloring_sets: None,
+                diagram_indirect: None,
+                diagram_indirect_old: None,
+                diagram_direct: None,
+                orientation_coloring_sets: None,
+                orientation_trivial_sets: None,
+                orientation_given: None,
+                fixpoint_diagram : None
+            };
+            p.compute_diagram(eh);
+            p.discard_useless_stuff(true, eh);
+            let fixpoint_labels : HashSet<_> = newlabel_to_label.values().cloned().collect();
+            let merge_groups = p.diagram_direct.as_ref().unwrap().0.clone();
+            println!("{:?}",merge_groups);
+            for (_, group) in merge_groups {
+                let mut rename_to = group.iter().filter(|l|fixpoint_labels.contains(l));
+                if let Some(dest) = rename_to.next() {
+                    for &from in &group {
+                        p = p.relax_merge(from, *dest);
                     }
-                    if newlabel_to_label.contains_key(n) {
-                        passive.lines.push(Line{ parts : vec![Part{group : Group(vec![newlabel_to_label[&n]]), gtype : GroupType::Many(1)}, Part{group : Group(compatible.into_iter().collect()), gtype : GroupType::Many(1)} ] });
-                    }
-                }*/
+                }
+            }
 
-            return Ok((Problem {
-                    active,
-                    passive,
-                    mapping_label_text,
-                    mapping_label_oldlabels: None,
-                    mapping_oldlabel_labels: None,
-                    mapping_oldlabel_text: None,
-                    trivial_sets: None,
-                    coloring_sets: None,
-                    diagram_indirect: None,
-                    diagram_indirect_old: None,
-                    diagram_direct: None,
-                    orientation_coloring_sets: None,
-                    orientation_trivial_sets: None,
-                    orientation_given: None,
-                    fixpoint_diagram : None
-            },diagram,self.labels().into_iter().map(|x|(x,x)).collect()));
+            return Ok((p,diagram,self.labels().into_iter().map(|x|(x,x)).collect()));
         } else {
             match fptype {
                 FixpointType::Basic => { self.fixpoint_dup(None, eh) },
