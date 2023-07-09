@@ -238,6 +238,7 @@ impl Problem {
 
     pub fn fixpoint_generic(&self, sublabels : Option<Vec<Label>>, fptype : FixpointType, eh: &mut EventHandler ) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         if let Some(sublabels) = sublabels {
+            let sublabels_set : HashSet<_> = sublabels.iter().cloned().collect();
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
             subproblem.discard_useless_stuff(false, eh);
             subproblem.fixpoint_diagram = self.fixpoint_diagram.clone();
@@ -280,19 +281,36 @@ impl Problem {
 
             let map : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
             passive.maximize(eh);
-            let reachability = diagram_indirect_to_reachability_adj(&fixpoint.labels(),&diagram);
-            let mut passive = passive.edited(|g|{
-                let mut g = HashSet::from_iter(g.0.iter().cloned());
-                let mut to_add = vec![];
-                for (n,l) in &newlabel_to_label {
-                    let real_successors : HashSet<_> = reachability[n].iter().filter(|succ|orig_newlabels.contains(succ)).map(|succ|newlabel_to_label[succ]).collect();
-                    if real_successors.is_subset(&g) {
-                        to_add.push(l);
-                    }
+            let mut reachability = diagram_indirect_to_reachability_adj(&fixpoint.labels(),&diagram);
+            for l in &fixpoint.labels() {
+                reachability.entry(*l).or_default().insert(*l);
+            }
+            let mut new_passive = Constraint {
+                lines: vec![],
+                is_maximized: false,
+                degree: passive.degree,
+            };
+            for line in &passive.lines {
+                if !line.parts.iter().all(|part|part.group.0.iter().all(|l|sublabels_set.contains(l))) {
+                    let newline = line.edited(|g|{
+                        //println!("The current group contains {:?}",g.iter().map(|l|&map[l]).collect_vec());
+                        let mut g = HashSet::from_iter(g.0.iter().cloned());
+                        let mut to_add = vec![];
+                        for (n,l) in &newlabel_to_label {
+                            let real_successors : HashSet<_> = reachability[n].iter().filter(|succ|orig_newlabels.contains(succ)).map(|succ|newlabel_to_label[succ]).collect();
+                            if real_successors.is_subset(&g) {
+                                //println!("Adding {:?} because real successors are {:?}",map[l],real_successors.iter().map(|l|&map[l]).collect_vec());
+                                to_add.push(l);
+                            }
+                        }
+                        g.extend(to_add.into_iter());
+                        Group(g.into_iter().sorted().collect())
+                    });
+                    new_passive.lines.push(newline);
                 }
-                g.extend(to_add.into_iter());
-                Group(g.into_iter().sorted().collect())
-            });
+            }
+
+            let mut passive = new_passive;
             for line in passive_fp.lines {
                 passive.lines.push(line);
             }

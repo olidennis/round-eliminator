@@ -1445,12 +1445,12 @@ Vue.component('re-fixpoint',{
         }
     },
     template: `
-        <re-card :show="this.problem.fixpoint_diagram !== null" title="Partial Fixpointing" subtitle="(automatic procedure for fixed point generation)">
+        <re-card :show="this.problem.fixpoint_diagram !== null" title="Fixed Point Tools" subtitle="(automatic procedure for fixed point generation)">
             <div class="custom-control custom-switch ml-2">
                 <label>
                     <input type="checkbox" class="custom-control-input" v-model="partial">
                     <p class="form-control-static custom-control-label">
-                        <span class="rounded m-1 labelborder">Partial</span>
+                        <span class="rounded m-1 labelborder">Partial Fixpointing</span>
                     </p>
                 </label>  
             </div>
