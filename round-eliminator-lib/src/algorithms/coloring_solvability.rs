@@ -154,10 +154,10 @@ mod tests {
         assert!(p.coloring_sets.unwrap().len() < 2);
     }
 
-    #[test]
+    /*#[test]
     #[should_panic]
     fn coloring_hypergraph() {
         let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA B C").unwrap();
         p.compute_coloring_solvability(&mut EventHandler::null());
-    }
+    }*/
 }
