@@ -458,7 +458,7 @@ impl Problem {
             diagram_direct: None,
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
-            orientation_given: None,
+            orientation_given: self.orientation_given,
             fixpoint_diagram : None
         };
         p.mapping_label_text = mapping_newlabel_text.clone();
@@ -488,8 +488,11 @@ impl Problem {
             // run the fixpoint procedure, keep track of how each line has been obtained
             let (mut p,passive_before_edit) = self.fixpoint_onestep(&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh)?;
             p.compute_triviality(eh);
+            if let Some(outdegree) = p.orientation_given {
+                p.compute_triviality_given_orientation(outdegree, eh);
+            }
             // if the problem is trivial, we need to repeat with a different diagram
-            if !p.trivial_sets.as_ref().unwrap().is_empty() /*&& i <3*/ {
+            if !p.trivial_sets.as_ref().unwrap().is_empty() /*&& i <3*/ || (p.orientation_given.is_some() && !p.orientation_trivial_sets.as_ref().unwrap().is_empty()){
 
                 // we extract all subexpressions for all lines obtained, both active and passive
                 let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();

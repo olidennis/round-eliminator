@@ -164,13 +164,19 @@ fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         if coloring.is_some() && p.coloring_sets.is_none() {
             p.compute_coloring_solvability(eh);
         }
+        if p.orientation_given.is_some() && p.orientation_trivial_sets.is_none() {
+            p.compute_triviality_given_orientation(p.orientation_given.unwrap(), eh);
+        }
     }
 
     let p = &problems.last().unwrap().2;  
 
-    if problems.len() > max_steps || p.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
-        send_sequence(problems.len()-1, problems);
-        return;
+    if problems.len() > max_steps 
+        || p.trivial_sets.as_ref().unwrap().len() > 0 
+        || (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap())
+        || (p.orientation_given.is_some() && p.orientation_trivial_sets.as_ref().unwrap().len() > 0)  {
+            send_sequence(problems.len()-1, problems);
+            return;
     }
     
     let (coloring,coloring_passive) = (coloring_passive,coloring);
@@ -191,6 +197,9 @@ fn automatic_lower_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         merged.compute_triviality(eh);
         if coloring.is_some() {
             merged.compute_coloring_solvability(eh);
+        }
+        if merged.orientation_given.is_some() && merged.orientation_trivial_sets.is_none() {
+            merged.compute_triviality_given_orientation(merged.orientation_given.unwrap(), eh);
         }
         let m_s = merged.to_string();
 

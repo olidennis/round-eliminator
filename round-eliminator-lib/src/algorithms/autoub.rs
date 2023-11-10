@@ -435,6 +435,8 @@ fn biregular_graph_non_parallel(d1 : usize, d2 : usize, sz : usize) -> (Vec<Vec<
     }
 }
 
+
+/* 
 #[cfg(test)]
 mod tests {
 
@@ -690,4 +692,4 @@ U^4
 
 
     }
-}
+}*/

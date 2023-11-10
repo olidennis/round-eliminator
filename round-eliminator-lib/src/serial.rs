@@ -14,6 +14,7 @@ fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and
             new.compute_triviality(eh);
             new.compute_coloring_solvability(eh);
             if let Some(outdegree) = new.orientation_given {
+                new.orientation_trivial_sets = None;
                 new.compute_triviality_given_orientation(outdegree, eh);
                 new.compute_coloring_solvability_given_orientation(outdegree, eh);
             }
