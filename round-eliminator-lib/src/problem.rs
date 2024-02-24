@@ -24,7 +24,8 @@ pub struct Problem {
     pub orientation_given: Option<usize>,
     pub orientation_trivial_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
     pub orientation_coloring_sets: Option<Vec<(Vec<Label>, Vec<Label>)>>,
-    pub fixpoint_diagram : Option<(Option<Vec<Label>>,FixpointDiagram)>
+    pub fixpoint_diagram : Option<(Option<Vec<Label>>,FixpointDiagram)>,
+    pub fixpoint_procedure_works : Option<bool>
 }
 
 pub type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
@@ -59,7 +60,8 @@ impl Problem {
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
             orientation_given: None,
-            fixpoint_diagram : None
+            fixpoint_diagram : None,
+            fixpoint_procedure_works : None
         };
         Ok(p)
     }

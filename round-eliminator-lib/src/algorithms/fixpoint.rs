@@ -236,13 +236,16 @@ impl Problem {
     }
 
 
-    pub fn fixpoint_generic(&self, sublabels : Option<Vec<Label>>, fptype : FixpointType, eh: &mut EventHandler ) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+    pub fn fixpoint_generic(&self, sublabels : Option<Vec<Label>>, fptype : FixpointType, only_compute_triviality : bool, eh: &mut EventHandler ) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         if let Some(sublabels) = sublabels {
+            if only_compute_triviality {
+                return Err("The option 'triviality only' is not allowed for partial fixpointing");
+            }
             let sublabels_set : HashSet<_> = sublabels.iter().cloned().collect();
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
             subproblem.discard_useless_stuff(false, eh);
             subproblem.fixpoint_diagram = self.fixpoint_diagram.clone();
-            let (fixpoint, diagram, mapping_label_newlabel) = subproblem.fixpoint_generic(None, fptype, eh).unwrap();
+            let (fixpoint, diagram, mapping_label_newlabel) = subproblem.fixpoint_generic(None, fptype, false,eh).unwrap();
             let mut newlabel_to_label : HashMap<Label,Label> = mapping_label_newlabel.into_iter().filter(|(l,_)|sublabels.contains(l)).map(|(l,n)|(n,l)).collect();
             let orig_newlabels : HashSet<_> = newlabel_to_label.keys().cloned().collect();
             let mut next_fresh = *self.labels().iter().max().unwrap_or(&0) + 1;
@@ -330,7 +333,8 @@ impl Problem {
                 orientation_coloring_sets: None,
                 orientation_trivial_sets: None,
                 orientation_given: None,
-                fixpoint_diagram : None
+                fixpoint_diagram : None,
+                fixpoint_procedure_works : None
             };
             p.compute_diagram(eh);
             p.discard_useless_stuff(true, eh);
@@ -348,20 +352,25 @@ impl Problem {
             return Ok((p,diagram,self.labels().into_iter().map(|x|(x,x)).collect()));
         } else {
             match fptype {
-                FixpointType::Basic => { self.fixpoint_dup(None, eh) },
-                FixpointType::Dup(dups) => { self.fixpoint_dup(Some(dups),eh) }
-                FixpointType::Loop => { self.fixpoint_loop(eh) },
-                FixpointType::Custom(s) => { self.fixpoint_custom(s,eh) },
+                FixpointType::Basic => { self.fixpoint_dup(None, only_compute_triviality,eh) },
+                FixpointType::Dup(dups) => { self.fixpoint_dup(Some(dups),only_compute_triviality,eh) }
+                FixpointType::Loop => {
+                    if only_compute_triviality {
+                        return Err("The option 'triviality only' is not allowed for 'loop' mode");
+                    }
+                    self.fixpoint_loop(eh)
+                },
+                FixpointType::Custom(s) => { self.fixpoint_custom(s,only_compute_triviality,eh) },
 
             }
         }
     }
 
-    pub fn fixpoint(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
-        self.fixpoint_dup(None, eh)
+    pub fn fixpoint(&self, only_compute_triviality:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+        self.fixpoint_dup(None, only_compute_triviality,eh)
     }
 
-    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, only_compute_triviality:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
@@ -375,11 +384,11 @@ impl Problem {
         let diagram = fd.diagram.clone();
         //println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
 
-        Ok((self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
+        Ok((self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
     }
 
 
-    pub fn fixpoint_custom(&self, text_diag : String, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+    pub fn fixpoint_custom(&self, text_diag : String, only_compute_triviality:bool, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         let text_mapping = text_diag.lines().filter(|line|!line.starts_with("#") && line.contains("=")).join("\n");
         let text_diagram = text_diag.lines().filter(|line|!line.starts_with("#") && (line.contains("->") || line.contains("<-"))).join("\n");
 
@@ -424,10 +433,121 @@ impl Problem {
             } 
             v.into_iter()
         }).collect();
-        Ok((self.fixpoint_onestep(&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0,diagram,mapping_label_newlabel))
+        Ok((self.fixpoint_onestep(only_compute_triviality, &mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0,diagram,mapping_label_newlabel))
     }
 
-    pub fn fixpoint_onestep(&self, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<(Self,Constraint), &'static str> {
+    pub fn fixpoint_onestep_only_determine_triviality(&self, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<(Self,Constraint), &'static str> {
+        if self.passive.degree != crate::line::Degree::Finite(2) {
+            panic!("This option only works when the passive degree is 2");
+        }
+        let passive = self.passive.all_choices(true);
+        let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
+        let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
+        let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+        let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
+        let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
+        let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
+        let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
+        let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
+        let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+        let mut maximal_zero = Constraint{ lines: vec![], is_maximized: false, degree: passive.degree };
+
+        let tostr : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+        for line in passive.all_choices(true) {
+            if line.parts.len() == 1 {
+                maximal_zero.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(|g1 : &Group,g2 : &Group|{
+                    passive_successors[&g1[0]].contains(&g2[0])
+                }));
+            }
+        }
+
+
+        let active = self.active.all_choices(true);
+        let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
+        let mut active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+
+        for line in maximal_zero.lines {
+            let target_line = Line{ parts: vec![Part{group: line.parts[0].group.clone(), gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent)}] };
+            let mut not_obtainable = Constraint{ lines: vec![], is_maximized: false, degree: self.active.degree  };
+            if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr) {
+                let mut p = self.clone();
+                p.fixpoint_procedure_works = Some(false);
+                return Ok((p,Constraint{lines:vec![],is_maximized:false,degree:passive.degree}));
+            }
+            println!("{}",target_line.to_string(&tostr));
+        }
+        let mut p = self.clone();
+        p.fixpoint_procedure_works = Some(true);
+        return Ok((p,Constraint{lines:vec![],is_maximized:false,degree:passive.degree}));
+    }
+
+    fn maximal_ways_to_obtain_label_or_successor(reachability : &HashMap<Label, HashSet<Label>>, label : Label) -> Vec<(Label,Label)>{
+        let mut good_pairs = vec![];
+        for &l1 in reachability.keys() {
+            for &l2 in reachability.keys() {
+                let common_successors : HashSet<Label> = reachability[&l1].intersection(&reachability[&l2]).cloned().collect();
+                if reachability[&label].is_superset(&common_successors) && !reachability[&label].contains(&l1) && !reachability[&label].contains(&l2){
+                    good_pairs.push((l1,l2));
+                }
+            }
+        }
+        let mut maximal_good_pairs = Constraint{ lines: vec![], is_maximized:false,degree : crate::line::Degree::Finite(2)};
+        for (l1,l2) in good_pairs {
+            let line = Line{ parts : vec![Part{gtype:GroupType::Many(1), group : Group(vec![l1])},Part{gtype:GroupType::Many(1), group : Group(vec![l2])}] };
+            maximal_good_pairs.add_line_and_discard_non_maximal_with_custom_supersets(line,Some(|g1 : &Group,g2 : &Group|{
+                reachability[&g1[0]].contains(&g2[0])
+            }));
+        }
+        maximal_good_pairs.lines.into_iter().map(|line|{
+            (line.parts[0].group[0],line.parts[1].group[0])
+        }).collect()
+    }
+
+    fn fp_is_obtainable(obtainable: &mut Constraint, not_obtainable: &mut Constraint,target_line: &Line, reachability : &HashMap<Label, HashSet<Label>>,tostr:&HashMap<Label,String>) -> bool {
+
+        let line_cmp = Some(|g1 : &Group,g2 : &Group|{
+            reachability[&g2[0]].contains(&g1[0])
+        });
+        let line_cmp_rev = Some(|g1 : &Group,g2 : &Group|{
+            reachability[&g1[0]].contains(&g2[0])
+        });
+        if obtainable.includes_with_custom_supersets(target_line,line_cmp) {
+            return true;
+        }
+        if not_obtainable.includes_with_custom_supersets(target_line,line_cmp_rev) {
+            return false;
+        }
+
+
+        for (i,part) in target_line.parts.iter().enumerate() {
+            for (l1,l2) in Self::maximal_ways_to_obtain_label_or_successor(reachability,part.group[0]) {
+                let mut req1 = target_line.clone();
+                let mut req2 = target_line.clone();
+                if let GroupType::Many(x) = target_line.parts[i].gtype {
+                    req1.parts[i].gtype = GroupType::Many(x-1);
+                    req2.parts[i].gtype = GroupType::Many(x-1);
+                    req1.parts.push(Part{gtype : GroupType::Many(1),group : Group(vec![l1])});
+                    req2.parts.push(Part{gtype : GroupType::Many(1),group : Group(vec![l2])});
+                    req1.normalize();
+                    req2.normalize();
+                    if Problem::fp_is_obtainable(obtainable,not_obtainable, &req1, reachability,tostr) && Problem::fp_is_obtainable(obtainable,not_obtainable, &req2, reachability,tostr) {
+                        obtainable.add_line_and_discard_non_maximal_with_custom_supersets(target_line.clone(), line_cmp);
+                        return true;
+                    }
+                } else {
+                    panic!("No stars allowed here");
+                }
+            }
+        }
+        //println!("Reached a leaf: {}", target_line.to_string(tostr));
+        not_obtainable.add_line_and_discard_non_maximal_with_custom_supersets(target_line.clone(), line_cmp_rev);
+        return false;
+    }
+
+    pub fn fixpoint_onestep(&self, only_compute_triviality:bool, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<(Self,Constraint), &'static str> {
+        if only_compute_triviality {
+            return self.fixpoint_onestep_only_determine_triviality(mapping_label_newlabel,mapping_newlabel_text,diagram,tracking,tracking_passive,eh);
+        }
         let active = self.active.all_choices(true);
         let passive = self.passive.all_choices(true);
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
@@ -459,7 +579,8 @@ impl Problem {
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
             orientation_given: self.orientation_given,
-            fixpoint_diagram : None
+            fixpoint_diagram : None,
+            fixpoint_procedure_works : None
         };
         p.mapping_label_text = mapping_newlabel_text.clone();
         Ok((p,passive_before_edit))
@@ -486,7 +607,7 @@ impl Problem {
             let tracking_passive = CHashMap::new();
 
             // run the fixpoint procedure, keep track of how each line has been obtained
-            let (mut p,passive_before_edit) = self.fixpoint_onestep(&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh)?;
+            let (mut p,passive_before_edit) = self.fixpoint_onestep(false,&mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect(),&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh)?;
             p.compute_triviality(eh);
             if let Some(outdegree) = p.orientation_given {
                 p.compute_triviality_given_orientation(outdegree, eh);
@@ -539,6 +660,8 @@ impl Problem {
 
 
 }
+
+
 
 fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram : &Vec<(Label,Label)>, mapping_label_text : &Vec<(Label,String)>, eh: &mut EventHandler) -> (Vec<(Label,Label)>,Vec<(Label,String)>,HashMap<Label,Label>) {
     let mapping_label_text : HashMap<_,_> = mapping_label_text.iter().cloned().collect();

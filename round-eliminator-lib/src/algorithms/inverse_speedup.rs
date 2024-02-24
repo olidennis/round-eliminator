@@ -67,7 +67,8 @@ impl Problem {
             orientation_coloring_sets: None,
             orientation_trivial_sets: None,
             orientation_given: self.orientation_given,
-            fixpoint_diagram : None
+            fixpoint_diagram : None,
+            fixpoint_procedure_works : None
         };
         p.assign_chars();
         p

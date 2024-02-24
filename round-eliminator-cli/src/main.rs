@@ -162,7 +162,7 @@ fn speedups_with_fixpoint(p : &Problem, c : Option<usize>, pc : Option<usize>, b
         if p.diagram_indirect.is_none() {
             p.compute_partial_diagram(&mut eh);
         }
-        match p.fixpoint(&mut eh) {
+        match p.fixpoint(false,&mut eh) {
             Ok((mut new,_,_)) => {
                 new.compute_triviality(&mut eh);
                 let is_trivial = new.trivial_sets.as_ref().unwrap().len() > 0;

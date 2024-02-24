@@ -44,29 +44,29 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
-function fixpoint_gendefault(problem, partial, sublabels, onresult, onerror, progress){
+function fixpoint_gendefault(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ DefaultDiagram : [problem,partial,sublabels] }, ondata , function(){});
+    return api.request({ DefaultDiagram : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
 }
 
-function fixpoint_basic(problem, partial,sublabels, onresult, onerror, progress){
+function fixpoint_basic(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointBasic : [problem,partial,sublabels] }, ondata , function(){});
+    return api.request({ FixpointBasic : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
 }
 
-function fixpoint_loop(problem, partial, sublabels, onresult, onerror, progress){
+function fixpoint_loop(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointLoop : [problem,partial,sublabels] }, ondata , function(){});
+    return api.request({ FixpointLoop : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
 }
 
-function fixpoint_custom(problem, diagram, partial, sublabels, onresult, onerror, progress){
+function fixpoint_custom(problem, diagram, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointCustom : [problem, diagram, partial, sublabels] }, ondata , function(){});
+    return api.request({ FixpointCustom : [problem, diagram, partial, triviality_only, sublabels] }, ondata , function(){});
 }
 
-function fixpoint_dup(problem, dups, partial, sublabels, onresult, onerror, progress){
+function fixpoint_dup(problem, dups, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointDup : [problem, dups, partial, sublabels] }, ondata , function(){});
+    return api.request({ FixpointDup : [problem, dups, partial, triviality_only, sublabels] }, ondata , function(){});
 }
 
 function give_orientation(problem, outdegree, onresult, onerror, progress){
@@ -176,7 +176,9 @@ function fix_problem(p) {
         p.fixpoint_diagram[1].map_label_text = vec_to_map(p.fixpoint_diagram[1].mapping_newlabel_text);
 
     }
-    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets };
+    let fp_procedure_works = (problem.fixpoint_procedure_works != null && problem.fixpoint_procedure_works);
+    let fp_procedure_does_not_work = (problem.fixpoint_procedure_works != null && !problem.fixpoint_procedure_works);
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work };
 }
 
 
@@ -507,6 +509,16 @@ Vue.component('re-problem-info', {
                     </div>
                 </div>
             </div>
+            <div v-if="this.problem.info.fp_procedure_works" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem can be relaxed into a non-trivial fixed point.</div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.fp_procedure_does_not_work" class="col-auto m-2 p-0">
+            <div class="card card-body m-0 p-2">
+                <div>The fixed point procedure failed to produce a non-trivial fixed point relaxation.</div>
+            </div>
+        </div>
         </div>
     `
 })
@@ -1435,7 +1447,8 @@ Vue.component('re-fixpoint',{
                     return [label,text,oldtext,enabled];
                 }
         }),
-        partial : this.problem.fixpoint_diagram !== null && this.problem.fixpoint_diagram[0] !== null
+        partial : this.problem.fixpoint_diagram !== null && this.problem.fixpoint_diagram[0] !== null,
+        triviality_only : false
     }},
     watch: { 
         // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
@@ -1454,6 +1467,14 @@ Vue.component('re-fixpoint',{
                     </p>
                 </label>  
             </div>
+            <div class="custom-control custom-switch ml-2">
+                <label>
+                    <input type="checkbox" class="custom-control-input" v-model="triviality_only">
+                    <p class="form-control-static custom-control-label">
+                        <span class="rounded m-1 labelborder">Only determine triviality</span>
+                    </p>
+                </label>  
+            </div>
             <hr/>
             <div v-if="partial">
                 <div v-for="(row,index) in this.table">
@@ -1469,26 +1490,26 @@ Vue.component('re-fixpoint',{
                 </div>
                 <hr/>
             </div>
-            <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-basic> (with default diagram)</div>
-            <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
+            <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff" :partial="partial" :table="table" :triviality_only="triviality_only"></re-fixpoint-basic> (with default diagram)</div>
+            <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
             <div v-if="this.problem.fixpoint_diagram === null" class="m-2">
-                <re-fixpoint-gendefault :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-gendefault> for additional options, click here
+                <re-fixpoint-gendefault :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-gendefault> for additional options, click here
             </div>
             <div v-else class="m-2">
-                <re-fixpoint-dup :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-dup>
-                <re-fixpoint-custom :problem="problem" :stuff="stuff" :partial="partial" :table="table"></re-fixpoint-custom>
+                <re-fixpoint-dup :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-dup>
+                <re-fixpoint-custom :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-custom>
             </div>
         </re-card>
     `
 })
 
 Vue.component('re-fixpoint-gendefault',{
-    props: ['problem','stuff','partial','table'],
+    props: ['problem','stuff','partial','table','triviality_only'],
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault", sub : sublabels_text},fixpoint_gendefault,[this.problem,this.partial,sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault", sub : sublabels_text},fixpoint_gendefault,[this.problem,this.partial,this.triviality_only, sublabels]);
         }
     },
     template: `
@@ -1497,12 +1518,12 @@ Vue.component('re-fixpoint-gendefault',{
 })
 
 Vue.component('re-fixpoint-basic',{
-    props: ['problem','stuff','partial','table'],
+    props: ['problem','stuff','partial','table','triviality_only'],
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-basic",sub : sublabels_text},fixpoint_basic,[this.problem,this.partial,sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-basic",sub : sublabels_text},fixpoint_basic,[this.problem,this.partial,this.triviality_only, sublabels]);
         }
     },
     template: `
@@ -1511,12 +1532,12 @@ Vue.component('re-fixpoint-basic',{
 })
 
 Vue.component('re-fixpoint-loop',{
-    props: ['problem','stuff','partial','table'],
+    props: ['problem','stuff','partial','table','triviality_only'],
     methods: {
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-loop",sub : sublabels_text},fixpoint_loop,[this.problem,this.partial,sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-loop",sub : sublabels_text},fixpoint_loop,[this.problem,this.partial,this.triviality_only, sublabels]);
         }
     },
     template: `
@@ -1525,7 +1546,7 @@ Vue.component('re-fixpoint-loop',{
 })
 
 Vue.component('re-fixpoint-custom',{
-    props: ['problem','stuff','partial','table'],
+    props: ['problem','stuff','partial','table','triviality_only'],
     data: function(){ return {
             text : this.problem.fixpoint_diagram[1].text,
         }    
@@ -1541,7 +1562,7 @@ Vue.component('re-fixpoint-custom',{
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-custom",sub : sublabels_text, diagram: this.text},fixpoint_custom,[this.problem,this.text,this.partial,sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-custom",sub : sublabels_text, diagram: this.text},fixpoint_custom,[this.problem,this.text,this.partial,this.triviality_only, sublabels]);
         }
     },
     template: `
@@ -1554,7 +1575,7 @@ Vue.component('re-fixpoint-custom',{
 
 
 Vue.component('re-fixpoint-dup',{
-    props: ['problem','stuff','partial','table'],
+    props: ['problem','stuff','partial','table','triviality_only'],
     data : function(){ return {
         dups : [],  
     }},
@@ -1571,7 +1592,7 @@ Vue.component('re-fixpoint-dup',{
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", sub : sublabels_text, dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", sub : sublabels_text, dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, this.triviality_only, sublabels]);
         },
         convert(x){
             return labelset_to_string(x,this.problem.fixpoint_diagram[1].map_label_text,", ")

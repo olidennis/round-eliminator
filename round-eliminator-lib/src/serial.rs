@@ -74,11 +74,11 @@ where
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
-        Request::FixpointBasic(mut problem, partial, sublabels) => {
+        Request::FixpointBasic(mut problem, partial, triviality_only, sublabels) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
             }
-            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Basic,&mut eh) {
+            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Basic,triviality_only,&mut eh) {
                 Ok((mut new,_,_)) => {
                     fix_problem(&mut new, true, true, &mut eh);
                     handler(Response::P(new));
@@ -86,11 +86,11 @@ where
                 Err(s) => handler(Response::E(s.into())),
             }
         }
-        Request::FixpointLoop(mut problem, partial, sublabels) => {
+        Request::FixpointLoop(mut problem, partial, triviality_only, sublabels) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
             }
-            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Loop,&mut eh) {
+            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Loop,triviality_only,&mut eh) {
                 Ok((mut new,_,_)) => {
                     fix_problem(&mut new, true, true, &mut eh);
                     handler(Response::P(new));
@@ -98,11 +98,11 @@ where
                 Err(s) => handler(Response::E(s.into())),
             }
         }
-        Request::FixpointCustom(mut problem, diagram, partial, sublabels) => {
+        Request::FixpointCustom(mut problem, diagram, partial, triviality_only, sublabels) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
             }
-            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None}, FixpointType::Custom(diagram),&mut eh) {
+            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None}, FixpointType::Custom(diagram),triviality_only,&mut eh) {
                 Ok((mut new,_,_)) => {
                     fix_problem(&mut new, true, true, &mut eh);
                     handler(Response::P(new));
@@ -110,11 +110,11 @@ where
                 Err(s) => handler(Response::E(s.into())),
             }
         }
-        Request::FixpointDup(mut problem, dups, partial, sublabels) => {
+        Request::FixpointDup(mut problem, dups, partial, triviality_only, sublabels) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
             }
-            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Dup(dups),&mut eh) {
+            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Dup(dups),triviality_only,&mut eh) {
                 Ok((mut new,_,_)) => {
                     fix_problem(&mut new, true, true, &mut eh);
                     handler(Response::P(new));
@@ -275,7 +275,7 @@ where
             problem.compute_coloring_solvability(&mut eh);
             handler(Response::P(problem));
         }
-        Request::DefaultDiagram(mut problem, partial, labels) => {
+        Request::DefaultDiagram(mut problem, partial, _triviality_only, labels) => {
             problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, &mut eh);
             handler(Response::P(problem));
         } //_ => { unimplemented!() }
@@ -293,10 +293,10 @@ pub enum Request {
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),
-    FixpointBasic(Problem, bool, Vec<Label>),
-    FixpointLoop(Problem, bool, Vec<Label>),
-    FixpointCustom(Problem,String, bool, Vec<Label>),
-    FixpointDup(Problem,Vec<Vec<Label>>, bool, Vec<Label>),
+    FixpointBasic(Problem, bool, bool, Vec<Label>),
+    FixpointLoop(Problem, bool, bool, Vec<Label>),
+    FixpointCustom(Problem,String, bool, bool, Vec<Label>),
+    FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>),
     InverseSpeedup(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),
@@ -305,7 +305,7 @@ pub enum Request {
     RenameGenerators(Problem),
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
-    DefaultDiagram(Problem, bool, Vec<Label>),
+    DefaultDiagram(Problem, bool, bool, Vec<Label>),
     AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     ColoringSolvability(Problem),
