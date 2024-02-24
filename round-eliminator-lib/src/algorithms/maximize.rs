@@ -36,7 +36,7 @@ impl Constraint {
         let becomes_star = 100;
 
         let seen = CHashMap::new();
-        let seen_pairs = CHashMap::new();
+        let mut seen_pairs = CHashMap::<(usize,usize),()>::new();
         let next_id = AtomicUsize::new(1);
 
         let lines = std::mem::take(&mut self.lines);
@@ -49,6 +49,8 @@ impl Constraint {
 
         loop {
             let lines = &self.lines;
+            let useful_ids : HashSet<usize> = lines.iter().map(|line|*seen.get(line).unwrap()).collect();
+            seen_pairs = seen_pairs.into_iter().filter(|((p1,p2),_)| useful_ids.contains(p1) && useful_ids.contains(p2)).collect();
 
             let without_one = without_one(lines);
 
@@ -164,9 +166,9 @@ impl Constraint {
                         });
                     }
 
-                    let now = std::time::Instant::now();
+                    //let now = std::time::Instant::now();
                     let len = lines.len();
-                    let mut total = len * (len+1)/2;
+                    let total = len * (len+1)/2;
                     let mut last_notify = Instant::now();
                     for received in 0..total {
                         progress_rx.recv().unwrap();
@@ -179,8 +181,8 @@ impl Constraint {
 
                 }).unwrap();
 
-                let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
-                let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
+                //let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
+                //let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
                 //println!("bad {}, good {}",c2,c1);
                 Constraint{ lines: newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).map(|(_,line)|line.clone()).collect(), is_maximized: false, degree: self.degree }
             };
@@ -296,6 +298,7 @@ pub enum Operation {
     Intersection,
 }
 
+#[inline(never)]
 #[allow(clippy::needless_range_loop)]
 fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Line, allow_empty : bool, f_is_superset : FS, f_intersection : FI) -> Vec<Vec<(usize,usize,Operation,Part)>> where FS : Fn(&Group,&Group) -> bool, FI : Fn(&Group,&Group) -> Group {
     let t1 = c1.degree_without_star();
@@ -304,12 +307,12 @@ fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Lin
     let star1 = d - t1;
     let star2 = d - t2;
 
-    let line_to_counts = |line: &Line, starvalue| -> Vec<usize> {
+    let line_to_counts = |line: &Line, starvalue : usize| -> Vec<usize> {
         line.parts
             .iter()
             .map(|part| match part.gtype {
                 //GroupType::ONE => 1,
-                GroupType::Many(x) => x,
+                GroupType::Many(x) => x as usize,
                 GroupType::Star => starvalue,
             })
             .collect()
@@ -375,7 +378,7 @@ fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Lin
         for (i, pa) in c1.parts.iter().enumerate() {
             for (j, pb) in c2.parts.iter().enumerate() {
                 if pairing[i][j] > 0 {
-                    let value = GroupType::Many(pairing[i][j]);
+                    let value = GroupType::Many(pairing[i][j] as crate::group::Exponent);
                     let intersection = f_intersection(&pa.group,&pb.group); 
                     if !allow_empty && intersection.0.is_empty() { 
                         continue 'outer;
@@ -396,6 +399,7 @@ fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Lin
     result
 }
 
+#[inline(never)]
 fn good_unions<FS,FU>(l1: &Line, l2: &Line, f_is_superset : FS, f_union : FU) -> HashMap<Group, Vec<(usize, usize)>> where FS : Fn(&Group,&Group) -> bool, FU : Fn(&Group,&Group) -> Group {
     let s1: Vec<_> = l1.parts.iter().map(|part| &part.group).collect();
     let s2: Vec<_> = l2.parts.iter().map(|part| &part.group).collect();
@@ -426,6 +430,7 @@ fn good_unions<FS,FU>(l1: &Line, l2: &Line, f_is_superset : FS, f_union : FU) ->
     unions
 }
 
+#[inline(never)]
 pub fn combine_lines_custom<FS,FU,FI>(
     l1: &Line,
     l2: &Line,
@@ -465,7 +470,7 @@ pub fn combine_lines_custom<FS,FU,FI>(
                 if newline.has_star() {
                     for parts in newline.parts.iter_mut() {
                         if let GroupType::Many(x) = parts.gtype {
-                            if x >= becomes_star {
+                            if x as usize >= becomes_star {
                                 parts.gtype = GroupType::Star;
                             }
                         }

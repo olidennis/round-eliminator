@@ -184,7 +184,7 @@ impl DirectedProblem {
 
 impl Display for DirectedProblem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mapping : HashMap<u16, String> = self.mapping_label_text.iter().cloned().collect();
+        let mapping : HashMap<Label, String> = self.mapping_label_text.iter().cloned().collect();
         for (head,constraint) in &self.constraints {
             for line in &constraint.lines {
                 for label in &head.0 {

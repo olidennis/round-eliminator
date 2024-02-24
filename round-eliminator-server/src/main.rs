@@ -10,7 +10,7 @@ use warp::{
 
 #[tokio::main]
 async fn main() {
-    server("127.0.0.1:8080").await;
+    server("127.0.0.1:8080").await; 
 }
 
 async fn server(addr: &str) {

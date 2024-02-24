@@ -5,7 +5,7 @@ use streaming_iterator::StreamingIterator;
 
 use crate::{
     constraint::Constraint,
-    group::{Group, GroupType, Label},
+    group::{Group, GroupType, Label, Exponent},
     line::{Degree, Line},
     part::Part,
     problem::Problem,
@@ -24,7 +24,7 @@ impl Constraint {
                 .parts
                 .iter()
                 .map(|p| match p.gtype {
-                    GroupType::Many(x) => std::cmp::min(x, outdegree),
+                    GroupType::Many(x) => std::cmp::min(x as usize, outdegree),
                     GroupType::Star => outdegree,
                 })
                 .collect();
@@ -38,7 +38,7 @@ impl Constraint {
                         .zip(comb.iter())
                         .map(|(part, count)| Part {
                             group: part.group.clone(),
-                            gtype: GroupType::Many(*count),
+                            gtype: GroupType::Many(*count as Exponent),
                         })
                         .collect(),
                 };
@@ -50,7 +50,7 @@ impl Constraint {
                         .map(|(part, count)| Part {
                             group: part.group.clone(),
                             gtype: match part.gtype {
-                                GroupType::Many(x) => GroupType::Many(x - count),
+                                GroupType::Many(x) => GroupType::Many(x - *count as crate::group::Exponent),
                                 GroupType::Star => GroupType::Star,
                             },
                         })

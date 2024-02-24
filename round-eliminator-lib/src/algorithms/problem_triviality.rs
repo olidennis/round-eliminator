@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    group::{Group, GroupType},
+    group::{Group, GroupType, Exponent},
     line::{Degree, Line},
     part::Part,
     problem::Problem,
@@ -25,7 +25,7 @@ impl Problem {
         }
 
         let passive_degree = match self.passive.lines[0].degree() {
-            Degree::Finite(x) => GroupType::Many(x),
+            Degree::Finite(x) => GroupType::Many(x as Exponent),
             Degree::Star => GroupType::Star,
         };
 

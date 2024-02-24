@@ -69,6 +69,10 @@ impl Line {
         self.parts = rparts;
 
         self.parts.sort_unstable();
+        self.parts.shrink_to_fit();
+        for part in self.parts.iter_mut() {
+            part.group.shrink_to_fit();
+        }
     }
 
     pub fn sort_by_strength(&mut self, reachability: &HashMap<Label, HashSet<Label>>) {

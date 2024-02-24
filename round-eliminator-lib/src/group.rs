@@ -8,13 +8,14 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub type Label = u16;
+pub type Exponent = u16;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Group(pub Vec<Label>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
-    Many(usize),
+    Many(u8),
     Star,
 }
 
@@ -45,6 +46,7 @@ impl Group {
         Group(h.iter().cloned().sorted().collect())
     }
 
+    #[inline(never)]
     pub fn is_superset(&self, other: &Group) -> bool {
         //assert!(self.is_sorted());
         //assert!(other.is_sorted());
@@ -160,7 +162,7 @@ impl GroupType {
         use GroupType::*;
         match self {
             //One => 1,
-            Many(n) => *n,
+            Many(n) => *n as usize,
             Star => {
                 panic!("Should not call value() on Star")
             }

@@ -353,7 +353,7 @@ pub fn diagram_to_indirect(labels : &[Label], diagram : &Vec<(Label,Label)>) -> 
     r
 }
 
-pub fn compute_direct_diagram(labels : &[Label], diagram_indirect : &Vec<(Label,Label)>) -> (Vec<(u16, Vec<u16>)>, Vec<(u16, u16)>){
+pub fn compute_direct_diagram(labels : &[Label], diagram_indirect : &Vec<(Label,Label)>) -> (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>){
     let diagram = diagram_indirect;
     let diagram_usize: Vec<_> = diagram_indirect
         .iter()

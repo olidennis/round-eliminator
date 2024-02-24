@@ -45,6 +45,7 @@ impl Constraint {
         !self.lines.iter().rev().all(|oldline| !oldline.includes_with_custom_supersets(&newline, is_superset))
     }
 
+    #[inline(never)]
     pub fn add_line_and_discard_non_maximal_with_custom_supersets<T>(
         &mut self,
         newline: Line,

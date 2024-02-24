@@ -49,7 +49,7 @@ impl Part {
                 (Out, '^') => {
                     let s: String = chars.by_ref().collect();
                     let n: usize = s.parse().map_err(|_| "Invalid number")?;
-                    gtype = GroupType::Many(n);
+                    gtype = GroupType::Many(n as crate::group::Exponent);
                 }
                 (Out, c) => {
                     let label = label_for_str(String::from(c));

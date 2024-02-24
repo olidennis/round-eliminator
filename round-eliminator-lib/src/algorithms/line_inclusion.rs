@@ -10,6 +10,7 @@ impl Line {
         self.includes_with_custom_supersets(other, None::<fn(&'_ _, &'_ _) -> _>)
     }
 
+    #[inline(never)]
     pub fn includes_with_custom_supersets<T>(&self, other: &Line, is_superset: Option<T>) -> bool
     where
         T: Fn(&Group, &Group) -> bool,
@@ -31,10 +32,14 @@ impl Line {
         Some(labels)
     }
 
+
+
+
+
     pub fn matches<T>(&self, other: &Line, can_match: Option<T>) -> Option<Vec<((usize,usize),usize)>>
-    where
-        T: Fn(&Group, &Group) -> bool,
-    {
+        where
+            T: Fn(&Group, &Group) -> bool,
+        {
 
         let d1 = self.parts.len();
         let d2 = other.parts.len();
@@ -47,6 +52,7 @@ impl Line {
 
         let mut edges = vec![];
 
+        //6% of runtime
         for i in 0..d1 {
             let value = if let GroupType::Star = self.parts[i].gtype {
                 maxflow - t1
@@ -58,6 +64,7 @@ impl Line {
             edges.push((1 + i,0));
         }
 
+        //5% of runtime
         for i in 0..d2 {
             let value = if let GroupType::Star = other.parts[i].gtype {
                 maxflow - t2
@@ -94,6 +101,7 @@ impl Line {
             }
         }*/
 
+        //50% of runtime
         for i in 0..d1 {
             let g1 = &self.parts[i].group;
             let mut at_least_one = false;
@@ -116,6 +124,7 @@ impl Line {
             }
         }
 
+        //32% of runtime
         let (flowvalue, flow) = g.dinic(0, n - 1);
 
         if flowvalue == maxflow as i64 {

@@ -1,4 +1,4 @@
-use crate::group::{GroupType, Label};
+use crate::group::{GroupType, Label, Exponent};
 use crate::part::Part;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ impl Line {
                 Star => {}
             }
         }
-        s
+        s as usize
     }
 
     pub fn has_star(&self) -> bool {
@@ -71,7 +71,7 @@ impl Line {
                 }
             }
         }
-        Degree::Finite(s)
+        Degree::Finite(s as usize)
     }
 }
 
