@@ -8,14 +8,14 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub type Label = u16;
-pub type Exponent = u16;
+pub type Exponent = u8;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Group(pub Vec<Label>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
-    Many(u8),
+    Many(Exponent),
     Star,
 }
 
