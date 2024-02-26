@@ -473,15 +473,23 @@ impl Problem {
         }
 
         let mut not_obtainable = Constraint{ lines: vec![], is_maximized: false, degree: self.active.degree  };
-        let all_zero = Line{ parts: vec![Part{group: Group(zero_labels), gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent)}] };
+        let all_zero = Line{ parts: vec![Part{group: Line::labels_to_set(zero_labels.iter().cloned()), gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent)}] };
         let all_zero = Constraint{ lines : vec![all_zero], is_maximized : false, degree : self.active.degree};
         for target_line in all_zero.all_choices(true) {
-            if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr) {
-                let mut p = self.clone();
-                p.fixpoint_procedure_works = Some(false);
-                return Ok((p,Constraint{lines:vec![],is_maximized:false,degree:passive.degree}));
+            let group = target_line.line_set();
+            let part = Part {
+                gtype: GroupType::Many(2),
+                group,
+            };
+            let line = Line { parts: vec![part] };
+            if passive.includes(&line) {
+                if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr) {
+                    let mut p = self.clone();
+                    p.fixpoint_procedure_works = Some(false);
+                    return Ok((p,Constraint{lines:vec![],is_maximized:false,degree:passive.degree}));
+                }
+                println!("{}",target_line.to_string(&tostr));
             }
-            println!("{}",target_line.to_string(&tostr));
         }
         let mut p = self.clone();
         p.fixpoint_procedure_works = Some(true);
