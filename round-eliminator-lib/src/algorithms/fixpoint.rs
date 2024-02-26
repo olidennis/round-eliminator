@@ -1,6 +1,6 @@
 use std::{collections::{HashSet, HashMap, BTreeSet}, fmt::Display};
 
-use chashmap::CHashMap;
+use dashmap::DashMap as CHashMap;
 use itertools::Itertools;
 
 use crate::{problem::{Problem, DiagramDirect}, constraint::Constraint, group::{Label, Group, GroupType}, line::Line, algorithms::diagram::compute_direct_diagram, part::Part};
@@ -466,9 +466,16 @@ impl Problem {
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
         let mut active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
 
+        let mut zero_labels = vec![];
+
         for line in maximal_zero.lines {
-            let target_line = Line{ parts: vec![Part{group: line.parts[0].group.clone(), gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent)}] };
-            let mut not_obtainable = Constraint{ lines: vec![], is_maximized: false, degree: self.active.degree  };
+            zero_labels.push(line.parts[0].group[0]);
+        }
+
+        let mut not_obtainable = Constraint{ lines: vec![], is_maximized: false, degree: self.active.degree  };
+        let all_zero = Line{ parts: vec![Part{group: Group(zero_labels), gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent)}] };
+        let all_zero = Constraint{ lines : vec![all_zero], is_maximized : false, degree : self.active.degree};
+        for target_line in all_zero.all_choices(true) {
             if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr) {
                 let mut p = self.clone();
                 p.fixpoint_procedure_works = Some(false);
@@ -512,6 +519,7 @@ impl Problem {
             reachability[&g1[0]].contains(&g2[0])
         });
         if obtainable.includes_with_custom_supersets(target_line,line_cmp) {
+            println!("This is obtainable: {}", target_line.to_string(tostr));
             return true;
         }
         if not_obtainable.includes_with_custom_supersets(target_line,line_cmp_rev) {
@@ -530,8 +538,10 @@ impl Problem {
                     req2.parts.push(Part{gtype : GroupType::Many(1),group : Group(vec![l2])});
                     req1.normalize();
                     req2.normalize();
+                    println!("from {} recurse on {} and {}",target_line.to_string(tostr),req1.to_string(tostr),req2.to_string(tostr));
                     if Problem::fp_is_obtainable(obtainable,not_obtainable, &req1, reachability,tostr) && Problem::fp_is_obtainable(obtainable,not_obtainable, &req2, reachability,tostr) {
                         obtainable.add_line_and_discard_non_maximal_with_custom_supersets(target_line.clone(), line_cmp);
+                        println!("This is obtainable: {}", target_line.to_string(tostr));
                         return true;
                     }
                 } else {

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
-use chashmap::CHashMap;
+use dashmap::DashMap as CHashMap;
 use streaming_iterator::StreamingIterator;
 use std::time::Instant;
 
