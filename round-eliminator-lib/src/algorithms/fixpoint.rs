@@ -527,7 +527,7 @@ impl Problem {
             reachability[&g1[0]].contains(&g2[0])
         });
         if obtainable.includes_with_custom_supersets(target_line,line_cmp) {
-            println!("This is obtainable: {}", target_line.to_string(tostr));
+            //println!("This is obtainable: {}", target_line.to_string(tostr));
             return true;
         }
         if not_obtainable.includes_with_custom_supersets(target_line,line_cmp_rev) {
@@ -546,10 +546,10 @@ impl Problem {
                     req2.parts.push(Part{gtype : GroupType::Many(1),group : Group(vec![l2])});
                     req1.normalize();
                     req2.normalize();
-                    println!("from {} recurse on {} and {}",target_line.to_string(tostr),req1.to_string(tostr),req2.to_string(tostr));
+                    //println!("from {} recurse on {} and {}",target_line.to_string(tostr),req1.to_string(tostr),req2.to_string(tostr));
                     if Problem::fp_is_obtainable(obtainable,not_obtainable, &req1, reachability,tostr) && Problem::fp_is_obtainable(obtainable,not_obtainable, &req2, reachability,tostr) {
                         obtainable.add_line_and_discard_non_maximal_with_custom_supersets(target_line.clone(), line_cmp);
-                        println!("This is obtainable: {}", target_line.to_string(tostr));
+                        //println!("This is obtainable: {}", target_line.to_string(tostr));
                         return true;
                     }
                 } else {

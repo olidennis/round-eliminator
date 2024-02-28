@@ -7,5 +7,6 @@ pub mod part;
 pub mod problem;
 pub mod serial;
 pub mod directed;
+pub mod kpartite;
 //#[cfg(test)]
 //pub mod moretests;
