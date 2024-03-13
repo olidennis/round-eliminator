@@ -58,21 +58,25 @@ fn kpartite_sinkless_coloring(){
 
 
 #[test]
-fn kpartite_delta_coloring(){
+fn kpartite_test(){
     let eh = &mut EventHandler::null();
 
     let mut mapping_label_text = HashMap::new();
 
     let c1 = Constraint::parse(
-        "1 23\n2 3",
+        "M 1234\n234 234",
         &mut mapping_label_text).unwrap();
 
     let c2 = Constraint::parse(
-        "1 23\n2 3",
+        "M 1234\n134 134",
         &mut mapping_label_text).unwrap();
 
     let c3 = Constraint::parse(
-        "1 23\n2 3",
+        "M 1234\n124 124",
+        &mut mapping_label_text).unwrap();
+
+    let c4 = Constraint::parse(
+        "M 1234\n123 123",
         &mut mapping_label_text).unwrap();
     
     let mapping_label_text = mapping_label_text
@@ -80,14 +84,56 @@ fn kpartite_delta_coloring(){
         .map(|(a, b)| (b, a))
         .collect();
     
-    let mut p = KPartiteProblem{ constraints: vec![c1,c2,c3], mapping_label_text, mapping_label_oldlabels: None  };
+    let mut p = KPartiteProblem{ constraints: vec![c1,c2,c3,c4], mapping_label_text, mapping_label_oldlabels: None  };
     println!("{}",p);
 
     p = p.speedup_kpartite(|set|{
-        format!("({})",set.iter().join("_"))
+        if !set.contains(&&"M".to_owned()) {
+            if set.contains(&&"4".to_owned()){
+                return "3".to_owned()
+            } else if set.contains(&&"3".to_owned()){
+                return "2".to_owned()
+            } else if set.contains(&&"2".to_owned()){
+                return "1".to_owned()
+            }  else {
+                return "4".to_owned()
+            }
+        };
+        if set.len() > 1 {
+            return "5".to_owned()
+        }
+        return "M".to_owned()
+        //format!("({})",set.iter().join(""))
+        //format!("{}",set.iter().next().unwrap())
     },eh);
+    for c in p.constraints.iter_mut() {
+        c.maximize(eh);
+    }
     println!("{}",p);
     
+    p = p.speedup_kpartite(|set|{
+        if !set.contains(&&"M".to_owned()) {
+            if set.contains(&&"5".to_owned()){
+                return "5".to_owned()
+            }else if set.contains(&&"4".to_owned()){
+                return "3".to_owned()
+            }else if set.contains(&&"3".to_owned()){
+                return "2".to_owned()
+            } else if set.contains(&&"2".to_owned()){
+                return "1".to_owned()
+            } else {
+                return "4".to_owned()
+            }
+        };
+        if set.len() > 1 {
+            return "6".to_owned()
+        }
+        return "M".to_owned()
+    },eh);
+    for c in p.constraints.iter_mut() {
+        c.maximize(eh);
+    }
+    println!("{}",p);
 }
 
 
@@ -105,8 +151,11 @@ impl KPartiteProblem{
         let mut new_constraints = vec![];
         for i in 1..constraints.len() {
             let mut new_constraint_i = constraints[i].clone();
+            println!("maximizing");
             new_constraint_i.maximize(eh);
+            println!("adding non maximal");
             new_constraint_i.add_non_maximal();
+            println!("editing");
 
             let mut after_mapping_i = new_constraint_i.edited(|group|{
                 let s_group : Vec<&String> = group.iter().map(|l|&label_to_text[l]).collect();
@@ -119,8 +168,11 @@ impl KPartiteProblem{
                 }
                 Group(vec![new_mapping_text_label[&mapped]])
             });
+            println!("merged");
             after_mapping_i.lines = after_mapping_i.lines.iter().cloned().map(|mut l|{l.normalize(); l}).unique().sorted().collect();
-            after_mapping_i.maximize(eh);
+            println!("maximizing again");
+            //after_mapping_i.maximize(eh);
+            println!("done");
             new_constraints.push(after_mapping_i);
         }
 

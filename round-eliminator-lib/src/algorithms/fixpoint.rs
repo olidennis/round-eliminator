@@ -1,9 +1,10 @@
-use std::{collections::{HashSet, HashMap, BTreeSet}, fmt::Display};
+use std::{collections::{BTreeSet, HashMap, HashSet}, fmt::Display, sync::atomic::{AtomicU32, Ordering}};
+use rayon::prelude::*;
 
 use dashmap::DashMap as CHashMap;
 use itertools::Itertools;
 
-use crate::{problem::{Problem, DiagramDirect}, constraint::Constraint, group::{Label, Group, GroupType}, line::Line, algorithms::diagram::compute_direct_diagram, part::Part};
+use crate::{algorithms::diagram::compute_direct_diagram, constraint::Constraint, group::{Exponent, Group, GroupType, Label}, line::{Degree, Line}, part::Part, problem::{DiagramDirect, Problem}};
 use serde::{Deserialize, Serialize};
 use super::{event::EventHandler, maximize::{Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
 
@@ -436,23 +437,60 @@ impl Problem {
         Ok((self.fixpoint_onestep(only_compute_triviality, &mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0,diagram,mapping_label_newlabel))
     }
 
+    fn avoidance_set(old_labels : &HashSet<Label>,reachability : &HashMap<Label, HashSet<Label>>, label : Label) -> Vec<Label> {
+        old_labels.iter().filter(|old|{
+            !reachability[&label].contains(old)
+        }).cloned().collect()
+    }
+
+    fn avoidance_sets(old_labels : &HashSet<Label>,reachability : &HashMap<Label, HashSet<Label>>) -> HashMap<Label,Vec<Label>> {
+        reachability.keys().map(|&label|{
+            (label,Self::avoidance_set(old_labels,reachability,label))
+        }).collect()
+    }
+
     pub fn fixpoint_onestep_only_determine_triviality(&self, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<(Self,Constraint), &'static str> {
         if self.passive.degree != crate::line::Degree::Finite(2) {
             panic!("This option only works when the passive degree is 2");
         }
+        println!("computing stuff");
         let passive = self.passive.all_choices(true);
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
         let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
         let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
         let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
         let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
-        let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
-        let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
+        let diagram_indirect_rev : Vec<_> = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
         let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
-        let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+        let passive_successors_rev = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect_rev);
+        let tostr : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+        let tostr_rev : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
+
+
+
+        println!("computing trees");
+        let tree_for_labels = Problem::minimal_ways_to_obtain_labels_or_successors(&passive_successors,&passive_successors_rev,&tostr);
+        //for (l,v) in &tree_for_labels {
+        //    println!("{}",tostr[l]);
+        //    for (l1,l2) in v {
+        //        println!("    {} {}",tostr[l1],tostr[l2]);
+        //    }
+        //}
+
+        let old_to_str : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+        let old_labels : HashMap<Label,String> = mapping_label_newlabel.iter().map(|(l,&n)|{
+            (n,old_to_str[l].clone())
+        }).collect();
+        let avoidance = Problem::avoidance_sets(&old_labels.keys().cloned().collect(),&passive_successors);
+        println!("----Tree----");
+        Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(a_b_c_d_e)"]);
+        println!("----End Tree----");
+
+
+        println!("computing zero lines");
         let mut maximal_zero = Constraint{ lines: vec![], is_maximized: false, degree: passive.degree };
 
-        let tostr : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+
         for line in passive.all_choices(true) {
             if line.parts.len() == 1 {
                 maximal_zero.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(|g1 : &Group,g2 : &Group|{
@@ -462,6 +500,16 @@ impl Problem {
         }
 
 
+
+        println!("Computing passive");
+        let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
+        let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+        //for line in &passive.lines {
+        //    println!("{}",line.to_string(&tostr));
+        //}
+        //println!();
+
+        println!("generating zero active lines");
         let active = self.active.all_choices(true);
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
         let mut active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
@@ -475,7 +523,40 @@ impl Problem {
         let mut not_obtainable = Constraint{ lines: vec![], is_maximized: false, degree: self.active.degree  };
         let all_zero = Line{ parts: vec![Part{group: Line::labels_to_set(zero_labels.iter().cloned()), gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent)}] };
         let all_zero = Constraint{ lines : vec![all_zero], is_maximized : false, degree : self.active.degree};
+
+
+
+        /*let target_line = Line{ parts : vec![
+            //Part{ gtype : GroupType::Many(active.finite_degree() as crate::group::Exponent - 1), group : Group(vec![tostr_rev["(X_Y_Z)"]])},
+            //Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["∅"]])}
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup3)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup3)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup3)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup1_dup2)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup1_dup2)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup1_dup2)"]])},
+
+            /*Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup1_dup2_dup3_dup4_dup5)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup2_dup3_dup4_dup5)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup1_dup3_dup4_dup5)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup1_dup2_dup4_dup5)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup1_dup2_dup3_dup5)"]])},
+            Part{ gtype : GroupType::Many(1), group : Group(vec![tostr_rev["(a_b_c_d_dup0_dup1_dup2_dup3_dup4)"]])}*/
+        ] };
+        if !Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr,&tree_for_labels) {
+            println!("TEST got a fixed point");
+        } else {
+            println!("TEST not a fixed point");
+        }*/
+        //println!("obtainable lines:");
+        //for line in &active.lines {
+        //    println!("{}",line.to_string(&tostr));
+        //}
+        //println!();
+
+        println!("going through zero lines");
         for target_line in all_zero.all_choices(true) {
+            //println!("trying {}",target_line.to_string(&tostr));
             let group = target_line.line_set();
             let part = Part {
                 gtype: GroupType::Many(2),
@@ -483,29 +564,131 @@ impl Problem {
             };
             let line = Line { parts: vec![part] };
             if passive.includes(&line) {
-                if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr) {
+                //println!("candidate {}",target_line.to_string(&tostr));
+                if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr,&tree_for_labels) {
                     let mut p = self.clone();
                     p.fixpoint_procedure_works = Some(false);
+                    //println!("obtainable lines:");
+                    //for line in &active.lines {
+                    //    println!("{}",line.to_string(&tostr));
+                    //}
+                    //println!();
                     return Ok((p,Constraint{lines:vec![],is_maximized:false,degree:passive.degree}));
                 }
-                println!("{}",target_line.to_string(&tostr));
+                //println!("{}",target_line.to_string(&tostr));
             }
         }
+
         let mut p = self.clone();
         p.fixpoint_procedure_works = Some(true);
         return Ok((p,Constraint{lines:vec![],is_maximized:false,degree:passive.degree}));
     }
 
-    fn maximal_ways_to_obtain_label_or_successor(reachability : &HashMap<Label, HashSet<Label>>, label : Label) -> Vec<(Label,Label)>{
+    fn print_tree_for_label(tree_for_labels: &HashMap<Label,Vec<(Label,Label)>>,tostr:&HashMap<Label,String>, avoidance: &HashMap<Label, Vec<Label>>, old_labels : &HashMap<Label,String>,label : Label ){
+        let mut id = 1;
+        println!("digraph {{");
+        Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,label, 0, &mut id);
+        println!("}}");
+    }
+
+    fn print_tree_for_label_aux(tree_for_labels: &HashMap<Label,Vec<(Label,Label)>>,tostr:&HashMap<Label,String>, avoidance: &HashMap<Label, Vec<Label>>, old_labels : &HashMap<Label,String>,label : Label,parent_id : usize, id : &mut usize ){
+        let v = &tree_for_labels[&label];
+        if v.len() != 1 || parent_id == 0 {
+            let avoided_labels = avoidance[&label].iter().map(|l|&old_labels[&l]).sorted().join("");
+            *id += 1;
+            let node_id = *id;
+            println!("  {}[label=\"{}\"]",node_id,avoided_labels);
+            if parent_id != 0 { println!("  {} -> {}",parent_id,node_id); }
+            //println!("{} ({})",tostr[&label],avoided_labels);
+            //for (l1,l2) in v {
+            //    println!("    {} -> {}",tostr[l1],tostr[l2]);
+            //}
+            println!();
+            for (l1,l2) in v {
+                *id += 1;
+                let branch_id = *id;
+                println!("  {}[label=\"\" shape=point]",branch_id);
+                println!("  {} -> {}",node_id,branch_id);
+                Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,*l1,branch_id,id);
+                Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,*l2,branch_id,id);
+            }
+        } else {
+            for (l1,l2) in v {
+                Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,*l1,parent_id,id);
+                Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,*l2,parent_id,id);
+            }
+        }
+    }
+
+    fn minimal_ways_to_obtain_labels_or_successors(reachability : &HashMap<Label, HashSet<Label>>, reachability_rev : &HashMap<Label, HashSet<Label>>, tostr:&HashMap<Label,String>) -> HashMap<Label,Vec<(Label,Label)>>{
+        let tot = reachability.len();
+        let v : Vec<_> = reachability.keys().collect();
+        let i = AtomicU32::new(0);
+        v.par_iter().map(|&label| {
+            let x = i.fetch_add(1,Ordering::SeqCst);
+            println!("{}/{}",x,tot);
+            (*label,Problem::maximal_ways_to_obtain_label_or_successor(reachability,reachability_rev,*label,tostr))
+        }).collect()
+    }
+
+    fn maximal_ways_to_obtain_label_or_successor(reachability : &HashMap<Label, HashSet<Label>>, reachability_rev : &HashMap<Label, HashSet<Label>>, label : Label, tostr:&HashMap<Label,String>) -> Vec<(Label,Label)>{
+        let successors = &reachability[&label];
+        let candidates : HashSet<_> = reachability.keys().filter(|l|!successors.contains(l)).cloned().collect();
+
+        let rightmost : HashSet<_> = candidates.iter().cloned().filter(|l|{
+            reachability[&l].intersection(&candidates).count() == 1
+        }).collect();
+
+
         let mut good_pairs = vec![];
-        for &l1 in reachability.keys() {
-            for &l2 in reachability.keys() {
-                let common_successors : HashSet<Label> = reachability[&l1].intersection(&reachability[&l2]).cloned().collect();
-                if reachability[&label].is_superset(&common_successors) && !reachability[&label].contains(&l1) && !reachability[&label].contains(&l2){
-                    good_pairs.push((l1,l2));
+        //println!("set size: {}",rightmost.len());
+        if rightmost.len() < 20 {
+            for p1 in rightmost.iter().powerset() {
+                let p1 : HashSet<_> = p1.into_iter().cloned().collect();
+                let p2 : HashSet<_> = rightmost.difference(&p1).cloned().collect();
+                if p1.is_empty() || p2.is_empty() || p2.len() < p1.len() {
+                    continue;
+                } 
+                let no_succ_in_p1 : HashSet<_> = candidates.iter().cloned().filter(|l|p1.iter().all(|p|!reachability[l].contains(p))).collect();
+                let no_succ_in_p2 : HashSet<_> = candidates.iter().cloned().filter(|l|p2.iter().all(|p|!reachability[l].contains(p))).collect();
+                let leftmost_1 : HashSet<_> = no_succ_in_p1.iter().cloned().filter(|l|{
+                    reachability_rev[&l].intersection(&no_succ_in_p1).count() == 1
+                }).collect();
+                let leftmost_2 : HashSet<_> = no_succ_in_p2.iter().cloned().filter(|l|{
+                    reachability_rev[&l].intersection(&no_succ_in_p2).count() == 1
+                }).collect();
+                
+                for &l1 in &leftmost_1 {
+                    for &l2 in &leftmost_2 {
+                        good_pairs.push((l1,l2));
+                    }
+                }
+            }
+        } else {
+            for &l1 in &candidates {
+                for &l2 in &candidates {
+                    if l1 < l2 {
+                        let common_successors : HashSet<Label> = reachability[&l1].intersection(&reachability[&l2]).cloned().collect();
+                        if reachability[&label].is_superset(&common_successors) && !reachability[&label].contains(&l1) && !reachability[&label].contains(&l2){
+                            good_pairs.push((l1,l2));
+                        }
+                    }
                 }
             }
         }
+        let good_pairs : Vec<_> = good_pairs.into_iter().unique().collect();
+        /* 
+        let mut good_pairs = vec![];
+        for &l1 in &candidates {
+            for &l2 in &candidates {
+                if l1 < l2 {
+                    let common_successors : HashSet<Label> = reachability[&l1].intersection(&reachability[&l2]).cloned().collect();
+                    if reachability[&label].is_superset(&common_successors) && !reachability[&label].contains(&l1) && !reachability[&label].contains(&l2){
+                        good_pairs.push((l1,l2));
+                    }
+                }
+            }
+        }*/
         let mut maximal_good_pairs = Constraint{ lines: vec![], is_maximized:false,degree : crate::line::Degree::Finite(2)};
         for (l1,l2) in good_pairs {
             let line = Line{ parts : vec![Part{gtype:GroupType::Many(1), group : Group(vec![l1])},Part{gtype:GroupType::Many(1), group : Group(vec![l2])}] };
@@ -513,12 +696,21 @@ impl Problem {
                 reachability[&g1[0]].contains(&g2[0])
             }));
         }
-        maximal_good_pairs.lines.into_iter().map(|line|{
+        let resulting_pairs : Vec<(Label, Label)> = maximal_good_pairs.lines.into_iter().map(|line|{
             (line.parts[0].group[0],line.parts[1].group[0])
-        }).collect()
+        }).collect();
+
+
+        for (l1,l2) in &resulting_pairs {
+            if reachability[&l1].contains(&label) && reachability[&l2].contains(&label) {
+                return vec![(*l1,*l2)];
+            }
+        }
+
+        resulting_pairs
     }
 
-    fn fp_is_obtainable(obtainable: &mut Constraint, not_obtainable: &mut Constraint,target_line: &Line, reachability : &HashMap<Label, HashSet<Label>>,tostr:&HashMap<Label,String>) -> bool {
+    fn fp_is_obtainable(obtainable: &mut Constraint, not_obtainable: &mut Constraint,target_line: &Line, reachability : &HashMap<Label, HashSet<Label>>,tostr:&HashMap<Label,String>, tree_for_labels : &HashMap<Label,Vec<(Label,Label)>>) -> bool {
 
         let line_cmp = Some(|g1 : &Group,g2 : &Group|{
             reachability[&g2[0]].contains(&g1[0])
@@ -536,7 +728,7 @@ impl Problem {
 
 
         for (i,part) in target_line.parts.iter().enumerate() {
-            for (l1,l2) in Self::maximal_ways_to_obtain_label_or_successor(reachability,part.group[0]) {
+            for &(l1,l2) in &tree_for_labels[&part.group[0]] {
                 let mut req1 = target_line.clone();
                 let mut req2 = target_line.clone();
                 if let GroupType::Many(x) = target_line.parts[i].gtype {
@@ -547,9 +739,9 @@ impl Problem {
                     req1.normalize();
                     req2.normalize();
                     //println!("from {} recurse on {} and {}",target_line.to_string(tostr),req1.to_string(tostr),req2.to_string(tostr));
-                    if Problem::fp_is_obtainable(obtainable,not_obtainable, &req1, reachability,tostr) && Problem::fp_is_obtainable(obtainable,not_obtainable, &req2, reachability,tostr) {
+                    if Problem::fp_is_obtainable(obtainable,not_obtainable, &req1, reachability,tostr,tree_for_labels) && Problem::fp_is_obtainable(obtainable,not_obtainable, &req2, reachability,tostr,tree_for_labels) {
                         obtainable.add_line_and_discard_non_maximal_with_custom_supersets(target_line.clone(), line_cmp);
-                        //println!("This is obtainable: {}", target_line.to_string(tostr));
+                        //println!("This is obtainable: {} by combining:\n    {}\n    {}", target_line.to_string(tostr),req1.to_string(tostr),req2.to_string(tostr));
                         return true;
                     }
                 } else {
@@ -1097,3 +1289,120 @@ fn add_diagram_edges(&mut self){
         
     }
 }*/
+
+
+#[test]
+fn defective_coloring(){
+    let eh = &mut EventHandler::null();
+    let mut p = Problem::from_string(
+"A^5 a^1
+B^5 b^1
+C^5 c^1
+D^5 d^1
+
+Aa BbCcDd
+Bb CcDd
+Cc Dd
+abcd abcd").unwrap();
+    p.compute_partial_diagram(eh);
+    p.compute_default_fixpoint_diagram(None,eh);
+
+    let m : HashMap<String,Label> = p.fixpoint_diagram.as_ref().unwrap().1.mapping_newlabel_text.iter().cloned().map(|(a,b)|(b.chars().filter(|&c|c!='('&&c!=')').collect(),a)).collect();
+    let p = p.fixpoint_generic(None,FixpointType::Dup(
+            vec![
+                vec![m["ABabcd"],m["Aabcd"],m["Babcd"],m["abcd"],m["Aacd"],m["Bbcd"],m["bcd"],m["acd"],m["cd"]],
+                vec![m["ACabcd"],m["Aabcd"],m["Cabcd"],m["abcd"],m["Aabd"],m["Cbcd"],m["bcd"],m["abd"],m["bd"]],
+                vec![m["ADabcd"],m["Aabcd"],m["Dabcd"],m["abcd"],m["Aabc"],m["Dbcd"],m["bcd"],m["abc"],m["bc"]],
+                vec![m["BCabcd"],m["Babcd"],m["Cabcd"],m["abcd"],m["Babd"],m["Cacd"],m["acd"],m["abd"],m["ad"]],
+                vec![m["BDabcd"],m["Babcd"],m["Dabcd"],m["abcd"],m["Babc"],m["Dacd"],m["acd"],m["abc"],m["ac"]],
+                vec![m["CDabcd"],m["Cabcd"],m["Dabcd"],m["abcd"],m["Cabc"],m["Dabd"],m["abd"],m["abc"],m["ab"]],
+                //vec![m["Aabcd"],m["abcd"],m["bcd"]],
+                //vec![m["Babcd"],m["abcd"],m["acd"]],
+                //vec![m["Cabcd"],m["abcd"],m["abd"]],
+                //vec![m["Dabcd"],m["abcd"],m["abc"]],
+                //vec![m["abcd"]]
+            ]),true,eh).unwrap().0;
+    let is_fp = *p.fixpoint_procedure_works.as_ref().unwrap();
+    if is_fp {
+        println!("got a fixed point");
+    } else {
+        println!("not a fixed point");
+    }
+}
+
+fn cubes(s : &str, append : &str) -> Vec<String> {
+    let mut out = vec![];
+    let chars : Vec<_> = s.chars().collect();
+    'outer: for p in chars.iter().powerset() {
+        let mut p : Vec<char> = p.into_iter().cloned().collect();
+        for c in p.iter() {
+            if c.is_uppercase() {
+                if !p.contains(&c.to_lowercase().next().unwrap()) {
+                    continue 'outer;
+                }
+            }
+        }
+        p.extend(append.chars());
+        let s : String = p.into_iter().sorted().collect();
+        out.push(s);
+    }
+    out
+}
+
+#[test]
+fn defective_5_coloring(){
+    let eh = &mut EventHandler::null();
+    let mut p = Problem::from_string(
+"A^5 a^1
+B^5 b^1
+C^5 c^1
+D^5 d^1
+E^5 e^1
+
+Aa BbCcDdEe
+Bb CcDdEe
+Cc DdEe
+Dd Ee
+abcde abcde").unwrap();
+    p.compute_partial_diagram(eh);
+    p.compute_default_fixpoint_diagram(None,eh);
+
+
+    let m : HashMap<String,Label> = p.fixpoint_diagram.as_ref().unwrap().1.mapping_newlabel_text.iter().cloned().map(|(a,b)|(b.chars().filter(|&c|c!='('&&c!=')').collect(),a)).collect();
+    let dup_for = |s1,s2|{
+        let v = cubes(s1, s2);
+        v.into_iter().map(|s|m[&s]).collect::<Vec<_>>()
+    };
+    
+    let p = p.fixpoint_generic(None,FixpointType::Dup(
+            vec![
+                dup_for("ABab","cde"),
+                dup_for("ACac","bde"),
+                dup_for("ADad","bce"),
+                dup_for("AEae","bcd"),
+                dup_for("BCbc","ade"),
+                dup_for("BDbd","ace"),
+                dup_for("BEbe","acd"),
+                dup_for("CDcd","abe"),
+                dup_for("CEce","abd"),
+                dup_for("DEde","abc"),
+
+                
+                /*dup_for("ABCabc","de"),
+                dup_for("ABDabd","ce"),
+                dup_for("ABEabe","cd"),
+                dup_for("ACDacd","be"),
+                dup_for("ACEace","bd"),
+                dup_for("ADEade","bc"),
+                dup_for("BCDbcd","ae"),
+                dup_for("BCEbce","ad"),
+                dup_for("BDEbde","ac"),
+                dup_for("CDEcde","ab")*/
+            ]),true,eh).unwrap().0;
+    let is_fp = *p.fixpoint_procedure_works.as_ref().unwrap();
+    if is_fp {
+        println!("got a fixed point");
+    } else {
+        println!("not a fixed point");
+    }
+}
