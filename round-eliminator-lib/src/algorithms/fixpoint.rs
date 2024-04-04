@@ -30,6 +30,7 @@ impl FixpointDiagram {
         let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
 
         let rcs = right_closed_subsets(&labels, &successors);
+        println!("rcs are {}",rcs.len());
 
         let mut fd = FixpointDiagram {
             orig_labels : labels,
@@ -75,25 +76,51 @@ impl FixpointDiagram {
     }
 
     fn compute_diagram(&mut self){
-        let mut diagram = vec![];
         let mapping_rightclosed_newlabel : HashMap<_,_> = self.mapping_rightclosed_newlabel.iter().cloned().collect();
 
         let rcs = &self.rightclosed;
+        let rcs_sorted : Vec<Vec<Label>> = rcs.iter().map(|s|{  let mut s = s.clone(); s.sort(); s}).collect();
         
-        for s1 in rcs {
-            for s2 in rcs {
-                let set_s1 : HashSet<Label> = HashSet::from_iter(s1.iter().cloned());
-                let set_s2 : HashSet<Label> = HashSet::from_iter(s2.iter().cloned());
-                let new_s1 = mapping_rightclosed_newlabel[s1];
-                let new_s2 = mapping_rightclosed_newlabel[s2];
-                if set_s1.is_superset(&set_s2) {
+        let is_superset = |v1 : &Vec<_>,v2 : &Vec<_>| {
+            let mut it = v1.iter();
+            v2.iter().all(|&x| it.any(|&item| item == x))
+        };
+        
+        
+        let mut diagram = vec![];
+        for (i,(s1,sorted_s1)) in rcs.iter().zip(rcs_sorted.iter()).enumerate() {
+            println!("{}",i);
+            let new_s1 = mapping_rightclosed_newlabel[s1];
+            diagram.push((new_s1,new_s1));
+            for (s2,sorted_s2) in rcs.iter().zip(rcs_sorted.iter()) {
+                //let set_s1 : HashSet<Label> = HashSet::from_iter(s1.iter().cloned());
+                //let set_s2 : HashSet<Label> = HashSet::from_iter(s2.iter().cloned());
+                if is_superset(&sorted_s1,&sorted_s2) {
+                    let new_s2 = mapping_rightclosed_newlabel[s2];
                     diagram.push((new_s1,new_s2));
                 }
             }
         }
 
+        /* 
+        let diagram : Vec<_> = rcs.iter().zip(rcs_sorted.iter()).par_bridge().map(|(s1,sorted_s1)|{
+            let mut diagram = vec![];
+            let new_s1 = mapping_rightclosed_newlabel[s1];
+            diagram.push((new_s1,new_s1));
+            for (s2,sorted_s2) in rcs.iter().zip(rcs_sorted.iter()) {
+                //let set_s1 : HashSet<Label> = HashSet::from_iter(s1.iter().cloned());
+                //let set_s2 : HashSet<Label> = HashSet::from_iter(s2.iter().cloned());
+                if is_superset(&sorted_s1,&sorted_s2) {
+                    let new_s2 = mapping_rightclosed_newlabel[s2];
+                    diagram.push((new_s1,new_s2));
+                }
+            }
+            diagram.into_iter()
+        }).collect();
+        let diagram = diagram.into_iter().flat_map(|d|d.into_iter()).collect();*/
+
         let newlabels : Vec<Label> = mapping_rightclosed_newlabel.values().cloned().collect();
-        let diagram = diagram_to_indirect(&newlabels,&diagram);
+        //let diagram = diagram_to_indirect(&newlabels,&diagram);
         self.diagram_direct = compute_direct_diagram(&newlabels, &diagram);
         self.diagram = diagram;
     }
@@ -372,19 +399,22 @@ impl Problem {
     }
 
     pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, only_compute_triviality:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+        println!("called dup");
         let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
             FixpointDiagram::new(self)
         };
+        println!("generated diagram1");
         if let Some(dup) = dup {
             fd.duplicate_labels(&dup);
         }
+        println!("generated diagram2");
         let mapping_label_newlabel = fd.mapping_label_newlabel.clone();
         let mapping_newlabel_text = fd.mapping_newlabel_text.clone();
         let diagram = fd.diagram.clone();
         //println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
-
+        println!("calling onestep");
         Ok((self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
     }
 
@@ -450,9 +480,9 @@ impl Problem {
     }
 
     pub fn fixpoint_onestep_only_determine_triviality(&self, mapping_label_newlabel : &Vec<(Label, Label)>, mapping_newlabel_text : &Vec<(Label, String)>, diagram : &Vec<(Label,Label)>, tracking : Option<&CHashMap<Line,Tracking>>, tracking_passive : Option<&CHashMap<Line,Tracking>>, eh: &mut EventHandler) -> Result<(Self,Constraint), &'static str> {
-        if self.passive.degree != crate::line::Degree::Finite(2) {
-            panic!("This option only works when the passive degree is 2");
-        }
+        //if self.passive.degree != crate::line::Degree::Finite(2) {
+        //    panic!("This option only works when the passive degree is 2");
+        //}
         println!("computing stuff");
         let passive = self.passive.all_choices(true);
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
@@ -481,10 +511,10 @@ impl Problem {
         let old_labels : HashMap<Label,String> = mapping_label_newlabel.iter().map(|(l,&n)|{
             (n,old_to_str[l].clone())
         }).collect();
-        let avoidance = Problem::avoidance_sets(&old_labels.keys().cloned().collect(),&passive_successors);
-        println!("----Tree----");
-        Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(a_b_c_d_e)"]);
-        println!("----End Tree----");
+        //let avoidance = Problem::avoidance_sets(&old_labels.keys().cloned().collect(),&passive_successors);
+        //println!("----Tree----");
+        //Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(a_b_c_d_e)"]);
+        //println!("----End Tree----");
 
 
         println!("computing zero lines");
@@ -559,7 +589,7 @@ impl Problem {
             //println!("trying {}",target_line.to_string(&tostr));
             let group = target_line.line_set();
             let part = Part {
-                gtype: GroupType::Many(2),
+                gtype: GroupType::Many(passive.finite_degree() as Exponent),
                 group,
             };
             let line = Line { parts: vec![part] };
@@ -1052,14 +1082,14 @@ fn diagram_for_expressions(expressions : &HashSet<TreeNode<Label>>, orig_diagram
 }
 
 fn rcs_helper(labels : &[Label], right: &HashMap<Label,HashSet<Label>>, result: &mut Vec<HashSet<Label>>, added: HashSet<Label>) {
-    for &x in labels {
+    for (i,&x) in labels.iter().enumerate() {
         let mut toadd = right[&x].clone();
         toadd.insert(x);
         if !added.contains(&x) && (added.is_empty() || !toadd.is_superset(&added)) {
             let mut new = added.clone();
             new.extend(toadd.into_iter());
             result.push(new.clone());
-            rcs_helper(&labels[1..], right, result, new);
+            rcs_helper(&labels[i+1..], right, result, new);
         }
     }
 }
@@ -1373,10 +1403,24 @@ abcde abcde").unwrap();
         let v = cubes(s1, s2);
         v.into_iter().map(|s|m[&s]).collect::<Vec<_>>()
     };
-    
+    println!("starting procedure");
     let p = p.fixpoint_generic(None,FixpointType::Dup(
             vec![
+                dup_for("Aa","bcde"),
+                dup_for("Bb","acde"),
                 dup_for("ABab","cde"),
+                dup_for("ACac","bde"),
+                dup_for("ADad","bce"),
+                dup_for("BCbc","ade"),
+                dup_for("ABCabc","de"),
+
+                /*dup_for("Aa","bcde"),
+                dup_for("Bb","acde"),
+                dup_for("Cc","abde"),
+                dup_for("Dd","abce"),
+                dup_for("Ee","abcd"),*/
+                
+                /*dup_for("ABab","cde"),
                 dup_for("ACac","bde"),
                 dup_for("ADad","bce"),
                 dup_for("AEae","bcd"),
@@ -1385,9 +1429,8 @@ abcde abcde").unwrap();
                 dup_for("BEbe","acd"),
                 dup_for("CDcd","abe"),
                 dup_for("CEce","abd"),
-                dup_for("DEde","abc"),
+                dup_for("DEde","abc"),*/
 
-                
                 /*dup_for("ABCabc","de"),
                 dup_for("ABDabd","ce"),
                 dup_for("ABEabe","cd"),

@@ -1,8 +1,8 @@
 use std::{collections::{HashMap, HashSet}, fmt::Display};
 
-use serde::{Serialize, Deserialize};
+use serde::{de::Expected, Deserialize, Serialize};
 
-use crate::{group::{Label, Group, GroupType}, constraint::Constraint, algorithms::event::EventHandler, part::Part};
+use crate::{algorithms::event::EventHandler, constraint::Constraint, group::{Exponent, Group, GroupType, Label}, line::Degree, part::Part};
 use itertools::Itertools;
 
 
@@ -179,6 +179,16 @@ impl DirectedProblem {
         new_problem.assign_chars();
         new_problem
     }
+
+    pub fn is_trivial(&self) -> bool {
+        let degree = self.constraints[0].1.finite_degree() as Exponent;
+        for (g,c) in &self.constraints {
+            if c.includes(&crate::line::Line{ parts: vec![Part{ gtype: GroupType::Many(degree), group: g.clone()}]  }) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 
@@ -212,12 +222,75 @@ mod tests {
     #[test]
     fn directed() {
         // step 0
-        let mut p = DirectedProblem::from_string("W : Bb BbW\nBb : W BW\nb : W W\nb : W B\nb : B B").unwrap();
+        //let mut p = DirectedProblem::from_string("W : Bb BbW\nBb : W BW\nb : W W\nb : W B\nb : B B").unwrap();
         //let mut p = DirectedProblem::from_string("BbXY : BWX W\nbY : BWX^2\nWXY : Bb BbWXY").unwrap();
         // relax
         //let mut p = DirectedProblem::from_string("BbXY : BWXY W\nbY : BWX BWXY\nWXY : Bb BbWXY").unwrap();
 
         //let mut p = DirectedProblem::from_string("W : Bb BbWX\nB : BWX W\nb : BWX BWX\nX : BWb BWXb").unwrap();
+        let mut p = DirectedProblem::from_string(
+"A : BC(BC)^2
+B : AC(AC)^2
+C : AB(AB)^2
+(AB) : A(AC)^2
+(AB) : C(AC)^2
+(AB) : B(BC)^2
+(AB) : C(BC)^2
+(AC) : A(AB)^2
+(AC) : B(AB)^2
+(AC) : B(BC)^2
+(AC) : C(BC)^2
+(BC) : A(AB)^2
+(BC) : B(AB)^2
+(BC) : A(AC)^2
+(BC) : C(AC)^2"
+        ).unwrap();
+
+        let mut p = DirectedProblem::from_string(
+"A : BC(BC)^2
+B : AC(AC)^2
+C : AB(AB)^2
+(AB) : AC(AC)^2
+(AB) : BC(BC)^2
+(AC) : AB(AB)^2
+(AC) : BC(BC)^2
+(BC) : AB(AB)^2
+(BC) : AC(AC)^2"
+        ).unwrap();
+
+/*
+
+use itertools::Itertools;
+
+fn sets_avoiding(labels : &[char], avoid : char) -> Vec<String> {
+    labels.iter().powerset().filter(|set|{
+        set.iter().all(|&&c|c != avoid)
+    }).map(|set|set.into_iter().collect()).collect()
+}
+
+fn sets_of_size(labels : &[char], size : usize) -> Vec<String> {
+    labels.iter().combinations(size).map(|set|set.into_iter().collect()).collect()
+}
+
+fn main(){
+    let labels : Vec<_> = "ABCD".chars().collect();
+    
+    for i in 1..labels.len() {
+        for set1 in sets_of_size(&labels,i) {
+            for avoid in set1.chars() {
+                print!("({}) : ",set1);
+                for set2 in sets_avoiding(&labels,avoid).iter().filter(|s|*s!="") {
+                    print!("({})",set2);
+                }
+                println!("^2");
+            }
+        }
+    }
+    
+}
+
+*/
+
         //let mut p = DirectedProblem::from_string("A : BCDE BCDE\nB : ACDE ACDE\nC : ABDE ABDE\nD : ABCE ABCE\nE : ABCD ABCD").unwrap();
         //let mut p = DirectedProblem::from_string("W : Bb WbB\nB : wW WBw\nw : WBb WBb\nb : WBw WBw").unwrap();
         //let mut p = DirectedProblem::from_string("M : UD UD\nU : M MU\nD : UM UM").unwrap();
@@ -225,73 +298,31 @@ mod tests {
         //let mut p = DirectedProblem::from_string("A : B AB\nB : A AB").unwrap();
         //let mut p = DirectedProblem::from_string("B : A AB B\nA : A AB B").unwrap();
 
+        //let mut p = DirectedProblem::from_string("A : B B\nB : A A").unwrap();
+
 
         let mut eh = EventHandler::null();
         p.maximize(&mut eh);
         println!("{}",p);
 
-        let mut p = p.speedup(&mut eh);
-        println!("--- Renaming ---");
-        for (label,oldlabels) in p.mapping_label_oldlabels.as_ref().unwrap().iter() {
-            let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
-            let oldmapping : HashMap<_,_> = p.mapping_oldlabel_text.as_ref().unwrap().iter().cloned().collect();
-            println!("{} <- {}",mapping[label],oldlabels.iter().map(|l|&oldmapping[l]).join(""));
+        for _ in 0..16 {
+            p = p.speedup(&mut eh);
+            println!("--- Renaming ---");
+            for (label,oldlabels) in p.mapping_label_oldlabels.as_ref().unwrap().iter() {
+                let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+                let oldmapping : HashMap<_,_> = p.mapping_oldlabel_text.as_ref().unwrap().iter().cloned().collect();
+                println!("{} <- {}",mapping[label],oldlabels.iter().map(|l|&oldmapping[l]).join(""));
+            }
+            println!("\n--- Speedup ---");
+            println!("{}",p);
+
+            println!("--- Maximized ---");
+            p.maximize(&mut eh);
+            println!("{}",p);
+
+            println!("--- Triviality: {} --- Labels: {} ---",p.is_trivial(),p.labels().len());
+
         }
-        println!("\n--- Speedup ---");
-        println!("{}",p);
-
-        println!("--- Maximized ---");
-        p.maximize(&mut eh);
-        println!("{}",p);
-
-        
-
-
-        let mut p = p.speedup(&mut eh);
-        println!("--- Renaming ---");
-        for (label,oldlabels) in p.mapping_label_oldlabels.as_ref().unwrap().iter() {
-            let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
-            let oldmapping : HashMap<_,_> = p.mapping_oldlabel_text.as_ref().unwrap().iter().cloned().collect();
-            println!("{} <- {}",mapping[label],oldlabels.iter().map(|l|&oldmapping[l]).join(""));
-        }
-        println!("\n--- Speedup ---");
-        println!("{}",p);
-
-        println!("--- Maximized ---");
-        p.maximize(&mut eh);
-        println!("{}",p);
-
-
-
-        let mut p = p.speedup(&mut eh);
-        println!("--- Renaming ---");
-        for (label,oldlabels) in p.mapping_label_oldlabels.as_ref().unwrap().iter() {
-            let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
-            let oldmapping : HashMap<_,_> = p.mapping_oldlabel_text.as_ref().unwrap().iter().cloned().collect();
-            println!("{} <- {}",mapping[label],oldlabels.iter().map(|l|&oldmapping[l]).join(""));
-        }
-        println!("\n--- Speedup ---");
-        println!("{}",p);
-
-        println!("--- Maximized ---");
-        p.maximize(&mut eh);
-        println!("{}",p);
-
-
-        let mut p = p.speedup(&mut eh);
-        println!("--- Renaming ---");
-        for (label,oldlabels) in p.mapping_label_oldlabels.as_ref().unwrap().iter() {
-            let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
-            let oldmapping : HashMap<_,_> = p.mapping_oldlabel_text.as_ref().unwrap().iter().cloned().collect();
-            println!("{} <- {}",mapping[label],oldlabels.iter().map(|l|&oldmapping[l]).join(""));
-        }
-        println!("\n--- Speedup ---");
-        println!("{}",p);
-
-        println!("--- Maximized ---");
-        p.maximize(&mut eh);
-        println!("{}",p);
-
 
     }
 }

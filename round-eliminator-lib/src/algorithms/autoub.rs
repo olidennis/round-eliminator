@@ -14,8 +14,10 @@ impl Problem {
             let mut problems = vec![(self.labels(),self.clone(),self.clone(),self.to_string())];
             let mut best = usize::MAX;
             let mut seen = HashMap::new();
+            //println!("calling rec");
             automatic_upper_bound_rec(&mut seen, &mut problems, &mut best, max_labels, branching, max_steps, coloring, coloring_passive, &mut handler, eh);
         } else {
+            //println!("too many labels");
             let mut best = usize::MAX;
             let mut seen = HashMap::new();
             for candidate in best_hardenings(self, branching, max_labels, coloring, eh).into_iter().take(branching) {        
@@ -72,7 +74,11 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
     let labels = np.labels();
     let (old, new) = np.split_labels_original_new();
     let label_weights : HashMap<_,_> = if coloring.is_some() {
-        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
+        let colors : Vec<Label> = if np.orientation_coloring_sets.is_some() {
+            np.orientation_coloring_sets.as_ref().unwrap().iter().flat_map(|(a,b)|a.iter().cloned().chain(b.iter().cloned())).collect()
+        } else {
+            np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect()
+        };
         np.labels().into_iter().map(|l|{
             let weight = map[&l].len() + 10* if !colors.contains(&l){1}else{0};
             (l,weight)
@@ -87,7 +93,7 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
 
     let mut candidates = HashSet::new();
 
-    for max_labels_i in old.len()..=std::cmp::min(max_labels,labels.len()) {
+    for max_labels_i in old.len()..=std::cmp::min(max_labels,labels.len()) /*std::cmp::min(max_labels,labels.len())..=std::cmp::min(max_labels,labels.len())*/ {
         let to_choose = max_labels_i - old.len();
         if to_choose == 0 {
             let mut tokeep = Vec::new();
@@ -122,7 +128,11 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
 
     let mut candidates : Vec<_> = candidates.into_iter().collect();
     if coloring.is_some() {
-        let colors : Vec<Label> = np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect();
+        let colors : Vec<Label> = if np.orientation_coloring_sets.is_some() {
+            np.orientation_coloring_sets.as_ref().unwrap().iter().flat_map(|(a,b)|a.iter().cloned().chain(b.iter().cloned())).collect()
+        } else {
+            np.coloring_sets.as_ref().unwrap().iter().flat_map(|x|x.iter().cloned()).collect()
+        };
         candidates.sort_by_cached_key(|labels|{
             labels.iter().map(|l|map[l].len()).sum::<usize>() + 10*labels.iter().filter(|x|!colors.contains(x)).count()
         });
@@ -136,7 +146,7 @@ fn best_hardenings(np : &Problem, branching : usize, max_labels : usize, colorin
 }
 
 fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &mut Vec<(Vec<Label>,Problem,Problem,String)>, best : &mut usize, max_labels : usize, branching : usize, max_steps : usize, coloring : Option<usize>, coloring_passive : Option<usize>, handler : &mut F, eh: &mut EventHandler) where F : FnMut(usize, bool, Vec<(AutoOperation,Problem)>) {
-    
+    //println!("{} {} {}", max_labels, branching, max_steps);
     let mut send_sequence = |problems : &Vec<(Vec<Label>,Problem,Problem,String)>|{
         *best = problems.len();
         let mut sequence = vec![];
@@ -176,7 +186,22 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
             p.compute_coloring_solvability(eh);
         }
 
-        if p.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
+        if let Some(outdegree) = p.orientation_given {
+            if p.passive.finite_degree() == 2 {
+                if p.orientation_trivial_sets.is_none() {
+                    p.compute_triviality_given_orientation(outdegree, eh);
+                }
+                if coloring.is_some() && p.orientation_coloring_sets.is_none() {
+                    p.compute_coloring_solvability_given_orientation(outdegree, eh);
+                }
+            }
+        }
+
+        if p.trivial_sets.as_ref().unwrap().len() > 0 ||
+           (p.orientation_trivial_sets.is_some() && p.orientation_trivial_sets.as_ref().unwrap().len() > 0) ||
+           (coloring.is_some() && p.coloring_sets.is_some() && p.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) ||
+           (coloring.is_some() && p.orientation_coloring_sets.is_some() && p.orientation_coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap())
+        {
             send_sequence(problems);
             return;
         }
@@ -198,7 +223,22 @@ fn automatic_upper_bound_rec<F>(seen : &mut HashMap<String,usize>, problems : &m
         np.compute_coloring_solvability(eh);
     }
 
-    if np.trivial_sets.as_ref().unwrap().len() > 0 || (coloring.is_some() && np.coloring_sets.is_some() && np.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) {
+    if let Some(outdegree) = np.orientation_given {
+        if np.passive.finite_degree() == 2 {
+            if np.orientation_trivial_sets.is_none() {
+                np.compute_triviality_given_orientation(outdegree, eh);
+            }
+            if coloring.is_some() && np.orientation_coloring_sets.is_none() {
+                np.compute_coloring_solvability_given_orientation(outdegree, eh);
+            }
+        }
+    }
+
+    if np.trivial_sets.as_ref().unwrap().len() > 0 ||
+    (np.orientation_trivial_sets.is_some() && np.orientation_trivial_sets.as_ref().unwrap().len() > 0) ||
+    (coloring.is_some() && np.coloring_sets.is_some() && np.coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap()) ||
+    (coloring.is_some() && np.orientation_coloring_sets.is_some() && np.orientation_coloring_sets.as_ref().unwrap_or(&vec![]).len() >= coloring.unwrap())
+ {
         problems.push((np.labels(),np.clone(),np.clone(),np.to_string()));
         send_sequence(problems);
         return;

@@ -99,6 +99,9 @@ impl Constraint {
     }
 
     pub fn includes(&self, other: &Line) -> bool {
+        if !self.is_maximized && self.degree != Degree::Finite(2) {
+            panic!("this should not happen");
+        }
         if self.is_maximized || self.degree != Degree::Finite(2) {
             self.lines.iter().any(|line| line.includes(other))
         } else {

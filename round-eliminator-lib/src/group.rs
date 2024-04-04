@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
 
-pub type Label = u16;
+pub type Label = u32;
 pub type Exponent = u8;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]

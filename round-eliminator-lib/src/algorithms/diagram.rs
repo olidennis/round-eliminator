@@ -393,17 +393,19 @@ pub fn compute_direct_diagram(labels : &[Label], diagram_indirect : &Vec<(Label,
     let mut new_edges = vec![];
     for (a, b) in diagram {
         if rename[a] != rename[b] {
-            new_edges.push((*rename[a] as usize, *rename[b] as usize))
+            new_edges.push((*rename[a] as Label, *rename[b] as Label))
         }
     }
 
     // create DAG
-    let g = petgraph::graph::DiGraph::<usize, (), usize>::from_edges(new_edges);
+    let g = petgraph::graph::DiGraph::<Label, (), Label>::from_edges(new_edges);
 
     //compute transitive reduction
     let topo = petgraph::algo::toposort(&g, None).unwrap();
+
     let (topoadj, _revmap) =
         petgraph::algo::tred::dag_to_toposorted_adjacency_list::<_, usize>(&g, &topo);
+
     let (reduction, _closure) =
         petgraph::algo::tred::dag_transitive_reduction_closure(&topoadj);
 
