@@ -516,21 +516,6 @@ impl Problem {
         //Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(a_b_c_d_e)"]);
         //println!("----End Tree----");
 
-
-        println!("computing zero lines");
-        let mut maximal_zero = Constraint{ lines: vec![], is_maximized: false, degree: passive.degree };
-
-
-        for line in passive.all_choices(true) {
-            if line.parts.len() == 1 {
-                maximal_zero.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(|g1 : &Group,g2 : &Group|{
-                    passive_successors[&g1[0]].contains(&g2[0])
-                }));
-            }
-        }
-
-
-
         println!("Computing passive");
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
         let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
@@ -538,6 +523,30 @@ impl Problem {
         //    println!("{}",line.to_string(&tostr));
         //}
         //println!();
+
+        println!("computing zero lines");
+        let mut maximal_zero = Constraint{ lines: vec![], is_maximized: false, degree: passive.degree };
+
+
+        for line in passive.all_choices(true) {
+            println!("line {}",line.to_string(&tostr));
+
+            if line.parts.len() == 1 {
+                println!("zero line {}",line.to_string(&tostr));
+
+                maximal_zero.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(|g1 : &Group,g2 : &Group|{
+                    passive_successors[&g1[0]].contains(&g2[0])
+                }));
+            }
+        }
+
+
+        for line in &maximal_zero.lines {
+            println!("mz {}",line.to_string(&tostr));
+        }
+
+
+
 
         println!("generating zero active lines");
         let active = self.active.all_choices(true);
@@ -586,7 +595,7 @@ impl Problem {
 
         println!("going through zero lines");
         for target_line in all_zero.all_choices(true) {
-            //println!("trying {}",target_line.to_string(&tostr));
+            println!("trying {}",target_line.to_string(&tostr));
             let group = target_line.line_set();
             let part = Part {
                 gtype: GroupType::Many(passive.finite_degree() as Exponent),
