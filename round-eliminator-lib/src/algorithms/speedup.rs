@@ -63,41 +63,50 @@ impl Problem {
     }
 
     pub fn assign_chars(&mut self) {
-        let labels: Vec<_> = if self.mapping_label_oldlabels.is_some() {
-            self.mapping_label_oldlabels
+        if self.mapping_label_oldlabels.is_some() {
+            let labels: Vec<_> = self.mapping_label_oldlabels
                 .as_ref()
                 .unwrap()
                 .iter()
                 .map(|(l, _)| *l)
-                .collect()
+                .collect();
+            self.mapping_label_text = labels
+                .iter()
+                .map(|&i| {
+                    if labels.len() <= 62 {
+                        let i8 = i as u8;
+                        let c = match i {
+                            0..=25 => (b'A' + i8) as char,
+                            26..=51 => (b'a' + i8 - 26) as char,
+                            52..=61 => (b'0' + i8 - 52) as char,
+                            _ => (b'z' + 1 + i8 - 62) as char,
+                        };
+                        (i, format!("{}", c))
+                    } else {
+                        (i, format!("({})", i))
+                    }
+                })
+                .collect();
         } else {
-            self.mapping_oldlabel_labels
+            let old_to_text = self.mapping_oldlabel_text.as_ref().unwrap(). iter().cloned().collect::<HashMap<_,_>>();
+            self.mapping_label_text = self.mapping_oldlabel_labels
                 .as_ref()
                 .unwrap()
                 .iter()
-                .flat_map(|(_, labels)| labels.iter().cloned())
+                .flat_map(|(oldlabel, labels)|{
+                    if labels.len() == 1 {
+                        labels.iter().enumerate().map(|(i,l)|(*l,format!("{}",old_to_text[oldlabel]))).collect_vec().into_iter()
+                    }else{
+                        labels.iter().enumerate().map(|(i,l)|{
+                            let old_to_new = old_to_text[oldlabel].replace("(","[").replace(")","]");
+                            (*l,format!("({}_{})",old_to_new,i+1))
+                        }).collect_vec().into_iter()
+                    }
+                })
                 .unique()
                 .sorted()
-                .collect()
-        };
-
-        self.mapping_label_text = labels
-            .iter()
-            .map(|&i| {
-                if labels.len() <= 62 {
-                    let i8 = i as u8;
-                    let c = match i {
-                        0..=25 => (b'A' + i8) as char,
-                        26..=51 => (b'a' + i8 - 26) as char,
-                        52..=61 => (b'0' + i8 - 52) as char,
-                        _ => (b'z' + 1 + i8 - 62) as char,
-                    };
-                    (i, format!("{}", c))
-                } else {
-                    (i, format!("({})", i))
-                }
-            })
-            .collect()
+                .collect();
+        };        
     }
 }
 
