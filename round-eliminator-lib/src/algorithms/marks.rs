@@ -57,12 +57,13 @@ impl Problem {
 
         let node_choices = (0..degree).map(|_|0..subsets.len()).multi_cartesian_product();
         let len = node_choices.clone().count();
-        let mut last_notify = Instant::now();
+        let mut last_notify = chrono::Utc::now().time();
 
         for (i,choice) in node_choices.enumerate() {
-            if last_notify.elapsed().as_millis() > 100 {
+            let now = chrono::Utc::now().time();
+            if (now - last_notify).num_milliseconds() > 100 {
                 eh.notify("setting up node constraints",i,len);
-                last_notify = Instant::now();
+                last_notify = chrono::Utc::now().time();
             }
             
             let line = Line{parts:choice.iter().map(|j|Part{ 
@@ -83,9 +84,11 @@ impl Problem {
         for i in 0..degree {
             let edge_choices = edge_choices.clone();
             for (k,choice) in edge_choices.enumerate() {
-                if last_notify.elapsed().as_millis() > 100 {
+
+                let now = chrono::Utc::now().time();
+                if (now - last_notify).num_milliseconds() > 100 {
                     eh.notify("setting up edge constraints",i*len + k,degree*len);
-                    last_notify = Instant::now();
+                    last_notify = chrono::Utc::now().time();
                 }
 
                 let line = Line{parts:choice.iter().map(|j|Part{ 

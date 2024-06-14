@@ -913,6 +913,7 @@ name = "round-eliminator-lib"
 version = "0.1.0"
 dependencies = [
  "append-only-vec",
+ "chrono",
  "contest-algorithms",
  "crossbeam",
  "crossbeam-channel",
