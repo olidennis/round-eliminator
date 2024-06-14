@@ -90,12 +90,27 @@ impl Problem {
 
         println!("calling the solver");
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut solver = rustsat_minisat::core::Minisat::default();
+            solver.add_cnf(instance.into_cnf().0).unwrap();
+            let res = solver.solve().unwrap();
 
-        let mut solver = rustsat_minisat::core::Minisat::default();
-        solver.add_cnf(instance.into_cnf().0).unwrap();
-        let res = solver.solve().unwrap();
+            res == SolverResult::Unsat
+        }
 
-        res == SolverResult::Unsat
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut instance = instance;
+            let mut dimacs = std::io::BufWriter::new(Vec::new());
+            instance.convert_to_cnf();
+            instance.write_dimacs(&mut dimacs).unwrap();
+            let dimacs = dimacs.into_inner().unwrap();
+            let mut solver = varisat::solver::Solver::new();
+            solver.add_dimacs_cnf(&dimacs[..]).unwrap();
+            let solution = solver.solve().unwrap();
+            !solution
+        }
     }
 }
 
