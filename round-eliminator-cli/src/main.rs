@@ -23,6 +23,7 @@ enum Bound {
     Rounds(usize),
     LogStar,
     Log,
+    NonBorel,
     Unknown
 }
 
@@ -46,6 +47,7 @@ impl fmt::Display for Bound {
             Bound::Rounds(x) => { write!(f, "Rounds({})", x) }
             Bound::LogStar => { write!(f, "LogStar") }
             Bound::Log => { write!(f, "Log") }
+            Bound::NonBorel => { write!(f, "NonBorel") }
             Bound::Unknown => { write!(f, "Unknown") }
         }
         
@@ -64,8 +66,9 @@ impl BoundRange {
     fn new_lb(&mut self, b : Bound) {
         match (self.lb,b) {
             (Bound::Unknown, _) => { self.lb = b; },
-            (Bound::Log, _) => {},
-            (_, Bound::Log | Bound::LogStar) => { self.lb = b; },
+            (Bound::NonBorel, _) => {},
+            (Bound::Log, x) if x != Bound::NonBorel => {},
+            (_, Bound::NonBorel | Bound::Log | Bound::LogStar) => { self.lb = b; },
             (Bound::Rounds(x), Bound::Rounds(y)) if x < y => { self.lb = b; },
             _ => {}
         }
@@ -124,6 +127,15 @@ fn automatic_fixed_point(p : &Problem, c : Option<usize>, pc : Option<usize>, bo
             check_exit(bound.clone());
         }
         Err(s) => {  }
+    }
+}
+
+fn marks(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
+    let mut eh = EventHandler::null();
+    if p.marks(&mut eh) {
+        bound.lock().unwrap().new_lb(Bound::NonBorel);
+        println!("{}", bound.lock().unwrap());
+        check_exit(bound.clone());
     }
 }
 
@@ -189,11 +201,8 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
         let b5 = bound.clone();
         let b6 = bound.clone();
         let b7 = bound.clone();
+        let b8 = bound.clone();
 
-
-        s.spawn(|| {
-            automatic_upper_bound(p,c,pc,true,b7);
-        });
         /*
         s.spawn(|| {
             automatic_upper_bound(p,c,pc,false,b1);
@@ -218,7 +227,17 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
 
         s.spawn(|| {
             speedups_with_fixpoint(p,c,pc,b6);
-        }); */
+        });
+        
+        s.spawn(|| {
+            automatic_upper_bound(p,c,pc,true,b7);
+        });
+    
+         */
+    
+        s.spawn(|| {
+            marks(p,c,pc,b8);
+        });
     });
 }
 
