@@ -1,8 +1,12 @@
+use std::time::Instant;
+
 use itertools::{Itertools};
 use rustsat::{instances::SatInstance, solvers::SolverResult, types::constraints::CardConstraint};
 
 use crate::{constraint::Constraint, group::{Group, GroupType}, line::{Degree, Line}, part::Part, problem::Problem};
 use rustsat::solvers::Solve;
+
+use super::event::EventHandler;
 
 
 
@@ -10,12 +14,12 @@ use rustsat::solvers::Solve;
 
 impl Problem {
 
-    pub fn apply_marks_technique(&mut self) {
-        let r = self.marks();
+    pub fn apply_marks_technique(&mut self, eh: &mut EventHandler) {
+        let r = self.marks(eh);
         self.marks_works = Some(r);
     }
 
-    pub fn marks(&self) -> bool {
+    pub fn marks(&self, eh: &mut EventHandler) -> bool {
         if self.passive.degree != Degree::Finite(2) {
             panic!("only works when the passive degree is 2");
         }
@@ -25,7 +29,7 @@ impl Problem {
         let degree = self.active.finite_degree();
         let passive_degree = self.passive.finite_degree();
 
-        println!("generating subsets");
+        //println!("generating subsets");
 
         let mut subsets = vec![];
         let mut complements = vec![];
@@ -37,7 +41,7 @@ impl Problem {
         }
 
 
-        println!("generating variables");
+        //println!("generating variables");
 
 
         let mut instance: SatInstance = SatInstance::new();
@@ -50,12 +54,17 @@ impl Problem {
             table.push(row);
         }
 
-        println!("setting up node constraints");
-
 
         let node_choices = (0..degree).map(|_|0..subsets.len()).multi_cartesian_product();
+        let len = node_choices.clone().count();
+        let mut last_notify = Instant::now();
+
         for (i,choice) in node_choices.enumerate() {
-            if i % 1000000 == 0 { println!("{}",i); }
+            if last_notify.elapsed().as_millis() > 100 {
+                eh.notify("setting up node constraints",i,len);
+                last_notify = Instant::now();
+            }
+            
             let line = Line{parts:choice.iter().map(|j|Part{ 
                 gtype: GroupType::Many(1),
                 group: Group(subsets[*j].clone())
@@ -66,12 +75,19 @@ impl Problem {
             }
         }
 
-        println!("setting up edge constraints");
+        //println!("setting up edge constraints");
 
+        let edge_choices = (0..passive_degree).map(|_|0..subsets.len()).multi_cartesian_product();
+        let len = edge_choices.clone().count();
 
         for i in 0..degree {
-            let edge_choices = (0..passive_degree).map(|_|0..subsets.len()).multi_cartesian_product();
-            for choice in edge_choices {
+            let edge_choices = edge_choices.clone();
+            for (k,choice) in edge_choices.enumerate() {
+                if last_notify.elapsed().as_millis() > 100 {
+                    eh.notify("setting up edge constraints",i*len + k,degree*len);
+                    last_notify = Instant::now();
+                }
+
                 let line = Line{parts:choice.iter().map(|j|Part{ 
                     gtype: GroupType::Many(1),
                     group: Group(complements[*j].clone())
@@ -83,12 +99,12 @@ impl Problem {
             }
         }
 
-        println!("sanitizing");
+        eh.notify("sanitizing",0,0);
 
 
         let instance = instance.sanitize();
 
-        println!("calling the solver");
+        eh.notify("calling the sat solver",0,0);
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -122,13 +138,14 @@ impl Constraint {
 
 #[test]
 fn marks_test(){
+    let eh = &mut EventHandler::null();
 
     let p = Problem::from_string("A A X
 B B Y
 
 AX BY
 XY XY").unwrap();
-    assert!(!p.marks());
+    assert!(!p.marks(eh));
 
     let p = Problem::from_string("1 1 1
 2 2 2
@@ -149,7 +166,7 @@ XY XY").unwrap();
 7 456
 8 1346
 9 12456").unwrap();
-    assert!(!p.marks());
+    assert!(!p.marks(eh));
 
     let p = Problem::from_string("1 1 1
 2 2 2
@@ -170,13 +187,13 @@ XY XY").unwrap();
 7 456
 8 1346
 9 1245").unwrap();
-    assert!(p.marks());
+    assert!(p.marks(eh));
 
     let p = Problem::from_string("A B B\n\nB AB").unwrap();
-    assert!(p.marks());
+    assert!(p.marks(eh));
 
 
     let p = Problem::from_string("A A A\n\nA A").unwrap();
-    assert!(!p.marks());
+    assert!(!p.marks(eh));
 
 }

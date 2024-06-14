@@ -417,6 +417,14 @@ Vue.component('re-computing', {
                     return {bar : true, msg: "Computing triviality", max : this.action.max, cur : this.action.cur };
                 case "orientationtriviality":
                     return {bar : true, msg: "Computing orientation triviality", max : this.action.max, cur : this.action.cur };
+                case "setting up node constraints":
+                    return {bar : true, msg: "Setting up node constraints", max : this.action.max, cur : this.action.cur };
+                case "setting up edge constraints":
+                    return {bar : true, msg: "Setting up edge constraints", max : this.action.max, cur : this.action.cur };
+                case "sanitizing":
+                    return {bar : true, msg: "Sanitizing the CNF formula" };
+                case "calling the sat solver":
+                    return {bar : true, msg: "Calling the SAT solver..." };
                 default:
                     return {bar : false, msg: ""};
             }

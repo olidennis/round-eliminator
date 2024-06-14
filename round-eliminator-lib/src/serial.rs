@@ -281,7 +281,7 @@ where
                     "It is required that the passive degree is 2.".into(),
                 ));
             }else{
-                problem.apply_marks_technique();
+                problem.apply_marks_technique(&mut eh);
                 handler(Response::P(problem));
             }
         }
