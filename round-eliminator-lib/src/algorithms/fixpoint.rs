@@ -362,7 +362,8 @@ impl Problem {
                 orientation_trivial_sets: None,
                 orientation_given: None,
                 fixpoint_diagram : None,
-                fixpoint_procedure_works : None
+                fixpoint_procedure_works : None,
+                marks_works : None
             };
             p.compute_diagram(eh);
             p.discard_useless_stuff(true, eh);
@@ -829,7 +830,8 @@ impl Problem {
             orientation_trivial_sets: None,
             orientation_given: self.orientation_given,
             fixpoint_diagram : None,
-            fixpoint_procedure_works : None
+            fixpoint_procedure_works : None,
+            marks_works : None
         };
         p.mapping_label_text = mapping_newlabel_text.clone();
         Ok((p,passive_before_edit))

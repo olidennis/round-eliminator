@@ -84,6 +84,11 @@ function compute_coloring_solvability(problem, onresult, onerror, progress){
     return api.request({ ColoringSolvability : problem }, ondata , function(){});
 }
 
+function apply_marks_technique(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Marks : problem }, ondata , function(){});
+}
+
 function speedupmaximize(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ SpeedupMaximize : problem }, ondata , function(){});
@@ -178,7 +183,11 @@ function fix_problem(p) {
     }
     let fp_procedure_works = (problem.fixpoint_procedure_works != null && problem.fixpoint_procedure_works);
     let fp_procedure_does_not_work = (problem.fixpoint_procedure_works != null && !problem.fixpoint_procedure_works);
-    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work };
+
+    let marks_works = (problem.marks_works != null && problem.marks_works);
+    let marks_does_not_work = (problem.marks_works != null && !problem.marks_works);
+
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work };
 }
 
 
@@ -316,6 +325,8 @@ Vue.component('re-performed-action', {
                     return "Performed inverse speedup";
                 case "coloring":
                     return "Computed hypergraph strong coloring solvability";
+                case "marks":
+                    return "Applied Marks' technique";
                 case "speedupmaximize":
                     return "Performed speedup and maximized";
                 case "speedupmaximizerenamegen":
@@ -515,10 +526,20 @@ Vue.component('re-problem-info', {
                 </div>
             </div>
             <div v-if="this.problem.info.fp_procedure_does_not_work" class="col-auto m-2 p-0">
-            <div class="card card-body m-0 p-2">
-                <div>The fixed point procedure failed to produce a non-trivial fixed point relaxation.</div>
+                <div class="card card-body m-0 p-2">
+                    <div>The fixed point procedure failed to produce a non-trivial fixed point relaxation.</div>
+                </div>
             </div>
-        </div>
+            <div v-if="this.problem.info.marks_works" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>Marks' technique gives a lower bound.</div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.marks_does_not_work" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>Marks' technique does not give a lower bound.</div>
+                </div>
+            </div>
         </div>
     `
 })
@@ -785,6 +806,18 @@ Vue.component('re-coloring',{
     },
     template: `
         <button type="button" class="btn btn-primary m-1" v-on:click="on_click">Coloring</button>
+    `
+})
+
+Vue.component('re-marks',{
+    props: ['problem','stuff'],
+    methods: {
+        on_click() {
+            call_api_generating_problem(this.stuff,{type:"marks"},apply_marks_technique,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_click">Apply Marks</button>
     `
 })
 
@@ -1255,6 +1288,7 @@ Vue.component('re-operations',{
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
             <div class="m-2" v-if="this.problem.info.numcolors == -1"><re-coloring :problem="problem" :stuff="stuff"></re-coloring> compute hypergraph strong coloring solvability</div>
+            <div class="m-2"><re-marks :problem="problem" :stuff="stuff"></re-marks> apply Marks' technique</div>
         </re-card>
     `
 })

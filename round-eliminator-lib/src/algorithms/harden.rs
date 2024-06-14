@@ -67,7 +67,8 @@ impl Problem {
             orientation_trivial_sets: None,
             orientation_given: self.orientation_given,
             fixpoint_diagram : None,
-            fixpoint_procedure_works : None
+            fixpoint_procedure_works : None,
+            marks_works : None
         }
     }
 }

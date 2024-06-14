@@ -275,6 +275,16 @@ where
             problem.compute_coloring_solvability(&mut eh);
             handler(Response::P(problem));
         }
+        Request::Marks(mut problem) => {
+            if problem.passive.degree  != Degree::Finite(2) {
+                handler(Response::E(
+                    "It is required that the passive degree is 2.".into(),
+                ));
+            }else{
+                problem.apply_marks_technique();
+                handler(Response::P(problem));
+            }
+        }
         Request::DefaultDiagram(mut problem, partial, _triviality_only, labels) => {
             problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, &mut eh);
             handler(Response::P(problem));
@@ -309,6 +319,7 @@ pub enum Request {
     AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     ColoringSolvability(Problem),
+    Marks(Problem),
     Ping,
 }
 
