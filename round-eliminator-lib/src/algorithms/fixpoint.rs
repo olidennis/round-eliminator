@@ -322,7 +322,11 @@ impl Problem {
                 degree: passive.degree,
             };
             for line in &passive.lines {
-                if !line.parts.iter().all(|part|part.group.0.iter().all(|l|sublabels_set.contains(l))) {
+                // this if is wrong! It causes some labels to disappear if the fixpoint does not contain them
+                // so we may get a problem that is not at least as easy as the original one
+                // 
+                //if !line.parts.iter().all(|part|part.group.0.iter().all(|l|sublabels_set.contains(l))) {
+                //
                     let newline = line.edited(|g|{
                         //println!("The current group contains {:?}",g.iter().map(|l|&map[l]).collect_vec());
                         let mut g = HashSet::from_iter(g.0.iter().cloned());
@@ -338,7 +342,7 @@ impl Problem {
                         Group(g.into_iter().sorted().collect())
                     });
                     new_passive.lines.push(newline);
-                }
+                //}
             }
 
             let mut passive = new_passive;

@@ -519,3 +519,133 @@ fn combine_lines(
 
     combine_lines_custom(l1, l2, l1_without_one, l2_without_one, seen, None, becomes_star, allow_empty, false, false, f_is_superset, f_union, f_intersection).0
 }
+
+
+/*
+
+
+
+#[test]
+fn crash_test(){
+
+    loop {
+        println!("test");
+        let mut eh = EventHandler::null();
+
+    let mut problem = crate::problem::Problem::from_string_active_passive("(0a) (00b) (00c) (00d) (00e) (00f)
+(0a) (00b) (00c) (00d) (00e) (01f)
+(0a) (00b) (00c) (00d) (01e) (10f)
+(0a) (00b) (00c) (00d) (01e) (11f)
+(0a) (00b) (00c) (01d) (10e) (00f)
+(0a) (00b) (00c) (01d) (10e) (01f)
+(0a) (00b) (00c) (01d) (11e) (10f)
+(0a) (00b) (00c) (01d) (11e) (11f)
+(0a) (00b) (01c) (10d) (00e) (00f)
+(0a) (00b) (01c) (10d) (00e) (01f)
+(0a) (00b) (01c) (10d) (01e) (10f)
+(0a) (00b) (01c) (10d) (01e) (11f)
+(0a) (00b) (01c) (11d) (10e) (00f)
+(0a) (00b) (01c) (11d) (10e) (01f)
+(0a) (00b) (01c) (11d) (11e) (10f)
+(0a) (00b) (01c) (11d) (11e) (11f)
+(0a) (01b) (10c) (00d) (00e) (00f)
+(0a) (01b) (10c) (00d) (00e) (01f)
+(0a) (01b) (10c) (00d) (01e) (10f)
+(0a) (01b) (10c) (00d) (01e) (11f)
+(0a) (01b) (10c) (01d) (10e) (00f)
+(0a) (01b) (10c) (01d) (10e) (01f)
+(0a) (01b) (10c) (01d) (11e) (10f)
+(0a) (01b) (10c) (01d) (11e) (11f)
+(0a) (01b) (11c) (10d) (00e) (00f)
+(0a) (01b) (11c) (10d) (00e) (01f)
+(0a) (01b) (11c) (10d) (01e) (10f)
+(0a) (01b) (11c) (10d) (01e) (11f)
+(0a) (01b) (11c) (11d) (10e) (00f)
+(0a) (01b) (11c) (11d) (10e) (01f)
+(0a) (01b) (11c) (11d) (11e) (10f)
+(0a) (01b) (11c) (11d) (11e) (11f)
+(1a) (10b) (00c) (00d) (00e) (00f)
+(1a) (10b) (00c) (00d) (00e) (01f)
+(1a) (10b) (00c) (00d) (01e) (10f)
+(1a) (10b) (00c) (00d) (01e) (11f)
+(1a) (10b) (00c) (01d) (10e) (00f)
+(1a) (10b) (00c) (01d) (10e) (01f)
+(1a) (10b) (00c) (01d) (11e) (10f)
+(1a) (10b) (00c) (01d) (11e) (11f)
+(1a) (10b) (01c) (10d) (00e) (00f)
+(1a) (10b) (01c) (10d) (00e) (01f)
+(1a) (10b) (01c) (10d) (01e) (10f)
+(1a) (10b) (01c) (10d) (01e) (11f)
+(1a) (10b) (01c) (11d) (10e) (00f)
+(1a) (10b) (01c) (11d) (10e) (01f)
+(1a) (10b) (01c) (11d) (11e) (10f)
+(1a) (10b) (01c) (11d) (11e) (11f)
+(1a) (11b) (10c) (00d) (00e) (00f)
+(1a) (11b) (10c) (00d) (00e) (01f)
+(1a) (11b) (10c) (00d) (01e) (10f)
+(1a) (11b) (10c) (00d) (01e) (11f)
+(1a) (11b) (10c) (01d) (10e) (00f)
+(1a) (11b) (10c) (01d) (10e) (01f)
+(1a) (11b) (10c) (01d) (11e) (10f)
+(1a) (11b) (10c) (01d) (11e) (11f)
+(1a) (11b) (11c) (10d) (00e) (00f)
+(1a) (11b) (11c) (10d) (00e) (01f)
+(1a) (11b) (11c) (10d) (01e) (10f)
+(1a) (11b) (11c) (10d) (01e) (11f)
+(1a) (11b) (11c) (11d) (10e) (00f)
+(1a) (11b) (11c) (11d) (10e) (01f)
+(1a) (11b) (11c) (11d) (11e) (10f)
+(1a) (11b) (11c) (11d) (11e) (11f)",
+"(0a) (1a)
+(00b) (00b)
+(01b) (01b)
+(00b) (10b)
+(01b) (11b)
+(10b) (11b)
+(00c) (00c)
+(01c) (01c)
+(00c) (10c)
+(01c) (11c)
+(10c) (11c)
+(00d) (00d)
+(01d) (01d)
+(00d) (10d)
+(01d) (11d)
+(10d) (11d)
+(00e) (00e)
+(01e) (01e)
+(00e) (10e)
+(01e) (11e)
+(10e) (11e)
+(00f) (00f)
+(01f) (01f)
+(00f) (10f)
+(01f) (11f)
+(10f) (11f)").unwrap();
+        crate::serial::fix_problem(&mut problem, true, true,&mut eh);
+        if problem.diagram_indirect.is_none() {
+            problem.compute_partial_diagram(&mut eh);
+        }
+        let mut new = problem.speedup(&mut eh);
+        new.passive.maximize(&mut eh);
+        new.compute_diagram(&mut eh);
+        new.discard_useless_stuff(true, &mut eh);
+        new.sort_active_by_strength();
+        new.compute_triviality(&mut eh);
+        if new.passive.degree == crate::line::Degree::Finite(2) {
+            new.compute_coloring_solvability(&mut eh);
+            if let Some(outdegree) = new.orientation_given {
+                new.compute_triviality_given_orientation(outdegree, &mut eh);
+                new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+            }
+        }
+        match new.rename_by_generators() {
+            Ok(()) => {
+                println!(".");
+            }
+            Err(s) => println!("X"),
+        }
+    }
+}
+
+*/ 
