@@ -242,7 +242,7 @@ function call_api_generating_what(stuff, action, f, params, what, removeprogress
     let progress = { type : "computing", data : {type : "empty", cur : 1, max : 1, onstop : function(){}} };
     stuff.push(progress);
     let remove_progress_bar = function() {
-        console.log("removing progress bar");
+        //console.log("removing progress bar");
         let idx = stuff.indexOf(progress);
         if(idx != -1)stuff.splice(idx,1);
     }
@@ -254,7 +254,7 @@ function call_api_generating_what(stuff, action, f, params, what, removeprogress
 
     progress.data.onstop = function() {
         remove_progress_bar();
-        console.log("killing worker");
+        //console.log("killing worker");
         termination_handle();
     }
 }
@@ -769,7 +769,7 @@ Vue.component('re-orientation-give',{
     },
     methods: {
         on_orientation() {
-            console.log(this.outdegree)
+            //console.log(this.outdegree)
             call_api_generating_problem(this.stuff,{type:"orientation", outdegree: this.outdegree},give_orientation,[this.problem, this.outdegree]);
         }
     },
@@ -1461,7 +1461,7 @@ Vue.component('re-begin', {
                 <h4>Passive</h4>
                 <textarea rows="4" cols="30" class="form-control" v-model="passive"></textarea>
             </div>
-            <div class="col-sm mt-auto text-right">
+            <div class="m-2 col-sm mt-auto text-right">
                 <button type="button" class="btn btn-primary" v-on:click="on_start">Start</button>
                 <button type="button" class="btn btn-primary" v-on:click="on_clear">Clear</button>
                 <re-export :stuff="stuff" :active="active" :passive="passive"></re-export>
@@ -1677,13 +1677,13 @@ function copyToClipboard(text) {
 Vue.component('re-export', {
     props: ["stuff","active","passive"],
     methods: {
-        on_share : function() {
+        generate_export_data : function() {
             let redata = {active:this.active,passive:this.passive,stuff:this.stuff};
             let data = {v:version, d : redata};
             let json = JSON.stringify(data);
             let compressed = pako.deflateRaw(json,{level:9});
-            console.log("original length: " +json.length);
-            console.log("compressed length: " +compressed.length);
+            //console.log("original length: " +json.length);
+            //console.log("compressed length: " +compressed.length);
             //console.log(compressed);
             // https://github.com/WebReflection/uint8-to-base64/blob/master/index.js
             var v = [];
@@ -1691,16 +1691,50 @@ Vue.component('re-export', {
                 v.push(String.fromCharCode(compressed[i]));
             }
             let s = v.join("");
-            //console.log(s);
             let b64 =  btoa(s);
+            return b64;
+        },
+        on_share : function() {
+            let text = this.generate_export_data();
+            //console.log(s);
+            
             let uri = window.location.href.split("#")[0];
-            let link = uri + '#' + b64;
+            let link = uri + '#' + text;
             //navigator.clipboard.writeText(link);
             copyToClipboard(link);
+        },
+        on_save : function() {
+            let text = this.generate_export_data();
+            var element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', "problem.re");
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        },
+        on_load : function() {
+            this.file = this.$refs.doc.files[0];
+            const reader = new FileReader();
+            reader.onload = (res) => {
+                this.content = res.target.result;
+                //console.log(this.content);
+                this.$root.$emit('event_load',this.content);
+            };
+            reader.onerror = (err) => alert("The file appears to be invalid");
+            reader.readAsText(this.file);
+        },
+        trigger_load : function() {
+            document.getElementById("upfile").click();
         }
     },
     template: `
-        <button type="button" class="btn btn-primary" v-on:click="on_share">Export Link To Clipboard</button>
+        <div class="mt-1">
+            <button type="button" class="btn btn-primary" v-on:click="on_share">Export Link To Clipboard</button>
+            <button type="button" class="btn btn-primary" v-on:click="on_save">Save</button>
+            <button type="button" class="btn btn-primary" v-on:click="trigger_load">Load</button>
+            <div style='height: 0px;width:0px; overflow:hidden;'><input type="file" accept=".re" id="upfile" ref="doc" @change="on_load()"/></div>            
+        </div>
     `
 })
 
@@ -1743,26 +1777,39 @@ Vue.component('re-stuff', {
 })
 
 
-function init_data() {
-    let def = {active:"M U^9\nP^10",passive:"M UP^9\nU^10",stuff:[]};
-    if( window.location.hash ) {
-        let b64 = window.location.hash.substring(1);
-        let s = atob(b64);
-        let compressed = Uint8Array.from(s, c => c.charCodeAt(0));
-        let json = pako.inflateRaw(compressed, { to: 'string' });
-        let data = JSON.parse(json);
-        if( data.v != version ){
-            alert("Sorry, the link comes from a different version of REtor");
-            return def;
+function init_data(x) {
+    if( window.location.hash && x == undefined ) {
+        x =  window.location.hash.substring(1);
+    }
+    if( x !== undefined ) {
+        try{
+            let b64 = x;
+            let s = atob(b64);
+            let compressed = Uint8Array.from(s, c => c.charCodeAt(0));
+            let json = pako.inflateRaw(compressed, { to: 'string' });
+            let data = JSON.parse(json);
+            if( data.v != version ){
+                alert("Sorry, the link comes from a different version of REtor");
+                return def;
+            }
+            return data.d;
+        }catch(error){
+            alert("The file appears to be invalid");
         }
-        return data.d;
-    } else return def;
+    }
+    let def = {active:"M U^9\nP^10",passive:"M UP^9\nU^10",stuff:[]};
+    return def;
 }
 
 var app = new Vue({
     el: '#vueapp',
     data : {
         all : init_data(),
+    },
+    mounted: function(){
+        this.$root.$on('event_load', x => {
+            this.all = init_data(x);
+        })
     },
     template: `
         <div>

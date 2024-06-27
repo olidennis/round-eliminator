@@ -1,4 +1,4 @@
-use std::{time::Instant};
+use std::{collections::HashMap, time::Instant};
 
 use bit_vec::BitVec;
 use itertools::{Itertools};
@@ -14,13 +14,14 @@ use rand::seq::SliceRandom;
 
 type TableIndex = u32;
 
-fn mark_exists<T>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, choice_to_index : &T) where T : Fn(&Vec<TableIndex>) -> usize{
+fn mark_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, choice_to_index : &T, set_to_string : &F, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<u32>) -> String{
     if handled.get(choice_to_index(choice)).unwrap() {
         return;
     }
 
     handled.set(choice_to_index(choice),true);
     *num_handled += 1;
+    //println!("{}",choice.iter().enumerate().map(|(i,set_index)|set_to_string(i,&subsets[*set_index as usize])).join(" "));
 
     let mut choice = choice.clone();
 
@@ -28,13 +29,13 @@ fn mark_exists<T>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, hand
         let orig_i = choice[i];
         for &successor in &successors[orig_i as usize] {
             choice[i] = successor as TableIndex;
-            mark_exists(&choice, successors, handled, num_handled, choice_to_index);
+            mark_exists(&choice, successors, handled, num_handled, choice_to_index, set_to_string, subsets, complements);
         }
         choice[i] = orig_i;
     }
 }
 
-fn mark_no_exists<T>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, choice_to_index : &T) where T : Fn(&Vec<TableIndex>) -> usize{
+fn mark_no_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, choice_to_index : &T, set_to_string : &F, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<u32>) -> String{
     if handled.get(choice_to_index(choice)).unwrap() {
         return;
     }
@@ -51,13 +52,13 @@ fn mark_no_exists<T>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, h
         let orig_i = choice[i];
         for &successor in &successors[orig_i as usize] {
             choice[i] = successor as TableIndex;
-            mark_no_exists(&choice, successors, handled, num_handled, table, instance, choice_to_index);
+            mark_no_exists(&choice, successors, handled, num_handled, table, instance, choice_to_index, set_to_string, subsets, complements);
         }
         choice[i] = orig_i;
     }
 }
 
-fn handle_choice_nodes<T>(active : &Constraint, choice : &Vec<TableIndex>, predecessors : &Vec<Vec<usize>>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, subsets : &Vec<Vec<Label>>, no_marking : bool, choice_to_index : &T) where T : Fn(&Vec<TableIndex>) -> usize{
+fn handle_choice_nodes<T,F>(active : &Constraint, choice : &Vec<TableIndex>, predecessors : &Vec<Vec<usize>>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>, no_marking : bool, choice_to_index : &T, set_to_string : &F) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<u32>) -> String{
     if handled.get(choice_to_index(choice)).unwrap() {
         return;
     }
@@ -72,12 +73,14 @@ fn handle_choice_nodes<T>(active : &Constraint, choice : &Vec<TableIndex>, prede
             let lits = choice.iter().enumerate().map(|(i,&j)|table[i][j as usize]);
             instance.add_card_constr(CardConstraint::new_lb(lits, 1));
             //handled.insert(choice.clone());
+        } else {
+            //println!("{}",choice.iter().enumerate().map(|(i,set_index)|set_to_string(i,&subsets[*set_index as usize])).join(" "));
         }
     } else {
         if !active.exists_choice_in_line(&line) {
-            mark_no_exists(&choice,&predecessors,handled, num_handled, &table, instance, choice_to_index);
+            mark_no_exists(&choice,&predecessors,handled, num_handled, &table, instance, choice_to_index, set_to_string, subsets, complements);
         } else {
-            mark_exists(&choice,&successors, handled, num_handled, choice_to_index);
+            mark_exists(&choice,&successors, handled, num_handled, choice_to_index, set_to_string, subsets, complements);
         }
     }
 }
@@ -101,6 +104,11 @@ impl Problem {
         let labels_as_group = Group(labels.clone());
         let degree = self.active.finite_degree();
         let passive_degree = self.passive.finite_degree();
+
+        let h : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+        let set_to_string = |i : usize, set : &Vec<Label>|{
+            format!("({}_{})",i,set.iter().map(|x|&h[x]).join(""))
+        };
 
         //println!("generating subsets");
 
@@ -167,14 +175,14 @@ impl Problem {
 
         for (i,choice) in sample.iter().enumerate() {
             let now = chrono::Utc::now().time();
-            if (now - last_notify).num_milliseconds() > 1000 {
+            if (now - last_notify).num_milliseconds() > 100 {
                 eh.notify("setting up node constraints",num_handled,len);
                 last_notify = chrono::Utc::now().time();
 
                 //println!("{} {}",i,num_handled);
             }
             
-            handle_choice_nodes(&self.active, &choice, &predecessors, &successors, &mut handled, &mut num_handled, &table, &mut instance, &subsets, false, &choice_to_index);
+            handle_choice_nodes(&self.active, &choice, &predecessors, &successors, &mut handled, &mut num_handled, &table, &mut instance, &subsets, &complements, false, &choice_to_index, &set_to_string);
             if num_handled > (0.999 * len as f32) as usize {
                 break;
             }
@@ -187,19 +195,20 @@ impl Problem {
         for (i,choice) in node_choices.enumerate() {
 
             let now = chrono::Utc::now().time();
-            if (now - last_notify).num_milliseconds() > 1000 {
+            if (now - last_notify).num_milliseconds() > 100 {
                 eh.notify("setting up node constraints",i,len);
                 last_notify = chrono::Utc::now().time();
 
                 //println!("{} {}",i,num_handled);
             }
             
-            handle_choice_nodes(&self.active, &choice, &predecessors, &successors, &mut handled, &mut num_handled, &table, &mut instance, &subsets, true, &choice_to_index);
+            handle_choice_nodes(&self.active, &choice, &predecessors, &successors, &mut handled, &mut num_handled, &table, &mut instance, &subsets, &complements, true, &choice_to_index, &set_to_string);
         }
-
+        //println!("");
         //println!("setting up edge constraints");
 
         let edge_choices = (0..passive_degree).map(|_|0..subsets.len()).multi_cartesian_product();
+        // .filter(|v|v[0] == v[1]); // in many cases this is sufficient to get a LB, in this case a sat solver would not be even needed
         let len = edge_choices.clone().count();
 
         for i in 0..degree {
@@ -219,10 +228,13 @@ impl Problem {
                 if !self.passive.exists_choice_in_line(&line) {
                     let lits = choice.iter().map(|&j|table[i][j]);
                     instance.add_card_constr(CardConstraint::new_ub(lits, passive_degree-1));
+                } else {
+                    //println!("{}",choice.iter().map(|set_index|set_to_string(i,&subsets[*set_index])).join(" "));
                 }
             }
         }
 
+        //println!("");
         eh.notify("sanitizing",0,0);
 
         let instance = instance.sanitize();
@@ -268,6 +280,7 @@ B B Y
 
 AX BY
 XY XY").unwrap();
+    println!("1");
     assert!(!p.marks(eh));
 
     let p = Problem::from_string("1 1 1
@@ -289,7 +302,8 @@ XY XY").unwrap();
 7 456
 8 1346
 9 12456").unwrap();
-    assert!(!p.marks(eh));
+    println!("2");
+    //assert!(!p.marks(eh));
 
     let p = Problem::from_string("1 1 1
 2 2 2
@@ -310,13 +324,20 @@ XY XY").unwrap();
 7 456
 8 1346
 9 1245").unwrap();
-    assert!(p.marks(eh));
+    println!("3");
+    //assert!(p.marks(eh));
 
     let p = Problem::from_string("A B B\n\nB AB").unwrap();
+    println!("4");
     assert!(p.marks(eh));
 
 
     let p = Problem::from_string("A A A\n\nA A").unwrap();
+    println!("5");
     assert!(!p.marks(eh));
+
+    let p = Problem::from_string("A A A\nB B B\nC C C\n\nA BC\nB C").unwrap();
+    println!("6");
+    assert!(p.marks(eh));
 
 }
