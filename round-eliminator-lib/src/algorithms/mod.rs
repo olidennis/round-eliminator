@@ -23,3 +23,4 @@ pub mod autolb;
 pub mod fixpoint;
 pub mod multigraph;
 pub mod marks;
+pub mod merge_subdiagram;

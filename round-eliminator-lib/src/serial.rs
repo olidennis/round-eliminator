@@ -288,7 +288,15 @@ where
         Request::DefaultDiagram(mut problem, partial, _triviality_only, labels) => {
             problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, &mut eh);
             handler(Response::P(problem));
-        } //_ => { unimplemented!() }
+        }
+        Request::SimplifySD(problem, sd) => {
+            if let Some(mut new) =  problem.merge_subdiagram(&sd, &mut eh) {
+                fix_problem(&mut new, true, true, &mut eh);
+                handler(Response::P(new));
+            } else {
+                handler(Response::E("There is some problem with the given pattern".into()));
+            }            
+        }
     }
 
     handler(Response::Done);
@@ -300,6 +308,7 @@ pub enum Request {
     SimplifyMerge(Problem, Label, Label),
     SimplifyMergeGroup(Problem, Vec<Label>, Label),
     SimplifyAddarrow(Problem, Label, Label),
+    SimplifySD(Problem,String),
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),

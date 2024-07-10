@@ -1,5 +1,7 @@
 use crate::problem::Problem;
 
+use super::event::EventHandler;
+
 impl Problem {
     pub fn merge_equivalent_labels(&self) -> Problem {
         let mut p = self.clone();
@@ -10,6 +12,23 @@ impl Problem {
             }
         }
         p
+    }
+
+    pub fn repeat_merge_equivalent_labels(&self, eh : &mut EventHandler) -> Problem {
+        let mut p = self.clone();
+        if p.diagram_indirect.is_none() {
+            p.compute_diagram(eh);
+        }        
+        p = p.merge_equivalent_labels();
+        p.discard_useless_stuff(true, eh);
+        loop {
+            let l = p.labels().len();
+            p = p.merge_equivalent_labels();
+            p.discard_useless_stuff(true, eh);
+            if l == p.labels().len(){
+                return p;
+            }
+        }
     }
 }
 

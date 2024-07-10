@@ -104,6 +104,11 @@ function simplify_merge(problem, from, to, onresult, onerror, progress){
     return api.request({ SimplifyMerge : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
 }
 
+function simplify_merge_sd(problem, sd, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ SimplifySD : [problem, sd] }, ondata , function(){});
+}
+
 function simplify_group(problem, labels, to, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ SimplifyMergeGroup : [problem, labels.map(x => parseInt(x)), parseInt(to)] }, ondata , function(){});
@@ -305,6 +310,8 @@ Vue.component('re-performed-action', {
                     return "Performed Hardening: Kept Label Set " + this.action.labels.join("");
                 case "simplifymergegroup":
                     return "Performed Simplification: Merged Set " + this.action.labels.join("") + "→" + this.action.to;
+                case "simplifymergesd":
+                    return "Performed SubDiagram Merging\n" + this.action.sd;
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
                 case "orientation":
@@ -1086,6 +1093,31 @@ Vue.component('re-group-simplify',{
     `
 })
 
+
+
+Vue.component('re-sd-simplify',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+            text : "",
+        }    
+    },
+    methods: {
+        on_sd(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"simplifymergesd", sd:this.text},
+                simplify_merge_sd,[this.problem, this.text]
+            );
+        }
+    },
+    template: `
+        <re-card title="SubDiagram Merge" subtitle="(... still need a good description ...)">
+            <textarea rows="4" cols="30" class="form-control m-1" v-model="text"></textarea>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_sd">Merge</button>
+        </re-card>
+    `
+})
+
 Vue.component('re-group-harden',{
     props: ['problem','stuff'],
     data: function(){ return {
@@ -1311,6 +1343,7 @@ Vue.component('re-tools', {
             <re-operations :problem="problem" :stuff="stuff"></re-operations>
             <re-simplify :problem="problem" :stuff="stuff"></re-simplify>
             <re-group-simplify :problem="problem" :stuff="stuff"></re-group-simplify>
+            <re-sd-simplify :problem="problem" :stuff="stuff"></re-sd-simplify>
             <re-harden-remove :problem="problem" :stuff="stuff"></re-harden-remove>
             <re-group-harden :problem="problem" :stuff="stuff"></re-group-harden>
             <re-rename :problem="problem" :stuff="stuff"></re-rename>

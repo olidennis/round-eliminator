@@ -64,19 +64,19 @@ fn kpartite_test(){
     let mut mapping_label_text = HashMap::new();
 
     let c1 = Constraint::parse(
-        "M 1234\n234 234",
+        "1 234\n2 34\n 3 4",
         &mut mapping_label_text).unwrap();
 
     let c2 = Constraint::parse(
-        "M 1234\n134 134",
+        "1 234\n2 34\n 3 4",
         &mut mapping_label_text).unwrap();
 
     let c3 = Constraint::parse(
-        "M 1234\n124 124",
+        "1 234\n2 34\n 3 4",
         &mut mapping_label_text).unwrap();
 
     let c4 = Constraint::parse(
-        "M 1234\n123 123",
+        "1 234\n2 34\n 3 4",
         &mut mapping_label_text).unwrap();
     
     let mapping_label_text = mapping_label_text
@@ -87,53 +87,16 @@ fn kpartite_test(){
     let mut p = KPartiteProblem{ constraints: vec![c1,c2,c3,c4], mapping_label_text, mapping_label_oldlabels: None  };
     println!("{}",p);
 
-    p = p.speedup_kpartite(|set|{
-        if !set.contains(&&"M".to_owned()) {
-            if set.contains(&&"4".to_owned()){
-                return "3".to_owned()
-            } else if set.contains(&&"3".to_owned()){
-                return "2".to_owned()
-            } else if set.contains(&&"2".to_owned()){
-                return "1".to_owned()
-            }  else {
-                return "4".to_owned()
-            }
-        };
-        if set.len() > 1 {
-            return "5".to_owned()
+    for i in 0..3 {
+        p = p.speedup_kpartite(|set|{
+            format!("({})",set.iter().join(""))
+        },eh);
+        for c in p.constraints.iter_mut() {
+            c.maximize(eh);
         }
-        return "M".to_owned()
-        //format!("({})",set.iter().join(""))
-        //format!("{}",set.iter().next().unwrap())
-    },eh);
-    for c in p.constraints.iter_mut() {
-        c.maximize(eh);
+        println!("{}",p);
     }
-    println!("{}",p);
     
-    p = p.speedup_kpartite(|set|{
-        if !set.contains(&&"M".to_owned()) {
-            if set.contains(&&"5".to_owned()){
-                return "5".to_owned()
-            }else if set.contains(&&"4".to_owned()){
-                return "3".to_owned()
-            }else if set.contains(&&"3".to_owned()){
-                return "2".to_owned()
-            } else if set.contains(&&"2".to_owned()){
-                return "1".to_owned()
-            } else {
-                return "4".to_owned()
-            }
-        };
-        if set.len() > 1 {
-            return "6".to_owned()
-        }
-        return "M".to_owned()
-    },eh);
-    for c in p.constraints.iter_mut() {
-        c.maximize(eh);
-    }
-    println!("{}",p);
 }
 
 

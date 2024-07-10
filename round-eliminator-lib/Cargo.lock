@@ -74,6 +74,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
 
 [[package]]
+name = "bnf"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c09ea5795b3dd735ff47c4b8adf64c46e3ce056fa3c4880b865a352e4c40a2"
+dependencies = [
+ "getrandom",
+ "nom",
+ "rand",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -920,6 +933,7 @@ version = "0.1.0"
 dependencies = [
  "append-only-vec",
  "bit-vec",
+ "bnf",
  "chrono",
  "contest-algorithms",
  "crossbeam",

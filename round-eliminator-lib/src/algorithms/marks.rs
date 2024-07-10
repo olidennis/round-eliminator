@@ -115,6 +115,22 @@ impl Problem {
         let mut subsets = vec![];
         let mut subsets_as_groups = vec![];
         let mut complements = vec![];
+        
+        /* 
+        let mut passive = self.passive.clone();
+        passive.maximize(eh);
+        let mut active = self.active.clone();
+        active.maximize(eh);
+        let rcs = passive.groups().unique().map(|g|g.0.clone()).chain(active.groups().unique().map(|g|g.0.clone()));
+        for subset in rcs {
+            let subset_as_group = Group(subset.clone());
+            let complement = labels_as_group.difference(&subset_as_group);
+            complements.push(complement.0);
+            subsets.push(subset);
+            subsets_as_groups.push(subset_as_group);
+        }*/
+        
+        
         for subset in labels.iter().cloned().powerset() {
             let subset_as_group = Group(subset.clone());
             let complement = labels_as_group.difference(&subset_as_group);
@@ -207,6 +223,34 @@ impl Problem {
         //println!("");
         //println!("setting up edge constraints");
 
+        // eventually all of this will go away, if it is really true that we can use a single row and ignore colors or ports
+
+        // port numbering given
+        /*let edge_choices = (0..passive_degree).map(|_|(0..degree).cartesian_product(0..subsets.len())).multi_cartesian_product();
+        let len = edge_choices.clone().count();
+
+        for (k,choice) in edge_choices.enumerate() {
+
+            let now = chrono::Utc::now().time();
+            if (now - last_notify).num_milliseconds() > 100 {
+                eh.notify("setting up edge constraints",k,len);
+                last_notify = chrono::Utc::now().time();
+            }
+
+            let line = Line{parts:choice.iter().map(|(i,j)|Part{ 
+                gtype: GroupType::Many(1),
+                group: Group(complements[*j].clone())
+            }).collect()};
+            if !self.passive.exists_choice_in_line(&line) {
+                let lits = choice.iter().map(|&(i,j)|table[i][j]);
+                instance.add_card_constr(CardConstraint::new_ub(lits, passive_degree-1));
+            } else {
+                //println!("{}",choice.iter().map(|set_index|set_to_string(i,&subsets[*set_index])).join(" "));
+            }
+        }*/
+
+        
+        // edge coloring given
         let edge_choices = (0..passive_degree).map(|_|0..subsets.len()).multi_cartesian_product();
         // .filter(|v|v[0] == v[1]); // in many cases this is sufficient to get a LB, in this case a sat solver would not be even needed
         let len = edge_choices.clone().count();

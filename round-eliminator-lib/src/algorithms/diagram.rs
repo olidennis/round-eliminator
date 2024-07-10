@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 use petgraph::graph::IndexType;
+use rayon::iter::ParallelBridge;
 
 use crate::{group::Label, line::Degree, problem::Problem};
 
@@ -18,6 +19,19 @@ impl Problem {
         }
 
         let labels: Vec<_> = self.labels();
+
+        /*{
+            use rayon::prelude::*;
+            let diagram : Vec<_> = labels.iter().enumerate().cartesian_product(labels.iter().enumerate())
+                .par_bridge()
+                .filter_map(|((i,l1),(j,l2))|{
+                    if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
+                        Some((*l1, *l2))
+                    } else {
+                        None
+                    }
+                }).collect();
+        }*/
 
         let mut diagram = vec![];
 
