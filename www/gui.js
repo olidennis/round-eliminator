@@ -1532,6 +1532,18 @@ Vue.component('re-fixpoint',{
             Object.assign(this.$data, this.$options.data.apply(this))
         }
     },
+    methods: {
+        on_from_diagram(){
+            let selected = this.problem.selected;
+            if( selected != null ){
+                for(let i = 0; i < this.table.length; i++){
+                    let row = this.table[i];
+                    row.splice(3,1,selected.includes(row[0]));
+                    this.table.splice(i,1,row);
+                }
+            }
+        }
+    },
     template: `
         <re-card :show="this.problem.fixpoint_diagram !== null" title="Fixed Point Tools" subtitle="(automatic procedure for fixed point generation)">
             <div class="custom-control custom-switch ml-2">
@@ -1563,6 +1575,7 @@ Vue.component('re-fixpoint',{
                         </label>  
                     </div>
                 </div>
+                <button type="button" class="btn btn-primary ml-2" v-on:click="on_from_diagram">From diagram selection</button>       
                 <hr/>
             </div>
             <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff" :partial="partial" :table="table" :triviality_only="triviality_only"></re-fixpoint-basic> (with default diagram)</div>
