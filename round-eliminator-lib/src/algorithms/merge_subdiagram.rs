@@ -12,6 +12,7 @@ struct SubDiagram {
     edges : Vec<SDEdge>,
     noedges : Vec<SDEdge>,
     constraints : Vec<SDConstraint>,
+    types : Vec<SDType>,
     merges : Vec<SDMerge>
 }
 
@@ -20,14 +21,20 @@ impl SubDiagram {
         self.edges.iter().flat_map(|e|[&e.from,&e.to].into_iter())
         .chain(self.noedges.iter().flat_map(|e|[&e.from,&e.to].into_iter()))
         .chain(self.constraints.iter().map(|c|&c.node))
+        .chain(self.types.iter().map(|c|&c.node))
         .unique()
         .cloned()
         .collect()
     }
     
-    fn label_satisfies_constraints_of_node(&self, node: &str, indeg : usize, outdeg : usize) -> bool {
+    fn label_satisfies_constraints_of_node(&self, node: &str, indeg : usize, outdeg : usize, is_new : bool) -> bool {
         for c in &self.constraints {
             if !c.label_satisfies_constraint_of_node(node,indeg,outdeg) {
+                return false;
+            }
+        }
+        for t in &self.types {
+            if !t.label_satisfies_constraint_of_node(node,is_new) {
                 return false;
             }
         }
@@ -60,7 +67,8 @@ enum SDLine {
     Edge(SDEdge),
     NoEdge(SDEdge),
     Constraint(SDConstraint),
-    Merge(SDMerge)
+    Merge(SDMerge),
+    Type(SDType)
 }
 
 #[derive(Clone,Debug)]
@@ -70,9 +78,33 @@ struct SDEdge {
 }
 
 #[derive(Clone,Debug)]
+struct SDType {
+    node : String,
+    t : OldNew
+}
+impl SDType {
+    fn label_satisfies_constraint_of_node(&self, node: &str, is_new: bool) -> bool {
+        if self.node != node {
+            return true;
+        }
+
+        match self.t {
+            OldNew::OLD => { !is_new },
+            OldNew::NEW => { is_new },
+        }
+    }
+}
+
+#[derive(Clone,Debug)]
 enum InOut {
     IN,
     OUT
+}
+
+#[derive(Clone,Debug)]
+enum OldNew {
+    OLD,
+    NEW
 }
 
 #[derive(Clone,Debug)]
@@ -175,6 +207,17 @@ fn parse_constraint(x : &ParseTree) -> Option<SDConstraint> {
     Some(SDConstraint{node,inout,ineq,value})
 }
 
+fn parse_type(x : &ParseTree) -> SDType {
+    let mut x = x.rhs_iter();
+    x.next();
+    x.next();
+    let node = parse_string(x.next().unwrap());
+    x.next();
+    let oldnew = parse_string(x.next().unwrap());
+    let oldnew = if oldnew == "old" { OldNew::OLD } else { OldNew::NEW };
+    SDType{node,t : oldnew}
+}
+
 fn extract_nonterminal<'a>(x : &'a ParseTreeNode) -> &'a ParseTree<'a> {
     if let ParseTreeNode::Nonterminal(x) = x {
         return x;
@@ -203,6 +246,7 @@ fn parse_line(x : &ParseTree) -> Option<SDLine> {
         "noedge" => Some(SDLine::NoEdge(parse_edge(rhs))),
         "merge" => Some(SDLine::Merge(parse_merge(rhs))),
         "constraint" => Some(SDLine::Constraint(parse_constraint(rhs)?)),
+        "type" => Some(SDLine::Type(parse_type(rhs))),
         _ => panic!()
     }
 }
@@ -252,6 +296,7 @@ fn parse_input(x : &ParseTree) -> Option<Vec<SubDiagram>> {
             SDLine::NoEdge(x) => sd.noedges.push(x),
             SDLine::Constraint(x) => sd.constraints.push(x),
             SDLine::Merge(x) => sd.merges.push(x),
+            SDLine::Type(x) => sd.types.push(x)
         }
     }
 
@@ -267,7 +312,7 @@ fn parse_input(x : &ParseTree) -> Option<Vec<SubDiagram>> {
 fn parse_subdiagram(subdiagram : &str) -> Option<Vec<SubDiagram>> {
     let grammar = "
         <input> ::= '' | <opt-newline> <line> <opt-newline> <input> <opt-newline>
-        <line> ::= <edge> | <noedge> | <constraint> | <merge>
+        <line> ::= <edge> | <noedge> | <constraint> | <merge> | <type>
 
         <edge> ::= 'e' <opt-whitespace> <word> <opt-whitespace> <word>
         <noedge> ::= 'x' <opt-whitespace> <word> <opt-whitespace> <word>
@@ -275,6 +320,9 @@ fn parse_subdiagram(subdiagram : &str) -> Option<Vec<SubDiagram>> {
         <constraint> ::= 'c' <opt-whitespace> <word> <opt-whitespace> <in-out> <opt-whitespace> <ineq> <opt-whitespace> <number>
         <in-out> ::= 'in' | 'out'
         <ineq> ::= '>=' | '<=' | '>' | '<' | '=' | '=='
+
+        <type> ::= 't' <opt-whitespace> <word> <opt-whitespace> <old-new>
+        <old-new> ::= 'old' | 'new'
 
         <merge> ::= 'm' <opt-whitespace> <word> <opt-whitespace> <word>
 
@@ -308,6 +356,9 @@ impl Problem {
     pub fn find_subdiagram(&self, sd: &SubDiagram) -> Option<Vec<(String,Label)>> {
         let pred = self.diagram_direct_to_pred_adj();
         let succ = self.diagram_direct_to_succ_adj();
+        let (_,new) = self.split_labels_original_new();
+        let new : HashSet<_> = new.into_iter().collect();
+        //let new : HashSet<_> = self.mapping_label_generators().into_iter().filter(|(_,g)|g.len() != 1).map(|(l,_)|l).collect();
 
         let nodes = sd.nodes();
         let mut candidates = vec![];
@@ -315,7 +366,7 @@ impl Problem {
         for node in &nodes {
             let mut v = vec![];
             for l in self.labels() {
-                if sd.label_satisfies_constraints_of_node(node,pred[&l].len(),succ[&l].len()) {
+                if sd.label_satisfies_constraints_of_node(node,pred[&l].len(),succ[&l].len(), new.contains(&l) ) {
                     v.push(l);
                 }
             }
@@ -347,7 +398,6 @@ impl Problem {
             for sd in &sds {
                 loop {
                     p.compute_direct_diagram();
-
                     if let Some(v) = p.find_subdiagram(&sd) {
                         let h : HashMap<_,_> = v.into_iter().collect();
                         for merge in &sd.merges {

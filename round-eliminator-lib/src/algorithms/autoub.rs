@@ -417,13 +417,17 @@ fn automatic_upper_bound_old(orig : &Problem, max_labels : usize, branching : us
 
 impl Problem{
     pub fn split_labels_original_new(&self) -> (Vec<Label>,Vec<Label>){
-        let map_label_oldlabels = self.mapping_label_generators();
+        let map_label_oldlabels : HashMap<_,_> = self.mapping_label_generators().into_iter().collect();
+        //let map_label_oldlabels = self.mapping_label_generators();
 
         let mut old_labels = vec![];
         let mut new_labels = vec![];
 
         for l in self.labels() {
-            let is_old =  map_label_oldlabels.iter().filter(|(_,v)|v.contains(&l)).any(|(_,v)|v.len() == 1);
+            //I do not know what this was supposed to do, but it seems really wrong
+            //let is_old =  map_label_oldlabels.iter().filter(|(_,v)|v.contains(&l)).any(|(_,v)|v.len() == 1);
+            let is_old = map_label_oldlabels[&l].len() == 1;
+
             if is_old {
                 old_labels.push(l);
             } else {
