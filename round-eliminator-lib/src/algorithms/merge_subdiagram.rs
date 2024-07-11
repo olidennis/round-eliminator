@@ -249,6 +249,11 @@ fn parse_input(x : &ParseTree) -> Option<Vec<SubDiagram>> {
             SDLine::Merge(x) => sd.merges.push(x),
         }
     }
+
+    if sd.merges.is_empty() {
+        return None;
+    }
+
     result.push(sd);
 
     Some(result)
@@ -330,24 +335,30 @@ impl Problem {
     pub fn merge_subdiagram(&self, subdiagram : &str, eh : &mut EventHandler) -> Option<Problem> {
         
         let sds = parse_subdiagram(subdiagram)?;
-
         let mut p = self.repeat_merge_equivalent_labels(eh);
 
-        for sd in sds {
-            loop {
-                p.compute_direct_diagram();
+        loop {
+            let mut merged = false;
+            for sd in &sds {
+                loop {
+                    p.compute_direct_diagram();
 
-                if let Some(v) = p.find_subdiagram(&sd) {
-                    let h : HashMap<_,_> = v.into_iter().collect();
-                    for merge in &sd.merges {
-                        let l1 = h[&merge.from];
-                        let l2 = h[&merge.to];
-                        p = p.relax_merge(l1, l2);
-                        p = p.repeat_merge_equivalent_labels(eh);
+                    if let Some(v) = p.find_subdiagram(&sd) {
+                        let h : HashMap<_,_> = v.into_iter().collect();
+                        for merge in &sd.merges {
+                            merged = true;
+                            let l1 = h[&merge.from];
+                            let l2 = h[&merge.to];
+                            p = p.relax_merge(l1, l2);
+                            p = p.repeat_merge_equivalent_labels(eh);
+                        }
+                    } else {
+                        break;
                     }
-                } else {
-                    break;
                 }
+            }
+            if !merged {
+                break;
             }
         }
 
