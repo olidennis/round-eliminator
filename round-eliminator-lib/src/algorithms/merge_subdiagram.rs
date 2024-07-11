@@ -231,6 +231,11 @@ fn parse_input(x : &ParseTree) -> Option<Vec<SubDiagram>> {
 
     let mut result = vec![];
     let mut sd = SubDiagram::default();
+
+    if lines.is_empty() {
+        return Some(vec![]);
+    }
+
     for line in lines {
         match line {
             SDLine::Merge(_) => {},
