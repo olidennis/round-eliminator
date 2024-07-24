@@ -54,6 +54,7 @@ impl Problem {
         Problem {
             active: newactive,
             passive: newpassive,
+            passive_gen : None,
             mapping_label_text: self.mapping_label_text.clone(),
             mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
             mapping_oldlabel_labels: self.mapping_oldlabel_labels.clone(),

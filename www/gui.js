@@ -561,16 +561,24 @@ Vue.component('re-problem-info', {
 
 
 Vue.component('re-constraint', {
-    props: ['problem','side','mode'],
+    props: ['problem','side','mode','mode2'],
     computed: {
         table : function() {
             let problem = this.problem;
             let constraint = this.side == "active" ? problem.active : problem.passive;
-            return constraint.lines.map(row => row.parts.map(elem => {
+            return constraint.lines.map((row,i) => row.parts.map((elem,j) => {
                 let renamed = labelset_to_string(elem.group,this.problem.map_label_text);
                 let original = problem.mapping_label_oldlabels == null ? null : elem.group.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
+                let gen_renamed = null;
+                let gen_original = null;
 
-                let r = {  renamed : renamed, original : original};
+                if( this.side == "passive" && problem.passive_gen != null ){
+                    let elem_gen = problem.passive_gen.lines[i].parts[j];
+                    gen_renamed = labelset_to_string(elem_gen.group,this.problem.map_label_text);
+                    gen_original = problem.mapping_label_oldlabels == null ? null : elem_gen.group.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
+                }
+
+                let r = {  renamed : renamed, original : original, gen_renamed : gen_renamed, gen_original : gen_original};
                 if( elem.gtype == "One" || elem.gtype.Many == 1 ){
                 } else if( elem.gtype == "Star" ){
                     r.star = true;
@@ -586,24 +594,47 @@ Vue.component('re-constraint', {
         <table class="table">
             <tr v-for="row in this.table">
                 <td v-for="elem in row">
-                    <div v-if="mode == 'original'">
-                        <span v-for="set in elem.original" class="rounded m-1 labelborder">{{ set }}</span>
-                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
-                        <span v-if="elem.star">*</span>
+                    <div v-if="mode2 != 'gen' || elem.gen_renamed == null">
+                        <div v-if="mode == 'original'">
+                            <span v-for="set in elem.original" class="rounded m-1 labelborder">{{ set }}</span>
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                        </div>
+                        <div v-if="mode == 'renamed'">
+                            {{ elem.renamed }}
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                        </div>
+                        <div v-if="mode == 'both'">
+                            {{ elem.renamed }}
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                            <hr/>
+                            <span v-for="set in elem.original" class="rounded m-1 labelborder">{{ set }}</span>
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                        </div>
                     </div>
-                    <div v-if="mode == 'renamed'">
-                        {{ elem.renamed }}
-                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
-                        <span v-if="elem.star">*</span>
-                    </div>
-                    <div v-if="mode == 'both'">
-                        {{ elem.renamed }}
-                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
-                        <span v-if="elem.star">*</span>
-                        <hr/>
-                        <span v-for="set in elem.original" class="rounded m-1 labelborder">{{ set }}</span>
-                        <sup v-if="elem.rep">{{ elem.rep }}</sup>
-                        <span v-if="elem.star">*</span>
+                    <div v-if="mode2 == 'gen' && elem.gen_renamed != null">
+                        <div v-if="mode == 'original'">
+                            <span v-for="set in elem.gen_original" class="rounded m-1 labelborder">{{ set }}</span>
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                        </div>
+                        <div v-if="mode == 'renamed'">
+                            {{ elem.gen_renamed }}
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                        </div>
+                        <div v-if="mode == 'both'">
+                            {{ elem.gen_renamed }}
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                            <hr/>
+                            <span v-for="set in elem.gen_original" class="rounded m-1 labelborder">{{ set }}</span>
+                            <sup v-if="elem.rep">{{ elem.rep }}</sup>
+                            <span v-if="elem.star">*</span>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -1360,7 +1391,8 @@ Vue.component('re-problem', {
     props: ["problem","stuff","handle"],
     data : function() {
         return {
-            mode : "renamed"
+            mode : "renamed",
+            mode2 : "all"
         }
     },
     methods: {
@@ -1371,7 +1403,7 @@ Vue.component('re-problem', {
     },
     template: `
         <div class="card card-body m-2 p-2 bg-light position-relative">
-            <div class="row p-0 m-0 justify-content-between">
+            <div class="row p-0 m-0">
                 <div v-if="this.problem.mapping_label_oldlabels != null">
                     <div class="btn-group btn-group-toggle pt-3 pl-3" data-toggle="buttons">
                         <label class="btn btn-primary active">
@@ -1380,6 +1412,14 @@ Vue.component('re-problem', {
                             <input type="radio" name="options" autocomplete="off" value="original" v-model="mode">Old</label>
                         <label class="btn btn-primary">
                             <input type="radio" name="options" autocomplete="off" value="both" v-model="mode">Both</label>
+                    </div>
+                </div>
+                <div>
+                    <div class="btn-group btn-group-toggle pt-3 pl-3" data-toggle="buttons">
+                        <label class="btn btn-primary active">
+                            <input type="radio" name="options" autocomplete="off" value="all" v-model="mode2">All</label>
+                        <label class="btn btn-primary">
+                            <input type="radio" name="options" autocomplete="off" value="gen" v-model="mode2">Gen</label>
                     </div>
                 </div>
                 <div/>
@@ -1393,7 +1433,7 @@ Vue.component('re-problem', {
                     <re-constraint side="active" :mode="this.mode" :problem="this.problem"></re-constraint>
                 </re-card>
                 <re-card title="Passive" subtitle="Exists choice satisfying previous Active" show="true">
-                    <re-constraint side="passive" :mode="this.mode" :problem="this.problem"></re-constraint>
+                    <re-constraint side="passive" :mode="this.mode" :mode2="this.mode2" :problem="this.problem"></re-constraint>
                 </re-card>
                 <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_label_oldlabels != null">
                     <re-renaming :problem="problem"></re-renaming>

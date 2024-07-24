@@ -1,9 +1,9 @@
 use std::{
-    collections::{HashMap},
+    collections::{HashMap, HashSet},
     fmt::Display,
 };
 
-use crate::{constraint::Constraint, group::Label};
+use crate::{constraint::Constraint, group::{Group, Label}};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use crate::algorithms::fixpoint::FixpointDiagram;
@@ -12,6 +12,7 @@ use crate::algorithms::fixpoint::FixpointDiagram;
 pub struct Problem {
     pub active: Constraint,
     pub passive: Constraint,
+    pub passive_gen: Option<Constraint>,
     pub mapping_label_text: Vec<(Label, String)>,
     pub mapping_label_oldlabels: Option<Vec<(Label, Vec<Label>)>>,
     pub mapping_oldlabel_labels: Option<Vec<(Label, Vec<Label>)>>,
@@ -49,6 +50,7 @@ impl Problem {
         let p = Problem {
             active,
             passive,
+            passive_gen : None,
             mapping_label_text,
             mapping_label_oldlabels: None,
             mapping_oldlabel_labels: None,
@@ -82,6 +84,23 @@ impl Problem {
         let mut labels: Vec<_> = self.mapping_label_text.iter().map(|(l, _)| *l).collect();
         labels.sort_unstable();
         labels
+    }
+
+    pub fn is_mergeable(&self) -> bool {
+        self.diagram_direct.is_some() && self.diagram_direct.as_ref().unwrap().0.iter().any(|x|x.1.len() > 1)
+    }
+    
+    pub fn compute_passive_gen(&mut self) {
+        let predecessors = self.diagram_indirect_to_inverse_reachability_adj();
+        if !self.is_mergeable() {
+            let passive_gen = self.passive.edited(|g|{
+                let h : HashSet<_> = g.0.iter().cloned().collect();
+                Group(g.iter().cloned().filter(|x|{
+                    predecessors[x].intersection(&h).count() == 1
+                }).collect())
+            });
+            self.passive_gen = Some(passive_gen);
+        }
     }
 
     

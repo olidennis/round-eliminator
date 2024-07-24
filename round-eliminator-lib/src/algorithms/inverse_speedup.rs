@@ -55,6 +55,7 @@ impl Problem {
         let mut p = Problem {
             active,
             passive,
+            passive_gen : None,
             mapping_label_text: vec![],
             mapping_label_oldlabels: None,
             mapping_oldlabel_labels: Some(mapping_oldlabel_labels),

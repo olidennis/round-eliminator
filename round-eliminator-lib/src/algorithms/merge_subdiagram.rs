@@ -392,6 +392,7 @@ impl Problem {
         
         let sds = parse_subdiagram(subdiagram)?;
         let mut p = self.repeat_merge_equivalent_labels(eh);
+        let label_to_string : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
 
         loop {
             let mut merged = false;
@@ -404,6 +405,7 @@ impl Problem {
                             merged = true;
                             let l1 = h[&merge.from];
                             let l2 = h[&merge.to];
+                            println!("merging from {} to {}", label_to_string[&l1], label_to_string[&l2]);
                             p = p.relax_merge(l1, l2);
                             p = p.repeat_merge_equivalent_labels(eh);
                         }

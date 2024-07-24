@@ -25,6 +25,7 @@ fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and
             new.sort_active_by_strength();
         }
     }
+    new.compute_passive_gen();
 }
 
 pub fn request_json<F>(req: &str, f: F)
@@ -153,6 +154,7 @@ where
                     new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
                 }
             }
+            new.compute_passive_gen();
             handler(Response::P(new));
         }
         Request::SpeedupMaximizeRenamegen(mut problem) => {
@@ -172,6 +174,7 @@ where
                     new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
                 }
             }
+            new.compute_passive_gen();
             match new.rename_by_generators() {
                 Ok(()) => {
                     handler(Response::P(new));
@@ -232,6 +235,7 @@ where
                     problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
                 }
             }
+            problem.compute_passive_gen();
             handler(Response::P(problem));
         }
         Request::RenameGenerators(mut problem) => match problem.rename_by_generators() {
