@@ -139,6 +139,11 @@ function maximize(problem, onresult, onerror, progress){
     return api.request({ Maximize : problem }, ondata , function(){});
 }
 
+function fulldiagram(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FullDiagram : problem }, ondata , function(){});
+}
+
 function renamegenerators(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ RenameGenerators : problem }, ondata , function(){});
@@ -340,6 +345,8 @@ Vue.component('re-performed-action', {
                     return "Performed speedup, maximized, and renamed by generators";
                 case "maximize":
                     return "Maximized passive side";
+                case "fulldiagram":
+                    return "Computed full diagram";
                 case "renamegenerators":
                     return "Renamed by generators";
                 case "rename":
@@ -957,6 +964,18 @@ Vue.component('re-maximize',{
     `
 })
 
+Vue.component('re-fulldiagram',{
+    props: ['problem','stuff'],
+    methods: {
+        on_fulldiagram() {
+            call_api_generating_problem(this.stuff,{type:"fulldiagram"},fulldiagram,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_fulldiagram">Full Diagram</button>
+    `
+})
+
 Vue.component('re-merge',{
     props: ['problem','stuff'],
     methods: {
@@ -1352,6 +1371,7 @@ Vue.component('re-operations',{
         <re-card title="Operations" subtitle="(speedup, maximize, edit, gen renaming, merge)">
             <div class="m-2"><re-speedup :problem="problem" :stuff="stuff"></re-speedup> apply round elimination</div>
             <div class="m-2"><re-maximize :problem="problem" :stuff="stuff"></re-maximize> maximize passive side (and compute full diagram, triviality, ...)</div>
+            <div class="m-2"><re-fulldiagram :problem="problem" :stuff="stuff"></re-fulldiagram> compute full diagram without showing maximized passive side </div>
             <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
             <div class="m-2"><re-edit :problem="problem" :stuff="stuff"></re-edit>copy problem up</div>
             <div class="m-2"><re-inverse-speedup :problem="problem" :stuff="stuff"></re-inverse-speedup> apply inverse round elimination</div>

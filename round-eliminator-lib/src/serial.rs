@@ -238,6 +238,11 @@ where
             problem.compute_passive_gen();
             handler(Response::P(problem));
         }
+        Request::FullDiagram(mut problem) => {
+            problem.compute_diagram_without_storing_maximized_passive(&mut eh);
+            problem.compute_passive_gen();
+            handler(Response::P(problem));
+        }
         Request::RenameGenerators(mut problem) => match problem.rename_by_generators() {
             Ok(()) => {
                 handler(Response::P(problem));
@@ -323,6 +328,7 @@ pub enum Request {
     InverseSpeedup(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),
+    FullDiagram(Problem),
     Maximize(Problem),
     MergeEquivalentLabels(Problem),
     RenameGenerators(Problem),

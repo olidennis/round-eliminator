@@ -9,6 +9,15 @@ use crate::{group::Label, line::Degree, problem::Problem};
 use super::event::EventHandler;
 
 impl Problem {
+
+    pub fn compute_diagram_without_storing_maximized_passive(&mut self, eh: &mut EventHandler) {
+        let mut p = self.clone();
+        p.diagram_indirect = None;
+        p.compute_diagram(eh);
+        self.diagram_indirect = p.diagram_indirect;
+        self.diagram_direct = p.diagram_direct;
+    }
+
     pub fn compute_diagram(&mut self, eh: &mut EventHandler) {
         if self.diagram_indirect.is_some() {
             panic!("diagram has been computed already");
