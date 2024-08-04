@@ -122,25 +122,18 @@ fn test_and_report(is_multi : bool) {
 fn main() {
     let args = Args::parse();
 
-    if let Some(t) = args.threads {
-        std::env::set_var("RE_NUM_THREADS", format!("{}",t));  
-    }
+    let threads = args.threads.unwrap_or(2 * num_cpus::get());
 
     loop {
 
         if args.multi || (!args.single && !args.multi) {
+            std::env::set_var("RE_NUM_THREADS", format!("{}",threads));  
             test_and_report(true);
         }
 
         if args.single || (!args.single && !args.multi) {
-            let old = std::env::var("RE_NUM_THREADS");
             std::env::set_var("RE_NUM_THREADS", "0");   
             test_and_report(false); 
-            if let Ok(var) = old {
-                std::env::set_var("RE_NUM_THREADS", var);   
-            } else {
-                std::env::remove_var("RE_NUM_THREADS"); 
-            }
         }
 
         if args.dontloop {

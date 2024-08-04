@@ -9,3 +9,4 @@ edition = "2021"
 round-eliminator-lib = {path = "../round-eliminator-lib"}
 sha256 = "1.5.0"
 clap = { version = "4.3.2", features = ["derive"] }
+num_cpus = "1.0"
