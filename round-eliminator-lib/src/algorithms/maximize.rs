@@ -54,143 +54,7 @@ impl Constraint {
 
             let without_one = without_one(lines);
 
-            #[cfg(not(target_arch = "wasm32"))]
-            let newconstraint = {
-                let v = append_only_vec::AppendOnlyVec::<_>::new();
-                for line in self.lines.iter() {
-                    v.push((AtomicBool::new(false),line.clone()));
-                }
-                let newconstraint = std::sync::Arc::new(v);
-
-                crossbeam::scope(|s| {
-                    let (in_tx, in_rx) =  crossbeam_channel::unbounded();
-                    let (out_tx, out_rx) =  crossbeam_channel::unbounded();
-                    let (progress_tx, progress_rx) : (crossbeam_channel::Sender<()>,crossbeam_channel::Receiver<()>)  =  crossbeam_channel::unbounded();
-
-
-                    let n_workers = if let Ok(val) = std::env::var("RE_NUM_THREADS") {
-                        val.parse::<usize>().unwrap()
-                    } else {
-                        num_cpus::get()
-                    };
-
-                    let seen_pairs = &seen_pairs;
-                    let seen = &seen;
-                    let lines = &lines;
-                    let without_one = &without_one;
-    
-
-                    for thread_num in 0..n_workers {
-                        let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
-                        let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
-                        let next_id = &next_id;
-                        s.spawn(move |_|{
-                            while let Ok((i,j)) = in_rx.recv() {
-                                let id1 = *seen.get(&lines[i]).unwrap();
-                                let id2 = *seen.get(&lines[j]).unwrap();
-                                let pair = (id1,id2);
-                                //let pair = (lines[i].clone(), lines[j].clone());
-                                if seen_pairs.contains_key(&pair)
-                                    || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
-                                {
-                                    out_tx.send(vec![]).unwrap();
-                                    continue;
-                                }
-                                seen_pairs.insert(pair,());
-
-                                let (candidates,_,how) = combine_lines_custom(
-                                    &lines[i],
-                                    &lines[j],
-                                    &without_one[i],
-                                    &without_one[j],
-                                    &seen,
-                                    Some(&next_id),
-                                    becomes_star,
-                                    allow_empty,
-                                    track_unions,
-                                    tracking.is_some(),
-                                    f_is_superset, f_union, f_intersection
-                                );
-                                if let Some(tracking) = tracking {
-                                    for (a,b) in how.into_iter() {
-                                        tracking.insert(a,b);
-                                    }
-                                }
-                                out_tx.send(candidates).unwrap();
-                            }
-                            //println!("done producing new lines");
-                        });
-                    }
-
-                    //println!("number of lines: {}",lines.len());
-                    for i in 0..lines.len() {
-                        for j in 0..=i {
-                            in_tx.send((i,j)).unwrap();
-                        }
-                    }
-                    drop(in_tx);
-
-                    for thread_num in 0..n_workers {
-                        let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
-                        let (progress_tx, progress_rx) = (progress_tx.clone(), progress_rx.clone());
-                        let newconstraint = newconstraint.clone();
-                        s.spawn(move |_|{
-                            while let Ok(candidates) = out_rx.recv() {
-                                for newline in candidates {
-                                    let (is_not_included,checked_len) = 'outer : {
-                                        let len = newconstraint.len();
-                                        (newconstraint.iter().take(len).rev()
-                                            .filter(|(removed,_)|!removed.load(Ordering::Relaxed))
-                                            .all(|(_,oldline)| !oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))),
-                                        len)
-                                    };
-                                    if is_not_included {
-                                        let added_pos = newconstraint.push((AtomicBool::new(false),newline.clone()));
-                                        if newconstraint.iter().skip(checked_len).take(added_pos-checked_len)
-                                                .any(|(_,oldline)| oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))) {
-                                            newconstraint[added_pos].0.store(true,Ordering::Relaxed);
-                                        } else {
-                                            for (removed,oldline) in newconstraint.iter().take(added_pos) {
-                                                if !removed.load(Ordering::Relaxed) {
-                                                    if newline.includes_with_custom_supersets(oldline, Some(f_is_superset)) {
-                                                        removed.store(true,Ordering::Relaxed);
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                    }
-                                }
-                                progress_tx.send(()).unwrap();
-                            }
-                        });
-                    }
-
-                    //let now = std::time::Instant::now();
-                    let len = lines.len();
-                    let total = len * (len+1)/2;
-                    let mut last_notify = Instant::now();
-                    for received in 0..total {
-                        progress_rx.recv().unwrap();
-                        if last_notify.elapsed().as_millis() > 100 {
-                            eh.notify("combining line pairs", (2. *received as f64).sqrt() as usize, len);
-                            last_notify = Instant::now();
-                        }
-                    }
-                    //println!("It took {}s",now.elapsed().as_secs());
-
-                }).unwrap();
-
-                //let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
-                //let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
-                //println!("bad {}, good {}",c2,c1);
-                Constraint{ lines: newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).map(|(_,line)|line.clone()).collect(), is_maximized: false, degree: self.degree }
-            };
-
-            
-
-            #[cfg(target_arch = "wasm32")]
-            let newconstraint = {
+            let mut f_newconstraint = ||{
                 let mut newconstraint = self.clone();
                 for i in 0..lines.len() {
                     let mut candidates2 = empty.clone();
@@ -236,6 +100,146 @@ impl Constraint {
                     }
                 }
                 newconstraint
+            };
+
+            #[cfg(target_arch = "wasm32")]
+            let newconstraint = f_newconstraints();
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let newconstraint = {
+                let n_workers = if let Ok(val) = std::env::var("RE_NUM_THREADS") {
+                    val.parse::<usize>().unwrap()
+                } else {
+                    num_cpus::get()
+                };
+
+                if n_workers == 0 {
+                    f_newconstraint()
+                } else {
+
+                    let v = append_only_vec::AppendOnlyVec::<_>::new();
+                    for line in self.lines.iter() {
+                        v.push((AtomicBool::new(false),line.clone()));
+                    }
+                    let newconstraint = std::sync::Arc::new(v);
+
+                    crossbeam::scope(|s| {
+                        let (in_tx, in_rx) =  crossbeam_channel::unbounded();
+                        let (out_tx, out_rx) =  crossbeam_channel::unbounded();
+                        let (progress_tx, progress_rx) : (crossbeam_channel::Sender<()>,crossbeam_channel::Receiver<()>)  =  crossbeam_channel::unbounded();
+
+                        let seen_pairs = &seen_pairs;
+                        let seen = &seen;
+                        let lines = &lines;
+                        let without_one = &without_one;
+        
+
+                        for thread_num in 0..n_workers {
+                            let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
+                            let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
+                            let next_id = &next_id;
+                            s.spawn(move |_|{
+                                while let Ok((i,j)) = in_rx.recv() {
+                                    let id1 = *seen.get(&lines[i]).unwrap();
+                                    let id2 = *seen.get(&lines[j]).unwrap();
+                                    let pair = (id1,id2);
+                                    //let pair = (lines[i].clone(), lines[j].clone());
+                                    if seen_pairs.contains_key(&pair)
+                                        || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
+                                    {
+                                        out_tx.send(vec![]).unwrap();
+                                        continue;
+                                    }
+                                    seen_pairs.insert(pair,());
+
+                                    let (candidates,_,how) = combine_lines_custom(
+                                        &lines[i],
+                                        &lines[j],
+                                        &without_one[i],
+                                        &without_one[j],
+                                        &seen,
+                                        Some(&next_id),
+                                        becomes_star,
+                                        allow_empty,
+                                        track_unions,
+                                        tracking.is_some(),
+                                        f_is_superset, f_union, f_intersection
+                                    );
+                                    if let Some(tracking) = tracking {
+                                        for (a,b) in how.into_iter() {
+                                            tracking.insert(a,b);
+                                        }
+                                    }
+                                    out_tx.send(candidates).unwrap();
+                                }
+                                //println!("done producing new lines");
+                            });
+                        }
+
+                        //println!("number of lines: {}",lines.len());
+                        for i in 0..lines.len() {
+                            for j in 0..=i {
+                                in_tx.send((i,j)).unwrap();
+                            }
+                        }
+                        drop(in_tx);
+
+                        for thread_num in 0..n_workers {
+                            let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
+                            let (progress_tx, progress_rx) = (progress_tx.clone(), progress_rx.clone());
+                            let newconstraint = newconstraint.clone();
+                            s.spawn(move |_|{
+                                while let Ok(candidates) = out_rx.recv() {
+                                    for newline in candidates {
+                                        let (is_not_included,checked_len) = 'outer : {
+                                            let len = newconstraint.len();
+                                            (newconstraint.iter().take(len).rev()
+                                                .filter(|(removed,_)|!removed.load(Ordering::Relaxed))
+                                                .all(|(_,oldline)| !oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))),
+                                            len)
+                                        };
+                                        if is_not_included {
+                                            let added_pos = newconstraint.push((AtomicBool::new(false),newline.clone()));
+                                            if newconstraint.iter().skip(checked_len).take(added_pos-checked_len)
+                                                    .any(|(_,oldline)| oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))) {
+                                                newconstraint[added_pos].0.store(true,Ordering::Relaxed);
+                                            } else {
+                                                for (removed,oldline) in newconstraint.iter().take(added_pos) {
+                                                    if !removed.load(Ordering::Relaxed) {
+                                                        if newline.includes_with_custom_supersets(oldline, Some(f_is_superset)) {
+                                                            removed.store(true,Ordering::Relaxed);
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                        }
+                                    }
+                                    progress_tx.send(()).unwrap();
+                                }
+                            });
+                        }
+
+                        //let now = std::time::Instant::now();
+                        let len = lines.len();
+                        let total = len * (len+1)/2;
+                        let mut last_notify = Instant::now();
+                        for received in 0..total {
+                            progress_rx.recv().unwrap();
+                            if last_notify.elapsed().as_millis() > 100 {
+                                eh.notify("combining line pairs", (2. *received as f64).sqrt() as usize, len);
+                                last_notify = Instant::now();
+                            }
+                        }
+                        //println!("It took {}s",now.elapsed().as_secs());
+
+                    }).unwrap();
+
+                    //let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
+                    //let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
+                    //println!("bad {}, good {}",c2,c1);
+                    Constraint{ lines: newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).map(|(_,line)|line.clone()).collect(), is_maximized: false, degree: self.degree }
+                }
             };
 
             //println!("seen elements: {}, seen_pairs elements: {}",seen.len(),seen_pairs.len());

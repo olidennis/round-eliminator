@@ -6,12 +6,16 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Use a single core.
     #[arg(short, long, action)]
     single: bool,
+    /// Use all cores.
     #[arg(short, long, action)]
     multi : bool,
+    /// Do only one run and terminate.
     #[arg(short, long, action)]
     dontloop : bool,
+    /// Number of threads. The real number of spawned threads is twice this parameter, but each half will do a different type of work).
     #[arg(short, long)]
     threads : Option<usize>,
 }
@@ -130,7 +134,7 @@ fn main() {
 
         if args.single || (!args.single && !args.multi) {
             let old = std::env::var("RE_NUM_THREADS");
-            std::env::set_var("RE_NUM_THREADS", "1");   
+            std::env::set_var("RE_NUM_THREADS", "0");   
             test_and_report(false); 
             if let Ok(var) = old {
                 std::env::set_var("RE_NUM_THREADS", var);   
