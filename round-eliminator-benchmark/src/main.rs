@@ -96,9 +96,9 @@ fn test_and_report(is_multi : bool) {
     test_all();
     let duration = start.elapsed();
     if is_multi {
-        println!("Multi Thread Score (higher is better): {}", 12422 * 8743 / duration.as_millis());
+        println!("Multi Thread Score (higher is better): {}", 101553830 / duration.as_millis());
     } else {
-        println!("Single Thread Score (higher is better): {}", 12422 * 8743 / duration.as_millis());
+        println!("Single Thread Score (higher is better): {}", 101553830 / duration.as_millis());
     }
 }
 
