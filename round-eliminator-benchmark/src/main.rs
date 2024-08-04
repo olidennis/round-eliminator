@@ -1,6 +1,18 @@
 use round_eliminator_lib::algorithms::event::EventHandler;
 use round_eliminator_lib::problem::Problem;
 use std::time::Instant;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, action)]
+    single: bool,
+    #[arg(short, long, action)]
+    multi : bool,
+    #[arg(short, long, action)]
+    dontloop : bool,
+}
 
 fn test_problem(problem : &str, steps : usize, hash : &str){
     let mut eh = &mut EventHandler::null();
@@ -79,10 +91,40 @@ fn test_all() {
 }
 
 
-fn main() {
+fn test_and_report(is_multi : bool) {
     let start = Instant::now();
     test_all();
     let duration = start.elapsed();
-    println!("Score (higher is better): {}", 12422 * 8743 / duration.as_millis());
-    //std::env::set_var("RE_NUM_THREADS", "1");    
+    if is_multi {
+        println!("Multi Thread Score (higher is better): {}", 12422 * 8743 / duration.as_millis());
+    } else {
+        println!("Single Thread Score (higher is better): {}", 12422 * 8743 / duration.as_millis());
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+    loop {
+
+        if args.multi || (!args.single && !args.multi) {
+            test_and_report(true);
+        }
+
+        if args.single || (!args.single && !args.multi) {
+            let old = std::env::var("RE_NUM_THREADS");
+            std::env::set_var("RE_NUM_THREADS", "1");   
+            test_and_report(false); 
+            if let Ok(var) = old {
+                std::env::set_var("RE_NUM_THREADS", var);   
+            } else {
+                std::env::remove_var("RE_NUM_THREADS"); 
+            }
+        }
+
+        if args.dontloop {
+            break;
+        }
+    }
+
+    
 }
