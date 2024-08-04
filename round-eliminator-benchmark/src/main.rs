@@ -14,10 +14,15 @@ struct Args {
     dontloop : bool,
 }
 
-fn test_problem(problem : &str, steps : usize, hash : &str){
+fn test_problem(problem : &str, steps : usize, hash : &str) -> u128 {
     let mut eh = &mut EventHandler::null();
     let mut p = Problem::from_string(problem).unwrap();
-    for _ in 0..steps-1 {
+
+    let mut r = 0;
+
+    for i in 0..steps-1 {
+        let start = Instant::now();
+
         p = p.speedup(eh);
         p.passive.maximize(&mut eh);
         p.compute_partial_diagram(&mut eh);
@@ -26,14 +31,21 @@ fn test_problem(problem : &str, steps : usize, hash : &str){
         p.rename_by_generators().unwrap();
         p.active.lines.sort();
         p.passive.lines.sort();
+
+        let duration = start.elapsed();
+        if i == steps - 2 {
+            r = duration.as_millis();
+        }
     }
     assert!(sha256::digest(std::hint::black_box(p.to_string())) == hash);
+
+    r
 }
 
-fn test_all() {
-    test_problem("M U^9\nP^10\n\nM UP^9\nU^10",11,"d6f90abf897c0ba1bcc4bcb96debf68e56d716d4096c444cd9da0e93f5213219");
-    test_problem("M^10\nP U^9\n\nM UP\nU^2",6,"eb762856d26b16c3b0030971133fb46cf2f6da97089110a8823ae1b0c221fea2");
-    test_problem("(0a) (00b) (00c) (00d) (00e)
+fn test_all() -> u128 {
+    let mut r = test_problem("M U^9\nP^10\n\nM UP^9\nU^10",11,"d6f90abf897c0ba1bcc4bcb96debf68e56d716d4096c444cd9da0e93f5213219");
+    r += test_problem("M^10\nP U^9\n\nM UP\nU^2",6,"eb762856d26b16c3b0030971133fb46cf2f6da97089110a8823ae1b0c221fea2");
+    r += test_problem("(0a) (00b) (00c) (00d) (00e)
 (0a) (00b) (00c) (00d) (01e)
 (0a) (00b) (00c) (01d) (10e)
 (0a) (00b) (00c) (01d) (11e)
@@ -87,18 +99,17 @@ fn test_all() {
 (00e) (10e)
 (01e) (11e)
 (10e) (11e)",2,"8cc0bbf43868b3255c23df6ee760590f999097f843809dbe347b48f63077126d");
-    
+    r
 }
 
 
 fn test_and_report(is_multi : bool) {
-    let start = Instant::now();
-    test_all();
-    let duration = start.elapsed();
+    let r = test_all();
+    let score = 101553830 / r;
     if is_multi {
-        println!("Multi Thread Score (higher is better): {}", 101553830 / duration.as_millis());
+        println!("Multi Thread Score (higher is better): {}", score);
     } else {
-        println!("Single Thread Score (higher is better): {}", 101553830 / duration.as_millis());
+        println!("Single Thread Score (higher is better): {}", score);
     }
 }
 
