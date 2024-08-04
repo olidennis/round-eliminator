@@ -12,9 +12,9 @@ use super::event::EventHandler;
 
 use rand::seq::SliceRandom;
 
-type TableIndex = u32;
+type TableIndex = Label;
 
-fn mark_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, choice_to_index : &T, set_to_string : &F, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<u32>) -> String{
+fn mark_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, choice_to_index : &T, set_to_string : &F, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<Label>) -> String{
     if handled.get(choice_to_index(choice)).unwrap() {
         return;
     }
@@ -35,7 +35,7 @@ fn mark_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, ha
     }
 }
 
-fn mark_no_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, choice_to_index : &T, set_to_string : &F, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<u32>) -> String{
+fn mark_no_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, choice_to_index : &T, set_to_string : &F, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<Label>) -> String{
     if handled.get(choice_to_index(choice)).unwrap() {
         return;
     }
@@ -58,7 +58,7 @@ fn mark_no_exists<T,F>(choice : &Vec<TableIndex>, successors : &Vec<Vec<usize>>,
     }
 }
 
-fn handle_choice_nodes<T,F>(active : &Constraint, choice : &Vec<TableIndex>, predecessors : &Vec<Vec<usize>>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>, no_marking : bool, choice_to_index : &T, set_to_string : &F) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<u32>) -> String{
+fn handle_choice_nodes<T,F>(active : &Constraint, choice : &Vec<TableIndex>, predecessors : &Vec<Vec<usize>>, successors : &Vec<Vec<usize>>, handled : &mut BitVec, num_handled : &mut usize, table : &Vec<Vec<Lit>>, instance : &mut SatInstance, subsets : &Vec<Vec<Label>>, complements : &Vec<Vec<Label>>, no_marking : bool, choice_to_index : &T, set_to_string : &F) where T : Fn(&Vec<TableIndex>) -> usize, F : Fn(usize, &Vec<Label>) -> String{
     if handled.get(choice_to_index(choice)).unwrap() {
         return;
     }
