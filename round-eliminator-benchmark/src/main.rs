@@ -43,14 +43,29 @@ fn test_problem(problem : &str, steps : usize, hash : &str) -> u128 {
             r = duration.as_millis();
         }
     }
+    //println!("{}",sha256::digest(p.to_string()));
     assert!(sha256::digest(std::hint::black_box(p.to_string())) == hash);
 
     r
 }
 
 fn test_all() -> u128 {
-    let mut r = test_problem("M U^9\nP^10\n\nM UP^9\nU^10",11,"d6f90abf897c0ba1bcc4bcb96debf68e56d716d4096c444cd9da0e93f5213219");
-    r += test_problem("M^10\nP U^9\n\nM UP\nU^2",6,"eb762856d26b16c3b0030971133fb46cf2f6da97089110a8823ae1b0c221fea2");
+    let mut r = test_problem("M U^13\nP^14\n\nM UP^13\nU^14",11,"0100cb8310624dc11e281955c4ca195de1f5af70b53e95fc9b86ce6ba0c2dfca");
+    r += test_problem("3^10
+8 9^9
+1^10
+4^10
+5^9 0
+6^9 0
+2^9 0
+7^8 0^2
+
+841902 30
+341905627 90
+8341905627 0
+34906 190
+390 41902
+31905 490",4,"9a275179d50e7e192d44f1f5aa1c413b98ef8cbf437d7946f7c822872b0bcabd");
     r += test_problem("(0a) (00b) (00c) (00d) (00e)
 (0a) (00b) (00c) (00d) (01e)
 (0a) (00b) (00c) (01d) (10e)
@@ -111,7 +126,7 @@ fn test_all() -> u128 {
 
 fn test_and_report(is_multi : bool) {
     let r = test_all();
-    let score = 101553830 / r;
+    let score = 253884575 / r;
     if is_multi {
         println!("Multi Thread Score (higher is better): {}", score);
     } else {
