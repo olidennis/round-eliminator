@@ -12,6 +12,8 @@ struct Args {
     multi : bool,
     #[arg(short, long, action)]
     dontloop : bool,
+    #[arg(short, long)]
+    threads : Option<usize>,
 }
 
 fn test_problem(problem : &str, steps : usize, hash : &str) -> u128 {
@@ -115,6 +117,11 @@ fn test_and_report(is_multi : bool) {
 
 fn main() {
     let args = Args::parse();
+
+    if let Some(t) = args.threads {
+        std::env::set_var("RE_NUM_THREADS", format!("{}",t));  
+    }
+
     loop {
 
         if args.multi || (!args.single && !args.multi) {
