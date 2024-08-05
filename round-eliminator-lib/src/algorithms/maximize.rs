@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
 use dashmap::DashMap as CHashMap;
+use parking_lot::RwLock;
 use streaming_iterator::StreamingIterator;
 use std::time::Instant;
 
@@ -121,7 +122,7 @@ impl Constraint {
                     for line in self.lines.iter() {
                         v.push((AtomicBool::new(false),line.clone()));
                     }
-                    let newconstraint = std::sync::Arc::new(v);
+                    let newconstraint = std::sync::Arc::new(RwLock::new(v));
 
                     crossbeam::scope(|s| {
                         let (in_tx, in_rx) =  crossbeam_channel::unbounded();
@@ -189,7 +190,28 @@ impl Constraint {
                             let (progress_tx, progress_rx) = (progress_tx.clone(), progress_rx.clone());
                             let newconstraint = newconstraint.clone();
                             s.spawn(move |_|{
+                                let mut times = 0;
                                 while let Ok(candidates) = out_rx.recv() {
+                                    times += 1;
+                                    if thread_num == 0 && times % 128 == 0 {
+                                        //let (bad,tot) = {
+                                        //    let newconstraint = newconstraint.read();
+                                        //    let bad = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
+                                        //    let tot = newconstraint.len();
+                                        //    (bad,tot)
+                                        //};
+                                        //if bad > 10 && 4*bad > tot {
+                                            let mut newconstraint = newconstraint.write();
+                                            let mut cleaned = append_only_vec::AppendOnlyVec::<_>::new();
+                                            for (b,line) in newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)) {
+                                                cleaned.push((AtomicBool::new(false),line.clone()));
+                                            }
+                                            *newconstraint = cleaned;
+                                        //}
+                                    }
+
+                                    let newconstraint = newconstraint.read();
+
                                     for newline in candidates {
                                         let (is_not_included,checked_len) = 'outer : {
                                             let len = newconstraint.len();
@@ -235,6 +257,7 @@ impl Constraint {
 
                     }).unwrap();
 
+                    let newconstraint = newconstraint.read();
                     //let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
                     //let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
                     //println!("bad {}, good {}",c2,c1);
