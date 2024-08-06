@@ -287,7 +287,7 @@ function constraint_to_text(constraint,mapping) {
             let exp = "";
             if( part.gtype == "Star" )exp="*";
             else if( part.gtype.Many != 1 )exp = "^" + part.gtype.Many;
-            return part.group.map( label => mapping[label] ).join("") + exp;
+            return part.group.v.map( label => mapping[label] ).join("") + exp;
         }).join(" ")
     }).join("\n")
 }
@@ -574,15 +574,15 @@ Vue.component('re-constraint', {
             let problem = this.problem;
             let constraint = this.side == "active" ? problem.active : problem.passive;
             return constraint.lines.map((row,i) => row.parts.map((elem,j) => {
-                let renamed = labelset_to_string(elem.group,this.problem.map_label_text);
-                let original = problem.mapping_label_oldlabels == null ? null : elem.group.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
+                let renamed = labelset_to_string(elem.group.v,this.problem.map_label_text);
+                let original = problem.mapping_label_oldlabels == null ? null : elem.group.v.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
                 let gen_renamed = null;
                 let gen_original = null;
 
                 if( this.side == "passive" && problem.passive_gen != null ){
                     let elem_gen = problem.passive_gen.lines[i].parts[j];
-                    gen_renamed = labelset_to_string(elem_gen.group,this.problem.map_label_text);
-                    gen_original = problem.mapping_label_oldlabels == null ? null : elem_gen.group.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
+                    gen_renamed = labelset_to_string(elem_gen.group.v,this.problem.map_label_text);
+                    gen_original = problem.mapping_label_oldlabels == null ? null : elem_gen.group.v.map(x => labelset_to_string(this.problem.map_label_oldlabels[x],this.problem.map_oldlabel_text));
                 }
 
                 let r = {  renamed : renamed, original : original, gen_renamed : gen_renamed, gen_original : gen_original};
