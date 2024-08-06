@@ -126,10 +126,10 @@ impl KPartiteProblem{
                 if !new_mapping_text_label.contains_key(&mapped) {
                     new_mapping_text_label.insert(mapped.clone(), new_mapping_text_label.len() as Label);
                 }
-                if !old_groups_to_new_label.contains_key(&group.0) {
-                    old_groups_to_new_label.insert(group.0.clone(), new_mapping_text_label[&mapped]);
+                if !old_groups_to_new_label.contains_key(&group.as_vec()) {
+                    old_groups_to_new_label.insert(group.as_vec(), new_mapping_text_label[&mapped]);
                 }
-                Group(vec![new_mapping_text_label[&mapped]])
+                Group::from(vec![new_mapping_text_label[&mapped]])
             });
             println!("merged");
             after_mapping_i.lines = after_mapping_i.lines.iter().cloned().map(|mut l|{l.normalize(); l}).unique().sorted().collect();
@@ -149,7 +149,7 @@ impl KPartiteProblem{
                 .unique()
                 .sorted()
                 .collect();
-            Group(ng)
+            Group::from(ng)
         });
         constraint_exists.lines = constraint_exists.lines.iter().cloned().map(|mut l|{l.normalize(); l}).unique().sorted().collect();
 
@@ -171,7 +171,7 @@ impl Constraint {
             let mut subsets = vec![];
             for part in &line.parts {
                 for _ in 0..part.gtype.value() {
-                    let group = part.group.0.clone();
+                    let group = part.group.as_vec();
                     let p : Vec<_> = group.iter().cloned().powerset().filter(|x|!x.is_empty()).collect();
                     subsets.push(p);
                 }
@@ -185,7 +185,7 @@ impl Constraint {
                     parts: choice
                         .into_iter()
                         .map(|g| Part {
-                            group: Group(g.clone()),
+                            group: Group::from(g.clone()),
                             gtype: GroupType::ONE,
                         })
                         .collect(),

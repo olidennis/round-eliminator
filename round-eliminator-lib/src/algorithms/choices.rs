@@ -32,9 +32,10 @@ impl Constraint {
             let mut domain = vec![];
             for part in &line.parts {
                 for _ in 0..part.gtype.value() {
-                    domain.push(&part.group[..]);
+                    domain.push(part.group.as_vec());
                 }
             }
+            let domain: Vec<_> = domain.iter().map(|v|&v[..]).collect();
             let all = CartesianProductIterator::new(&domain);
             for choice in all {
                 let mut sorted = choice.clone();
@@ -45,7 +46,7 @@ impl Constraint {
                         parts: choice
                             .into_iter()
                             .map(|g| Part {
-                                group: Group(vec![g]),
+                                group: Group::from(vec![g]),
                                 gtype: GroupType::ONE,
                             })
                             .collect(),
@@ -66,7 +67,7 @@ impl Line {
     pub fn line_set(&self) -> Group {
         let groups = self.parts.iter().map(|part| &part.group);
         if groups.clone().all(|group| group.len() == 1) {
-            let labels = groups.map(|group| group[0]).unique();
+            let labels = groups.map(|group| group.first()).unique();
             let set = Self::labels_to_set(labels);
             set
         } else {
@@ -78,17 +79,19 @@ impl Line {
     pub fn labels_to_set<T: Iterator<Item = Label>>(labels: T) -> Group {
         let mut group: Vec<_> = labels.into_iter().collect();
         group.sort_unstable();
-        Group(group)
+        Group::from(group)
     }
 
     pub fn sets_of_all_choices(&self, result: &mut HashSet<Group>) {
         let groups = self.parts.iter().map(|part| &part.group);
         if groups.clone().all(|group| group.len() == 1) {
-            let labels = groups.map(|group| group[0]).unique();
+            let labels = groups.map(|group| group.first()).unique();
             let set = Self::labels_to_set(labels);
             result.insert(set);
         } else {
-            let domain: Vec<_> = groups.map(|group| &group[..]).collect();
+            let domain: Vec<_> = groups.map(|group| group.as_vec()).collect();
+            let domain: Vec<_> = domain.iter().map(|v|&v[..]).collect();
+
             for labels in CartesianProductIterator::new(&domain) {
                 let set = Self::labels_to_set(labels.into_iter().unique());
                 result.insert(set);
@@ -106,7 +109,7 @@ impl Line {
 pub fn minimal_sets(all_sets: HashSet<Group>) -> Vec<HashSet<Label>> {
     let mut result: Vec<HashSet<Label>> = vec![];
     for set in all_sets.into_iter().sorted() {
-        let set = HashSet::from_iter(set.0.into_iter());
+        let set = set.as_set();
         let len = result.len();
         result.retain(|x| !x.is_superset(&set));
         if result.len() != len || result.iter().all(|r| !set.is_superset(r)) {

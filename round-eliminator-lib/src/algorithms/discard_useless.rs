@@ -95,7 +95,7 @@ impl Problem {
                     newgroup.push(label);
                 }
                 newgroup.sort_unstable();
-                part.group.0 = newgroup;
+                part.group = Group::from(newgroup);
             }
         }
 

@@ -24,7 +24,7 @@ impl Problem {
 
             self.active.edited(|g| {
                 let mut h = HashSet::new();
-                for label in &g.0 {
+                for label in g.iter() {
                     h.extend(predecessors[label].iter().cloned());
                 }
                 Group::from_set(&h)
@@ -76,7 +76,7 @@ impl Problem {
 
 impl Constraint {
     fn harden(&self, keep: &HashSet<Label>) -> Self {
-        self.edited(|g| Group(g.as_set().intersection(keep).cloned().sorted().collect()))
+        self.edited(|g| Group::from(g.as_set().intersection(keep).cloned().sorted().collect()))
     }
 }
 

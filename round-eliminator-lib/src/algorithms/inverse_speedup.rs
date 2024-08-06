@@ -20,14 +20,14 @@ impl Problem {
 
         for line in self.active.all_choices(false) {
             let mut newline = line.edited(|g| {
-                let label = g[0];
+                let label = g.first();
                 let new_label = next_label;
                 next_label += 1;
                 mapping_oldlabel_labels
                     .entry(label)
                     .or_default()
                     .push(new_label);
-                Group(vec![new_label])
+                Group::from(vec![new_label])
             });
             newline.normalize();
             passive.lines.push(newline);
@@ -35,7 +35,7 @@ impl Problem {
 
         let empty = vec![];
         let active = self.passive.edited(|g| {
-            Group(
+            Group::from(
                 g.iter()
                     .flat_map(|label| {
                         mapping_oldlabel_labels

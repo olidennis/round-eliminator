@@ -65,7 +65,7 @@ fn handle_choice_nodes<T,F>(active : &Constraint, choice : &Vec<TableIndex>, pre
 
     let line = Line{parts:choice.iter().map(|j|Part{ 
         gtype: GroupType::Many(1),
-        group: Group(subsets[*j as usize].clone())
+        group: Group::from(subsets[*j as usize].clone())
     }).collect()};
 
     if no_marking {
@@ -101,7 +101,7 @@ impl Problem {
         if labels.len() > std::mem::size_of::<TableIndex>() * 8 {
             panic!("too many labels");
         }
-        let labels_as_group = Group(labels.clone());
+        let labels_as_group = Group::from(labels.clone());
         let degree = self.active.finite_degree();
         let passive_degree = self.passive.finite_degree();
 
@@ -132,9 +132,9 @@ impl Problem {
         
         
         for subset in labels.iter().cloned().powerset() {
-            let subset_as_group = Group(subset.clone());
+            let subset_as_group = Group::from(subset.clone());
             let complement = labels_as_group.difference(&subset_as_group);
-            complements.push(complement.0);
+            complements.push(complement.as_vec());
             subsets.push(subset);
             subsets_as_groups.push(subset_as_group);
         }
@@ -267,7 +267,7 @@ impl Problem {
 
                 let line = Line{parts:choice.iter().map(|j|Part{ 
                     gtype: GroupType::Many(1),
-                    group: Group(complements[*j].clone())
+                    group: Group::from(complements[*j].clone())
                 }).collect()};
                 if !self.passive.exists_choice_in_line(&line) {
                     let lits = choice.iter().map(|&j|table[i][j]);

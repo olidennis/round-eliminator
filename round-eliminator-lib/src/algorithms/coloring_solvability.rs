@@ -36,8 +36,8 @@ impl Problem {
                     active_sets.len() * active_sets.len(),
                 );
                 if i < j {
-                    let group1 = Group(set1.iter().cloned().sorted().collect());
-                    let group2 = Group(set2.iter().cloned().sorted().collect());
+                    let group1 = Group::from(set1.iter().cloned().sorted().collect());
+                    let group2 = Group::from(set2.iter().cloned().sorted().collect());
                     let part1 = Part {
                         gtype: GroupType::ONE,
                         group: group1,
@@ -99,7 +99,7 @@ impl Problem {
             );
             let mut line = Line { parts : vec![]};
             for set in &sets {
-                let group = Group(set.1.iter().cloned().sorted().collect());
+                let group = Group::from(set.1.iter().cloned().sorted().collect());
                 let part = Part {
                     gtype: GroupType::ONE,
                     group: group,

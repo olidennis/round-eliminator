@@ -81,7 +81,7 @@ impl DirectedProblem {
             }
             if !constraint.lines.is_empty() {
                 constraint.maximize(eh);
-                new_constraints.push((Group(vec![label]),constraint));
+                new_constraints.push((Group::from(vec![label]),constraint));
             }
         }
 
@@ -153,7 +153,7 @@ impl DirectedProblem {
         }
 
         let mapping_label_oldlabels: Vec<_> = new_labels.into_iter()
-            .map(|g|g.0)
+            .map(|g|g.as_vec())
             .sorted_by_key(|v| v.iter().cloned().rev().collect::<Vec<Label>>())
             .enumerate()
             .map(|(a, b)| (a as Label, b))
@@ -161,12 +161,12 @@ impl DirectedProblem {
 
         let mut new_constraints = vec![];
         for (h,c) in p.constraints {
-            let h = h.0[0];
+            let h = h.first();
             let new_h : Vec<_> = mapping_label_oldlabels.iter().filter(|(_,oldlabels)|oldlabels.contains(&h)).map(|(newlabel,_)|*newlabel).sorted().collect();
             let new_c = c.edited(|g|{
-                Group(mapping_label_oldlabels.iter().filter(|(_,oldlabels)|  g.is_superset(&Group(oldlabels.clone()))).map(|(newlabel,_)|*newlabel).sorted().collect())
+                Group::from(mapping_label_oldlabels.iter().filter(|(_,oldlabels)|  g.is_superset(&Group::from(oldlabels.clone()))).map(|(newlabel,_)|*newlabel).sorted().collect())
             });
-            new_constraints.push((Group(new_h),new_c));
+            new_constraints.push((Group::from(new_h),new_c));
         }
 
         let mut new_problem = DirectedProblem {
@@ -197,7 +197,7 @@ impl Display for DirectedProblem {
         let mapping : HashMap<Label, String> = self.mapping_label_text.iter().cloned().collect();
         for (head,constraint) in &self.constraints {
             for line in &constraint.lines {
-                for label in &head.0 {
+                for label in head.iter() {
                     write!(f, "{}",&mapping[label])?;
                 }
                 writeln!(f, " : {}",line.to_string(&mapping))?;

@@ -69,7 +69,7 @@ impl Part {
 
         group.sort_unstable();
         Ok(Part {
-            group: Group(group),
+            group: Group::from(group),
             gtype,
         })
     }

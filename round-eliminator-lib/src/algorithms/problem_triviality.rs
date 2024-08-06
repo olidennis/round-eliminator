@@ -37,14 +37,14 @@ impl Problem {
         for (i, set) in active_sets.into_iter().enumerate() {
             eh.notify("triviality", i, num_active_sets);
 
-            let group = Group(set.into_iter().sorted().collect());
+            let group = Group::from(set.into_iter().sorted().collect());
             let part = Part {
                 gtype: passive_degree,
                 group,
             };
             let mut line = Line { parts: vec![part] };
             if self.passive.includes(&line) {
-                trivial_sets.push(std::mem::take(&mut line.parts[0].group.0));
+                trivial_sets.push(line.parts[0].group.as_vec());
             }
         }
 

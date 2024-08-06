@@ -64,9 +64,9 @@ impl Constraint {
                 let v_outgoing = outgoing.minimal_sets_of_all_choices();
 
                 for outgoing in &v_outgoing {
-                    let g_out = Group(outgoing.iter().cloned().sorted().collect());
+                    let g_out = Group::from(outgoing.iter().cloned().sorted().collect());
                     for incoming in &v_incoming {
-                        let g_in = Group(incoming.iter().cloned().sorted().collect());
+                        let g_in = Group::from(incoming.iter().cloned().sorted().collect());
                         result.insert((g_out.clone(), g_in));
                     }
                 }
@@ -112,8 +112,8 @@ impl Problem {
             };
             if self.passive.includes(&line) {
                 trivial_sets.push((
-                    std::mem::take(&mut line.parts[0].group.0),
-                    std::mem::take(&mut line.parts[1].group.0),
+                    line.parts[0].group.as_vec(),
+                    line.parts[1].group.as_vec()
                 ));
             }
         }
@@ -194,7 +194,7 @@ impl Problem {
         let mut coloring_sets: Vec<(Vec<Label>, Vec<Label>)> = g
             .max_clique()
             .into_iter()
-            .map(|x| (splits[x].0 .0.clone(), splits[x].1 .0.clone()))
+            .map(|x| (splits[x].0 .as_vec(), splits[x].1 .as_vec()))
             .collect();
         coloring_sets.sort();
 

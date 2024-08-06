@@ -24,7 +24,7 @@ impl Line {
         )?;
         let mut labels = vec![];
         for ((i,j),r) in v {
-            let label = self.parts[i].group.intersection(&other.parts[j].group)[0];
+            let label = self.parts[i].group.intersection(&other.parts[j].group).first();
             for _ in 0..r {
                 labels.push(label);
             }

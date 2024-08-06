@@ -17,7 +17,7 @@ impl Problem {
         let mapping_label_oldlabels: Vec<_> = newactive_before_renaming
             .groups()
             .unique()
-            .map(|g| g.0.clone())
+            .map(|g| g.as_vec())
             .sorted_by_key(|v| v.iter().cloned().rev().collect::<Vec<Label>>())
             .enumerate()
             .map(|(a, b)| (a as Label, b))
@@ -27,7 +27,7 @@ impl Problem {
             .map(|(a, b)| (b.clone(), *a))
             .collect();
 
-        let active = newactive_before_renaming.edited(|g| Group(vec![h_oldlabels_label[&g.0]]));
+        let active = newactive_before_renaming.edited(|g| Group::from(vec![h_oldlabels_label[&g.as_vec()]]));
 
         let passive = self.active.edited(|g| {
             let h = g.as_set();
@@ -37,7 +37,7 @@ impl Problem {
                 .map(|p| p.0)
                 .sorted()
                 .collect();
-            Group(ng)
+            Group::from(ng)
         });
 
         let mut p = Problem {

@@ -94,8 +94,8 @@ impl Problem {
         let predecessors = self.diagram_indirect_to_inverse_reachability_adj();
         if !self.is_mergeable() {
             let passive_gen = self.passive.edited(|g|{
-                let h : HashSet<_> = g.0.iter().cloned().collect();
-                Group(g.iter().cloned().filter(|x|{
+                let h : HashSet<_> = g.as_set();
+                Group::from(g.iter().cloned().filter(|x|{
                     predecessors[x].intersection(&h).count() == 1
                 }).collect())
             });

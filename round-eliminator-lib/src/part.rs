@@ -13,7 +13,7 @@ pub struct Part {
 impl Part {
     pub fn to_string(&self, mapping: &HashMap<Label, String>) -> String {
         let mut s = String::new();
-        for label in &*self.group {
+        for label in self.group.iter() {
             s.push_str(&mapping[label])
         }
         if s.is_empty() {
@@ -27,7 +27,7 @@ impl Part {
         let mut s = String::new();
         let deg = self.gtype.value();
         for _ in 0..deg {
-            for label in &*self.group {
+            for label in self.group.iter() {
                 s.push_str(&mapping[label]);
             }
             s.push(' ');

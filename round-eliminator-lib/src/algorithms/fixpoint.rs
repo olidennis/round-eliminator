@@ -278,7 +278,7 @@ impl Problem {
             let orig_newlabels : HashSet<_> = newlabel_to_label.keys().cloned().collect();
             let mut next_fresh = *self.labels().iter().max().unwrap_or(&0) + 1;
             let active_fp = fixpoint.active.edited(|g|{
-                Group(g.0.iter().map(|&l|{
+                Group::from(g.iter().map(|&l|{
                     if newlabel_to_label.contains_key(&l) {
                         newlabel_to_label[&l]
                     } else {
@@ -288,7 +288,7 @@ impl Problem {
                 }).collect())
             });
             let passive_fp = fixpoint.passive.edited(|g|{
-                Group(g.0.iter().map(|&l|{
+                Group::from(g.iter().map(|&l|{
                     if newlabel_to_label.contains_key(&l) {
                         newlabel_to_label[&l]
                     } else {
@@ -329,7 +329,7 @@ impl Problem {
                 //
                     let newline = line.edited(|g|{
                         //println!("The current group contains {:?}",g.iter().map(|l|&map[l]).collect_vec());
-                        let mut g = HashSet::from_iter(g.0.iter().cloned());
+                        let mut g = HashSet::from_iter(g.iter().cloned());
                         let mut to_add = vec![];
                         for (n,l) in &newlabel_to_label {
                             let real_successors : HashSet<_> = reachability[n].iter().filter(|succ|orig_newlabels.contains(succ)).map(|succ|newlabel_to_label[succ]).collect();
@@ -339,7 +339,7 @@ impl Problem {
                             }
                         }
                         g.extend(to_add.into_iter());
-                        Group(g.into_iter().sorted().collect())
+                        Group::from(g.into_iter().sorted().collect())
                     });
                     new_passive.lines.push(newline);
                 //}
@@ -493,7 +493,7 @@ impl Problem {
         let passive = self.passive.all_choices(true);
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
         let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
-        let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+        let passive = passive.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
         let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
         let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
         let diagram_indirect_rev : Vec<_> = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
@@ -524,7 +524,7 @@ impl Problem {
 
         println!("Computing passive");
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
-        let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+        let passive = passive.edited(|g| Group::from(passive_successors[&g.first()].iter().cloned().sorted().collect()));
         //for line in &passive.lines {
         //    println!("{}",line.to_string(&tostr));
         //}
@@ -541,7 +541,7 @@ impl Problem {
                 println!("zero line {}",line.to_string(&tostr));
 
                 maximal_zero.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(|g1 : &Group,g2 : &Group|{
-                    passive_successors[&g1[0]].contains(&g2[0])
+                    passive_successors[&g1.first()].contains(&g2.first())
                 }));
             }
         }
@@ -557,12 +557,12 @@ impl Problem {
         println!("generating zero active lines");
         let active = self.active.all_choices(true);
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
-        let mut active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+        let mut active = active.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
 
         let mut zero_labels = vec![];
 
         for line in maximal_zero.lines {
-            zero_labels.push(line.parts[0].group[0]);
+            zero_labels.push(line.parts[0].group.first());
         }
 
         let mut not_obtainable = Constraint{ lines: vec![], is_maximized: false, degree: self.active.degree  };
@@ -736,13 +736,13 @@ impl Problem {
         }*/
         let mut maximal_good_pairs = Constraint{ lines: vec![], is_maximized:false,degree : crate::line::Degree::Finite(2)};
         for (l1,l2) in good_pairs {
-            let line = Line{ parts : vec![Part{gtype:GroupType::Many(1), group : Group(vec![l1])},Part{gtype:GroupType::Many(1), group : Group(vec![l2])}] };
+            let line = Line{ parts : vec![Part{gtype:GroupType::Many(1), group : Group::from(vec![l1])},Part{gtype:GroupType::Many(1), group : Group::from(vec![l2])}] };
             maximal_good_pairs.add_line_and_discard_non_maximal_with_custom_supersets(line,Some(|g1 : &Group,g2 : &Group|{
-                reachability[&g1[0]].contains(&g2[0])
+                reachability[&g1.first()].contains(&g2.first())
             }));
         }
         let resulting_pairs : Vec<(Label, Label)> = maximal_good_pairs.lines.into_iter().map(|line|{
-            (line.parts[0].group[0],line.parts[1].group[0])
+            (line.parts[0].group.first(),line.parts[1].group.first())
         }).collect();
 
 
@@ -758,10 +758,10 @@ impl Problem {
     fn fp_is_obtainable(obtainable: &mut Constraint, not_obtainable: &mut Constraint,target_line: &Line, reachability : &HashMap<Label, HashSet<Label>>,tostr:&HashMap<Label,String>, tree_for_labels : &HashMap<Label,Vec<(Label,Label)>>) -> bool {
 
         let line_cmp = Some(|g1 : &Group,g2 : &Group|{
-            reachability[&g2[0]].contains(&g1[0])
+            reachability[&g2.first()].contains(&g1.first())
         });
         let line_cmp_rev = Some(|g1 : &Group,g2 : &Group|{
-            reachability[&g1[0]].contains(&g2[0])
+            reachability[&g1.first()].contains(&g2.first())
         });
         if obtainable.includes_with_custom_supersets(target_line,line_cmp) {
             //println!("This is obtainable: {}", target_line.to_string(tostr));
@@ -773,14 +773,14 @@ impl Problem {
 
 
         for (i,part) in target_line.parts.iter().enumerate() {
-            for &(l1,l2) in &tree_for_labels[&part.group[0]] {
+            for &(l1,l2) in &tree_for_labels[&part.group.first()] {
                 let mut req1 = target_line.clone();
                 let mut req2 = target_line.clone();
                 if let GroupType::Many(x) = target_line.parts[i].gtype {
                     req1.parts[i].gtype = GroupType::Many(x-1);
                     req2.parts[i].gtype = GroupType::Many(x-1);
-                    req1.parts.push(Part{gtype : GroupType::Many(1),group : Group(vec![l1])});
-                    req2.parts.push(Part{gtype : GroupType::Many(1),group : Group(vec![l2])});
+                    req1.parts.push(Part{gtype : GroupType::Many(1),group : Group::from(vec![l1])});
+                    req2.parts.push(Part{gtype : GroupType::Many(1),group : Group::from(vec![l2])});
                     req1.normalize();
                     req2.normalize();
                     //println!("from {} recurse on {} and {}",target_line.to_string(tostr),req1.to_string(tostr),req2.to_string(tostr));
@@ -808,8 +808,8 @@ impl Problem {
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
         let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
-        let active = active.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
-        let passive = passive.edited(|g| Group(vec![mapping_label_newlabel[&g.0[0]]]));
+        let active = active.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
+        let passive = passive.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
         let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
         let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
         let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
@@ -817,7 +817,7 @@ impl Problem {
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
         let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
         let passive_before_edit = passive.clone();
-        let passive = passive.edited(|g| Group(passive_successors[&g.0[0]].iter().cloned().sorted().collect()));
+        let passive = passive.edited(|g| Group::from(passive_successors[&g.first()].iter().cloned().sorted().collect()));
 
         let mut p = Problem {
             active,
@@ -1159,15 +1159,15 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
     }
 
     let f_is_superset = |g1 : &Group,g2 : &Group|{
-        successors[&g2[0]].contains(&g1[0])
+        successors[&g2.first()].contains(&g1.first())
     };
 
     let f_union = |g1 : &Group,g2 : &Group|{ 
-        Group(vec![unions[&(g1[0],g2[0])]])
+        Group::from(vec![unions[&(g1.first(),g2.first())]])
     };
 
     let f_intersection = |g1 : &Group,g2 : &Group|{ 
-        Group(vec![intersections[&(g1[0],g2[0])]])
+        Group::from(vec![intersections[&(g1.first(),g2.first())]])
     };
 
     let mut newconstraint = constraint.clone();
@@ -1203,7 +1203,7 @@ fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHa
         let part1 = v.pop().unwrap();
         TreeNode::Expr(Box::new(part1),Box::new(part2),op)
     } else {
-        TreeNode::Terminal(line.parts[pos].group[0])
+        TreeNode::Terminal(line.parts[pos].group.first())
     }
 
 }

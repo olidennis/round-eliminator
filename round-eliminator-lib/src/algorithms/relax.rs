@@ -104,7 +104,7 @@ impl Problem {
 impl Constraint {
     pub fn relax(&self, from: Label, to: Label, remove_from: bool) -> Self {
         self.edited(|g| {
-            let v = &g.0;
+            let v = g.as_vec();
             if !v.contains(&from) {
                 g.clone()
             } else {

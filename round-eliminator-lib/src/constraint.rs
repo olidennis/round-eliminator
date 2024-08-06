@@ -173,19 +173,19 @@ impl Constraint {
                     let mut test = line.clone();
                     match test.parts[i].gtype {
                         GroupType::ONE => {
-                            test.parts[i].group.0 = vec![l2];
+                            test.parts[i].group = Group::from(vec![l2]);
                         }
                         GroupType::Many(x) => {
                             test.parts[i].gtype = GroupType::Many(x - 1);
                             let part = Part {
-                                group: Group(vec![l2]),
+                                group: Group::from(vec![l2]),
                                 gtype: GroupType::ONE,
                             };
                             test.parts.push(part);
                         }
                         GroupType::Star => {
                             let part = Part {
-                                group: Group(vec![l2]),
+                                group: Group::from(vec![l2]),
                                 gtype: GroupType::ONE,
                             };
                             test.parts.push(part);
@@ -203,7 +203,7 @@ impl Constraint {
     pub fn labels_appearing(&self) -> HashSet<Label> {
         let mut h = HashSet::new();
         for group in self.groups() {
-            for &label in &group.0 {
+            for &label in group.iter() {
                 h.insert(label);
             }
         }

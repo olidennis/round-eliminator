@@ -16,7 +16,7 @@ impl Constraint {
         };
         for line in &self.lines {
             let newline = line.edited(&mut f);
-            if newline.parts.iter().all(|part| !part.group.0.is_empty()) {
+            if newline.parts.iter().all(|part| !part.group.is_empty()) {
                 c.lines.push(newline);
             }
         }

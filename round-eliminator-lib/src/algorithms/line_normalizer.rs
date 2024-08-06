@@ -19,9 +19,9 @@ impl Line {
         if !with_star.is_empty() {
             let mut starred = HashSet::new();
             for part in with_star {
-                starred.extend(part.group.0.into_iter());
+                starred.extend(part.group.iter().cloned());
             }
-            let group = Group(starred.into_iter().collect());
+            let group = Group::from(starred.into_iter().collect());
             let starred_part = Part {
                 group,
                 gtype: GroupType::Star,
@@ -31,13 +31,11 @@ impl Line {
 
         let mut parts = std::mem::take(&mut self.parts);
         for part in parts.iter_mut() {
-            if !part.group.is_sorted() {
-                part.group.sort_unstable();
-            }
+            part.group.ensure_sorted();
         }
 
-        parts.sort_unstable_by(|part1, part2| part1.group.0.cmp(&part2.group.0));
-        let mut lastgroup = Group(vec![]);
+        parts.sort_unstable_by(|part1, part2| part1.group.cmp(&part2.group));
+        let mut lastgroup = Group::from(vec![]);
         let mut lastcount = GroupType::Many(0);
         let mut rparts = Vec::with_capacity(parts.len());
 
@@ -80,8 +78,8 @@ impl Line {
             if a.group.len() != 1 || b.group.len() != 1 {
                 a.cmp(b)
             } else {
-                let la = a.group[0];
-                let lb = b.group[0];
+                let la = a.group.first();
+                let lb = b.group.first();
                 match reachability[&la].len().cmp(&reachability[&lb].len()) {
                     std::cmp::Ordering::Less => std::cmp::Ordering::Greater,
                     std::cmp::Ordering::Greater => std::cmp::Ordering::Less,

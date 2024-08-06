@@ -407,7 +407,7 @@ fn intersections<FS,FI>(union: (usize,usize,Operation,Part), c1: &Line, c2: &Lin
                 if pairing[i][j] > 0 {
                     let value = GroupType::Many(pairing[i][j] as crate::group::Exponent);
                     let intersection = f_intersection(&pa.group,&pb.group); 
-                    if !allow_empty && intersection.0.is_empty() { 
+                    if !allow_empty && intersection.is_empty() { 
                         continue 'outer;
                     }
                     parts.push((i,j,Operation::Intersection,Part {
