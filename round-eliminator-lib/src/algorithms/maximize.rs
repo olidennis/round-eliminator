@@ -104,7 +104,7 @@ impl Constraint {
             };
 
             #[cfg(target_arch = "wasm32")]
-            let newconstraint = f_newconstraints();
+            let newconstraint = f_newconstraint();
 
             #[cfg(not(target_arch = "wasm32"))]
             let newconstraint = {
