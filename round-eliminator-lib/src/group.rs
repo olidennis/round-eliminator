@@ -10,7 +10,10 @@ pub type Label = u32;
 pub type Exponent = u8;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct Group(Vec<Label>);
+pub struct Group {
+    v : Vec<Label>,
+    //as_bitvec : Option<u64>
+} 
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
@@ -23,64 +26,56 @@ impl GroupType {
 }
 
 
-/* 
-impl Deref for Group {
-    type Target = Vec<Label>;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Group {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}*/
 
 impl Group {
 
 
     pub fn from(v : Vec<Label>) -> Self {
-        Self(v)
+        /*let as_bitvec = if v.iter().all(|&x|x < 64) {
+            Some(v.iter().fold(0,|v,x| v | (1 << x)))
+        } else {
+            None
+        };*/
+        Self{v/* , as_bitvec*/}
     }
 
     pub fn cmp(&self, other : &Self) -> Ordering {
-        self.0.cmp(&other.0)
+        self.v.cmp(&other.v)
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.v.len()
     }
 
     pub fn iter(&self) -> impl Iterator<Item=&Label> {
-        self.0.iter()
+        self.v.iter()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.v.is_empty()
     }
 
     pub fn contains(&self, l : &Label) -> bool {
-        self.0.contains(l)
+        self.v.contains(l)
     }
 
     pub fn first(&self) -> Label {
-        self.0[0]
+        self.v[0]
     }
 
     pub fn as_vec(&self) -> Vec<Label> {
-        self.0.clone()
+        self.v.clone()
     }
 
     pub fn ensure_sorted(&mut self) {
-        if !self.0.is_sorted() {
-            self.0.sort_unstable();
+        if !self.v.is_sorted() {
+            self.v.sort_unstable();
         }
     }
 
     pub fn shrink_to_fit(&mut self) {
-        self.0.shrink_to_fit();
+        self.v.shrink_to_fit();
     }
 
     pub fn as_set(&self) -> HashSet<Label> {
@@ -88,11 +83,15 @@ impl Group {
     }
 
     pub fn from_set(h: &HashSet<Label>) -> Self {
-        Group(h.iter().cloned().sorted().collect())
+        Group::from(h.iter().cloned().sorted().collect())
     }
 
     #[inline(never)]
     pub fn is_superset(&self, other: &Group) -> bool {
+        //match (self.as_bitvec, other.as_bitvec) {
+        //    (Some(v1),Some(v2)) => {  return (v1 | v2) == v1; }
+        //    _ => { }
+        //}
         //assert!(self.is_sorted());
         //assert!(other.is_sorted());
         let mut it1 = self.iter();
@@ -110,13 +109,13 @@ impl Group {
         let mut j = 0;
         let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
-            match self.0[i].cmp(&other.0[j]) {
+            match self.v[i].cmp(&other.v[j]) {
                 std::cmp::Ordering::Equal => {
                     i += 1;
                     j += 1;
                 }
                 std::cmp::Ordering::Less => {
-                    v.push(self.0[i]);
+                    v.push(self.v[i]);
                     i += 1;
                 }
                 std::cmp::Ordering::Greater => {
@@ -124,8 +123,8 @@ impl Group {
                 }
             }
         }
-        v.extend(self.0[i..].iter().cloned());
-        Group(v)
+        v.extend(self.v[i..].iter().cloned());
+        Group::from(v)
     }
 
     pub fn intersection(&self, other: &Group) -> Self {
@@ -163,9 +162,9 @@ impl Group {
         let mut j = 0;
         let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
-            match self.0[i].cmp(&other.0[j]) {
+            match self.v[i].cmp(&other.v[j]) {
                 std::cmp::Ordering::Equal => {
-                    v.push(self.0[i]);
+                    v.push(self.v[i]);
                     i += 1;
                     j += 1;
                 }
@@ -177,11 +176,11 @@ impl Group {
                 }
             }
         }
-        Group(v)
+        Group::from(v)
     }
 
     pub fn union(&self, other: &Group) -> Self {
-        Group(
+        Group::from(
             self.as_set()
                 .union(&other.as_set())
                 .cloned()
