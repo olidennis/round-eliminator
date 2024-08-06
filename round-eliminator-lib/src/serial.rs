@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::{event::EventHandler, fixpoint::FixpointType}, group::Label, line::Degree, problem::Problem};
 
-fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and_coloring : bool, eh: &mut EventHandler) {
+pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and_coloring : bool, eh: &mut EventHandler) {
     if new.passive.degree == Degree::Finite(2) {
         new.diagram_indirect = None;
         new.compute_diagram(eh);

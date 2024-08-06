@@ -548,15 +548,14 @@ fn combine_lines(
 }
 
 
-/*
+
 
 
 
 #[test]
 fn crash_test(){
 
-    loop {
-        println!("test");
+    //loop {
         let mut eh = EventHandler::null();
 
     let mut problem = crate::problem::Problem::from_string_active_passive("(0a) (00b) (00c) (00d) (00e) (00f)
@@ -666,13 +665,7 @@ fn crash_test(){
                 new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
             }
         }
-        match new.rename_by_generators() {
-            Ok(()) => {
-                println!(".");
-            }
-            Err(s) => println!("X"),
-        }
-    }
+        assert!(new.rename_by_generators().is_ok());
+    //}
 }
 
-*/ 
