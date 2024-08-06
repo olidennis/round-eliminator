@@ -27,31 +27,61 @@ impl Problem {
             self.passive.maximize(eh);
         }
 
-        let labels: Vec<_> = self.labels();
 
-        /*{
-            use rayon::prelude::*;
-            let diagram : Vec<_> = labels.iter().enumerate().cartesian_product(labels.iter().enumerate())
-                .par_bridge()
-                .filter_map(|((i,l1),(j,l2))|{
-                    if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
-                        Some((*l1, *l2))
-                    } else {
-                        None
+        #[cfg(not(target_arch = "wasm32"))]
+        let diagram = {
+            let diagram = crossbeam::scope(|s| {
+
+                let labels: Vec<_> = self.labels();
+                let (progress_tx, progress_rx) =  crossbeam_channel::unbounded();
+        
+                let slf = &self;
+                s.spawn(move |_|{
+                    use rayon::prelude::*;
+                    labels.iter().cartesian_product(labels.iter())
+                        .par_bridge()
+                        .for_each(|(l1,l2)|{
+                            if l1 == l2 || slf.passive.is_diagram_predecessor(*l1, *l2) {
+                                progress_tx.send(Some((*l1, *l2))).unwrap();
+                            } else {
+                                progress_tx.send(None).unwrap();
+                            }
+                        });
+                });
+
+                let labels: Vec<_> = self.labels();
+                let total = labels.len()*labels.len();
+                let mut diagram = vec![];
+
+                for received in 0..total {
+                    let r = progress_rx.recv().unwrap();
+                    if let Some((l1,l2)) = r {
+                        diagram.push((l1,l2));
                     }
-                }).collect();
-        }*/
+                    eh.notify("diagram", received, total);
+                }
 
-        let mut diagram = vec![];
+                diagram.sort();
 
-        for (i, l1) in labels.iter().enumerate() {
-            for (j, l2) in labels.iter().enumerate() {
-                eh.notify("diagram", i * labels.len() + j, labels.len() * labels.len());
-                if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
-                    diagram.push((*l1, *l2));
+                diagram
+            }).unwrap();
+            diagram
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let diagram = {
+            let mut diagram = vec![];
+            let labels: Vec<_> = self.labels();
+            for (i, l1) in labels.iter().enumerate() {
+                for (j, l2) in labels.iter().enumerate() {
+                    eh.notify("diagram", i * labels.len() + j, labels.len() * labels.len());
+                    if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
+                        diagram.push((*l1, *l2));
+                    }
                 }
             }
-        }
+            diagram
+        };
 
         self.diagram_indirect = Some(diagram);
         self.compute_direct_diagram();
