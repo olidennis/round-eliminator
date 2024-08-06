@@ -47,14 +47,16 @@ impl Problem {
                                 progress_tx.send(None).unwrap();
                             }
                         });
+                    drop(progress_tx);
                 });
 
                 let labels: Vec<_> = self.labels();
                 let total = labels.len()*labels.len();
                 let mut diagram = vec![];
+                let mut received = 0;
 
-                for received in 0..total {
-                    let r = progress_rx.recv().unwrap();
+                while let Ok(r) = progress_rx.recv() {
+                    received += 1;
                     if let Some((l1,l2)) = r {
                         diagram.push((l1,l2));
                     }
