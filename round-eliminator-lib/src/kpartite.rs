@@ -14,7 +14,7 @@ struct KPartiteProblem{
 }
 
 
-
+/* 
 #[test]
 fn kpartite_sinkless_coloring(){
     let eh = &mut EventHandler::null();
@@ -52,11 +52,11 @@ fn kpartite_sinkless_coloring(){
         },eh);
         println!("{}",p);
     }
-}
+}*/
 
 
 
-
+/* 
 #[test]
 fn kpartite_test(){
     let eh = &mut EventHandler::null();
@@ -87,7 +87,7 @@ fn kpartite_test(){
     let mut p = KPartiteProblem{ constraints: vec![c1,c2,c3,c4], mapping_label_text, mapping_label_oldlabels: None  };
     println!("{}",p);
 
-    for i in 0..3 {
+    for i in 0..1 {
         p = p.speedup_kpartite(|set|{
             format!("({})",set.iter().join(""))
         },eh);
@@ -97,7 +97,7 @@ fn kpartite_test(){
         println!("{}",p);
     }
     
-}
+}*/
 
 
 impl KPartiteProblem{

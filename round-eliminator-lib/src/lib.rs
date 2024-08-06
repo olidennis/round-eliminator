@@ -148,7 +148,7 @@ fn testtest(){
             g.insert(b_1);
         }
         g.insert(b__);
-        Group(g.into_iter().sorted().collect())
+        Group::from(g.into_iter().sorted().collect())
     });
 
     println!("(!a)(-a)(0a)(1a) (-a) (-a)(0a)

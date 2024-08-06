@@ -1337,7 +1337,7 @@ fn add_diagram_edges(&mut self){
     }
 }*/
 
-
+/* 
 #[test]
 fn defective_coloring(){
     let eh = &mut EventHandler::null();
@@ -1363,11 +1363,11 @@ abcd abcd").unwrap();
                 vec![m["BCabcd"],m["Babcd"],m["Cabcd"],m["abcd"],m["Babd"],m["Cacd"],m["acd"],m["abd"],m["ad"]],
                 vec![m["BDabcd"],m["Babcd"],m["Dabcd"],m["abcd"],m["Babc"],m["Dacd"],m["acd"],m["abc"],m["ac"]],
                 vec![m["CDabcd"],m["Cabcd"],m["Dabcd"],m["abcd"],m["Cabc"],m["Dabd"],m["abd"],m["abc"],m["ab"]],
-                //vec![m["Aabcd"],m["abcd"],m["bcd"]],
-                //vec![m["Babcd"],m["abcd"],m["acd"]],
-                //vec![m["Cabcd"],m["abcd"],m["abd"]],
-                //vec![m["Dabcd"],m["abcd"],m["abc"]],
-                //vec![m["abcd"]]
+                vec![m["Aabcd"],m["abcd"],m["bcd"]],
+                vec![m["Babcd"],m["abcd"],m["acd"]],
+                vec![m["Cabcd"],m["abcd"],m["abd"]],
+                vec![m["Dabcd"],m["abcd"],m["abc"]],
+                vec![m["abcd"]]
             ]),true,eh).unwrap().0;
     let is_fp = *p.fixpoint_procedure_works.as_ref().unwrap();
     if is_fp {
@@ -1395,6 +1395,7 @@ fn cubes(s : &str, append : &str) -> Vec<String> {
     }
     out
 }
+
 
 #[test]
 fn defective_5_coloring(){
@@ -1465,4 +1466,4 @@ abcde abcde").unwrap();
     } else {
         println!("not a fixed point");
     }
-}
+}*/

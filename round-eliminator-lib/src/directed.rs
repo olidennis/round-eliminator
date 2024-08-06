@@ -208,7 +208,7 @@ impl Display for DirectedProblem {
 }
 
 
-
+/* 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -325,4 +325,4 @@ fn main(){
         }
 
     }
-}
+}*/

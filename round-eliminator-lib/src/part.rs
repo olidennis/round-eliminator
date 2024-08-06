@@ -52,7 +52,7 @@ mod tests {
         assert_eq!(
             Part {
                 gtype: GroupType::ONE,
-                group: Group(vec![0, 1, 2])
+                group: Group::from(vec![0, 1, 2])
             },
             p
         );
@@ -64,7 +64,7 @@ mod tests {
         assert_eq!(
             Part {
                 gtype: GroupType::Many(2),
-                group: Group(vec![0, 1, 2])
+                group: Group::from(vec![0, 1, 2])
             },
             p
         );
@@ -76,7 +76,7 @@ mod tests {
         assert_eq!(
             Part {
                 gtype: GroupType::Star,
-                group: Group(vec![0, 1, 2])
+                group: Group::from(vec![0, 1, 2])
             },
             p
         );

@@ -153,16 +153,16 @@ mod tests {
     fn exists() {
         let line1 = Line{ parts : 
             vec![
-                Part{ gtype : GroupType::Many(5), group : Group(vec![0,1,2]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![1]) },
+                Part{ gtype : GroupType::Many(5), group : Group::from(vec![0,1,2]) },
+                Part{ gtype : GroupType::Many(2), group : Group::from(vec![0]) },
+                Part{ gtype : GroupType::Many(2), group : Group::from(vec![1]) },
             ] };
         let line2 = Line{ parts : 
             vec![
-                Part{ gtype : GroupType::Many(5), group : Group(vec![0,2]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![0,1]) },
-                Part{ gtype : GroupType::Many(1), group : Group(vec![1,2]) },
-                Part{ gtype : GroupType::Many(1), group : Group(vec![1,2]) },
+                Part{ gtype : GroupType::Many(5), group : Group::from(vec![0,2]) },
+                Part{ gtype : GroupType::Many(2), group : Group::from(vec![0,1]) },
+                Part{ gtype : GroupType::Many(1), group : Group::from(vec![1,2]) },
+                Part{ gtype : GroupType::Many(1), group : Group::from(vec![1,2]) },
             ] };
         assert!(line1.pick_existing_choice(&line2) == Some(vec![0,0,0,0,0,0,0,1,1]));
         assert!(line2.pick_existing_choice(&line1).is_some());
@@ -170,16 +170,16 @@ mod tests {
 
         let line1 = Line{ parts : 
             vec![
-                Part{ gtype : GroupType::Many(5), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![0]) },
+                Part{ gtype : GroupType::Many(5), group : Group::from(vec![0]) },
+                Part{ gtype : GroupType::Many(2), group : Group::from(vec![0]) },
+                Part{ gtype : GroupType::Many(2), group : Group::from(vec![0]) },
             ] };
         let line2 = Line{ parts : 
             vec![
-                Part{ gtype : GroupType::Many(5), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(2), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(1), group : Group(vec![0]) },
-                Part{ gtype : GroupType::Many(1), group : Group(vec![1]) },
+                Part{ gtype : GroupType::Many(5), group : Group::from(vec![0]) },
+                Part{ gtype : GroupType::Many(2), group : Group::from(vec![0]) },
+                Part{ gtype : GroupType::Many(1), group : Group::from(vec![0]) },
+                Part{ gtype : GroupType::Many(1), group : Group::from(vec![1]) },
             ] };
         assert!(line1.pick_existing_choice(&line2).is_none());
         assert!(line2.pick_existing_choice(&line1).is_none());

@@ -229,19 +229,19 @@ mod tests {
         let p = Problem::from_string("A B^2 C*\nD E E*\n\nA BCDE").unwrap();
         assert_eq!(
             p.active.sets_of_all_choices(),
-            HashSet::from([Group(vec![0, 1, 2]), Group(vec![3, 4])])
+            HashSet::from([Group::from(vec![0, 1, 2]), Group::from(vec![3, 4])])
         );
 
         let p = Problem::from_string("A AB AB\nCD EF EF\n\nA BCDEF").unwrap();
         assert_eq!(
             p.active.sets_of_all_choices(),
             HashSet::from([
-                Group(vec![0]),
-                Group(vec![0, 1]),
-                Group(vec![2, 4]),
-                Group(vec![2, 5]),
-                Group(vec![3, 4]),
-                Group(vec![3, 5])
+                Group::from(vec![0]),
+                Group::from(vec![0, 1]),
+                Group::from(vec![2, 4]),
+                Group::from(vec![2, 5]),
+                Group::from(vec![3, 4]),
+                Group::from(vec![3, 5])
             ])
         );
 
