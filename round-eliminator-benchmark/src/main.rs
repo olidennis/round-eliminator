@@ -144,7 +144,7 @@ fn test_and_report(is_multi : bool) {
 fn main() {
     let args = Args::parse();
 
-    let threads = args.threads.unwrap_or(2 * num_cpus::get());    
+    let threads = args.threads.unwrap_or(num_cpus::get());    
 
     loop {
 
