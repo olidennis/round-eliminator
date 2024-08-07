@@ -30,7 +30,7 @@ impl FixpointDiagram {
         let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
 
         let rcs = right_closed_subsets(&labels, &successors);
-        println!("rcs are {}",rcs.len());
+        //println!("rcs are {}",rcs.len());
 
         let mut fd = FixpointDiagram {
             orig_labels : labels,
@@ -89,7 +89,7 @@ impl FixpointDiagram {
         
         let mut diagram = vec![];
         for (i,(s1,sorted_s1)) in rcs.iter().zip(rcs_sorted.iter()).enumerate() {
-            println!("{}",i);
+            //println!("{}",i);
             let new_s1 = mapping_rightclosed_newlabel[s1];
             diagram.push((new_s1,new_s1));
             for (s2,sorted_s2) in rcs.iter().zip(rcs_sorted.iter()) {
@@ -405,22 +405,22 @@ impl Problem {
     }
 
     pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, only_compute_triviality:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
-        println!("called dup");
+        //println!("called dup");
         let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
             FixpointDiagram::new(self)
         };
-        println!("generated diagram1");
+        //println!("generated diagram1");
         if let Some(dup) = dup {
             fd.duplicate_labels(&dup);
         }
-        println!("generated diagram2");
+        //println!("generated diagram2");
         let mapping_label_newlabel = fd.mapping_label_newlabel.clone();
         let mapping_newlabel_text = fd.mapping_newlabel_text.clone();
         let diagram = fd.diagram.clone();
         //println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
-        println!("calling onestep");
+        //println!("calling onestep");
         Ok((self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
     }
 
