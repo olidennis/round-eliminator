@@ -19,3 +19,7 @@ debug = true
 
 [profile.bench]
 debug = true
+
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6"

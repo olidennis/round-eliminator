@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 round-eliminator-lib = {path = "../round-eliminator-lib"}
 clap = { version = "4.3.2", features = ["derive"] }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6.0"
