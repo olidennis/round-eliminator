@@ -137,17 +137,20 @@ fn test_and_report(is_multi : bool) {
 fn main() {
     let args = Args::parse();
 
-    let threads = args.threads.unwrap_or(2 * num_cpus::get());
+    let threads = args.threads.unwrap_or(2 * num_cpus::get());    
 
     loop {
 
         if args.multi || (!args.single && !args.multi) {
             std::env::set_var("RE_NUM_THREADS", format!("{}",threads));  
+            std::env::set_var("RAYON_NUM_THREADS", format!("{}",threads));              
             test_and_report(true);
         }
 
         if args.single || (!args.single && !args.multi) {
-            std::env::set_var("RE_NUM_THREADS", "0");   
+            std::env::set_var("RE_NUM_THREADS", "0");
+            std::env::set_var("RAYON_NUM_THREADS", "1");   
+
             test_and_report(false); 
         }
 
