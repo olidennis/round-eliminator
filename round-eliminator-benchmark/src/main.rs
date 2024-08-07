@@ -57,10 +57,16 @@ fn re(problem : &str, steps : usize, hash : &str) -> u128 {
     let mut r = 0;
 
     for i in 0..steps-1 {
-        let start = Instant::now();
 
         p = p.speedup(eh);
+
+        let start = Instant::now();
         p.passive.maximize(&mut eh);
+        let duration = start.elapsed();
+        if i == steps - 2 {
+            r = duration.as_millis();
+        }
+        
         p.compute_partial_diagram(&mut eh);
         p.sort_active_by_strength();
         p.compute_passive_gen();
@@ -68,10 +74,7 @@ fn re(problem : &str, steps : usize, hash : &str) -> u128 {
         p.active.lines.sort();
         p.passive.lines.sort();
 
-        let duration = start.elapsed();
-        if i == steps - 2 {
-            r = duration.as_millis();
-        }
+
     }
     //println!("{}",sha256::digest(p.to_string()));
     assert!(sha256::digest(std::hint::black_box(p.to_string())) == hash);
@@ -257,7 +260,7 @@ XYZ^2","f20f189c86b1fc3c53b55cb99292e819b49e3e84fc7b775057b447be7d6f5f8d");
 
 fn test_and_report(is_multi : bool) {
     let r = test_all();
-    let score = 253884575 / r;
+    let score = 601318308 / r;
     if is_multi {
         println!("Multi Thread Score (higher is better): {}", score);
     } else {
