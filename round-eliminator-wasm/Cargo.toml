@@ -13,7 +13,7 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 wasm-bindgen = "0.2.63"
-round-eliminator-lib = {path = "../round-eliminator-lib"}
+round-eliminator-lib = {path = "../round-eliminator-lib", default-features = false, features = ["onlyrust"]}
 js-sys = "0.3"
 console_log = { version = "0.2" }
 log = "0.4"

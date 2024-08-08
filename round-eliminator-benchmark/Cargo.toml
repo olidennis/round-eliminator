@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-round-eliminator-lib = {path = "../round-eliminator-lib"}
+round-eliminator-lib = {path = "../round-eliminator-lib", default-features = false, features = ["onlyrust"]}
 sha256 = "1.5.0"
 clap = { version = "4.3.2", features = ["derive"] }
 num_cpus = "1.0"

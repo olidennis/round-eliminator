@@ -285,7 +285,7 @@ impl Problem {
 
         eh.notify("calling the sat solver",0,0);
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(feature = "all")]
         {
             let mut solver = rustsat_minisat::core::Minisat::default();
             solver.add_cnf(instance.into_cnf().0).unwrap();
@@ -294,7 +294,7 @@ impl Problem {
             res == SolverResult::Unsat
         }
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(feature = "onlyrust")]
         {
             let mut instance = instance;
             let mut dimacs = std::io::BufWriter::new(Vec::new());
