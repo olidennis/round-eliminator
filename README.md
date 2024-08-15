@@ -69,15 +69,28 @@ This seems to be related to some broken malloc implementation in the library inc
 After cloning the repository, do the following:
 ```
 cd round-eliminator/
-git reset --hard ea5bc43f44947f2614028d3e49d4de637ef7efbe
+git reset --hard 0884823bd343b5a2d1011cf3dfd4c43d0db34c18
 cd round-eliminator-benchmark/
-cargo run --release
+rustup component add llvm-tools-preview
+cargo install cargo-pgo
+```
+The following command will take a lot of time:
+```
+RUSTFLAGS="-Ctarget-cpu=native" cargo pgo run -- -- -m -d
+```
+Run the following to get the multi thread score:
+```
+RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run -- -- -m
+```
+Run the following to get the single thread score:
+```
+RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run -- -- -s
 ```
 
 Results:
 | CPU          | Single Thread Score | Multi Thread Score |
 |--------------|---------------------|--------------------|
-| Apple M1 Pro | 1553                | 12518              |
+| Apple M1 Pro | 2069                | 16367              |
 
 If you have a different CPU and you have benchmarked it, please send me the results!
 
