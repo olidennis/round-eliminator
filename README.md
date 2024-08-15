@@ -12,7 +12,7 @@ The author wishes to acknowledge CSC – IT Center for Science, Finland, for com
 
 # If you want to run it on your machine (it is much faster compared to the wasm version)
 ## Precompiled binaries
-Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary.
+Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently the options are MacOS on Apple Silicon, others will be added soon).
 Then, visit the url [http://127.0.0.1:8080/server](http://127.0.0.1:8080/server).
 
 ## Compile On Linux (Ubuntu)
