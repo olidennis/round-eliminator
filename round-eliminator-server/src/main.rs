@@ -23,7 +23,7 @@ fn benchmark() {
     let threads = num_cpus::get();
     std::env::set_var("RE_NUM_THREADS", format!("{}",threads));  
     std::env::set_var("RAYON_NUM_THREADS", format!("{}",threads));                  
-    round_eliminator_lib::test_all();
+    assert!(round_eliminator_lib::test_all() > 0);
 }
 
 #[tokio::main]

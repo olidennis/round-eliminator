@@ -23,7 +23,6 @@ pub mod kpartite;
 
 
 
-#[cfg(feature = "all")]
 fn fp(problem : &str, hash : &str) -> u128 {
     let problem = std::hint::black_box(problem);
     let eh = &mut EventHandler::null();
@@ -43,7 +42,6 @@ fn fp(problem : &str, hash : &str) -> u128 {
     duration.as_millis()
 }
 
-#[cfg(feature = "all")]
 fn re(problem : &str, steps : usize, hash : &str) -> u128 {
     let problem = std::hint::black_box(problem);
     let mut eh = &mut EventHandler::null();
@@ -77,7 +75,7 @@ fn re(problem : &str, steps : usize, hash : &str) -> u128 {
     r
 }
 
-#[cfg(feature = "all")]
+
 pub fn test_all() -> u128 {
     let mut r = fp("A^5 X^2
 B^5 Y^2
