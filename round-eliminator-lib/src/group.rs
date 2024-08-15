@@ -10,10 +10,7 @@ pub type Label = u32;
 pub type Exponent = u8;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct Group {
-    v : Vec<Label>,
-    //as_bitvec : Option<u64>
-} 
+pub struct Group (Vec<Label>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
@@ -37,45 +34,45 @@ impl Group {
         } else {
             None
         };*/
-        Self{v/* , as_bitvec*/}
+        Self(v/* , as_bitvec*/)
     }
 
     pub fn cmp(&self, other : &Self) -> Ordering {
-        self.v.cmp(&other.v)
+        self.0.cmp(&other.0)
     }
 
     pub fn len(&self) -> usize {
-        self.v.len()
+        self.0.len()
     }
 
     pub fn iter(&self) -> impl Iterator<Item=&Label> {
-        self.v.iter()
+        self.0.iter()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.v.is_empty()
+        self.0.is_empty()
     }
 
     pub fn contains(&self, l : &Label) -> bool {
-        self.v.contains(l)
+        self.0.contains(l)
     }
 
     pub fn first(&self) -> Label {
-        self.v[0]
+        self.0[0]
     }
 
     pub fn as_vec(&self) -> Vec<Label> {
-        self.v.clone()
+        self.0.clone()
     }
 
     pub fn ensure_sorted(&mut self) {
-        if !self.v.is_sorted() {
-            self.v.sort_unstable();
+        if !self.0.is_sorted() {
+            self.0.sort_unstable();
         }
     }
 
     pub fn shrink_to_fit(&mut self) {
-        self.v.shrink_to_fit();
+        self.0.shrink_to_fit();
     }
 
     pub fn as_set(&self) -> HashSet<Label> {
@@ -109,13 +106,13 @@ impl Group {
         let mut j = 0;
         let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
-            match self.v[i].cmp(&other.v[j]) {
+            match self.0[i].cmp(&other.0[j]) {
                 std::cmp::Ordering::Equal => {
                     i += 1;
                     j += 1;
                 }
                 std::cmp::Ordering::Less => {
-                    v.push(self.v[i]);
+                    v.push(self.0[i]);
                     i += 1;
                 }
                 std::cmp::Ordering::Greater => {
@@ -123,7 +120,7 @@ impl Group {
                 }
             }
         }
-        v.extend(self.v[i..].iter().cloned());
+        v.extend(self.0[i..].iter().cloned());
         Group::from(v)
     }
 
@@ -162,9 +159,9 @@ impl Group {
         let mut j = 0;
         let mut v = Vec::with_capacity(std::cmp::min(self.len(), other.len()));
         while i < self.len() && j < other.len() {
-            match self.v[i].cmp(&other.v[j]) {
+            match self.0[i].cmp(&other.0[j]) {
                 std::cmp::Ordering::Equal => {
-                    v.push(self.v[i]);
+                    v.push(self.0[i]);
                     i += 1;
                     j += 1;
                 }

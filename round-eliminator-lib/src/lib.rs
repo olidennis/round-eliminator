@@ -23,7 +23,7 @@ pub mod kpartite;
 #[test]
 fn testtest(){
     
-    let d = 6;
+    let d = 5;
     let k = 1;
 
     let letter = |i : usize|{ (b'a' + i as u8) as char };
