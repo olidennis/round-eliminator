@@ -1,6 +1,8 @@
 # Round Eliminator: a tool for automatic speedup simulation
 
-Try it [here](https://roundeliminator.github.io/re-experimental/).
+Round elimination is a technique for proving lower bounds on the distributed round complexity of locally checkable problems. For more info, see [this paper](https://arxiv.org/abs/1902.09958). Round eliminator is a tool that allows to apply the round elimination technique automatically.
+
+You can try it [here](https://roundeliminator.github.io/re-experimental/).
 
 The old version is [here](https://roundeliminator.github.io/re/), and its code is [here](https://github.com/olidennis/round-eliminator/tree/round-eliminator-1).
 
@@ -28,6 +30,25 @@ cd round-eliminator-server
 cargo run --release
 ```
 Now, visit the url [http://127.0.0.1:8080/server](http://127.0.0.1:8080/server).
+
+
+If you want round eliminator to be roughly 25% faster, you can use profile guided optimization, as follows.
+```
+cd round-eliminator/
+cd round-eliminator-server
+rustup component add llvm-tools-preview
+cargo install cargo-pgo
+RUSTFLAGS="-Ctarget-cpu=native" cargo pgo test benchmark
+RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run
+```
+
+Otherwise, you can find the precompiled binaries here:
+| Platform | Link |
+|--------------------------|-----------|
+| MacOS with Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0_aarch64-apple-darwin) |
+| Linux on x64             | TODO                                                                                                     |
+| Windows on x64           | TODO                                                                                                     |
+
 
 ## On MacOS
 Follow Linux instructions, use brew to install dependencies. [TODO: add more details]
