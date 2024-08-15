@@ -14,7 +14,7 @@ futures = "0.3.18"
 
 [profile.release]
 debug = true
-
+lto = "fat"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6.0"
