@@ -17,6 +17,15 @@ use warp::{
     Filter,
 };
 
+
+#[test]
+fn benchmark() {
+    let threads = num_cpus::get();
+    std::env::set_var("RE_NUM_THREADS", format!("{}",threads));  
+    std::env::set_var("RAYON_NUM_THREADS", format!("{}",threads));                  
+    round_eliminator_lib::test_all();
+}
+
 #[tokio::main]
 async fn main() {
     server("127.0.0.1:8080").await; 

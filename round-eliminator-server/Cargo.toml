@@ -11,6 +11,7 @@ tokio = { version = "1", features = ["full"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 round-eliminator-lib = {path = "../round-eliminator-lib"}
 futures = "0.3.18"
+num_cpus = "1.16"
 
 [profile.release]
 debug = true
