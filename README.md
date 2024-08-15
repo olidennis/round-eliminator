@@ -11,7 +11,16 @@ The documentation is very outdated, but it can be found [here](https://olidennis
 The author wishes to acknowledge CSC – IT Center for Science, Finland, for computational resources.
 
 # If you want to run it on your machine (it is much faster compared to the wasm version)
-## On Linux (Ubuntu)
+## Precompiled binaries
+| Platform | Link |
+|--------------------------|-----------|
+| MacOS with Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0_aarch64-apple-darwin) |
+| Linux on x64             | TODO                                                                                                     |
+| Windows on x64           | TODO                                                                                                     |
+
+Run the binary and then visit the url [http://127.0.0.1:8080/server](http://127.0.0.1:8080/server).
+
+## Compile On Linux (Ubuntu)
 First, install the dependencies:
 ```
 sudo apt install curl git build-essential pkg-config libssl-dev cmake
@@ -42,18 +51,10 @@ RUSTFLAGS="-Ctarget-cpu=native" cargo pgo test benchmark
 RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run
 ```
 
-Otherwise, you can find the precompiled binaries here:
-| Platform | Link |
-|--------------------------|-----------|
-| MacOS with Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0_aarch64-apple-darwin) |
-| Linux on x64             | TODO                                                                                                     |
-| Windows on x64           | TODO                                                                                                     |
-
-
-## On MacOS
+## Compile On MacOS
 Follow Linux instructions, use brew to install dependencies. [TODO: add more details]
 
-## On Windows
+## Compile On Windows
 It works. [TODO: add more details]
 
 # Using Round Eliminator as a library
