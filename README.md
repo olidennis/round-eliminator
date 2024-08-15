@@ -66,6 +66,15 @@ This seems to be related to some broken malloc implementation in the library inc
 
 
 # If you want to use Round Eliminator as a benchmark tool
+
+You can find the precompiled binaries here:
+| Platform | Link |
+|--------------------------|-----------|
+| MacOS with Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_aarch64-apple-darwin) |
+| Linux on x64             | TODO                                                                                                     |
+| Windows on x64           | TODO                                                                                                     |
+
+Otherwise, to compile it yourself, follow these instructions.
 After cloning the repository, do the following:
 ```
 cd round-eliminator/
