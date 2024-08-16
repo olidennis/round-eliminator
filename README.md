@@ -12,8 +12,9 @@ The author wishes to acknowledge CSC – IT Center for Science, Finland, for com
 
 # If you want to run it on your machine (it is much faster compared to the wasm version)
 ## Precompiled binaries
-Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently the options are MacOS on Apple Silicon, others will be added soon).
+Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently the archive contains binaries for MacOS on Apple Silicon, Windows on x64, and Linux on x64). 
 Then, visit the url [http://127.0.0.1:8080/server](http://127.0.0.1:8080/server).
+Note: on Windows, round eliminator is 40% slower, due to the fact that jemalloc on Windows is not supported.
 
 ## Compile On Linux (Ubuntu)
 First, install the dependencies:
@@ -82,14 +83,13 @@ round-eliminator-server(75480,0x16cc4f000) malloc: *** set a breakpoint in mallo
 This seems to be related to some broken malloc implementation in the library included by Rust on MacOS, see [here](https://github.com/rust-lang/rust/issues/92173) and [here](https://users.rust-lang.org/t/intermittent-free-without-malloc-in-heavily-threaded-safe-code-on-arm64-mac/105154/3). Using Jemalloc seems to fix this issue.
 
 
-# If you want to use Round Eliminator as a benchmark tool
+# If you want to use Round Eliminator as a benchmark tool/stress test
 
 You can find the precompiled binaries here:
 | Platform | Link |
 |--------------------------|-----------|
-| MacOS with Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_aarch64-apple-darwin) |
-| Linux on x64             | TODO                                                                                                     |
-| Windows on x64           | TODO                                                                                                     |
+| MacOS on Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_aarch64-apple-darwin) |
+| Linux on x64           | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_x64_linux) |
 
 Otherwise, to compile it yourself, follow these instructions.
 After cloning the repository, do the following:
@@ -102,22 +102,22 @@ cargo install cargo-pgo
 ```
 The following command will take a lot of time:
 ```
-RUSTFLAGS="-Ctarget-cpu=native" cargo pgo run -- -- -m -d
+cargo pgo run -- -- -m -d
 ```
 Run the following to get the multi thread score:
 ```
-RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run -- -- -m
+cargo pgo optimize run -- -- -m
 ```
 Run the following to get the single thread score:
 ```
-RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run -- -- -s
+cargo pgo optimize run -- -- -s
 ```
 
 Results:
-| CPU          | Single Thread Score | Multi Thread Score |
-|--------------|---------------------|--------------------|
-| Apple M1 Pro | 2069                | 16367              |
+| CPU          | OS | Single Thread Score | Multi Thread Score |
+|--------------|----|-----------------|--------------------|
+| Apple M1 Pro | MacOS 14.5 | 2069                | 16367              |
+| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2785 | 25242 |
 
-If you have a different CPU and you have benchmarked it, please send me the results!
 
 
