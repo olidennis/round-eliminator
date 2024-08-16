@@ -117,7 +117,7 @@ Results:
 | CPU          | OS | Single Thread Score | Multi Thread Score |
 |--------------|----|-----------------|--------------------|
 | Apple M1 Pro | MacOS 14.5 | 2069                | 16367              |
-| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2684 | 25242 |
+| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2785 | 25242 |
 
 
 
