@@ -55,7 +55,7 @@ It works. [TODO: add more details]
 # Using Round Eliminator as a library
 First, add the following line in your dependencies in Cargo.toml:
 ```
-round-eliminator-lib = { git = "https://github.com/olidennis/round-eliminator.git", branch = "current", version = "0.1.0" }
+round-eliminator-lib = { git = "https://github.com/olidennis/round-eliminator.git", branch = "master", version = "0.1.0" }
 ```
 Then, add the following in the dependencies section in Cargo.toml:
 ```
