@@ -90,7 +90,6 @@ You can find the precompiled binaries here:
 |--------------------------|-----------|
 | MacOS on Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_aarch64-apple-darwin) |
 | Linux on x64           | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_x64_linux) |
-| Linux on x64, binary optimized for AMD Zen 4          | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_x64_zen4_linux) |
 
 Otherwise, to compile it yourself, follow these instructions.
 After cloning the repository, do the following:
