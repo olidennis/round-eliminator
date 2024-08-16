@@ -12,9 +12,8 @@ The author wishes to acknowledge CSC – IT Center for Science, Finland, for com
 
 # If you want to run it on your machine (it is much faster compared to the wasm version)
 ## Precompiled binaries
-Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.0.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently the archive contains binaries for MacOS on Apple Silicon, Windows on x64, and Linux on x64). 
+Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.1.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently the archive contains binaries for MacOS on Apple Silicon, Windows on x64, and Linux on x64). 
 Then, visit the url [http://127.0.0.1:8080/server](http://127.0.0.1:8080/server).
-Note: on Windows, round eliminator is 40% slower, due to the fact that jemalloc on Windows is not supported.
 
 ## Compile On Linux (Ubuntu)
 First, install the dependencies:
@@ -56,31 +55,27 @@ It works. [TODO: add more details]
 # Using Round Eliminator as a library
 First, add the following line in your dependencies in Cargo.toml:
 ```
-round-eliminator-lib = { git = "https://github.com/suomela/round-eliminator.git", branch = "current", version = "0.1.0" }
+round-eliminator-lib = { git = "https://github.com/olidennis/round-eliminator.git", branch = "current", version = "0.1.0" }
 ```
-Then, add the following at the end of Cargo.toml:
+Then, add the following in the dependencies section in Cargo.toml:
 ```
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = "0.6"
+mimalloc = "0.1.43"
 ```
 
 Then, add the following at the beginning of main.rs:
 ```
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
-
-#[cfg(not(target_env = "msvc"))]
+use mimalloc::MiMalloc;
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;
 ```
 
-Note: Jemalloc not only makes round eliminator 30% faster, but it seems to also fix an issue on MacOS. More in detail,
-without Jemalloc, on MacOS, on ARM CPUs, you may get random crashes, something like:
+Note: Mimalloc not only makes round eliminator 30% faster, but it seems to also fix an issue on MacOS. More in detail,
+without Mimalloc, on MacOS, on ARM CPUs, you may get random crashes, something like:
 ```
 round-eliminator-server(75480,0x16cc4f000) malloc: *** error for object 0x60003ce07ff0: pointer being freed was not allocated
 round-eliminator-server(75480,0x16cc4f000) malloc: *** set a breakpoint in malloc_error_break to debug
 ```
-This seems to be related to some broken malloc implementation in the library included by Rust on MacOS, see [here](https://github.com/rust-lang/rust/issues/92173) and [here](https://users.rust-lang.org/t/intermittent-free-without-malloc-in-heavily-threaded-safe-code-on-arm64-mac/105154/3). Using Jemalloc seems to fix this issue.
+This seems to be related to some broken malloc implementation in the library included by Rust on MacOS, see [here](https://github.com/rust-lang/rust/issues/92173) and [here](https://users.rust-lang.org/t/intermittent-free-without-malloc-in-heavily-threaded-safe-code-on-arm64-mac/105154/3). Using Mimalloc seems to fix this issue.
 
 
 # If you want to use Round Eliminator as a benchmark tool/stress test
