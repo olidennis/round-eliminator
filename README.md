@@ -102,15 +102,15 @@ cargo install cargo-pgo
 ```
 The following command will take a lot of time:
 ```
-RUSTFLAGS="-Ctarget-cpu=native" cargo pgo run -- -- -m -d
+cargo pgo run -- -- -m -d
 ```
 Run the following to get the multi thread score:
 ```
-RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run -- -- -m
+cargo pgo optimize run -- -- -m
 ```
 Run the following to get the single thread score:
 ```
-RUSTFLAGS="-Ctarget-cpu=native" cargo pgo optimize run -- -- -s
+cargo pgo optimize run -- -- -s
 ```
 
 Results:
