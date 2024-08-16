@@ -1,11 +1,13 @@
-use round_eliminator_lib::algorithms::fixpoint::FixpointType;
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
-
-#[cfg(not(target_env = "msvc"))]
+use mimalloc::MiMalloc;
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;
+//#[cfg(not(target_env = "msvc"))]
+//use tikv_jemallocator::Jemalloc;
+//#[cfg(not(target_env = "msvc"))]
+//#[global_allocator]
+//static GLOBAL: Jemalloc = Jemalloc;
 
+use round_eliminator_lib::algorithms::fixpoint::FixpointType;
 use round_eliminator_lib::algorithms::event::EventHandler;
 use round_eliminator_lib::problem::Problem;
 use std::collections::HashMap;
