@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "linux"))]
 use mimalloc::MiMalloc;
-#[global_allocator]
 #[cfg(not(target_os = "linux"))]
+#[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 #[cfg(target_os = "linux")]
