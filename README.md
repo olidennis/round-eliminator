@@ -83,19 +83,20 @@ This seems to be related to some broken malloc implementation in the library inc
 You can find the precompiled binaries here:
 | Platform | Link |
 |--------------------------|-----------|
-| MacOS on Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_aarch64-apple-darwin) |
-| Linux on x64           | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.0_x64_linux) |
+| MacOS on Apple Silicon | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.1_aarch64_macos) |
+| Linux on x64           | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.1_x64_linux) |
+| Windows on x64 | [here](https://roundeliminator.github.io/releases/round-eliminator-benchmark_2.0.1_x64_windows.exe) |
 
 Otherwise, to compile it yourself, follow these instructions.
 After cloning the repository, do the following:
 ```
 cd round-eliminator/
-git reset --hard 0884823bd343b5a2d1011cf3dfd4c43d0db34c18
+git reset --hard 4f858f1c41e601e4988afa4bdadf7ad292b222c7
 cd round-eliminator-benchmark/
 rustup component add llvm-tools-preview
 cargo install cargo-pgo
 ```
-The following command will take a lot of time:
+Run the following command (it will take a lot of time):
 ```
 cargo pgo run -- -- -m -d
 ```
@@ -111,8 +112,10 @@ cargo pgo optimize run -- -- -s
 Results:
 | CPU          | OS | Single Thread Score | Multi Thread Score |
 |--------------|----|-----------------|--------------------|
-| Apple M1 Pro | MacOS 14.5 | 2069                | 16367              |
-| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2785 | 25242 |
+| AMD Ryzen 7 7800X3D | Windows 11 | 2660 | 25451   |
+| Apple M1 Pro | MacOS 14.5 | 2226  | 17466         |
+
+
 
 
 
