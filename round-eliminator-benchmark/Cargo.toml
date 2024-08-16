@@ -10,7 +10,7 @@ round-eliminator-lib = {path = "../round-eliminator-lib", default-features = fal
 sha256 = "1.5.0"
 clap = { version = "4.3.2", features = ["derive"] }
 num_cpus = "1.0"
-mimalloc = "0.1.43"
+
 
 [profile.release]
 debug = true 
@@ -22,5 +22,8 @@ debug = true
 [profile.bench]
 debug = true
 
-#[target.'cfg(not(target_env = "msvc"))'.dependencies]
-#tikv-jemallocator = "0.6"
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+mimalloc = "0.1.43"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = "0.6"

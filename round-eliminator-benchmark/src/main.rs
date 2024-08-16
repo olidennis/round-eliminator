@@ -1,11 +1,14 @@
+#[cfg(not(target_os = "linux"))]
 use mimalloc::MiMalloc;
 #[global_allocator]
+#[cfg(not(target_os = "linux"))]
 static GLOBAL: MiMalloc = MiMalloc;
-//#[cfg(not(target_env = "msvc"))]
-//use tikv_jemallocator::Jemalloc;
-//#[cfg(not(target_env = "msvc"))]
-//#[global_allocator]
-//static GLOBAL: Jemalloc = Jemalloc;
+
+#[cfg(target_os = "linux")]
+use tikv_jemallocator::Jemalloc;
+#[cfg(target_os = "linux")]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 use round_eliminator_lib::algorithms::fixpoint::FixpointType;
 use round_eliminator_lib::algorithms::event::EventHandler;
