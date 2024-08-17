@@ -57,20 +57,31 @@ First, add the following line in your dependencies in Cargo.toml:
 ```
 round-eliminator-lib = { git = "https://github.com/olidennis/round-eliminator.git", branch = "master", version = "0.1.0" }
 ```
-Then, add the following in the dependencies section in Cargo.toml:
+Then, add the following in Cargo.toml:
 ```
+[target.'cfg(not(target_os = "linux"))'.dependencies]
 mimalloc = "0.1.43"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = "0.6"
 ```
 
 Then, add the following at the beginning of main.rs:
 ```
+#[cfg(not(target_os = "linux"))]
 use mimalloc::MiMalloc;
+#[cfg(not(target_os = "linux"))]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
+
+#[cfg(target_os = "linux")]
+use tikv_jemallocator::Jemalloc;
+#[cfg(target_os = "linux")]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 ```
 
-Note: Mimalloc not only makes round eliminator 30% faster, but it seems to also fix an issue on MacOS. More in detail,
-without Mimalloc, on MacOS, on ARM CPUs, you may get random crashes, something like:
+Note: Mimalloc and Jemalloc make round eliminator roughly 30% faster. Mimalloc seems to be better on Windows and MacOS, while Jemalloc seems to be better on Linux. Moreover, not using the default allocator seems to also fix an issue on MacOS. More in detail, without Mimalloc, on MacOS, on ARM CPUs, you may get random crashes, something like:
 ```
 round-eliminator-server(75480,0x16cc4f000) malloc: *** error for object 0x60003ce07ff0: pointer being freed was not allocated
 round-eliminator-server(75480,0x16cc4f000) malloc: *** set a breakpoint in malloc_error_break to debug
@@ -91,7 +102,7 @@ Otherwise, to compile it yourself, follow these instructions.
 After cloning the repository, do the following:
 ```
 cd round-eliminator/
-git reset --hard 4f858f1c41e601e4988afa4bdadf7ad292b222c7
+git reset --hard 984a85e2415b74d2797093c54982c2cea11fb705
 cd round-eliminator-benchmark/
 rustup component add llvm-tools-preview
 cargo install cargo-pgo
@@ -112,6 +123,7 @@ cargo pgo optimize run -- -- -s
 Results:
 | CPU          | OS | Single Thread Score | Multi Thread Score |
 |--------------|----|-----------------|--------------------|
+| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2714 | 25368   |
 | AMD Ryzen 7 7800X3D | Windows 11 | 2660 | 25451   |
 | Apple M1 Pro | MacOS 14.5 | 2226  | 17466         |
 
