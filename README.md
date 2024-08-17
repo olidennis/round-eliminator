@@ -138,8 +138,8 @@ cargo pgo optimize run -- -- -s
 Results:
 | CPU          | OS | Single Thread Score | Multi Thread Score |
 |--------------|----|-----------------|--------------------|
-| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2714 | 25368   |
-| AMD Ryzen 7 7800X3D | Windows 11 | 2660 | 25451   |
+| AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2731 | 25265   |
+| AMD Ryzen 7 7800X3D | Windows 11 | 2613 | 25026   |
 | Apple M1 Pro | MacOS 14.5 | 2216  | 17647         |
 
 
