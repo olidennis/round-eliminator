@@ -66,9 +66,9 @@ impl Group {
     }
 
     pub fn ensure_sorted(&mut self) {
-        if !self.0.is_sorted() {
+        //if !self.0.is_sorted() {
             self.0.sort_unstable();
-        }
+        //}
     }
 
     pub fn shrink_to_fit(&mut self) {

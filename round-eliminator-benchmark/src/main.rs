@@ -45,6 +45,11 @@ fn test_and_report(is_multi : bool) {
     }
 }
 
+#[test]
+fn pgo_quick_test() {               
+    assert!(std::hint::black_box(round_eliminator_lib::test_all_short()) > 0);
+}
+
 fn main() {
     let args = Args::parse();
 

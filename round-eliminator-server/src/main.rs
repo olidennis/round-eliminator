@@ -24,11 +24,8 @@ use warp::{
 
 
 #[test]
-fn benchmark() {
-    let threads = num_cpus::get();
-    std::env::set_var("RE_NUM_THREADS", format!("{}",threads));  
-    std::env::set_var("RAYON_NUM_THREADS", format!("{}",threads));                  
-    assert!(std::hint::black_box(round_eliminator_lib::test_all()) > 0);
+fn pgo_quick_test() {               
+    assert!(std::hint::black_box(round_eliminator_lib::test_all_short()) > 0);
 }
 
 #[tokio::main]
