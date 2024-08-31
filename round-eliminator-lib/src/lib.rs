@@ -257,7 +257,7 @@ XYZ^2","bd816c9651ff06d6cd699cc44e4352586d6fc9205e734bdb74cc7639b6b9387d");
 fn testtest(){
     
     let d = 5;
-    let k = 1;
+    let k = 2;
 
     let letter = |i : usize|{ (b'a' + i as u8) as char };
 

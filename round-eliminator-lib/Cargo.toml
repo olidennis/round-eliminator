@@ -31,6 +31,8 @@ parking_lot = "0.12"
 varisat = { version = "0.2", optional = true }
 rustsat-minisat = { version = "0.3", optional = true }
 sha256 = {version = "1.5.0", default-features = false }
+bincode = "1.3.3"
+lz4_flex = "0.11.3"
 
 [features]
 default = ["all"]

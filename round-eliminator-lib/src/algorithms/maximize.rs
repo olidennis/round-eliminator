@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
-use dashmap::DashMap as CHashMap;
+use dashmap::{DashMap, DashSet};
 use parking_lot::RwLock;
 use streaming_iterator::StreamingIterator;
 use std::time::Instant;
 
+use crate::line::CompressedLine;
 use crate::{
     algorithms::multisets_pairing::Pairings,
     constraint::Constraint,
@@ -23,7 +24,7 @@ impl Constraint {
         eh: &mut EventHandler,
         allow_empty : bool,
         track_unions : bool,
-        tracking : Option<&CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>,
+        tracking : Option<&DashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>>,
         f_is_superset : FS,
         f_union : FU,
         f_intersection : FI
@@ -36,23 +37,24 @@ impl Constraint {
 
         let becomes_star = 100;
 
-        let seen = CHashMap::new();
-        let mut seen_pairs = CHashMap::<(usize,usize),()>::new();
-        let next_id = AtomicUsize::new(1);
+        let seen = DashSet::new();
+        let mut lines_of_previous_step = HashSet::new();
 
         let lines = std::mem::take(&mut self.lines);
         let empty = self.clone();
         for mut line in lines {
             line.normalize();
-            seen.insert(line.clone(),next_id.fetch_add(1,Ordering::SeqCst));
+            //seen.insert(line.compressed());
             self.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(f_is_superset));
         }
 
         loop {
-            let lines = &self.lines;
-            let useful_ids : HashSet<usize> = lines.iter().map(|line|*seen.get(line).unwrap()).collect();
-            seen_pairs = seen_pairs.into_iter().filter(|((p1,p2),_)| useful_ids.contains(p1) && useful_ids.contains(p2)).collect();
 
+            seen.clear();
+
+            let lines = &self.lines;
+
+            let lines_of_current_step = lines.iter().cloned().collect();
             let without_one = without_one(lines);
 
             #[cfg(target_arch = "wasm32")]
@@ -64,15 +66,11 @@ impl Constraint {
                     for j in 0..=i {
                         eh.notify("combining line pairs", (2. * (i * (i+1)/2 + j) as f64).sqrt() as usize, len);
 
-                        let id1 = *seen.get(&lines[i]).unwrap();
-                        let id2 = *seen.get(&lines[j]).unwrap();
-                        let pair = (id1,id2);
-                        if seen_pairs.contains_key(&pair)
-                            || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
+                        if lines_of_previous_step.contains(&lines[i]) && 
+                            lines_of_previous_step.contains(&lines[j])
                         {
                             continue;
                         }
-                        seen_pairs.insert(pair,());
 
                         let (candidates,_,how) = combine_lines_custom(
                             &lines[i],
@@ -80,7 +78,6 @@ impl Constraint {
                             &without_one[i],
                             &without_one[j],
                             &seen,
-                            Some(&next_id),
                             becomes_star,
                             allow_empty,
                             track_unions,
@@ -120,35 +117,37 @@ impl Constraint {
                 let newconstraint = std::sync::Arc::new(RwLock::new(v));
 
                 crossbeam::scope(|s| {
-                    let (in_tx, in_rx) =  crossbeam_channel::unbounded();
-                    let (out_tx, out_rx) =  crossbeam_channel::unbounded();
+                    let (in_tx, in_rx) =  crossbeam_channel::bounded(128);
+                    let (out_tx, out_rx) =  crossbeam_channel::bounded(128);
                     let (progress_tx, progress_rx) : (crossbeam_channel::Sender<()>,crossbeam_channel::Receiver<()>)  =  crossbeam_channel::unbounded();
                     let (progress2_tx, progress2_rx) : (crossbeam_channel::Sender<()>,crossbeam_channel::Receiver<()>)  =  crossbeam_channel::unbounded();
 
-                    let seen_pairs = &seen_pairs;
+                    let lines_of_previous_step = &lines_of_previous_step;
                     let seen = &seen;
                     let lines = &lines;
                     let without_one = &without_one;
     
+                    s.spawn(|_|{
+                        for i in 0..lines.len() {
+                            for j in 0..=i {
+                                in_tx.send((i,j)).unwrap();
+                            }
+                        }
+                        drop(in_tx);
+                    });
 
                     for thread_num in 0..std::cmp::max(1,n_workers) {
-                        let (in_tx, in_rx) : (crossbeam_channel::Sender<(usize,usize)>,crossbeam_channel::Receiver<(usize,usize)>) = (in_tx.clone(), in_rx.clone());
-                        let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
-                        let (progress2_tx, progress2_rx) = (progress2_tx.clone(), progress2_rx.clone());
-                        let next_id = &next_id;
+                        let in_rx = in_rx.clone();
+                        let out_tx = out_tx.clone();
+                        let progress2_tx = progress2_tx.clone();
                         s.spawn(move |_|{
                             while let Ok((i,j)) = in_rx.recv() {
-                                let id1 = *seen.get(&lines[i]).unwrap();
-                                let id2 = *seen.get(&lines[j]).unwrap();
-                                let pair = (id1,id2);
-                                //let pair = (lines[i].clone(), lines[j].clone());
-                                if seen_pairs.contains_key(&pair)
-                                    || seen_pairs.contains_key(&(pair.1.clone(), pair.0.clone()))
+                                if lines_of_previous_step.contains(&lines[i]) && 
+                                   lines_of_previous_step.contains(&lines[j])
                                 {
                                     out_tx.send(vec![]).unwrap();
                                     continue;
                                 }
-                                seen_pairs.insert(pair,());
 
                                 let (candidates,_,how) = combine_lines_custom(
                                     &lines[i],
@@ -156,7 +155,6 @@ impl Constraint {
                                     &without_one[i],
                                     &without_one[j],
                                     &seen,
-                                    Some(&next_id),
                                     becomes_star,
                                     allow_empty,
                                     track_unions,
@@ -177,20 +175,12 @@ impl Constraint {
                         });
                     }
 
-                    //println!("number of lines: {}",lines.len());
-                    for i in 0..lines.len() {
-                        for j in 0..=i {
-                            in_tx.send((i,j)).unwrap();
-                        }
-                    }
-                    drop(in_tx);
-
                     for thread_num in 0..std::cmp::max(1,n_workers) {
                         if n_workers == 0  {
                             progress2_rx.recv().unwrap();
                         }
-                        let (out_tx, out_rx) = (out_tx.clone(), out_rx.clone());
-                        let (progress_tx, progress_rx) = (progress_tx.clone(), progress_rx.clone());
+                        let out_rx = out_rx.clone();
+                        let progress_tx = progress_tx.clone();
                         let newconstraint = newconstraint.clone();
                         s.spawn(move |_|{
                             //let mut times = 0;
@@ -252,6 +242,22 @@ impl Constraint {
                     for received in 0..total {
                         progress_rx.recv().unwrap();
                         if last_notify.elapsed().as_millis() > 100 {
+                            //println!("total lines={}",newconstraint.read().len());
+                            //println!("seen size={}",seen.len());
+
+                            //println!("real lines={}",newconstraint.read().iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count());
+                            /*let lines : usize = seen.len();
+                            let parts : usize = seen.clone().into_iter().map(|line|
+                                line.parts.len()
+                            ).sum();
+                            let labels : usize = seen.clone().into_iter().map(|line|
+                                line.parts.iter().map(|part|part.group.as_vec().len()).sum::<usize>()
+                            ).sum();
+
+                            let size : usize = seen.clone().into_iter().map(|line|
+                                16*line.parts.len() + line.parts.iter().map(|part|16*part.group.len() + part.group.as_vec().len()*4).sum::<usize>()
+                            ).sum();
+                            println!("lines={} parts={} labels={} size={}",lines,parts,labels,size);*/
                             eh.notify("combining line pairs", (2. *received as f64).sqrt() as usize, len);
                             last_notify = Instant::now();
                         }
@@ -273,6 +279,8 @@ impl Constraint {
                 break;
             }
             *self = newconstraint;
+
+            lines_of_previous_step = lines_of_current_step;
         }
 
         self.is_maximized = true;
@@ -465,8 +473,7 @@ pub fn combine_lines_custom<FS,FU,FI>(
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
-    seen: &CHashMap<Line,usize>,
-    line_id: Option<&AtomicUsize>,
+    seen: &DashSet<CompressedLine>,
     becomes_star: usize,
     allow_empty : bool,
     track_unions : bool,
@@ -515,8 +522,9 @@ pub fn combine_lines_custom<FS,FU,FI>(
                         normalization_map.push(old_positions);
                     }
                 }
-                if !seen.contains_key(&newline) {
-                    seen.insert(newline.clone(),if let Some(line_id) = line_id { line_id.fetch_add(1, Ordering::SeqCst) } else {0});
+                let compressed = newline.compressed();
+                if !seen.contains(&compressed) {
+                    seen.insert(compressed);
                     if track_unions {
                         line_to_unions.entry(newline.clone()).or_default().insert((x,y));
                     }
@@ -538,7 +546,7 @@ fn combine_lines(
     l2: &Line,
     l1_without_one: &[Line],
     l2_without_one: &[Line],
-    seen: &CHashMap<Line,usize>,
+    seen: &DashSet<CompressedLine>,
     becomes_star: usize,
     allow_empty : bool
 ) -> Vec<Line> {
@@ -546,7 +554,7 @@ fn combine_lines(
     let f_union = |g1 : &Group ,g2 : &Group |{ g1.union(g2) };
     let f_intersection = |g1 : &Group ,g2 : &Group |{ g1.intersection(g2) };
 
-    combine_lines_custom(l1, l2, l1_without_one, l2_without_one, seen, None, becomes_star, allow_empty, false, false, f_is_superset, f_union, f_intersection).0
+    combine_lines_custom(l1, l2, l1_without_one, l2_without_one, seen, becomes_star, allow_empty, false, false, f_is_superset, f_union, f_intersection).0
 }
 
 

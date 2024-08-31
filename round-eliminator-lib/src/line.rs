@@ -73,7 +73,36 @@ impl Line {
         }
         Degree::Finite(s as usize)
     }
+
+    pub fn compressed(&self) -> CompressedLine {
+        let mut v = vec![];
+        for part in &self.parts {
+            v.push(CompressedLineEntry::NewPart(part.gtype));
+            let mut prev = None;
+            for &label in part.group.iter() {
+                if let Some(prev) = prev {
+                    v.push(CompressedLineEntry::Label(label - prev));
+                } else {
+                    v.push(CompressedLineEntry::Label(label));
+                }
+                prev = Some(label);
+            }
+        }
+        v.shrink_to_fit();
+        let encoded: Vec<u8> = bincode::serialize(&v).unwrap();
+        let mut compressed = lz4_flex::compress_prepend_size(&encoded[..]);
+        compressed.shrink_to_fit();
+        compressed
+    }
 }
+pub type CompressedLine = Vec<u8>;
+
+#[derive(Clone,Hash,Eq,PartialEq, PartialOrd,Ord,Debug,Serialize)]
+pub enum CompressedLineEntry{
+    NewPart(GroupType),
+    Label(Label),
+}
+
 
 #[cfg(test)]
 mod tests {
