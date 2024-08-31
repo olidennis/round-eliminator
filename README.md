@@ -15,7 +15,7 @@ Note: the link above points to the wasm version, which runs directly in the brow
 
 ### Precompiled binaries
 The easier option is to just run the precompiled binaries.
-Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.2.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently, the archive contains binaries for MacOS on Apple Silicon, Windows on x64, and Linux on x64). 
+Download [round-eliminator-server.zip](https://roundeliminator.github.io/releases/round-eliminator-server_2.0.3.zip). Unpack it. Move to round-eliminator-server/bin/ and run the appropriate binary (currently, the archive contains binaries for MacOS on Apple Silicon, Windows on x64, and Linux on x64). 
 Then, visit the url [http://127.0.0.1:8080/server](http://127.0.0.1:8080/server).
 
 ### Compile On Linux (Ubuntu)
