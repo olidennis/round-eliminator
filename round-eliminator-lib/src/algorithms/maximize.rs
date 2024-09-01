@@ -259,7 +259,10 @@ impl Constraint {
                     for received in 0..total {
                         progress_rx.recv().unwrap();
                         if last_notify.elapsed().as_millis() > 100 {
-                            eh.notify("combining line pairs", (2. *received as f64).sqrt() as usize, len);
+                            let a = (2. *received as f64).sqrt() as usize;
+                            let b = if len > 0 { len } else {1};
+                            let a = b * (a*a)  / (b*b);
+                            eh.notify("combining line pairs", a,b);
                             last_notify = Instant::now();
                         }
                     }
