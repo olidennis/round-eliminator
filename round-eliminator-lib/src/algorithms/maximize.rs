@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
 use dashmap::{DashMap, DashSet};
 use parking_lot::RwLock;
@@ -114,7 +114,8 @@ impl Constraint {
                 for line in self.lines.iter() {
                     v.push((AtomicBool::new(false),line.clone()));
                 }
-                let newconstraint = std::sync::Arc::new(RwLock::new(v));
+                //let newconstraint = std::sync::Arc::new(RwLock::new(v));
+                let newconstraint = std::sync::Arc::new(v);
 
                 crossbeam::scope(|s| {
                     let (in_tx, in_rx) =  crossbeam_channel::bounded(128);
@@ -174,6 +175,7 @@ impl Constraint {
                             }
                         });
                     }
+                    drop(out_tx);
 
                     for thread_num in 0..std::cmp::max(1,n_workers) {
                         if n_workers == 0  {
@@ -184,6 +186,8 @@ impl Constraint {
                         let newconstraint = newconstraint.clone();
                         s.spawn(move |_|{
                             //let mut times = 0;
+                            let mut goodlines = VecDeque::new();
+
                             while let Ok(candidates) = out_rx.recv() {
                                 //times += 1;
                                 /*if thread_num == 0 && times % 128 == 0 {
@@ -203,15 +207,28 @@ impl Constraint {
                                     //}
                                 }*/
 
-                                let newconstraint = newconstraint.read();
+                                //let newconstraint = newconstraint.read();
 
                                 for newline in candidates {
-                                    let (is_not_included,checked_len) = 'outer : {
+                                    let (is_not_included,checked_len) = {
                                         let len = newconstraint.len();
-                                        (newconstraint.iter().take(len).rev()
-                                            .filter(|(removed,_)|!removed.load(Ordering::Relaxed))
-                                            .all(|(_,oldline)| !oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))),
-                                        len)
+                                        let cache_size = len * 4 / 100;
+                                        if goodlines.iter().any(|oldline : &Line| oldline.includes_with_custom_supersets(&newline, Some(f_is_superset))) {
+                                            (false,0)
+                                        } else {
+                                            let dominating_position = newconstraint.iter().enumerate().take(len).rev()
+                                                .filter(|(_,(removed,_))|!removed.load(Ordering::Relaxed))
+                                                .find(|(_,(_,oldline))| oldline.includes_with_custom_supersets(&newline, Some(f_is_superset)))
+                                                .map(|(i,_)|i);
+                                            if let Some(dominating_position) = dominating_position {
+                                                let line = newconstraint[dominating_position].1.clone();
+                                                goodlines.push_front(line);
+                                                if goodlines.len() > cache_size {
+                                                    goodlines.pop_back();
+                                                }
+                                            }
+                                            (dominating_position.is_none(),len)
+                                        }
                                     };
                                     if is_not_included {
                                         let added_pos = newconstraint.push((AtomicBool::new(false),newline.clone()));
@@ -242,31 +259,13 @@ impl Constraint {
                     for received in 0..total {
                         progress_rx.recv().unwrap();
                         if last_notify.elapsed().as_millis() > 100 {
-                            //println!("total lines={}",newconstraint.read().len());
-                            //println!("seen size={}",seen.len());
-
-                            //println!("real lines={}",newconstraint.read().iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count());
-                            /*let lines : usize = seen.len();
-                            let parts : usize = seen.clone().into_iter().map(|line|
-                                line.parts.len()
-                            ).sum();
-                            let labels : usize = seen.clone().into_iter().map(|line|
-                                line.parts.iter().map(|part|part.group.as_vec().len()).sum::<usize>()
-                            ).sum();
-
-                            let size : usize = seen.clone().into_iter().map(|line|
-                                16*line.parts.len() + line.parts.iter().map(|part|16*part.group.len() + part.group.as_vec().len()*4).sum::<usize>()
-                            ).sum();
-                            println!("lines={} parts={} labels={} size={}",lines,parts,labels,size);*/
                             eh.notify("combining line pairs", (2. *received as f64).sqrt() as usize, len);
                             last_notify = Instant::now();
                         }
                     }
-                    //println!("It took {}s",now.elapsed().as_secs());
-
                 }).unwrap();
 
-                let newconstraint = newconstraint.read();
+                //let newconstraint = newconstraint.read();
                 //let c1 = newconstraint.iter().filter(|(removed,_)|!removed.load(Ordering::SeqCst)).count();
                 //let c2 = newconstraint.iter().filter(|(removed,_)|removed.load(Ordering::SeqCst)).count();
                 //println!("bad {}, good {}",c2,c1);
