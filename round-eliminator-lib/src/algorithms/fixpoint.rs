@@ -253,6 +253,17 @@ pub enum FixpointType{
 
 impl Problem {
 
+    pub fn fixpoint_diagram_from_current_labels(&self) -> String {
+        let diagram = self.diagram_indirect.clone().unwrap();
+        let text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+
+        let diagram = diagram.iter().map(|(a,b)|{
+            format!("{} -> {}",text[a],text[b])
+        }).join("\n");
+        let mapping = self.labels().iter().map(|l|format!("{} = {}",text[l],text[l])).join("\n");
+        format!("# mapping from original labels to diagram labels\n{}\n# diagram edges\n{}\n",mapping,diagram)
+    }
+
     pub fn compute_default_fixpoint_diagram(&mut self, labels : Option<Vec<Label>>, eh: &mut EventHandler) {
         if let Some(sublabels) = &labels {
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);

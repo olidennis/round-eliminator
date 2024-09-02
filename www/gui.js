@@ -1645,8 +1645,8 @@ Vue.component('re-fixpoint',{
             </div>
             <div v-else class="m-2">
                 <re-fixpoint-dup :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-dup>
-                <re-fixpoint-custom :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-custom>
             </div>
+            <re-fixpoint-custom :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-custom>
         </re-card>
     `
 })
@@ -1695,9 +1695,26 @@ Vue.component('re-fixpoint-loop',{
 
 Vue.component('re-fixpoint-custom',{
     props: ['problem','stuff','partial','table','triviality_only'],
-    data: function(){ return {
-            text : this.problem.fixpoint_diagram[1].text,
-        }    
+    data: function(){ 
+        if( this.problem.fixpoint_diagram != null ){
+            return {
+                text : this.problem.fixpoint_diagram[1].text,
+            } 
+        } else {
+            let s = "# mapping from original labels to diagram labels\n";
+            for( let node of this.problem.diagram_direct[0] ){
+                for( let label of node[1] ){
+                    s += this.problem.map_label_text[label] + " = " + this.problem.map_label_text[label] + "\n";
+                }            
+            }
+            s += "# diagram edges\n";
+            for( let edge of this.problem.diagram_direct[1] ){
+                s += this.problem.map_label_text[edge[0]] + " -> " + this.problem.map_label_text[edge[1]] + "\n";
+            }
+            return {
+                text : s,
+            }  
+        } 
     },
     watch: { 
         // for some unknown reason, vue updates the template values when the prop "problem" changes, but it does not update the values of the variables contained in "data"
