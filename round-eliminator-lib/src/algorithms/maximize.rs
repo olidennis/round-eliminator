@@ -164,7 +164,7 @@ impl Constraint {
                                 );
                                 if let Some(tracking) = tracking {
                                     for (a,b) in how.into_iter() {
-                                        tracking.insert(a,b);
+                                        tracking.entry(a).or_insert(b);
                                     }
                                 }
                                 out_tx.send(candidates).unwrap();

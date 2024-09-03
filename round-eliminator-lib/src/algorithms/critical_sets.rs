@@ -82,9 +82,10 @@ impl Problem {
                 let newp = self.replace_passive(temp);
                 let mut zerocheck = newp.clone();
                 
+                let mut colors = colors.clone();
+                let mut colors_passive = colors_passive.clone();
+
                 if !zerocheck.is_trivial_given_input(colors, eh) {
-                    let mut colors = colors.clone();
-                    let mut colors_passive = colors_passive.clone();
                     for _ in 0..zero {
                         zerocheck = zerocheck.speedup(eh);
                         std::mem::swap(&mut colors, &mut colors_passive);
