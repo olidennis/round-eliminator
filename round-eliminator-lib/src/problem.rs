@@ -33,6 +33,30 @@ pub struct Problem {
 pub type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
 
 impl Problem {
+
+    pub fn replace_passive(&self, passive : Constraint) -> Self {
+        Self {
+            active : self.active.clone(),
+            passive,
+            passive_gen : None,
+            mapping_label_text : self.mapping_label_text.clone(),
+            mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
+            mapping_oldlabel_labels: self.mapping_oldlabel_labels.clone(),
+            mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
+            diagram_direct: None,
+            diagram_indirect_old: None,
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
+            orientation_given: None,
+            fixpoint_diagram : None,
+            fixpoint_procedure_works : None,
+            marks_works : None
+        }
+    }
+
     pub fn from_string_active_passive<S: AsRef<str>>(
         active: S,
         passive: S,

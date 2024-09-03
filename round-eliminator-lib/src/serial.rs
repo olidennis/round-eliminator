@@ -28,6 +28,23 @@ pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality
     new.compute_passive_gen();
 }
 
+pub fn maximize_rename_gen(new : &mut Problem, eh : &mut EventHandler) -> Result<(), &'static str> {
+    new.passive.maximize(eh);
+    new.compute_diagram(eh);
+    new.discard_useless_stuff(true, eh);
+    new.sort_active_by_strength();
+    new.compute_triviality(eh);
+    if new.passive.degree == Degree::Finite(2) {
+        new.compute_coloring_solvability(eh);
+        if let Some(outdegree) = new.orientation_given {
+            new.compute_triviality_given_orientation(outdegree, eh);
+            new.compute_coloring_solvability_given_orientation(outdegree, eh);
+        }
+    }
+    new.compute_passive_gen();
+    new.rename_by_generators()
+}
+
 pub fn request_json<F>(req: &str, f: F)
 where
     F: Fn(String, bool),
@@ -162,20 +179,7 @@ where
                 problem.compute_partial_diagram(&mut eh);
             }
             let mut new = problem.speedup(&mut eh);
-            new.passive.maximize(&mut eh);
-            new.compute_diagram(&mut eh);
-            new.discard_useless_stuff(true, &mut eh);
-            new.sort_active_by_strength();
-            new.compute_triviality(&mut eh);
-            if new.passive.degree == Degree::Finite(2) {
-                new.compute_coloring_solvability(&mut eh);
-                if let Some(outdegree) = new.orientation_given {
-                    new.compute_triviality_given_orientation(outdegree, &mut eh);
-                    new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
-                }
-            }
-            new.compute_passive_gen();
-            match new.rename_by_generators() {
+            match maximize_rename_gen(&mut new, &mut eh) {
                 Ok(()) => {
                     handler(Response::P(new));
                 }
@@ -306,6 +310,35 @@ where
                 handler(Response::E("There is some problem with the given pattern".into()));
             }            
         }
+        Request::CriticalHarden(problem, b_coloring, coloring, b_coloring_passive, coloring_passive, zerosteps, keep_predecessors, b_maximize_rename) => {
+            let mut new = problem.critical_harden(zerosteps, if b_coloring{ Some(coloring) } else {None}, if b_coloring_passive{ Some(coloring_passive) } else {None}, keep_predecessors, &mut eh);
+            if !b_maximize_rename {
+                fix_problem(&mut new, true, true, &mut eh);
+                handler(Response::P(new));
+            } else {
+                match maximize_rename_gen(&mut new, &mut eh) {
+                    Ok(()) => {
+                        handler(Response::P(new));
+                    }
+                    Err(s) => handler(Response::E(s.into())),
+                }
+            }
+        },
+        Request::CriticalRelax(problem, b_coloring, coloring, b_coloring_passive, coloring_passive, zerosteps, b_maximize_rename) => {
+            let mut new = problem.critical_relax(zerosteps, if b_coloring{ Some(coloring) } else {None},if b_coloring_passive{ Some(coloring_passive) } else {None}, &mut eh);
+            if !b_maximize_rename {
+                fix_problem(&mut new, true, true, &mut eh);
+                handler(Response::P(new));
+            } else {
+                new = new.speedup(&mut eh);
+                match maximize_rename_gen(&mut new, &mut eh) {
+                    Ok(()) => {
+                        handler(Response::P(new));
+                    }
+                    Err(s) => handler(Response::E(s.into())),
+                }
+            }
+        }
     }
 
     handler(Response::Done);
@@ -339,6 +372,8 @@ pub enum Request {
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     ColoringSolvability(Problem),
     Marks(Problem),
+    CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
+    CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
     Ping,
 }
 

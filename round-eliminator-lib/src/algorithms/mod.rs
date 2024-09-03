@@ -24,3 +24,4 @@ pub mod fixpoint;
 pub mod multigraph;
 pub mod marks;
 pub mod merge_subdiagram;
+pub mod critical_sets;

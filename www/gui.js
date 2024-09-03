@@ -124,6 +124,17 @@ function harden_remove(problem, label, keep_predecessors, onresult, onerror, pro
     return api.request({ HardenRemove : [problem, parseInt(label), keep_predecessors] }, ondata , function(){});
 }
 
+function critical_harden(problem, b_coloring, coloring, b_coloring_passive, coloring_passive, zerosteps, keep_predecessors, b_maximize_rename, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ CriticalHarden : [problem, b_coloring, parseInt(coloring), b_coloring_passive, parseInt(coloring_passive), parseInt(zerosteps), keep_predecessors, b_maximize_rename] }, ondata , function(){});
+}
+
+function critical_relax(problem, b_coloring, coloring, b_coloring_passive, coloring_passive, zerosteps, b_maximize_rename, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ CriticalRelax : [problem, b_coloring, parseInt(coloring), b_coloring_passive, parseInt(coloring_passive), parseInt(zerosteps), b_maximize_rename] }, ondata , function(){});
+}
+
+
 function harden_keep(problem, labels, keep_predecessors, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ HardenKeep : [problem, labels.map(x => parseInt(x)), keep_predecessors] }, ondata , function(){});
@@ -319,6 +330,10 @@ Vue.component('re-performed-action', {
                     return "Performed SubDiagram Merging\n" + this.action.sd;
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
+                case "criticalharden":
+                    return "Performed Hardening by Critical Sets";
+                case "criticalrelax":
+                    return "Performed Relaxation by Critical Sets";
                 case "orientation":
                     return "Gave input orientation. Outdegree = " + this.action.outdegree;
                 case "speedup":
@@ -1076,6 +1091,56 @@ Vue.component('re-harden-remove',{
 })
 
 
+Vue.component('re-critical',{
+    props: ['problem','stuff'],
+    data : function() {return {
+        b_coloring : false,
+        b_coloring_passive : false,
+        b_maximize_rename : true,
+        coloring : (this.problem.active.degree.Finite != null && this.problem.passive.degree.Finite != null) ? (this.problem.active.degree.Finite*(this.problem.passive.degree.Finite - 1) +1) : 4,
+        coloring_passive : (this.problem.active.degree.Finite != null && this.problem.passive.degree.Finite != null) ? (this.problem.passive.degree.Finite*(this.problem.active.degree.Finite - 1) +1) : 4,
+        zerosteps : 1,
+        keep_predecessors : true
+    }},
+    methods: {
+        on_harden() {
+            call_api_generating_problem(
+                this.stuff,
+                {type:"criticalharden"},
+                critical_harden,[this.problem, this.b_coloring, this.coloring, this.b_coloring_passive, this.coloring_passive, this.zerosteps, this.keep_predecessors, this.b_maximize_rename]
+            );
+        },
+        on_relax() {
+            call_api_generating_problem(
+                this.stuff,
+                {type:"criticalrelax"},
+                critical_relax,[this.problem, this.b_coloring, this.coloring, this.b_coloring_passive, this.coloring_passive, this.zerosteps, this.b_maximize_rename]
+            );
+        }
+    },
+    template: `
+        <re-card title="Critical Sets" subtitle="(harden or relax by using critical sets)">
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_coloring"><p class="form-control-static custom-control-label">A coloring is given</p></label>
+            </div>
+            <div v-if="this.b_coloring">Coloring: <input class="form-control m-2" type="number" v-model="coloring"></div>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_coloring_passive"><p class="form-control-static custom-control-label">A coloring is given (passive side)</p></label>
+            </div>
+            <div v-if="this.b_coloring_passive">Coloring: <input class="form-control m-2" type="number" v-model="coloring_passive"></div>
+            
+            <div>Steps for checking triviality: <input class="form-control m-2" type="number" v-model="zerosteps"></div>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="keep_predecessors"><p class="form-control-static custom-control-label">(On Harden) Replace With Predecessors</p></label>
+            </div>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="b_maximize_rename"><p class="form-control-static custom-control-label">Also maximize and rename by generators</p></label>
+            </div>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_harden">Harden</button>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_relax">Relax</button>
+        </re-card>
+    `
+})
 
 
 
@@ -1399,6 +1464,7 @@ Vue.component('re-tools', {
             <re-group-harden :problem="problem" :stuff="stuff"></re-group-harden>
             <re-rename :problem="problem" :stuff="stuff"></re-rename>
             <re-fixpoint :problem="problem" :stuff="stuff"></re-fixpoint>
+            <re-critical :problem="problem" :stuff="stuff"></re-critical>
             <re-auto-lb :problem="problem" :stuff="stuff"></re-auto-lb>
             <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
         </div>
