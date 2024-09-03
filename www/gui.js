@@ -1223,12 +1223,28 @@ Vue.component('re-sd-simplify',{
                 {type:"simplifymergesd", sd:this.text},
                 simplify_merge_sd,[this.problem, this.text]
             );
+        },
+        on_magic(){
+            this.text = `t A new
+c A in > 0
+c A out == 1
+c B out == 0
+e A B
+m A B
+
+t A new
+t B new
+c A in > 0
+c A out == 1
+e A B
+m A B`;
         }
     },
     template: `
         <re-card title="SubDiagram Merge" subtitle="(... still need a good description ...)">
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_magic"></button>
             <textarea rows="4" cols="30" class="form-control m-1" v-model="text"></textarea>
-            <button type="button" class="btn btn-primary ml-2" v-on:click="on_sd">Merge</button>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_sd">Merge</button>
         </re-card>
     `
 })
