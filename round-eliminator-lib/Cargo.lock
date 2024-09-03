@@ -945,7 +945,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 
 [[package]]
 name = "round-eliminator-lib"
-version = "2.0.6"
+version = "2.0.7"
 dependencies = [
  "append-only-vec",
  "bincode",
