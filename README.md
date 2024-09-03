@@ -64,6 +64,7 @@ Then, add the following to Cargo.toml:
 ```
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 mimalloc = "0.1.43"
+libmimalloc-sys = {version="0.1.39", features=["extended"]}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.6"
@@ -83,6 +84,12 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 ```
+Then, in your main function, add the following:
+```
+    #[cfg(not(target_os = "linux"))]
+    unsafe{ libmimalloc_sys::mi_option_set(26, 0) }
+```
+These two lines fix some issue introduced in MiMalloc 2.1.4 on Windows. In particular, these lines disable the option `mi_option_abandoned_reclaim_on_free`, which on Windows seems to drastically increase the memory usage (while using the automatic upper bound feature of round eliminator, the memory usage with the option disabled is in the ballpark of 50MB, but with the option enabled it quickly uses all the memory of the machine).
 
 Note: Mimalloc and Jemalloc make Round Eliminator roughly 30% faster. Mimalloc seems to be better on Windows and MacOS, while Jemalloc seems to be better on Linux. Moreover, not using the default allocator seems to also fix an issue on MacOS. More in detail, without Mimalloc, on MacOS, on ARM CPUs, you may get random crashes, something like:
 ```
