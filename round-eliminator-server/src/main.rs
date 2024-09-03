@@ -30,6 +30,8 @@ fn pgo_quick_test() {
 
 #[tokio::main]
 async fn main() {
+    #[cfg(not(target_os = "linux"))]
+    unsafe{ libmimalloc_sys::mi_option_set(26, 0) }
     server("127.0.0.1:8080").await; 
 }
 

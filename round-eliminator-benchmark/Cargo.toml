@@ -24,6 +24,7 @@ debug = true
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 mimalloc = "0.1.43"
+libmimalloc-sys = {version="0.1.39", features=["extended"]}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.6"

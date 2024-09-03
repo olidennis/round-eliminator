@@ -51,6 +51,9 @@ fn pgo_quick_test() {
 }
 
 fn main() {
+    #[cfg(not(target_os = "linux"))]
+    unsafe{ libmimalloc_sys::mi_option_set(26, 0) }
+    
     let args = Args::parse();
 
     let threads = args.threads.unwrap_or(num_cpus::get());    
