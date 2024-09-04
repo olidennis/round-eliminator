@@ -29,7 +29,8 @@ impl Problem {
             orientation_given: self.orientation_given,
             fixpoint_diagram : None,
             fixpoint_procedure_works : None,
-            marks_works : None
+            marks_works : None,
+            demisifiable : None
         }
     }
 
@@ -71,7 +72,8 @@ impl Problem {
             orientation_given: self.orientation_given,
             fixpoint_diagram : None,
             fixpoint_procedure_works : None,
-            marks_works : None
+            marks_works : None,
+            demisifiable : None
         }
     }
 
@@ -96,7 +98,8 @@ impl Problem {
             orientation_given: self.orientation_given,
             fixpoint_diagram : None,
             fixpoint_procedure_works : None,
-            marks_works : None
+            marks_works : None,
+            demisifiable : None
         }
     }
 }

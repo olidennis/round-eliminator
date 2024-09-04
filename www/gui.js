@@ -44,6 +44,11 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
+function demisifiable(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Demisifiable : problem }, ondata , function(){});
+}
+
 function fixpoint_gendefault(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ DefaultDiagram : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
@@ -198,9 +203,10 @@ function fix_problem(p) {
     let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
+    let demisifiable = (problem.demisifiable ?? []).map(x => labelset_to_string(x,problem.map_label_text));
+    let is_demisifiable = demisifiable.length > 0;
     if( p.fixpoint_diagram !== null ){
         p.fixpoint_diagram[1].map_label_text = vec_to_map(p.fixpoint_diagram[1].mapping_newlabel_text);
-
     }
     let fp_procedure_works = (problem.fixpoint_procedure_works != null && problem.fixpoint_procedure_works);
     let fp_procedure_does_not_work = (problem.fixpoint_procedure_works != null && !problem.fixpoint_procedure_works);
@@ -208,7 +214,7 @@ function fix_problem(p) {
     let marks_works = (problem.marks_works != null && problem.marks_works);
     let marks_does_not_work = (problem.marks_works != null && !problem.marks_works);
 
-    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work };
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work };
 }
 
 
@@ -338,6 +344,8 @@ Vue.component('re-performed-action', {
                     return "Gave input orientation. Outdegree = " + this.action.outdegree;
                 case "speedup":
                     return "Performed speedup";
+                case "demisifiable":
+                    return "Computed deMISifiable sets.";
                 case "fixpoint-basic":
                     return "Generated Fixed Point with Default Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
                 case "fixpoint-gendefault":
@@ -440,6 +448,8 @@ Vue.component('re-computing', {
                     return {bar : false, msg: "Computing new labels"};
                 case "enumerating configurations":
                     return {bar : false, msg: "Enumerating configurations"};
+                case "demisifiable":
+                    return {bar : true, msg: "Computing deMISifiable sets", max : this.action.max, cur : this.action.cur };
                 case "combining line pairs":
                     return {bar : true, msg: "Maximizing, combining lines ("+this.action.max+")", max : this.action.max, cur : this.action.cur };
                 case "triviality":
@@ -557,6 +567,15 @@ Vue.component('re-problem-info', {
                     </div>
                 </div>
             </div>
+            <div class="w-100"/>
+            <div v-if="this.problem.info.is_demisifiable" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>DeMISifiable merges:
+                        <span v-for="set in this.problem.info.demisifiable">{{ set }} </span>
+                    </div>
+                </div>
+            </div>
+            <div class="w-100"/>
             <div v-if="this.problem.info.fp_procedure_works" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem can be relaxed into a non-trivial fixed point.</div>
@@ -848,6 +867,18 @@ Vue.component('re-speedup',{
     },
     template: `
         <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Speedup</button>
+    `
+})
+
+Vue.component('re-demisifiable',{
+    props: ['problem','stuff'],
+    methods: {
+        on_demisifiable() {
+            call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">DeMISifiable</button>
     `
 })
 
@@ -1461,6 +1492,7 @@ Vue.component('re-operations',{
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
             <div class="m-2" v-if="this.problem.info.numcolors == -1"><re-coloring :problem="problem" :stuff="stuff"></re-coloring> compute hypergraph strong coloring solvability</div>
             <div class="m-2"><re-marks :problem="problem" :stuff="stuff"></re-marks> apply Marks' technique</div>
+            <div class="m-2"><re-demisifiable :problem="problem" :stuff="stuff"></re-demisifiable> compute reversible merges</div>
         </re-card>
     `
 })

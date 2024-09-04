@@ -339,6 +339,10 @@ where
                 }
             }
         }
+        Request::Demisifiable(mut p) => {
+            p.compute_demisifiable(&mut eh);
+            handler(Response::P(p));
+        }
     }
 
     handler(Response::Done);
@@ -374,6 +378,7 @@ pub enum Request {
     Marks(Problem),
     CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
+    Demisifiable(Problem),
     Ping,
 }
 
