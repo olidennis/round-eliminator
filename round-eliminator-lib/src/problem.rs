@@ -108,9 +108,10 @@ impl Problem {
     }
 
     pub fn labels(&self) -> Vec<Label> {
-        let mut labels: Vec<_> = self.mapping_label_text.iter().map(|(l, _)| *l).collect();
-        labels.sort_unstable();
-        labels
+        self.active.labels_appearing().into_iter().sorted().collect()
+        //let mut labels: Vec<_> = self.mapping_label_text.iter().map(|(l, _)| *l).collect();
+        //labels.sort_unstable();
+        //labels
     }
 
     pub fn is_mergeable(&self) -> bool {
