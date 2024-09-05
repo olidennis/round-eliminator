@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{group::{Exponent, Group, GroupType, Label}, line::{Degree, Line}, part::Part, problem::Problem};
 
@@ -56,6 +56,7 @@ impl Problem {
         });
         active_with_predecessors.is_maximized = true;
         let degree = self.active.finite_degree();
+        //println!("degree is {}",degree);
 
         let total = labels.len()*labels.len()*labels.len();
         let mut progress = 0;
@@ -82,13 +83,26 @@ impl Problem {
                     }
 
 
+                    // this is a special case, the label merging would not be reversible, but since it gives 0 round solvability we consider it anyways
+                    let mut subproblem = self.harden_keep(&HashSet::from_iter([m,p,u].into_iter()), true);
+                    subproblem.passive.maximize(&mut EventHandler::null());
+                    subproblem.compute_diagram(&mut EventHandler::null());
+                    let predecessors_subproblem = subproblem.diagram_indirect_to_inverse_reachability_adj();
+                    let mut subproblem_active_with_predecessors = subproblem.active.edited(|g|{
+                        let h = g.iter().map(|label|&predecessors_subproblem[label]).fold(HashSet::new(), |mut h1,h2|{h1.extend(h2.into_iter()); h1});
+                        Group::from_set(&h)
+                    });
+                    subproblem_active_with_predecessors.is_maximized = true;
+
                     let l1 = Line{ parts : vec![Part{ gtype : GroupType::Many(degree as Exponent), group : Group::from(vec![m]) }] };
                     let l2 = Line{ parts : vec![
                         Part{gtype : GroupType::Many(1), group : Group::from(vec![p]) },
                         Part{gtype : GroupType::Many((degree -1) as Exponent), group : Group::from(vec![u]) }
                     ]};
 
-                    if active_with_predecessors.includes(&l1) && active_with_predecessors.includes(&l2) {
+                    //let mapping : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+
+                    if subproblem_active_with_predecessors.includes(&l1) && subproblem_active_with_predecessors.includes(&l2) {
                         sets.push(vec![m,p,u]);
                         continue;
                     }
