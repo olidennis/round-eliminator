@@ -204,7 +204,7 @@ function fix_problem(p) {
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
     let demisifiable = (problem.demisifiable ?? []).map(x => [labelset_to_string(x[0],problem.map_label_text),labelset_to_string(x[1],problem.map_label_text)]);
-    console.log(demisifiable);
+    //console.log(demisifiable);
     let is_demisifiable = demisifiable.length > 0;
     if( p.fixpoint_diagram !== null ){
         p.fixpoint_diagram[1].map_label_text = vec_to_map(p.fixpoint_diagram[1].mapping_newlabel_text);
