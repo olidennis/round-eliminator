@@ -48,9 +48,14 @@ impl Constraint {
             self.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(f_is_superset));
         }
 
+        let original_lines = self.lines.clone();
+
         loop {
 
             seen.clear();
+            for line in &original_lines {
+                seen.insert(line.compressed());
+            }
 
             let lines = &self.lines;
 
