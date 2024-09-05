@@ -203,7 +203,8 @@ function fix_problem(p) {
     let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
     let is_mergeable = mergeable.length > 0;
     let mergesets = !is_mergeable ? [] : mergeable.map(x => labelset_to_string(x[1],problem.map_label_text));
-    let demisifiable = (problem.demisifiable ?? []).map(x => labelset_to_string(x,problem.map_label_text));
+    let demisifiable = (problem.demisifiable ?? []).map(x => [labelset_to_string(x[0],problem.map_label_text),labelset_to_string(x[1],problem.map_label_text)]);
+    console.log(demisifiable);
     let is_demisifiable = demisifiable.length > 0;
     if( p.fixpoint_diagram !== null ){
         p.fixpoint_diagram[1].map_label_text = vec_to_map(p.fixpoint_diagram[1].mapping_newlabel_text);
@@ -571,7 +572,7 @@ Vue.component('re-problem-info', {
             <div v-if="this.problem.info.is_demisifiable" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>DeMISifiable merges:
-                        <span v-for="set in this.problem.info.demisifiable">{{ set }} </span>
+                        <div v-for="set in this.problem.info.demisifiable">{{ set[0] }} <span v-if="set[1].length > 0">by removing labels {{ set[1] }}</span></div>
                     </div>
                 </div>
             </div>
@@ -878,7 +879,7 @@ Vue.component('re-demisifiable',{
         }
     },
     template: `
-        <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">DeMISifiable</button>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">DeMISify</button>
     `
 })
 

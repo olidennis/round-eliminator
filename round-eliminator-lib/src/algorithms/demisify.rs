@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use itertools::Itertools;
+
 use crate::{group::{Exponent, Group, GroupType, Label}, line::{Degree, Line}, part::Part, problem::Problem};
 
 use super::event::EventHandler;
@@ -49,12 +51,7 @@ impl Problem {
         let labels = self.labels();
 
         //println!("{:?}",self.mapping_label_text);
-        let predecessors = self.diagram_indirect_to_inverse_reachability_adj();
-        let mut active_with_predecessors = self.active.edited(|g|{
-            let h = g.iter().map(|label|&predecessors[label]).fold(HashSet::new(), |mut h1,h2|{h1.extend(h2.into_iter()); h1});
-            Group::from_set(&h)
-        });
-        active_with_predecessors.is_maximized = true;
+        
         let degree = self.active.finite_degree();
         //println!("degree is {}",degree);
 
@@ -103,16 +100,13 @@ impl Problem {
                     //let mapping : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
 
                     if subproblem_active_with_predecessors.includes(&l1) && subproblem_active_with_predecessors.includes(&l2) {
-                        sets.push(vec![m,p,u]);
+                        sets.push((vec![m,p,u],vec![]));
                         continue;
                     }
 
 
                     let mut compatible_with_p : HashSet<Label> = self.labels_compatible_with_label(p);
-
                     //println!("compatible with p: {:?}",compatible_with_p);
-
-
                     compatible_with_u.remove(&m);
                     compatible_with_u.remove(&p);
                     compatible_with_u.remove(&u);
@@ -123,11 +117,34 @@ impl Problem {
                     compatible_with_p.remove(&p);
                     compatible_with_p.remove(&u);
 
-                    if compatible_with_m != compatible_with_u || !compatible_with_p.is_subset(&compatible_with_m) {
+
+                    let d1 : HashSet<_> = compatible_with_m.difference(&compatible_with_u).cloned().collect();
+                    let d2 : HashSet<_> = compatible_with_u.difference(&compatible_with_m).cloned().collect();
+                    let d3 : HashSet<_> = compatible_with_p.difference(&compatible_with_m).cloned().collect();
+                    let mut toremove = d1;
+                    toremove.extend(d2.into_iter());
+                    toremove.extend(d3.into_iter());
+                    let tokeep : HashSet<_> = HashSet::from_iter(self.labels().into_iter()).difference(&toremove).cloned().collect();
+
+                    let mut after_remove = self.harden_keep(&tokeep, true);
+                    let new_labels = HashSet::<Label>::from_iter(after_remove.labels().into_iter());
+                    if !new_labels.contains(&m) || !new_labels.contains(&p) || !new_labels.contains(&u) {
                         continue;
                     }
 
-                    for configuration in self.active.all_choices(false) {
+                    after_remove.compute_diagram(eh);
+                    let predecessors = after_remove.diagram_indirect_to_inverse_reachability_adj();
+                    let mut active_with_predecessors = after_remove.active.edited(|g|{
+                        let h = g.iter().map(|label|&predecessors[label]).fold(HashSet::new(), |mut h1,h2|{h1.extend(h2.into_iter()); h1});
+                        Group::from_set(&h)
+                    });
+                    active_with_predecessors.is_maximized = true;
+
+                    //if compatible_with_m != compatible_with_u || !compatible_with_p.is_subset(&compatible_with_m) {
+                    //    continue;
+                    //}
+
+                    for configuration in after_remove.active.all_choices(false) {
                         if configuration.groups().any(|g|g.contains(&m) || g.contains(&u) || g.contains(&p)) {
                             let c1 = configuration.edited(|g|{
                                 if g.contains(&m) || g.contains(&u) || g.contains(&p) {
@@ -166,7 +183,7 @@ impl Problem {
                         }
                     }
 
-                    sets.push(vec![m,p,u]);
+                    sets.push((vec![m,p,u],toremove.into_iter().sorted().collect()));
 
                 }
             }
