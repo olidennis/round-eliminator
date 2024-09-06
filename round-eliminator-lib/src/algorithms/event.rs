@@ -1,12 +1,18 @@
 use chrono::{NaiveTime, Utc,Duration};
 
+use crate::serial::SendOnlyNonWasm;
+
+
 pub struct EventHandler<'a> {
-    tx: Option<EventFunc<'a>>,
+    tx: Option<BoxedEventFunc<'a>>,
     last_msg : String,
     last_time : NaiveTime
 }
 
-type EventFunc<'a> = Box<dyn FnMut((String, usize, usize)) + 'a>;
+pub trait EventFunc: FnMut((std::string::String, usize, usize),) + SendOnlyNonWasm {}
+type BoxedEventFunc<'a> = Box<dyn EventFunc + 'a>;
+
+impl<T> EventFunc for T where T : FnMut((std::string::String, usize, usize),) + SendOnlyNonWasm {}
 
 impl<'a> EventHandler<'a> {
     pub fn null() -> Self {
@@ -15,7 +21,7 @@ impl<'a> EventHandler<'a> {
 
     pub fn with<T>(f: T) -> Self
     where
-        T: FnMut((String, usize, usize)) + 'a,
+        T: EventFunc + 'a,
     {
         Self {
             tx: Some(Box::new(f)),

@@ -26,3 +26,4 @@ pub mod marks;
 pub mod merge_subdiagram;
 pub mod critical_sets;
 pub mod demisify;
+pub mod parallel;

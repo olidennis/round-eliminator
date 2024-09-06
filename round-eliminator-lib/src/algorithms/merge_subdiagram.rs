@@ -362,10 +362,11 @@ impl Problem {
 
         let nodes = sd.nodes();
         let mut candidates = vec![];
+        let labels = self.labels();
 
         for node in &nodes {
             let mut v = vec![];
-            for l in self.labels() {
+            for &l in &labels {
                 if sd.label_satisfies_constraints_of_node(node,pred[&l].len(),succ[&l].len(), new.contains(&l) ) {
                     v.push(l);
                 }

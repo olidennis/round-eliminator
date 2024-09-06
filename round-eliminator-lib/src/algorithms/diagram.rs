@@ -3,10 +3,12 @@ use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use petgraph::graph::IndexType;
 use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
 
 use crate::{group::Label, line::Degree, problem::Problem};
 
 use super::event::EventHandler;
+use super::parallel::CollectWithProgress;
 
 impl Problem {
 
@@ -29,43 +31,23 @@ impl Problem {
 
 
         #[cfg(not(target_arch = "wasm32"))]
-        let diagram = crossbeam::scope(|s| {
-
-            let labels: Vec<_> = self.labels();
-            let (progress_tx, progress_rx) =  crossbeam_channel::unbounded();
-        
-            let slf = &self;
-            s.spawn(move |_|{
-                use rayon::prelude::*;
-                labels.iter().cartesian_product(labels.iter())
-                    .par_bridge()
-                    .for_each(|(l1,l2)|{
-                        if l1 == l2 || slf.passive.is_diagram_predecessor(*l1, *l2) {
-                            progress_tx.send(Some((*l1, *l2))).unwrap();
-                        } else {
-                            progress_tx.send(None).unwrap();
-                        }
-                    });
-                drop(progress_tx);
-            });
-
+        let diagram = {
             let labels: Vec<_> = self.labels();
             let total = labels.len()*labels.len();
-            let mut diagram = vec![];
-            let mut received = 0;
 
-            while let Ok(r) = progress_rx.recv() {
-                received += 1;
-                if let Some((l1,l2)) = r {
-                    diagram.push((l1,l2));
-                }
-                eh.notify("diagram", received, total);
-            }
-
+            let mut diagram = labels.iter().cartesian_product(labels.iter())
+                .par_bridge()
+                .map(|(l1,l2)|{
+                    if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
+                        Some((*l1, *l2))
+                    } else {
+                        None
+                    }
+                })
+                .collect_with_progress(eh, "diagram",total);
             diagram.sort();
-
             diagram
-        }).unwrap();
+        };
 
         #[cfg(target_arch = "wasm32")]
         let diagram = {

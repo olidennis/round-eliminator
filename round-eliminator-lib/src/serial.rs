@@ -45,9 +45,28 @@ pub fn maximize_rename_gen(new : &mut Problem, eh : &mut EventHandler) -> Result
     new.rename_by_generators()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub trait SyncOnlyNonWasm : Sync {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T> SyncOnlyNonWasm for T where T : Sync {}
+#[cfg(target_arch = "wasm32")]
+pub trait SyncOnlyNonWasm {}
+#[cfg(target_arch = "wasm32")]
+impl<T> SyncOnlyNonWasm for T{}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub trait SendOnlyNonWasm : Send {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T> SendOnlyNonWasm for T where T : Send {}
+#[cfg(target_arch = "wasm32")]
+pub trait SendOnlyNonWasm {}
+#[cfg(target_arch = "wasm32")]
+impl<T> SendOnlyNonWasm for T{}
+
+
 pub fn request_json<F>(req: &str, f: F)
 where
-    F: Fn(String, bool),
+    F: Fn(String, bool) + SyncOnlyNonWasm,
 {
     let req: Request = serde_json::from_str(req).unwrap();
     let handler = |resp: Response| {
@@ -55,7 +74,7 @@ where
         f(s, true);
     };
 
-    let mut eh = EventHandler::with(|x: (String, usize, usize)| {
+    let mut eh = EventHandler::with(move |x: (String, usize, usize)| {
         let resp = Response::Event(x.0, x.1, x.2);
         handler(resp);
     });
