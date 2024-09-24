@@ -160,7 +160,7 @@ impl Constraint {
             .all(|group| !group.contains(&l1) || group.contains(&l2))
     }
 
-    pub fn is_diagram_predecessor(&self, l1: Label, l2: Label) -> bool {
+    pub fn is_diagram_predecessor(&self, l1: Label, l2: Label) -> /*Option<(Line,Line)>*/ bool {
         // this is commented out so that one may still try to see if a label is a predecessor of another label
         // if the result is true, then it is always correct
         // if the result is false, it may just be because of a non-maximized right side
@@ -192,11 +192,34 @@ impl Constraint {
                         }
                     }
                     if !self.includes(&test) {
+                        /*for mut candidate in test.all_choices(false) {
+                            if !self.includes(&candidate) {
+                                let mut orig = candidate.clone();
+                                for part in candidate.parts.iter_mut() {
+                                    if *part == (Part {
+                                        group: Group::from(vec![l2]),
+                                        gtype: GroupType::ONE,
+                                    }) {
+                                        *part = (Part {
+                                            group: Group::from(vec![l1]),
+                                            gtype: GroupType::ONE,
+                                        });
+                                        break;
+                                    } 
+                                }
+                                candidate.normalize();
+                                orig.normalize();
+                                assert!(candidate != orig);
+                                return Some((candidate,orig));
+                            }
+                        }*/
+                        //unreachable!("a candidate should have been found");
                         return false;
                     }
                 }
             }
         }
+        //None
         true
     }
 

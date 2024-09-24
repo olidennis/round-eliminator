@@ -94,6 +94,11 @@ impl Line {
         compressed.shrink_to_fit();
         compressed
     }
+
+    pub fn all_choices(&self, normalize : bool) -> Vec<Line> {
+        let c = crate::constraint::Constraint{ lines : vec![self.clone()], is_maximized: false, degree: self.degree() };
+        c.all_choices(normalize)
+    }
 }
 pub type CompressedLine = Vec<u8>;
 

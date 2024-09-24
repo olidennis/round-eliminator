@@ -29,18 +29,24 @@ impl Problem {
             self.passive.maximize(eh);
         }
 
-
+        //println!("negative relations:");
         #[cfg(not(target_arch = "wasm32"))]
         let diagram = {
             let labels: Vec<_> = self.labels();
             let total = labels.len()*labels.len();
+            //let mapping : HashMap<Label,String> = self.mapping_label_text.iter().cloned().collect();
 
             let mut diagram = labels.iter().cartesian_product(labels.iter())
                 .par_bridge()
                 .map(|(l1,l2)|{
+                    //if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2).is_none() {
                     if l1 == l2 || self.passive.is_diagram_predecessor(*l1, *l2) {
                         Some((*l1, *l2))
                     } else {
+                        //if l1 != l2 {
+                        //    let (line_orig,line_new) = self.passive.is_diagram_predecessor(*l1, *l2).unwrap();
+                        //    println!("\\item ${} \\not\\le {}$ because ${}$ is allowed but ${}$ is not.",mapping[l1],mapping[l2],line_orig.to_string(&mapping),line_new.to_string(&mapping));
+                        //}
                         None
                     }
                 })
@@ -48,6 +54,8 @@ impl Problem {
             diagram.sort();
             diagram
         };
+        //println!("done");
+        //std::process::exit(1);
 
         #[cfg(target_arch = "wasm32")]
         let diagram = {
