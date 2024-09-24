@@ -1,11 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
+use permutator::Permutation;
 
 use crate::{
-    constraint::Constraint,
-    group::{Group, Label},
-    problem::Problem,
+    constraint::Constraint, group::{Group, Label}, line::Line, problem::Problem
 };
 
 impl Problem {
@@ -17,20 +16,28 @@ impl Problem {
         };
         let mut next_label = 0;
         let mut mapping_oldlabel_labels = HashMap::<Label, Vec<Label>>::new();
-
+        let mut seen = HashSet::new();
+        
         for line in self.active.all_choices(false) {
-            let mut newline = line.edited(|g| {
-                let label = g.first();
-                let new_label = next_label;
-                next_label += 1;
-                mapping_oldlabel_labels
-                    .entry(label)
-                    .or_default()
-                    .push(new_label);
-                Group::from(vec![new_label])
-            });
-            newline.normalize();
-            passive.lines.push(newline);
+            let mut parts = line.parts.clone();
+            for perm in parts.permutation() {
+                if !seen.insert(perm.clone()) {
+                    continue;
+                }
+                let lineperm = Line{ parts : perm };
+                let mut newline = lineperm.edited(|g| {
+                    let label = g.first();
+                    let new_label = next_label;
+                    next_label += 1;
+                    mapping_oldlabel_labels
+                        .entry(label)
+                        .or_default()
+                        .push(new_label);
+                    Group::from(vec![new_label])
+                });
+                newline.normalize();
+                passive.lines.push(newline);
+            }
         }
 
         let empty = vec![];
