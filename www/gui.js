@@ -84,6 +84,11 @@ function inverse_speedup(problem, onresult, onerror, progress){
     return api.request({ InverseSpeedup : problem }, ondata , function(){});
 }
 
+function delta_edge_coloring(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ DeltaEdgeColoring : problem }, ondata , function(){});
+}
+
 function compute_coloring_solvability(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ ColoringSolvability : problem }, ondata , function(){});
@@ -359,6 +364,8 @@ Vue.component('re-performed-action', {
                     return "Generated Fixed Point With Label Duplication" + (this.action.sub !== null ? " for labels " + this.action.sub : "") + ": "+ this.action.dups;
                 case "inversespeedup":
                     return "Performed inverse speedup";
+                case "deltaedgecoloring":
+                    return "Transformed Labels Assuming a Delta Edge Coloring";
                 case "coloring":
                     return "Computed hypergraph strong coloring solvability";
                 case "marks":
@@ -896,6 +903,19 @@ Vue.component('re-inverse-speedup',{
         <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Inverse Speedup</button>
     `
 })
+
+Vue.component('re-delta-edge-coloring',{
+    props: ['problem','stuff'],
+    methods: {
+        on_speedup() {
+            call_api_generating_problem(this.stuff,{type:"deltaedgecoloring"},delta_edge_coloring,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Delta Edge Coloring</button>
+    `
+})
+
 
 Vue.component('re-coloring',{
     props: ['problem','stuff'],
@@ -1488,6 +1508,7 @@ Vue.component('re-operations',{
             <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
             <div class="m-2"><re-edit :problem="problem" :stuff="stuff"></re-edit>copy problem up</div>
             <div class="m-2"><re-inverse-speedup :problem="problem" :stuff="stuff"></re-inverse-speedup> apply inverse round elimination</div>
+            <div class="m-2"><re-delta-edge-coloring :problem="problem" :stuff="stuff"></re-delta-edge-coloring> transform labels assuming a delta edge coloring</div>
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>

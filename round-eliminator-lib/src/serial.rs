@@ -173,6 +173,17 @@ where
                 handler(Response::P(new));
             }
         }
+        Request::DeltaEdgeColoring(problem) => {
+            if problem.active.degree == Degree::Star {
+                handler(Response::E(
+                    "Cannot perform this operation if the active side contains a star.".into(),
+                ));
+            } else {
+                let mut new = problem.duplicate_labels_delta_edge_coloring();
+                fix_problem(&mut new, false, false, &mut eh);
+                handler(Response::P(new));
+            }
+        }
         Request::SpeedupMaximize(mut problem) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
@@ -305,6 +316,7 @@ where
         },
         Request::ColoringSolvability(mut problem) => {
             problem.compute_coloring_solvability(&mut eh);
+            problem.compute_passive_gen();
             handler(Response::P(problem));
         }
         Request::Marks(mut problem) => {
@@ -382,6 +394,7 @@ pub enum Request {
     FixpointCustom(Problem,String, bool, bool, Vec<Label>),
     FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>),
     InverseSpeedup(Problem),
+    DeltaEdgeColoring(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),
     FullDiagram(Problem),
