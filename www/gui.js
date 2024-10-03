@@ -1684,11 +1684,11 @@ Vue.component('re-begin', {
         <div class="row">
             <div class="col-md">
                 <h4>Active</h4>
-                <textarea rows="4" cols="30" class="form-control" v-model="active"></textarea>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="active"></textarea>
             </div>
             <div class="col-md">
                 <h4>Passive</h4>
-                <textarea rows="4" cols="30" class="form-control" v-model="passive"></textarea>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="passive"></textarea>
             </div>
             <div class="m-2 col-sm mt-auto text-right">
                 <button type="button" class="btn btn-primary" v-on:click="on_start">Start</button>
