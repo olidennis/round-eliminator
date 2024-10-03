@@ -120,6 +120,7 @@ impl Problem {
     
     pub fn compute_passive_gen(&mut self) {
         let predecessors = self.diagram_indirect_to_inverse_reachability_adj();
+        self.passive_gen = None;
         if !self.is_mergeable() {
             let passive_gen = self.passive.edited(|g|{
                 let h : HashSet<_> = g.as_set();
