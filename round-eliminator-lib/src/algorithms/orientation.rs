@@ -86,39 +86,79 @@ impl Problem {
         if self.orientation_trivial_sets.is_some() {
             panic!("triviality has been computed already");
         }
-        if self.passive.degree != Degree::Finite(2) {
-            panic!("cannot compute solvability given orientation if the passive side has degree different from 2");
+        if self.passive.degree != Degree::Finite(2) && self.active.degree != Degree::Finite(2) {
+            panic!("cannot compute solvability given orientation if both sides have degree different from 2");
         }
 
         //self.passive.maximize(eh);
 
-        let splits = self.active.minimal_splits(outdegree);
+        if self.passive.degree == Degree::Finite(2) {
 
-        let mut trivial_sets = vec![];
-        let num_splits = splits.len();
+            let splits = self.active.minimal_splits(outdegree);
 
-        for (i, (outgoing, incoming)) in splits.into_iter().enumerate() {
-            eh.notify("orientationtriviality", i, num_splits);
-            let p1 = Part {
-                gtype: GroupType::ONE,
-                group: outgoing,
-            };
-            let p2 = Part {
-                gtype: GroupType::ONE,
-                group: incoming,
-            };
-            let mut line = Line {
-                parts: vec![p1, p2],
-            };
-            if self.passive.includes(&line) {
-                trivial_sets.push((
-                    line.parts[0].group.as_vec(),
-                    line.parts[1].group.as_vec()
-                ));
+            let mut trivial_sets = vec![];
+            let num_splits = splits.len();
+
+            for (i, (outgoing, incoming)) in splits.into_iter().enumerate() {
+                eh.notify("orientationtriviality", i, num_splits);
+                let p1 = Part {
+                    gtype: GroupType::ONE,
+                    group: outgoing,
+                };
+                let p2 = Part {
+                    gtype: GroupType::ONE,
+                    group: incoming,
+                };
+                let mut line = Line {
+                    parts: vec![p1, p2],
+                };
+                if self.passive.includes(&line) {
+                    trivial_sets.push((
+                        line.parts[0].group.as_vec(),
+                        line.parts[1].group.as_vec()
+                    ));
+                }
             }
+
+            self.orientation_trivial_sets = Some(trivial_sets);
+
+        }else if self.active.degree == Degree::Finite(2) {
+
+            let mut trivial_sets = vec![];
+
+            let delta = self.passive.finite_degree();
+
+            for choice in self.active.all_choices(true).into_iter().unique() {
+                let l1 = choice.parts[0].group.first();
+                let l2 = choice.parts.last().unwrap().group.first();
+                let c1 = Line{parts:vec![
+                    Part { gtype : GroupType::Many(outdegree as Exponent), group : Group::from(vec![l1]) },
+                    Part { gtype : GroupType::Many((delta - outdegree) as Exponent), group : Group::from(vec![l2]) },
+                ]};
+                let c2 = Line{parts:vec![
+                    Part { gtype : GroupType::Many(outdegree as Exponent), group : Group::from(vec![l2]) },
+                    Part { gtype : GroupType::Many((delta - outdegree) as Exponent), group : Group::from(vec![l1]) },
+                ]};
+                if self.passive.includes_single_line(&c1) {
+                    trivial_sets.push((
+                        vec![l1],
+                        vec![l2],
+                    ));
+                }
+                if self.passive.includes_single_line(&c2) {
+                    trivial_sets.push((
+                        vec![l2],
+                        vec![l1],
+                    ));
+                }
+            }
+
+            self.orientation_trivial_sets = Some(trivial_sets);
+
+        } else {
+            unreachable!("this should not happen");
         }
 
-        self.orientation_trivial_sets = Some(trivial_sets);
     }
 
     pub fn compute_coloring_solvability_given_orientation(

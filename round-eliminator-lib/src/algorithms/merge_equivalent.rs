@@ -14,17 +14,17 @@ impl Problem {
         p
     }
 
-    pub fn repeat_merge_equivalent_labels(&self, eh : &mut EventHandler) -> Problem {
+    pub fn repeat_merge_equivalent_labels(&self, eh : &mut EventHandler, recompute_full_diagram : bool) -> Problem {
         let mut p = self.clone();
         if p.diagram_indirect.is_none() {
             p.compute_diagram(eh);
         }        
         p = p.merge_equivalent_labels();
-        p.discard_useless_stuff(true, eh);
+        p.discard_useless_stuff(recompute_full_diagram, eh);
         loop {
             let l = p.labels().len();
             p = p.merge_equivalent_labels();
-            p.discard_useless_stuff(true, eh);
+            p.discard_useless_stuff(recompute_full_diagram, eh);
             if l == p.labels().len(){
                 return p;
             }

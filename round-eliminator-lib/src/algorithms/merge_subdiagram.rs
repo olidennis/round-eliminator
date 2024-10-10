@@ -147,7 +147,9 @@ impl SDConstraint {
 #[derive(Clone,Debug)]
 struct SDMerge {
     from : String,
-    to : String
+    to : String,
+    nz : bool,
+    nzo : Option<usize>
 }
 
 fn parse_string(w : &ParseTreeNode) -> String {
@@ -171,7 +173,29 @@ fn parse_merge(x : &ParseTree) -> SDMerge {
     let from = parse_string(x.next().unwrap());
     x.next();
     let to = parse_string(x.next().unwrap());
-    SDMerge{from, to}
+    SDMerge{from, to, nz : false, nzo : None}
+}
+
+fn parse_nzmerge(x : &ParseTree) -> SDMerge {
+    let mut x = x.rhs_iter();
+    x.next();
+    x.next();
+    let from = parse_string(x.next().unwrap());
+    x.next();
+    let to = parse_string(x.next().unwrap());
+    SDMerge{from, to, nz : true, nzo : None}
+}
+
+fn parse_nzomerge(x : &ParseTree) -> Option<SDMerge> {
+    let mut x = x.rhs_iter();
+    x.next();
+    x.next();
+    let outdegree = parse_number(x.next().unwrap())?;
+    x.next();
+    let from = parse_string(x.next().unwrap());
+    x.next();
+    let to = parse_string(x.next().unwrap());
+    Some(SDMerge{from, to, nz : false, nzo : Some(outdegree as usize)})
 }
 
 fn parse_edge(x : &ParseTree) -> SDEdge {
@@ -245,6 +269,8 @@ fn parse_line(x : &ParseTree) -> Option<SDLine> {
         "edge" => Some(SDLine::Edge(parse_edge(rhs))),
         "noedge" => Some(SDLine::NoEdge(parse_edge(rhs))),
         "merge" => Some(SDLine::Merge(parse_merge(rhs))),
+        "nzmerge" => Some(SDLine::Merge(parse_nzmerge(rhs))),
+        "nzomerge" => Some(SDLine::Merge(parse_nzomerge(rhs)?)),
         "constraint" => Some(SDLine::Constraint(parse_constraint(rhs)?)),
         "type" => Some(SDLine::Type(parse_type(rhs))),
         _ => panic!()
@@ -312,7 +338,7 @@ fn parse_input(x : &ParseTree) -> Option<Vec<SubDiagram>> {
 fn parse_subdiagram(subdiagram : &str) -> Option<Vec<SubDiagram>> {
     let grammar = "
         <input> ::= '' | <opt-newline> <line> <opt-newline> <input> <opt-newline>
-        <line> ::= <edge> | <noedge> | <constraint> | <merge> | <type>
+        <line> ::= <edge> | <noedge> | <constraint> | <merge> | <type> | <nzmerge> | <nzomerge>
 
         <edge> ::= 'e' <opt-whitespace> <word> <opt-whitespace> <word>
         <noedge> ::= 'x' <opt-whitespace> <word> <opt-whitespace> <word>
@@ -325,6 +351,10 @@ fn parse_subdiagram(subdiagram : &str) -> Option<Vec<SubDiagram>> {
         <old-new> ::= 'old' | 'new'
 
         <merge> ::= 'm' <opt-whitespace> <word> <opt-whitespace> <word>
+
+        <nzmerge> ::= 'nzm' <opt-whitespace> <word> <opt-whitespace> <word>
+
+        <nzomerge> ::= 'nzom' <opt-whitespace> <number> <opt-whitespace> <word> <opt-whitespace> <word>
 
         <opt-newline> ::= '' | '\n' <opt-newline>
         <opt-whitespace> ::= '' | ' ' <opt-whitespace>
@@ -389,10 +419,10 @@ impl Problem {
         None
     }
 
-    pub fn merge_subdiagram(&self, subdiagram : &str, eh : &mut EventHandler) -> Option<Problem> {
+    pub fn merge_subdiagram(&self, subdiagram : &str, recompute_diagram : bool, eh : &mut EventHandler) -> Option<Problem> {
         
         let sds = parse_subdiagram(subdiagram)?;
-        let mut p = self.repeat_merge_equivalent_labels(eh);
+        let mut p = self.repeat_merge_equivalent_labels(eh,recompute_diagram);
         let label_to_string : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
 
         loop {
@@ -403,12 +433,27 @@ impl Problem {
                     if let Some(v) = p.find_subdiagram(&sd) {
                         let h : HashMap<_,_> = v.into_iter().collect();
                         for merge in &sd.merges {
-                            merged = true;
                             let l1 = h[&merge.from];
                             let l2 = h[&merge.to];
+                            let mut tp = p.relax_merge(l1, l2);
+                            if merge.nz || merge.nzo.is_some() {
+                                tp.compute_triviality(eh);
+                                if !tp.trivial_sets.as_ref().unwrap().is_empty() {
+                                    continue;
+                                }
+                            }
+                            if let Some(out) = merge.nzo {
+                                tp.orientation_given = Some(out);
+                                tp.compute_triviality_given_orientation(out,eh);
+                                if !tp.orientation_trivial_sets.as_ref().unwrap().is_empty() {
+                                    continue;
+                                }
+                                tp.orientation_given = None;
+                            }
+                            p = tp;
+                            merged = true;
                             println!("merging from {} to {}", label_to_string[&l1], label_to_string[&l2]);
-                            p = p.relax_merge(l1, l2);
-                            p = p.repeat_merge_equivalent_labels(eh);
+                            p = p.repeat_merge_equivalent_labels(eh,recompute_diagram);
                         }
                     } else {
                         break;

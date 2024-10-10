@@ -109,6 +109,13 @@ impl Constraint {
         }
     }
 
+    pub fn includes_single_line(&self, other: &Line) -> bool {
+        for parts in &other.parts {
+            assert!(parts.group.len() == 1);
+        }
+        self.lines.iter().any(|line| line.includes(other))
+    }
+
     pub fn includes_slow(&self, other: &Line) -> bool {
         assert!(self.degree == Degree::Finite(2));
         let a = &other.parts[0].group;

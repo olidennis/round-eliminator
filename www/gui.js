@@ -117,9 +117,9 @@ function simplify_merge(problem, from, to, onresult, onerror, progress){
     return api.request({ SimplifyMerge : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
 }
 
-function simplify_merge_sd(problem, sd, onresult, onerror, progress){
+function simplify_merge_sd(problem, sd, recompute_diagram, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ SimplifySD : [problem, sd] }, ondata , function(){});
+    return api.request({ SimplifySD : [problem, sd, recompute_diagram] }, ondata , function(){});
 }
 
 function simplify_group(problem, labels, to, onresult, onerror, progress){
@@ -400,10 +400,9 @@ Vue.component('re-performed-action', {
     },
     template: `
         <div class="card bg-primary text-white m-2 p-2">
-            <span style="white-space: break-spaces;">{{ actionview }}<button type="button" class="close" aria-label="Close" v-on:click="on_close">
+            <div class="position-absolute top-0 end-0 m-1 p-1"><button type="button" class="close" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
-                </button>
-            </span>
+            </button></div><span style="white-space: break-spaces;">{{ actionview }}</span>
         </div>
     `
 })
@@ -1278,6 +1277,7 @@ Vue.component('re-sd-simplify',{
     props: ['problem','stuff'],
     data: function(){ return {
             text : "",
+            recompute_diagram : true
         }    
     },
     methods: {
@@ -1285,7 +1285,7 @@ Vue.component('re-sd-simplify',{
             call_api_generating_problem(
                 this.stuff,
                 {type:"simplifymergesd", sd:this.text},
-                simplify_merge_sd,[this.problem, this.text]
+                simplify_merge_sd,[this.problem, this.text,this.recompute_diagram]
             );
         },
         on_magic(){
@@ -1308,6 +1308,9 @@ m A B`;
         <re-card title="SubDiagram Merge" subtitle="(... still need a good description ...)">
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_magic"></button>
             <textarea rows="4" cols="30" class="form-control m-1" v-model="text"></textarea>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="recompute_diagram"><p class="form-control-static custom-control-label">Always Recompute Full Diagram</p></label>
+            </div>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_sd">Merge</button>
         </re-card>
     `

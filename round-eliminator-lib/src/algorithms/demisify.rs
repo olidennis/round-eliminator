@@ -172,7 +172,7 @@ impl Problem {
 
             let mut after_remove = self.harden_keep(&tokeep, true);
             after_remove.discard_useless_stuff(true, &mut EventHandler::null());
-            let after_remove = after_remove.merge_subdiagram(&String::new(), &mut EventHandler::null()).unwrap();
+            let after_remove = after_remove.merge_subdiagram(&String::new(), true, &mut EventHandler::null()).unwrap();
 
             let new_labels = HashSet::<Label>::from_iter(after_remove.labels().into_iter());
             if !new_labels.contains(&m) || !new_labels.contains(&p) || !new_labels.contains(&u) {

@@ -294,9 +294,9 @@ where
             problem.orientation_given = Some(outdegree);
             problem.orientation_coloring_sets = None;
             problem.orientation_trivial_sets = None;
-            if problem.passive.degree == Degree::Finite(2) {
+            if problem.passive.degree == Degree::Finite(2) || problem.active.degree == Degree::Finite(2) {
                 problem.compute_triviality_given_orientation(outdegree, &mut eh);
-                problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                //problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
             }
             handler(Response::P(problem));
         },
@@ -336,8 +336,8 @@ where
             problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, &mut eh);
             handler(Response::P(problem));
         }
-        Request::SimplifySD(problem, sd) => {
-            if let Some(mut new) =  problem.merge_subdiagram(&sd, &mut eh) {
+        Request::SimplifySD(problem, sd, recompute_full_diagram) => {
+            if let Some(mut new) =  problem.merge_subdiagram(&sd, recompute_full_diagram, &mut eh) {
                 fix_problem(&mut new, true, true, &mut eh);
                 handler(Response::P(new));
             } else {
@@ -388,7 +388,7 @@ pub enum Request {
     SimplifyMerge(Problem, Label, Label),
     SimplifyMergeGroup(Problem, Vec<Label>, Label),
     SimplifyAddarrow(Problem, Label, Label),
-    SimplifySD(Problem,String),
+    SimplifySD(Problem,String,bool),
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),
