@@ -429,16 +429,23 @@ impl Problem {
             let mut merged = false;
             for sd in &sds {
                 loop {
+                    let mut merged2 = false;
+                    let mut failed = HashSet::new();
                     p.compute_direct_diagram();
                     if let Some(v) = p.find_subdiagram(&sd) {
                         let h : HashMap<_,_> = v.into_iter().collect();
                         for merge in &sd.merges {
                             let l1 = h[&merge.from];
                             let l2 = h[&merge.to];
+                            if failed.contains(&(l1,l2)) {
+                                continue;
+                            }
                             let mut tp = p.relax_merge(l1, l2);
-                            if merge.nz || merge.nzo.is_some() {
+                            if merge.nz {
                                 tp.compute_triviality(eh);
                                 if !tp.trivial_sets.as_ref().unwrap().is_empty() {
+                                    println!("not merging from {} to {} (trivial)", label_to_string[&l1], label_to_string[&l2]);
+                                    failed.insert((l1,l2));
                                     continue;
                                 }
                             }
@@ -446,16 +453,20 @@ impl Problem {
                                 tp.orientation_given = Some(out);
                                 tp.compute_triviality_given_orientation(out,eh);
                                 if !tp.orientation_trivial_sets.as_ref().unwrap().is_empty() {
+                                    println!("not merging from {} to {} (trivial given orientation)", label_to_string[&l1], label_to_string[&l2]);
+                                    failed.insert((l1,l2));
                                     continue;
                                 }
                                 tp.orientation_given = None;
                             }
                             p = tp;
                             merged = true;
+                            merged2 = true;
                             println!("merging from {} to {}", label_to_string[&l1], label_to_string[&l2]);
                             p = p.repeat_merge_equivalent_labels(eh,recompute_diagram);
                         }
-                    } else {
+                    }
+                    if !merged2 {
                         break;
                     }
                 }
