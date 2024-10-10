@@ -427,6 +427,7 @@ impl Problem {
         let sds = parse_subdiagram(subdiagram)?;
         let mut p = self.repeat_merge_equivalent_labels(eh,recompute_diagram);
         let label_to_string : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+        let mut failed = HashSet::new();
 
         loop {
             let mut merged = false;
@@ -440,10 +441,14 @@ impl Problem {
                         for merge in &sd.merges {
                             let l1 = h[&merge.from];
                             let l2 = h[&merge.to];
+                            if failed.contains(&(l1,l2)) {
+                                continue;
+                            }
                             let mut tp = p.relax_merge(l1, l2);
                             if merge.nz {
                                 tp.compute_triviality(eh);
                                 if !tp.trivial_sets.as_ref().unwrap().is_empty() {
+                                    failed.insert((l1,l2));
                                     println!("not merging from {} to {} (trivial)", label_to_string[&l1], label_to_string[&l2]);
                                     continue;
                                 }
@@ -452,6 +457,7 @@ impl Problem {
                                 tp.orientation_given = Some(out);
                                 tp.compute_triviality_given_orientation(out,eh);
                                 if !tp.orientation_trivial_sets.as_ref().unwrap().is_empty() {
+                                    failed.insert((l1,l2));
                                     println!("not merging from {} to {} (trivial given orientation)", label_to_string[&l1], label_to_string[&l2]);
                                     continue;
                                 }
