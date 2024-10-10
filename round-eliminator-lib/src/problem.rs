@@ -62,11 +62,13 @@ impl Problem {
     pub fn from_string_active_passive<S: AsRef<str>>(
         active: S,
         passive: S,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<(Self,bool), &'static str> {
         let mut mapping_label_text = HashMap::new();
 
         let active = Constraint::parse(active, &mut mapping_label_text)?;
         let passive = Constraint::parse(passive, &mut mapping_label_text)?;
+
+        let missing_labels = active.labels_appearing() != passive.labels_appearing();
 
         let mapping_label_text = mapping_label_text
             .into_iter()
@@ -94,7 +96,7 @@ impl Problem {
             marks_works : None,
             demisifiable : None
         };
-        Ok(p)
+        Ok((p,missing_labels))
     }
 
     pub fn from_string<S: AsRef<str>>(s: S) -> Result<Self, &'static str> {
@@ -104,7 +106,7 @@ impl Problem {
         let active = lines.by_ref().take_while(|l| !l.is_empty()).join("\n");
         let passive = lines.take_while(|l| !l.is_empty()).join("\n");
 
-        Self::from_string_active_passive(active, passive)
+        Self::from_string_active_passive(active, passive).map(|p|p.0)
     }
 
     pub fn labels(&self) -> Vec<Label> {

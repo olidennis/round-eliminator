@@ -664,7 +664,7 @@ fn crash_test(){
 (01f) (01f)
 (00f) (10f)
 (01f) (11f)
-(10f) (11f)").unwrap();
+(10f) (11f)").unwrap().0;
         crate::serial::fix_problem(&mut problem, true, true,&mut eh);
         if problem.diagram_indirect.is_none() {
             problem.compute_partial_diagram(&mut eh);

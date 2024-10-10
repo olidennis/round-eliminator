@@ -12,6 +12,9 @@ function handle_result(x, onresult, onerror, progress) {
         fix_problem(p);
         onresult(p);
     }
+    if( x.W != null ){
+        onerror(x.W,true);
+    }
     if( x.AutoUb != null ){
         for( let step of x.AutoUb[1] ){
             fix_problem(step[1]);
@@ -280,8 +283,8 @@ function call_api_generating_what(stuff, action, f, params, what, removeprogress
         if(idx != -1)stuff.splice(idx,1);
     }
     let termination_handle = removeprogress?
-        f(...params, p => on_new_what(stuff, action, progress, p, what, removeprogress),e =>  { remove_progress_bar() ; stuff.push({ type : "error", data : e });} ,progress.data) :
-        f(...params, p => on_new_what(stuff, action, progress, p, what, removeprogress),e =>  { remove_progress_bar() ; stuff.push({ type : "error", data : e });} ,progress.data, function(){
+        f(...params, p => on_new_what(stuff, action, progress, p, what, removeprogress),(e,warning=false) =>  { if(!warning)remove_progress_bar() ; stuff.push({ type : "error", data : e, warning });} ,progress.data) :
+        f(...params, p => on_new_what(stuff, action, progress, p, what, removeprogress),(e,warning=false) =>  { if(!warning)remove_progress_bar() ; stuff.push({ type : "error", data : e, warning });} ,progress.data, function(){
             remove_progress_bar();
         });
 
@@ -406,7 +409,7 @@ Vue.component('re-performed-action', {
 })
 
 Vue.component('re-error', {
-    props: ['error','handle','stuff'],
+    props: ['error','warning','handle','stuff'],
     methods: {
         on_close() {
             let idx = this.stuff.indexOf(this.handle);
@@ -414,7 +417,7 @@ Vue.component('re-error', {
         }
     },
     template: `
-        <div class="card bg-danger text-white m-2 p-2">
+        <div class="card m-2 p-2" :class="this.warning? 'bg-warning text-black' : 'bg-danger text-white'">
             <span>
                 {{ this.error }}
                 <button type="button" class="close" aria-label="Close" v-on:click="on_close">
@@ -2023,7 +2026,7 @@ Vue.component('re-stuff', {
                 <div v-for="elem in this.stuff">
                     <re-performed-action :stuff="stuff" :action='elem.data' v-if='elem.type == "performed"'  :handle="elem"/></re-performed-action>
                     <re-computing :action='elem.data' v-if='elem.type == "computing"'  :handle="elem"/></re-computing>
-                    <re-error :stuff="stuff" :error='elem.data' v-if='elem.type == "error"'  :handle="elem"/></re-computing>
+                    <re-error :stuff="stuff" :error='elem.data' :warning='elem.warning' v-if='elem.type == "error"'  :handle="elem"/></re-error>
                     <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"' :handle="elem"></re-problem>
                     <re-stuff :supstuff='stuff' :stuff='elem.data' v-if='elem.type == "sub"' :handle="elem"></re-stuff>
                 </div>
@@ -2035,7 +2038,7 @@ Vue.component('re-stuff', {
                 <div v-for="elem in this.stuff">
                     <re-performed-action :stuff="stuff" :action='elem.data' v-if='elem.type == "performed"'  :handle="elem"/></re-performed-action>
                     <re-computing :action='elem.data' v-if='elem.type == "computing"'  :handle="elem"/></re-computing>
-                    <re-error :stuff="stuff" :error='elem.data' v-if='elem.type == "error"'  :handle="elem"/></re-computing>
+                    <re-error :stuff="stuff" :error='elem.data' :warning='elem.warning' v-if='elem.type == "error"'  :handle="elem"/></re-error>
                     <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"' :handle="elem"></re-problem>
                     <re-stuff :supstuff='stuff' :stuff='elem.data' v-if='elem.type == "sub"' :handle="elem"></re-stuff>
                 </div>

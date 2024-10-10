@@ -96,7 +96,10 @@ where
         }
         Request::NewProblem(active, passive) => {
             match Problem::from_string_active_passive(active, passive) {
-                Ok(mut new) => {
+                Ok((mut new, missing_labels)) => {
+                    if missing_labels {
+                        handler(Response::W("Some labels appear on only one side!".into()));
+                    }
                     fix_problem(&mut new, true, true,&mut eh);
                     handler(Response::P(new))
                 }
@@ -422,6 +425,7 @@ pub enum Response {
     Event(String, usize, usize),
     P(Problem),
     E(String),
+    W(String),
     AutoUb(usize,Vec<(AutoOperation,Problem)>),
     AutoLb(usize,Vec<(AutoOperation,Problem)>),
 }
