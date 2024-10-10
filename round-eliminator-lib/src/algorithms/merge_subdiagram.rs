@@ -441,7 +441,7 @@ impl Problem {
                         for merge in &sd.merges {
                             let l1 = h[&merge.from];
                             let l2 = h[&merge.to];
-                            if failed.contains(&(l1,l2)) {
+                            if failed.contains(&(l1,l2)) || failed.contains(&(l2,l1)){
                                 continue;
                             }
                             let mut tp = p.relax_merge(l1, l2);
