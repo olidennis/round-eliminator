@@ -1002,6 +1002,14 @@ Vue.component('re-rename',{
     methods: {
         on_rename() {
             call_api_generating_problem(this.stuff,{type:"rename"},rename,[this.problem,this.table.map(x => [x[0],x[3]])]);
+        },
+        on_removegen() {
+            for(let i=0;i<this.table.length;i++){
+                if( this.table[i][3][0] == "<" && this.table[i][3][this.table[i][3].length-1] == ">" ) {
+                    this.table[i][3] = this.table[i][3].substring(1,this.table[i][3].length-1);
+                }
+            }
+            this.$forceUpdate();
         }
     },
     template: `
@@ -1014,6 +1022,7 @@ Vue.component('re-rename',{
             </tr>
         </table>
         <button type="button" class="btn btn-primary m-1" v-on:click="on_rename">Rename</button>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_removegen">Remove &lt; &gt;</button>
     </re-card>
     `
 })
