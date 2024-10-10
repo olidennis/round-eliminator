@@ -383,7 +383,7 @@ fn parse_subdiagram(subdiagram : &str) -> Option<Vec<SubDiagram>> {
 
 impl Problem {
 
-    pub fn find_subdiagram(&self, sd: &SubDiagram) -> Option<Vec<(String,Label)>> {
+    pub fn find_subdiagram(&self, sd: &SubDiagram, handled : &HashSet<Vec<(String,Label)>>) -> Option<Vec<(String,Label)>> {
         let pred = self.diagram_direct_to_pred_adj();
         let succ = self.diagram_direct_to_succ_adj();
         let (_,new) = self.split_labels_original_new();
@@ -411,8 +411,11 @@ impl Problem {
 
             let h : HashMap<_,_> = nodes.iter().cloned().zip(choice.into_iter()).collect();
 
-            if sd.labels_satisfy_edges(&h,&succ) {
-                return Some(h.into_iter().collect());
+            if sd.labels_satisfy_edges(&h,&succ)  {
+                let r = h.into_iter().collect();
+                if !handled.contains(&r) {
+                    return Some(r);
+                }
             }
         }
 
@@ -424,28 +427,24 @@ impl Problem {
         let sds = parse_subdiagram(subdiagram)?;
         let mut p = self.repeat_merge_equivalent_labels(eh,recompute_diagram);
         let label_to_string : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+        let mut handled = HashSet::new();
 
         loop {
             let mut merged = false;
             for sd in &sds {
                 loop {
-                    let mut merged2 = false;
-                    let mut failed = HashSet::new();
                     p.compute_direct_diagram();
-                    if let Some(v) = p.find_subdiagram(&sd) {
+                    if let Some(v) = p.find_subdiagram(&sd, &handled) {
+                        handled.insert(v.clone());
                         let h : HashMap<_,_> = v.into_iter().collect();
                         for merge in &sd.merges {
                             let l1 = h[&merge.from];
                             let l2 = h[&merge.to];
-                            if failed.contains(&(l1,l2)) {
-                                continue;
-                            }
                             let mut tp = p.relax_merge(l1, l2);
                             if merge.nz {
                                 tp.compute_triviality(eh);
                                 if !tp.trivial_sets.as_ref().unwrap().is_empty() {
                                     println!("not merging from {} to {} (trivial)", label_to_string[&l1], label_to_string[&l2]);
-                                    failed.insert((l1,l2));
                                     continue;
                                 }
                             }
@@ -454,19 +453,16 @@ impl Problem {
                                 tp.compute_triviality_given_orientation(out,eh);
                                 if !tp.orientation_trivial_sets.as_ref().unwrap().is_empty() {
                                     println!("not merging from {} to {} (trivial given orientation)", label_to_string[&l1], label_to_string[&l2]);
-                                    failed.insert((l1,l2));
                                     continue;
                                 }
                                 tp.orientation_given = None;
                             }
                             p = tp;
                             merged = true;
-                            merged2 = true;
                             println!("merging from {} to {}", label_to_string[&l1], label_to_string[&l2]);
                             p = p.repeat_merge_equivalent_labels(eh,recompute_diagram);
                         }
-                    }
-                    if !merged2 {
+                    } else {
                         break;
                     }
                 }
