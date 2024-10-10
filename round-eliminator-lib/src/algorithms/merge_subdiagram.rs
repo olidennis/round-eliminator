@@ -427,11 +427,11 @@ impl Problem {
         let sds = parse_subdiagram(subdiagram)?;
         let mut p = self.repeat_merge_equivalent_labels(eh,recompute_diagram);
         let label_to_string : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
-        let mut handled = HashSet::new();
 
         loop {
             let mut merged = false;
             for sd in &sds {
+                let mut handled = HashSet::new();
                 loop {
                     p.compute_direct_diagram();
                     if let Some(v) = p.find_subdiagram(&sd, &handled) {
