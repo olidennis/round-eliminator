@@ -377,6 +377,15 @@ where
             p.compute_demisifiable(&mut eh);
             handler(Response::P(p));
         }
+        Request::AddActivePredecessors(mut p) => {
+            p.add_active_predecessors();
+            handler(Response::P(p));
+        }
+        Request::RemoveTrivialLines(p) => {
+            let mut newp = p.remove_trivial_lines();
+            fix_problem(&mut newp, true, true, &mut eh);
+            handler(Response::P(newp));
+        }
     }
 
     handler(Response::Done);
@@ -414,6 +423,8 @@ pub enum Request {
     CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
     Demisifiable(Problem),
+    AddActivePredecessors(Problem),
+    RemoveTrivialLines(Problem),
     Ping,
 }
 

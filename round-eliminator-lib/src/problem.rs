@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use crate::{constraint::Constraint, group::{Group, Label}};
+use crate::{algorithms::event::EventHandler, constraint::Constraint, group::{Exponent, Group, GroupType, Label}, line::Line, part::Part};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use crate::algorithms::fixpoint::FixpointDiagram;
@@ -133,7 +133,120 @@ impl Problem {
             self.passive_gen = Some(passive_gen);
         }
     }
+    
+    pub fn add_active_predecessors(&mut self) {
+        let pred = self.diagram_indirect_to_inverse_reachability_adj();
+        self.active = self.active.edited(|g|{
+            let g = g.iter().fold(HashSet::new(),|mut a,l|{
+                a.extend(pred[l].iter().cloned());
+                a
+            });
+            Group::from_set(&g)
+        });
+    }
+    
+    pub fn remove_trivial_lines(&self) -> Self {
+        let mut result = HashSet::new();
+        let pred = self.diagram_direct_to_pred_adj();
+        for line in self.active.all_choices(true) {
+            self.remove_trivial_lines_rec(line, &pred, &mut result);
+        }
+        let c = Constraint{
+            lines : result.into_iter().sorted().collect(),
+            degree : self.active.degree,
+            is_maximized: false,
+        };
+        Self {
+                active : c,
+                passive : self.passive.clone(),
+                passive_gen : None,
+                mapping_label_text: self.mapping_label_text.clone(),
+                mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
+                mapping_oldlabel_labels: self.mapping_oldlabel_labels.clone(),
+                mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
+                trivial_sets: None,
+                coloring_sets: None,
+                diagram_indirect: None,
+                diagram_direct: None,
+                diagram_indirect_old: self.diagram_indirect_old.clone(),
+                orientation_coloring_sets: None,
+                orientation_trivial_sets: None,
+                orientation_given: self.orientation_given,
+                fixpoint_diagram : None,
+                fixpoint_procedure_works : None,
+                marks_works : None,
+                demisifiable : None
+        }
+    }
 
+    pub fn remove_trivial_lines_rec(&self, line : Line, pred : &HashMap<Label, HashSet<Label>>, result : &mut HashSet<Line>) {
+        if !self.is_line_trivial_with_assumed_input(&line) {
+            result.insert(line);
+        } else {
+            for i in 0..line.parts.len() {
+                let l = line.parts[i].group.first();
+                for &p in &pred[&l] {
+                    let mut newline = line.clone();
+                    newline.parts[i].gtype = GroupType::Many(newline.parts[i].gtype.value() as Exponent - 1);
+                    newline.parts.push(
+                        Part { gtype: GroupType::ONE, group: Group::from(vec![p]) }
+                    );
+                    self.remove_trivial_lines_rec(newline, pred, result);
+                }
+            }
+        }
+    }
+
+    
+
+    pub fn is_line_trivial(&self, line : &Line) -> bool {
+        assert!(line.parts.iter().all(|p|p.group.len() == 1));
+        let h = line.groups().fold(HashSet::new(),|mut h : HashSet<Label>,g|{
+            h.extend(g.iter());
+            h
+        });
+        let group = Group::from_set(&h);
+        let passive_degree = crate::group::GroupType::Many(self.passive.finite_degree() as Exponent);
+        let part = Part {
+            gtype: passive_degree,
+            group,
+        };
+        let passive_line = Line { parts: vec![part] };
+        self.passive.includes(&passive_line)
+    }
+
+    pub fn is_line_trivial_with_given_orientation(&self, line : &Line, outdegree : usize) -> bool {
+        assert!(line.parts.iter().all(|p|p.group.len() == 1));
+        for (g1,g2) in line.minimal_splits(outdegree) {
+            let p1 = Part {
+                gtype: GroupType::ONE,
+                group: g1,
+            };
+            let p2 = Part {
+                gtype: GroupType::ONE,
+                group: g2,
+            };
+            let line = Line {
+                parts: vec![p1, p2],
+            };
+            if self.passive.includes(&line) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn is_line_trivial_with_assumed_input(&self, line : &Line) -> bool {
+        if self.is_line_trivial(line) {
+            return true;
+        }
+        if let Some(out) = self.orientation_given {
+            if self.is_line_trivial_with_given_orientation(line, out) {
+                return true;
+            }
+        }
+        false
+    }
     
 }
 

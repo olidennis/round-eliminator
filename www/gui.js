@@ -52,6 +52,16 @@ function demisifiable(problem, onresult, onerror, progress){
     return api.request({ Demisifiable : problem }, ondata , function(){});
 }
 
+function add_active_predecessors(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ AddActivePredecessors : problem }, ondata , function(){});
+}
+
+function remove_trivial_lines(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ RemoveTrivialLines : problem }, ondata , function(){});
+}
+
 function fixpoint_gendefault(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ DefaultDiagram : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
@@ -355,6 +365,10 @@ Vue.component('re-performed-action', {
                     return "Performed speedup";
                 case "demisifiable":
                     return "Computed deMISifiable sets.";
+                case "add-active-predecessors":
+                    return "Added Predecessors On Active Side.";
+                case "remove-trivial-lines":
+                    return "Removed Trivial Lines.";
                 case "fixpoint-basic":
                     return "Generated Fixed Point with Default Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
                 case "fixpoint-gendefault":
@@ -892,6 +906,29 @@ Vue.component('re-demisifiable',{
     `
 })
 
+Vue.component('re-add-active-predecessors',{
+    props: ['problem','stuff'],
+    methods: {
+        on_button() {
+            call_api_generating_problem(this.stuff,{type:"add-active-predecessors"},add_active_predecessors,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_button">Add Active Predecessors</button>
+    `
+})
+
+Vue.component('re-remove-trivial-lines',{
+    props: ['problem','stuff'],
+    methods: {
+        on_button() {
+            call_api_generating_problem(this.stuff,{type:"remove-trivial-lines"},remove_trivial_lines,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_button">Remove Trivial Lines</button>
+    `
+})
 
 
 Vue.component('re-inverse-speedup',{
@@ -1530,6 +1567,8 @@ Vue.component('re-operations',{
             <div class="m-2" v-if="this.problem.info.numcolors == -1"><re-coloring :problem="problem" :stuff="stuff"></re-coloring> compute hypergraph strong coloring solvability</div>
             <div class="m-2"><re-marks :problem="problem" :stuff="stuff"></re-marks> apply Marks' technique</div>
             <div class="m-2"><re-demisifiable :problem="problem" :stuff="stuff"></re-demisifiable> compute reversible merges</div>
+            <div class="m-2"><re-add-active-predecessors :problem="problem" :stuff="stuff"></re-add-active-predecessors> ...</div>
+            <div class="m-2"><re-remove-trivial-lines :problem="problem" :stuff="stuff"></re-remove-trivial-lines> ...</div>
         </re-card>
     `
 })

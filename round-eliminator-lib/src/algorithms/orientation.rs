@@ -15,61 +15,72 @@ use super::{event::EventHandler, max_clique::Graph, multisets_pairing::Comb};
 
 impl Problem {}
 
+impl Line {
+    pub fn minimal_splits(&self, outdegree: usize) -> HashSet<(Group,Group)> {
+        let mut result = HashSet::new();
+        let v = self
+        .parts
+        .iter()
+        .map(|p| match p.gtype {
+            GroupType::Many(x) => std::cmp::min(x as usize, outdegree),
+            GroupType::Star => outdegree,
+        })
+        .collect();
+
+        let mut combs = Comb::new(outdegree, v);
+        while let Some(comb) = combs.next() {
+            let mut outgoing = Line {
+                parts: self
+                    .parts
+                    .iter()
+                    .zip(comb.iter())
+                    .map(|(part, count)| Part {
+                        group: part.group.clone(),
+                        gtype: GroupType::Many(*count as Exponent),
+                    })
+                    .collect(),
+            };
+            let mut incoming = Line {
+                parts: self
+                    .parts
+                    .iter()
+                    .zip(comb.iter())
+                    .map(|(part, count)| Part {
+                        group: part.group.clone(),
+                        gtype: match part.gtype {
+                            GroupType::Many(x) => GroupType::Many(x - *count as crate::group::Exponent),
+                            GroupType::Star => GroupType::Star,
+                        },
+                    })
+                    .collect(),
+            };
+
+            incoming.normalize();
+            outgoing.normalize();
+
+            let v_incoming = incoming.minimal_sets_of_all_choices();
+            let v_outgoing = outgoing.minimal_sets_of_all_choices();
+
+            for outgoing in &v_outgoing {
+                let g_out = Group::from(outgoing.iter().cloned().sorted().collect());
+                for incoming in &v_incoming {
+                    let g_in = Group::from(incoming.iter().cloned().sorted().collect());
+                    result.insert((g_out.clone(), g_in));
+                }
+            }
+        }
+
+        result
+    }
+}
+
 impl Constraint {
     pub fn minimal_splits(&self, outdegree: usize) -> Vec<(Group, Group)> {
         let mut result = HashSet::new();
 
         for line in &self.lines {
-            let v = line
-                .parts
-                .iter()
-                .map(|p| match p.gtype {
-                    GroupType::Many(x) => std::cmp::min(x as usize, outdegree),
-                    GroupType::Star => outdegree,
-                })
-                .collect();
-
-            let mut combs = Comb::new(outdegree, v);
-            while let Some(comb) = combs.next() {
-                let mut outgoing = Line {
-                    parts: line
-                        .parts
-                        .iter()
-                        .zip(comb.iter())
-                        .map(|(part, count)| Part {
-                            group: part.group.clone(),
-                            gtype: GroupType::Many(*count as Exponent),
-                        })
-                        .collect(),
-                };
-                let mut incoming = Line {
-                    parts: line
-                        .parts
-                        .iter()
-                        .zip(comb.iter())
-                        .map(|(part, count)| Part {
-                            group: part.group.clone(),
-                            gtype: match part.gtype {
-                                GroupType::Many(x) => GroupType::Many(x - *count as crate::group::Exponent),
-                                GroupType::Star => GroupType::Star,
-                            },
-                        })
-                        .collect(),
-                };
-
-                incoming.normalize();
-                outgoing.normalize();
-
-                let v_incoming = incoming.minimal_sets_of_all_choices();
-                let v_outgoing = outgoing.minimal_sets_of_all_choices();
-
-                for outgoing in &v_outgoing {
-                    let g_out = Group::from(outgoing.iter().cloned().sorted().collect());
-                    for incoming in &v_incoming {
-                        let g_in = Group::from(incoming.iter().cloned().sorted().collect());
-                        result.insert((g_out.clone(), g_in));
-                    }
-                }
+            for r in line.minimal_splits(outdegree) {
+                result.insert(r);
             }
         }
 
