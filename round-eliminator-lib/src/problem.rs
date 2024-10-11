@@ -147,9 +147,11 @@ impl Problem {
     
     pub fn remove_trivial_lines(&self) -> Self {
         let mut result = HashSet::new();
+        let mut handled = HashSet::new();
+
         let pred = self.diagram_direct_to_pred_adj();
         for line in self.active.all_choices(true) {
-            self.remove_trivial_lines_rec(line, &pred, &mut result);
+            self.remove_trivial_lines_rec(line, &pred, &mut result, &mut handled);
         }
         let c = Constraint{
             lines : result.into_iter().sorted().collect(),
@@ -179,7 +181,11 @@ impl Problem {
         }
     }
 
-    pub fn remove_trivial_lines_rec(&self, line : Line, pred : &HashMap<Label, HashSet<Label>>, result : &mut HashSet<Line>) {
+    pub fn remove_trivial_lines_rec(&self, line : Line, pred : &HashMap<Label, HashSet<Label>>, result : &mut HashSet<Line>, handled : &mut HashSet<Line>) {
+        if handled.contains(&line) {
+            return;
+        }
+        handled.insert(line.clone());
         if !self.is_line_trivial_with_assumed_input(&line) {
             result.insert(line);
         } else {
@@ -191,7 +197,8 @@ impl Problem {
                     newline.parts.push(
                         Part { gtype: GroupType::ONE, group: Group::from(vec![p]) }
                     );
-                    self.remove_trivial_lines_rec(newline, pred, result);
+                    newline.normalize();
+                    self.remove_trivial_lines_rec(newline, pred, result, handled);
                 }
             }
         }
