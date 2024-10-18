@@ -773,6 +773,7 @@ Vue.component('re-diagram', {
     props: ["problem"],
     data : function() {
         return {
+            hierarchical : false,
             physics : true,
             network : [null]
         }
@@ -803,7 +804,10 @@ Vue.component('re-diagram', {
                     multiselect : true
                 },
                 physics:{
-                    enabled: this.physics
+                    enabled: this.physics,
+                    hierarchicalRepulsion: {
+                        nodeDistance: 200,
+                    }
                 },
                 nodes: {
                     color:{
@@ -817,6 +821,13 @@ Vue.component('re-diagram', {
                         highlight: '#FF7f7f'
                     }
                 },
+                layout: {
+                    hierarchical: this.hierarchical ? {
+                      direction: 'LR',
+                      sortMethod: 'directed',
+                      levelSeparation: 200,
+                    } : false
+                }
             };
         }
     },
@@ -832,6 +843,15 @@ Vue.component('re-diagram', {
         network.on("selectEdge", function() {
             p.selectedEdges = network.getSelectedEdges().map(x => network.getConnectedNodes(x));
         });
+
+        /*network.on("stabilized", function () {
+            this.options.layout = {"hierarchical": {"enabled": false}};
+            network.setOptions({
+                "layout": {"hierarchical": {"enabled": false}},                  
+            });
+        });*/
+         
+
         //prevent vue from adding getters and setters, otherwise some things of vis break
         this.network[0] = network;
         //console.log(this.id + " " + this.visdata.nodes.length);
@@ -839,6 +859,11 @@ Vue.component('re-diagram', {
     },
     watch : {
         'physics' : function() {
+            if(this.network[0] != null){
+                this.network[0].setOptions(this.options);
+            }
+        },
+        'hierarchical' : function() {
             if(this.network[0] != null){
                 this.network[0].setOptions(this.options);
             }
@@ -856,7 +881,8 @@ Vue.component('re-diagram', {
             <div class="panel-resizable" style="width: 300px; height: 300px;" :id="'diagram'+this._uid">
             </div>
             <div class="custom-control custom-switch m-2">
-                <label><input type="checkbox" class="custom-control-input" v-model="physics"><p class="form-control-static custom-control-label">Physics</p></label>
+                <label><input type="checkbox" class="custom-control-input" v-model="physics"><p class="form-control-static custom-control-label">Physics</p></label><br/>
+                <label><input type="checkbox" class="custom-control-input" v-model="hierarchical"><p class="form-control-static custom-control-label">Hierarchical</p></label>
             </div>
         </div>
     `

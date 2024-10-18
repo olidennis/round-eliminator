@@ -16,7 +16,7 @@ pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality
             if let Some(outdegree) = new.orientation_given {
                 new.orientation_trivial_sets = None;
                 new.compute_triviality_given_orientation(outdegree, eh);
-                new.compute_coloring_solvability_given_orientation(outdegree, eh);
+                //new.compute_coloring_solvability_given_orientation(outdegree, eh);
             }
         }
     } else {
@@ -38,7 +38,7 @@ pub fn maximize_rename_gen(new : &mut Problem, eh : &mut EventHandler) -> Result
         new.compute_coloring_solvability(eh);
         if let Some(outdegree) = new.orientation_given {
             new.compute_triviality_given_orientation(outdegree, eh);
-            new.compute_coloring_solvability_given_orientation(outdegree, eh);
+            //new.compute_coloring_solvability_given_orientation(outdegree, eh);
         }
     }
     new.compute_passive_gen();
@@ -201,7 +201,7 @@ where
                 new.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = new.orientation_given {
                     new.compute_triviality_given_orientation(outdegree, &mut eh);
-                    new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                    //new.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
                 }
             }
             new.compute_passive_gen();
@@ -269,7 +269,7 @@ where
                 problem.compute_coloring_solvability(&mut eh);
                 if let Some(outdegree) = problem.orientation_given {
                     problem.compute_triviality_given_orientation(outdegree, &mut eh);
-                    problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
+                    //problem.compute_coloring_solvability_given_orientation(outdegree, &mut eh);
                 }
             }
             problem.compute_passive_gen();
