@@ -8,6 +8,7 @@ pub mod harden;
 pub mod inverse_speedup;
 pub mod line_inclusion;
 pub mod line_normalizer;
+pub mod mapping_problem;
 pub mod max_clique;
 pub mod maximize;
 pub mod merge_equivalent;

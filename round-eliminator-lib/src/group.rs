@@ -10,7 +10,7 @@ pub type Label = u32;
 pub type Exponent = u8;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct Group (Vec<Label>);
+pub struct Group (pub Vec<Label>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum GroupType {
@@ -23,6 +23,19 @@ impl GroupType {
 }
 
 
+impl Deref for Group {
+    type Target = Vec<Label>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Group {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 
 impl Group {
