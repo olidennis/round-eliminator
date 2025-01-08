@@ -482,7 +482,7 @@ pub mod mapping_problem {
         }
 
         /// Tries to find a correct mapping configuration, that solves the problem.
-        pub fn search_for_mapping(&mut self) -> bool {
+        pub fn search_for_mapping(&mut self) -> Option<Vec<(Label, HashSet<Label>)>> {
             while let Some(curr_config) = self.next_config() {
                 if cfg!(debug_assertions) {
                     println!("Current config mapping: {:?}", curr_config);
@@ -525,7 +525,7 @@ pub mod mapping_problem {
                             println!("\t\tEdges: {:?}", possible_labels);
                             println!("\t\tMapping: {:?}", curr);
                         }
-                        return true;
+                        return Some(possible_labels.into_iter().collect());
                     } else {
                         #[cfg(debug_assertions)]
                         {
@@ -534,16 +534,16 @@ pub mod mapping_problem {
                     }
                 }
             }
-            return false;
+            return None;
         }
 
         /// Tries to find a correct mapping configuration, that solves the problem in parallel.
-        pub fn search_for_mapping_parallel(&mut self) -> bool {
+        pub fn search_for_mapping_parallel(&mut self) -> Option<Vec<(Label, HashSet<Label>)>> {
             // Collect all configurations from `next_config` into a vector
             let configs: Vec<_> = std::iter::from_fn(|| self.next_config()).collect();
 
             // Use Rayon to process configurations in parallel
-            let found = configs.par_iter().any(|curr_config| {
+            let found = configs.par_iter().find_map_any(|curr_config| {
                 if cfg!(debug_assertions) {
                     println!("Current config mapping: {:?}", curr_config);
                 }
@@ -584,7 +584,7 @@ pub mod mapping_problem {
                             println!("\t\tEdges: {:?}", possible_labels);
                             println!("\t\tMapping: {:?}", curr);
                         }
-                        return true;
+                        return Some(possible_labels.into_iter().collect());
                     } else {
                         #[cfg(debug_assertions)]
                         {
@@ -592,7 +592,7 @@ pub mod mapping_problem {
                         }
                     }
                 }
-                false
+                None
             });
 
             found
@@ -1119,7 +1119,7 @@ mod tests {
 
         test.long_describ_problems();
 
-        assert!(test.search_for_mapping());
+        assert!(test.search_for_mapping().is_some());
     }
 
     #[test]
@@ -1133,7 +1133,7 @@ mod tests {
 
         test.long_describ_problems();
 
-        assert_eq!(test.search_for_mapping(), false);
+        assert_eq!(test.search_for_mapping().is_some(), false);
     }
 
     #[test]
@@ -1148,7 +1148,7 @@ mod tests {
 
         test.long_describ_problems();
 
-        assert!(test.search_for_mapping());
+        assert!(test.search_for_mapping().is_some());
     }
 
     #[test]
@@ -1162,7 +1162,7 @@ mod tests {
 
         test.long_describ_problems();
 
-        assert!(test.search_for_mapping());
+        assert!(test.search_for_mapping().is_some());
     }
 
     #[test]
@@ -1180,8 +1180,8 @@ mod tests {
 
         test.long_describ_problems();
 
-        assert_eq!(true, test.search_for_mapping());
-        assert_eq!(true, test.search_for_mapping_parallel());
+        assert_eq!(true, test.search_for_mapping().is_some());
+        assert_eq!(true, test.search_for_mapping_parallel().is_some());
 
         let mut test_backward = MappingProblem::new(
             Problem::from_string("A A A A X\nB B B B Y\n\nA B\nA A\nA Y\nB X\nB B\nX B\nY A\nX Y")
@@ -1196,8 +1196,8 @@ mod tests {
 
         test_backward.long_describ_problems();
 
-        assert_eq!(false, test_backward.search_for_mapping());
-        assert_eq!(false, test_backward.search_for_mapping_parallel());
+        assert_eq!(false, test_backward.search_for_mapping().is_some());
+        assert_eq!(false, test_backward.search_for_mapping_parallel().is_some());
     }
 
     #[test]
@@ -1214,7 +1214,7 @@ mod tests {
 
         test.long_describ_problems();
 
-        assert!(test.search_for_mapping());
+        assert!(test.search_for_mapping().is_some());
     }
 
     #[test]
@@ -1233,14 +1233,14 @@ mod tests {
 
         let start = Instant::now();
 
-        assert!(test.search_for_mapping());
+        assert!(test.search_for_mapping().is_some());
         let duration = start.elapsed();
 
         println!("Time elapsed in expensive_function() is: {:?}", duration);
 
         let start = Instant::now();
 
-        assert!(test.search_for_mapping_parallel());
+        assert!(test.search_for_mapping_parallel().is_some());
         let duration = start.elapsed();
 
         println!("Time elapsed in expensive_function() is: {:?}", duration);

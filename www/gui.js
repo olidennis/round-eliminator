@@ -240,7 +240,14 @@ function fix_problem(p) {
     let zero_with_input =  (problem.is_trivial_with_input != null && problem.is_trivial_with_input);
     let non_zero_with_input = (problem.is_trivial_with_input != null && !problem.is_trivial_with_input);
 
-    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work, zero_with_input:zero_with_input, non_zero_with_input: non_zero_with_input};
+    let triviality_with_input = null;
+    if( zero_with_input ){
+        let input_to_string = vec_to_map(problem.triviality_with_input[0]);
+        let output_to_string = p.map_label_text;
+        let mapping = problem.triviality_with_input[1];
+        triviality_with_input = mapping.map(x => [labelset_to_string([x[0]],input_to_string),  labelset_to_string(x[1],output_to_string)]);
+    }
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work, zero_with_input:zero_with_input, non_zero_with_input: non_zero_with_input, triviality_with_input : triviality_with_input};
 }
 
 
@@ -632,6 +639,9 @@ Vue.component('re-problem-info', {
             <div v-if="this.problem.info.zero_with_input" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem IS zero-round solvable with the given input.</div>
+                    <div>There exists the following mapping:
+                        <div v-for="pair in this.problem.info.triviality_with_input">{{ pair[0] }} → {{ pair[1] }}</div>
+                    </div>
                 </div>
             </div>
             <div v-if="this.problem.info.non_zero_with_input" class="col-auto m-2 p-0">

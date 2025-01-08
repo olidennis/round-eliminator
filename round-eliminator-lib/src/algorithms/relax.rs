@@ -31,7 +31,8 @@ impl Problem {
             fixpoint_procedure_works : None,
             marks_works : None,
             demisifiable : None,
-            is_trivial_with_input : None
+            is_trivial_with_input : None,
+            triviality_with_input : None
         }
     }
 
@@ -75,7 +76,8 @@ impl Problem {
             fixpoint_procedure_works : None,
             marks_works : None,
             demisifiable : None,
-            is_trivial_with_input : None
+            is_trivial_with_input : None,
+            triviality_with_input : None
         }
     }
 
@@ -102,7 +104,8 @@ impl Problem {
             fixpoint_procedure_works : None,
             marks_works : None,
             demisifiable : None,
-            is_trivial_with_input : None
+            is_trivial_with_input : None,
+            triviality_with_input : None
         }
     }
 }

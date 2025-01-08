@@ -29,7 +29,8 @@ pub struct Problem {
     pub fixpoint_procedure_works : Option<bool>,
     pub marks_works : Option<bool>,
     pub demisifiable : Option<Vec<(Vec<Label>,Vec<Label>)>>,
-    pub is_trivial_with_input : Option<bool>
+    pub is_trivial_with_input : Option<bool>,
+    pub triviality_with_input : Option<(Vec<(Label, String)>,Vec<(Label, Vec<Label>)>)>
 }
 
 pub type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
@@ -57,7 +58,8 @@ impl Problem {
             fixpoint_procedure_works : None,
             marks_works : None,
             demisifiable : None,
-            is_trivial_with_input : None
+            is_trivial_with_input : None,
+            triviality_with_input : None
         }
     }
 
@@ -97,7 +99,8 @@ impl Problem {
             fixpoint_procedure_works : None,
             marks_works : None,
             demisifiable : None,
-            is_trivial_with_input : None
+            is_trivial_with_input : None,
+            triviality_with_input : None
         };
         Ok((p,missing_labels))
     }
@@ -181,7 +184,8 @@ impl Problem {
                 fixpoint_procedure_works : None,
                 marks_works : None,
                 demisifiable : None,
-                is_trivial_with_input : None
+                is_trivial_with_input : None,
+                triviality_with_input : None
         }
     }
 

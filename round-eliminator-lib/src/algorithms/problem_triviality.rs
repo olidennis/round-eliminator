@@ -51,12 +51,25 @@ impl Problem {
     pub fn compute_triviality_with_input(&mut self, other:Problem) {
         
         let mut mapping = MappingProblem::new(
-            other,
+            other.clone(),
             self.clone()
         );
 
         mapping.maximize_out_problem();
-        self.is_trivial_with_input = Some(mapping.search_for_mapping());
+
+        if let Some(mapping) = mapping.search_for_mapping() {
+            let other_label_to_text = other.mapping_label_text;
+
+
+            let mapping : Vec<_> = mapping.into_iter().map(|(l,h)|{
+                let v : Vec<_> = h.into_iter().sorted().collect();
+                (l,v)
+            }).collect();
+            self.is_trivial_with_input = Some(true);
+            self.triviality_with_input = Some((other_label_to_text,mapping));
+        } else {
+            self.is_trivial_with_input = Some(false);
+        }
     }
 }
 
