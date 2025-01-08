@@ -380,7 +380,8 @@ impl Problem {
                 fixpoint_diagram : None,
                 fixpoint_procedure_works : None,
                 marks_works : None,
-                demisifiable : None
+                demisifiable : None,
+                is_trivial_with_input : None
             };
             p.compute_diagram(eh);
             p.discard_useless_stuff(true, eh);
@@ -850,7 +851,8 @@ impl Problem {
             fixpoint_diagram : None,
             fixpoint_procedure_works : None,
             marks_works : None,
-            demisifiable : None
+            demisifiable : None,
+            is_trivial_with_input : None
         };
         p.mapping_label_text = mapping_newlabel_text.clone();
         Ok((p,passive_before_edit))

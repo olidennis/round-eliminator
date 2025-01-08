@@ -59,7 +59,8 @@ impl Problem {
             fixpoint_diagram : None,
             fixpoint_procedure_works : None,
             marks_works : None,
-            demisifiable : None
+            demisifiable : None,
+            is_trivial_with_input : None
         };
         p.assign_chars();
         p

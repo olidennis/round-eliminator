@@ -1,10 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    group::{Group, GroupType, Exponent},
-    line::{Degree, Line},
-    part::Part,
-    problem::Problem,
+    algorithms::mapping_problem::mapping_problem::MappingProblem, group::{Exponent, Group, GroupType}, line::{Degree, Line}, part::Part, problem::Problem
 };
 
 use super::event::EventHandler;
@@ -49,6 +46,17 @@ impl Problem {
         }
 
         self.trivial_sets = Some(trivial_sets);
+    }
+
+    pub fn compute_triviality_with_input(&mut self, other:Problem) {
+        
+        let mut mapping = MappingProblem::new(
+            other,
+            self.clone()
+        );
+
+        mapping.maximize_out_problem();
+        self.is_trivial_with_input = Some(mapping.search_for_mapping());
     }
 }
 

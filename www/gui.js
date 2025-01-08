@@ -198,6 +198,10 @@ function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max
     return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
+function check_zero_with_input(problem, active, passive, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ CheckZeroWithInput : [problem, active, passive] }, ondata , function(){});
+}
 
 
 function fix_problem(p) {
@@ -233,7 +237,10 @@ function fix_problem(p) {
     let marks_works = (problem.marks_works != null && problem.marks_works);
     let marks_does_not_work = (problem.marks_works != null && !problem.marks_works);
 
-    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work };
+    let zero_with_input =  (problem.is_trivial_with_input != null && problem.is_trivial_with_input);
+    let non_zero_with_input = (problem.is_trivial_with_input != null && !problem.is_trivial_with_input);
+
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work, zero_with_input:zero_with_input, non_zero_with_input: non_zero_with_input};
 }
 
 
@@ -353,6 +360,8 @@ Vue.component('re-performed-action', {
                     return "Performed Simplification: Merged Set " + this.action.labels.join("") + "→" + this.action.to;
                 case "simplifymergesd":
                     return "Performed SubDiagram Merging\n" + this.action.sd;
+                case "zerowithinput":
+                    return "Checked whether the problem is zero-round solvable with the following input:\n\n"+this.action.active+"\n\n" + this.action.passive;
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
                 case "criticalharden":
@@ -618,6 +627,16 @@ Vue.component('re-problem-info', {
             <div v-if="this.problem.info.marks_does_not_work" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>Marks' technique does not give a lower bound.</div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.zero_with_input" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem IS zero-round solvable with the given input.</div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.non_zero_with_input" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div>The problem is NOT zero-round solvable with the given input.</div>
                 </div>
             </div>
         </div>
@@ -1617,6 +1636,7 @@ Vue.component('re-tools', {
             <re-critical :problem="problem" :stuff="stuff"></re-critical>
             <re-auto-lb :problem="problem" :stuff="stuff"></re-auto-lb>
             <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
+            <re-zero-input :problem="problem" :stuff="stuff"></re-zero-input>
         </div>
     `
 })
@@ -1993,6 +2013,38 @@ Vue.component('re-fixpoint-dup',{
                 </tr>
             </table>
             <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Generate Fixed Point</button>
+        </re-card>
+    `
+})
+
+
+Vue.component('re-zero-input',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+            active : "",
+            passive : ""
+        }    
+    },
+    methods: {
+        on_zero(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"zerowithinput", active:this.active,passive:this.passive},
+                check_zero_with_input,[this.problem, this.active,this.passive]
+            );
+        },
+    },
+    template: `
+        <re-card title="Zero-Round Solvability with Input" subtitle="(check if the given input makes the problem trivial)">
+            <div class="m-1">
+                <h4>Active</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="active"></textarea>
+            </div>
+            <div class="m-1">
+                <h4>Passive</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="passive"></textarea>
+            </div>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_zero">Check</button>
         </re-card>
     `
 })
