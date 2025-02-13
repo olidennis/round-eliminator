@@ -38,7 +38,8 @@ impl Line {
             let newpart = part.edited(&mut f);
             line.parts.push(newpart);
         }
-        line.normalize();
+        //this normalization breaks the gui when showing only gens
+        //line.normalize();
         line
     }
 }
