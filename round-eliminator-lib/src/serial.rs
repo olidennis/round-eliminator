@@ -25,6 +25,7 @@ pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality
             new.sort_active_by_strength();
         }
     }
+    //new.randomized_success_prob(eh);
     new.compute_passive_gen();
 }
 
