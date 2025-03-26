@@ -177,6 +177,21 @@ where
                 handler(Response::P(new));
             }
         }
+        Request::AllDifferentLabels(problem) => {
+            if problem.active.degree == Degree::Star {
+                handler(Response::E(
+                    "Cannot perform this operation if the active side contains a star.".into(),
+                ));
+            } else {
+                let mut new = problem.inverse_speedup();
+                let active = new.active;
+                let passive = new.passive;
+                new.active = passive;
+                new.passive = active;
+                fix_problem(&mut new, false, false, &mut eh);
+                handler(Response::P(new));
+            }
+        }
         Request::DeltaEdgeColoring(problem) => {
             if problem.active.degree == Degree::Star {
                 handler(Response::E(
@@ -424,6 +439,7 @@ pub enum Request {
     FixpointCustom(Problem,String, bool, bool, Vec<Label>),
     FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>),
     InverseSpeedup(Problem),
+    AllDifferentLabels(Problem),
     DeltaEdgeColoring(Problem),
     SpeedupMaximize(Problem),
     SpeedupMaximizeRenamegen(Problem),

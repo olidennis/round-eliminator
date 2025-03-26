@@ -97,6 +97,11 @@ function inverse_speedup(problem, onresult, onerror, progress){
     return api.request({ InverseSpeedup : problem }, ondata , function(){});
 }
 
+function all_different_labels(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ AllDifferentLabels : problem }, ondata , function(){});
+}
+
 function delta_edge_coloring(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ DeltaEdgeColoring : problem }, ondata , function(){});
@@ -397,6 +402,8 @@ Vue.component('re-performed-action', {
                     return "Generated Fixed Point With Label Duplication" + (this.action.sub !== null ? " for labels " + this.action.sub : "") + ": "+ this.action.dups;
                 case "inversespeedup":
                     return "Performed inverse speedup";
+                case "alldifferentlabels":
+                    return "Made All Labels Different";
                 case "deltaedgecoloring":
                     return "Transformed Labels Assuming a Delta Edge Coloring";
                 case "coloring":
@@ -995,6 +1002,18 @@ Vue.component('re-inverse-speedup',{
     },
     template: `
         <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Inverse Speedup</button>
+    `
+})
+
+Vue.component('re-all-different-labels',{
+    props: ['problem','stuff'],
+    methods: {
+        on_click() {
+            call_api_generating_problem(this.stuff,{type:"alldifferentlabels"},all_different_labels,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_click">All Different Labels</button>
     `
 })
 
@@ -1615,6 +1634,7 @@ Vue.component('re-operations',{
             <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
             <div class="m-2"><re-edit :problem="problem" :stuff="stuff"></re-edit>copy problem up</div>
             <div class="m-2"><re-inverse-speedup :problem="problem" :stuff="stuff"></re-inverse-speedup> apply inverse round elimination</div>
+            <div class="m-2"><re-all-different-labels :problem="problem" :stuff="stuff"></re-all-different-labels> make each label different</div>
             <div class="m-2"><re-delta-edge-coloring :problem="problem" :stuff="stuff"></re-delta-edge-coloring> transform labels assuming a delta edge coloring</div>
             <div class="m-2" v-if="this.problem.mapping_label_oldlabels != null"><re-rename-generators :problem="problem" :stuff="stuff"></re-rename-generators>rename by using diagram generators</div>
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
