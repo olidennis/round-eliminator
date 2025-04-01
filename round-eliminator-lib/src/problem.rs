@@ -116,7 +116,7 @@ impl Problem {
     }
 
     pub fn labels(&self) -> Vec<Label> {
-        self.active.labels_appearing().into_iter().sorted().collect()
+        self.active.labels_appearing().into_iter().chain(self.passive.labels_appearing().into_iter()).unique().sorted().collect()
         //let mut labels: Vec<_> = self.mapping_label_text.iter().map(|(l, _)| *l).collect();
         //labels.sort_unstable();
         //labels
