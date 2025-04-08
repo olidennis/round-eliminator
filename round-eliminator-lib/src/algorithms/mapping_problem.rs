@@ -481,8 +481,16 @@ pub mod mapping_problem {
                 .maximize(&mut EventHandler::null());
         }
 
-        /// Tries to find a correct mapping configuration, that solves the problem.
         pub fn search_for_mapping(&mut self) -> Option<Vec<(Label, HashSet<Label>)>> {
+            #[cfg(target_arch = "wasm32")]
+            { self.search_for_mapping_sequential() }
+            #[cfg(not(target_arch = "wasm32"))]
+            { self.search_for_mapping_parallel() }
+        }
+
+        /// Tries to find a correct mapping configuration, that solves the problem.
+        #[cfg(target_arch = "wasm32")]
+        pub fn search_for_mapping_sequential(&mut self) -> Option<Vec<(Label, HashSet<Label>)>> {
             while let Some(curr_config) = self.next_config() {
                 if cfg!(debug_assertions) {
                     println!("Current config mapping: {:?}", curr_config);
@@ -538,6 +546,7 @@ pub mod mapping_problem {
         }
 
         /// Tries to find a correct mapping configuration, that solves the problem in parallel.
+        #[cfg(not(target_arch = "wasm32"))]
         pub fn search_for_mapping_parallel(&mut self) -> Option<Vec<(Label, HashSet<Label>)>> {
             // Collect all configurations from `next_config` into a vector
             let configs: Vec<_> = std::iter::from_fn(|| self.next_config()).collect();

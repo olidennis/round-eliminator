@@ -57,7 +57,7 @@ impl Problem {
 
         mapping.maximize_out_problem();
 
-        if let Some(mapping) = mapping.search_for_mapping_parallel() {
+        if let Some(mapping) = mapping.search_for_mapping() {
             let other_label_to_text = other.mapping_label_text;
 
 
