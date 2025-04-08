@@ -14,9 +14,13 @@ type ProblemGenome = Vec<Label>;
 struct Params{
     max_labels : usize,
     max_labels_before_re : usize,
+    max_labels_before_re_passive : usize,
     max_labels_for_zero_check : usize,
     max_rcs : usize,
-    re_steps : usize
+    re_steps : usize,
+    bad_coloring : usize,
+    debug : bool,
+    full_diagram : bool
 }
 
 trait AsPhenotype {
@@ -28,9 +32,9 @@ enum ProblemScore {
 }
 
 impl Problem {
-    fn genetic_score(&mut self) -> ProblemScore {
+    fn genetic_score(&mut self, bad_coloring : usize, full_diagram : bool) -> ProblemScore {
         let eh = &mut EventHandler::null();
-        self.discard_useless_stuff(false, eh);
+        self.discard_useless_stuff(full_diagram, eh);
 
 
         self.trivial_sets = None;
@@ -50,7 +54,7 @@ impl Problem {
             //println!("coloring triviality");
             self.compute_coloring_solvability(eh);
             //println!("done");
-            if self.coloring_sets.as_ref().unwrap().len() > 2 /*self.active.finite_degree()*/ {
+            if self.coloring_sets.as_ref().unwrap().len() >= bad_coloring /*self.active.finite_degree()*/ {
                 return ProblemScore::ZERO;
             }
         }
@@ -66,7 +70,7 @@ impl Problem {
         let diagram_indirect = self.diagram_indirect.as_ref().unwrap();
         let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
         //println!("{}",successors.len());
-        let start = std::time::Instant::now();
+        //let start = std::time::Instant::now();
         let rcs = right_closed_subsets(&labels, &successors);
         ProblemScore::Score(rcs.len())
     }
@@ -136,9 +140,12 @@ impl AsPhenotype for ProblemGenome {
     fn as_problem(&self, base_problem : &Problem, params : Params) -> (Vec<Problem>,FitnessScore) {
         let max_labels = params.max_labels;
         let max_labels_before_re = params.max_labels_before_re;
+        let max_labels_before_re_passive = params.max_labels_before_re_passive;
         let max_rcs = params.max_rcs;
         let re_steps = params.re_steps;
         let max_labels_for_zero_check = params.max_labels_for_zero_check;
+        let debug = params.debug;
+        let full_diagram = params.full_diagram;
 
         let mut scores = vec![];
         let mut problems = vec![base_problem.clone()];
@@ -180,30 +187,42 @@ impl AsPhenotype for ProblemGenome {
                 },
                 33..40 => {
                     p.new_labeling();
+                    p.discard_useless_stuff(full_diagram, eh);
+                    p = p.merge_equivalent_labels();
+
                     let p_before_speedup = p.clone();
 
                     if p.labels().len() > max_labels_for_zero_check {
                         problems.push(p_before_speedup);
+                        if debug {
+                            println!("1) p.labels().len() > max_labels_for_zero_check");
+                        }
                         return (problems,FitnessScore::Score(scores));
                     }
 
                     //println!("computing score 1");
-                    match p.genetic_score() {
+                    match p.genetic_score(params.bad_coloring, params.full_diagram) {
                         ProblemScore::ZERO => { 
                             //println!("done");
-                            return (problems,FitnessScore::ZERO); },
-                        ProblemScore::Score(score) => {
-                            //println!("done");
-                            scores.push(score);
-                            if score > max_rcs {
-                                problems.push(p_before_speedup);
-                                return (problems,FitnessScore::Score(scores));
+                            if debug {
+                                println!("2) ZERO");
                             }
+                            return (problems,FitnessScore::ZERO); },
+                        ProblemScore::Score(_score) => {
+                            //println!("done");
+                            ////scores.push(score);
+                            ////if score > max_rcs {
+                            ////    problems.push(p_before_speedup);
+                            ////    return (problems,FitnessScore::Score(scores));
+                            ////}
                         }
                     }
 
                     if p.labels().len() > max_labels {
                         problems.push(p_before_speedup);
+                        if debug {
+                            println!("3) p.labels().len() > max_labels ");
+                        }
                         return (problems,FitnessScore::Score(scores));
                     }
 
@@ -211,52 +230,76 @@ impl AsPhenotype for ProblemGenome {
                         if p.diagram_direct.is_none() {
                             p.compute_partial_diagram(eh);
                         }
+                        p.discard_useless_stuff(full_diagram, eh);
                         p = p.merge_equivalent_labels();
-                        if p.labels().len() > max_labels_before_re {
+                        let max_labels_now = if i==0 { max_labels_before_re } else { max_labels_before_re_passive };
+                        if p.labels().len() > max_labels_now {
                             problems.push(p_before_speedup);
+                            if debug {
+                                //println!("{}",p);
+                                println!("4.{}) p.labels().len() > ... {} {}",i,p.labels().len(), max_labels_now);
+                            }
                             return (problems,FitnessScore::Score(scores));
                         }
                         //println!("speedup");
+                        let labels_before = p.labels().len();
                         p = p.speedup(eh);
+                        let labels_after = p.labels().len();
+                        let score = labels_after * 100 / labels_before;
+                        scores.push(score);
                         //println!("done");
                     }
                     p.new_labeling();
                     if p.diagram_direct.is_none() {
                         p.compute_partial_diagram(eh);
                     }
+                    p.discard_useless_stuff(full_diagram, eh);
                     p = p.merge_equivalent_labels();
 
                     if p.labels().len() > max_labels_for_zero_check {
                         problems.push(p_before_speedup);
+                        if debug {
+                            println!("5) p.labels().len() > max_labels_for_zero_check");
+                        }
                         return (problems,FitnessScore::Score(scores));
                     }
 
                     problems.push(p.clone());
 
                     //println!("computing score 2");
-                    match p.genetic_score() {
+                    match p.genetic_score(params.bad_coloring, params.full_diagram) {
                         ProblemScore::ZERO => { 
                             //println!("done");
                             return (problems,FitnessScore::ZERO); },
                         ProblemScore::Score(score) => {
                             //println!("done");
-                            scores.push(score);
-                            if score > max_rcs {
-                                return (problems,FitnessScore::Score(scores));
-                            }
+                            ////scores.push(score);
+                            ////if score > max_rcs {
+                            ////    return (problems,FitnessScore::Score(scores));
+                            ////}
                         }
                     }
 
                     if p.labels().len() > max_labels {
                         problems.push(p_before_speedup);
+                        if debug {
+                            //println!("{}",p);
+                            println!("6) p.labels().len() > max_labels {} {}",p.labels().len(), max_labels);
+                        }
                         return (problems,FitnessScore::Score(scores));
                     }
 
                     
                     if problems.len() >= 2 && problems[problems.len()-1] == problems[problems.len()-2] {
+                        if debug {
+                            println!("7) FP");
+                        }
                         return (problems,FitnessScore::FP);
                     }
                     if problems.len() >= re_steps {
+                        if debug {
+                            println!("8) problems.len() >= re_steps");
+                        }
                         return (problems,FitnessScore::Score(scores));
                     }
                 },
@@ -300,9 +343,19 @@ impl Ord for FitnessScore {
                 if items.len() != items2.len() {
                     return items.len().cmp(&items2.len());
                 }
-                let items = items.into_iter().rev().collect_vec();
-                let items2 = items2.into_iter().rev().collect_vec();
-                items2.cmp(&items)
+                let sum : usize = items.iter().map(|x|x*x).sum();
+                let sum2 : usize = items2.iter().map(|x|x*x).sum();
+                //let sum : usize = items.iter().sum();
+                //let sum2 : usize = items2.iter().sum();
+
+                let avg = sum / items.len();
+                let avg2 = sum2 / items2.len();
+
+                avg2.cmp(&avg)
+
+                //let items = items.into_iter().rev().collect_vec();
+                //let items2 = items2.into_iter().rev().collect_vec();
+                //items2.cmp(&items)
             },
             (FitnessScore::Score(_), FitnessScore::FP) => Ordering::Less,
             (FitnessScore::FP, FitnessScore::ZERO) => Ordering::Greater,
@@ -351,19 +404,22 @@ impl<'a> FitnessFunction<ProblemGenome, FitnessScore> for &'a GeneticProblem {
 impl Problem{
     pub fn find_fixpoint_with_genetic(&self){
         let genome_length = 100;
-        let max_labels = 20;
-        let max_labels_before_re = 15;
+        let max_labels = 15;
+        let max_labels_before_re = 10;
+        let max_labels_before_re_passive = 15;
         let max_labels_for_zero_check = 100;
         let max_rcs = 50000;
-        let population = 10;
+        let population = 6;
         let selection_ratio = 0.85;
-        let individuals_per_parent = 5;
+        let individuals_per_parent = 6;
         let crossover_points = 1;
         let reinsertion_ratio = 0.85;
         let re_steps = 20;
         let mutation_rate = 0.3;//20.1 / genome_length as f64;
+        let bad_coloring = 3;
+        let full_diagram = false;
 
-        let params = Params{max_labels, max_labels_before_re, max_rcs, re_steps, max_labels_for_zero_check};
+        let params = Params{max_labels, max_labels_before_re, max_labels_before_re_passive, max_rcs, re_steps, max_labels_for_zero_check, bad_coloring, debug : false, full_diagram};
 
         let gp = GeneticProblem::new(self.clone(), params);
 
@@ -402,6 +458,8 @@ impl Problem{
                         step.duration.fmt(),
                         step.processing_time.fmt()
                     );
+                    let mut params = params.clone();
+                    params.debug = true;
                     let (p,_) = best_solution.solution.genome.as_problem(self, params);
                     println!("{}", p.last().unwrap());
                 }
@@ -450,6 +508,8 @@ C C C
 
 A BC
 B C").unwrap();
+
+
 
 let p = Problem::from_string("A A X
 B B Y
