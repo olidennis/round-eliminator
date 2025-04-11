@@ -402,16 +402,21 @@ where
             fix_problem(&mut newp, true, true, &mut eh);
             handler(Response::P(newp));
         }
-        Request::CheckZeroWithInput(mut problem, active, passive) => {
+        Request::CheckZeroWithInput(mut problem, active, passive, reverse) => {
             let input = Problem::from_string_active_passive(active,passive);
             match input {
-                Ok((input,missing_labels)) => {
+                Ok((mut input,missing_labels)) => {
                     if missing_labels {
                         handler(Response::W("Some labels appear on only one side!".into()));
                     }
                     if input.active.degree != problem.active.degree || input.passive.degree != problem.passive.degree {
                         handler(Response::E("Problems have different degrees".into()));
                     } else {
+                        if reverse {
+                            let t = problem;
+                            problem = input;
+                            input = t;
+                        }
                         problem.compute_triviality_with_input(input);
                         handler(Response::P(problem));
                     }
@@ -459,7 +464,7 @@ pub enum Request {
     Demisifiable(Problem),
     AddActivePredecessors(Problem),
     RemoveTrivialLines(Problem),
-    CheckZeroWithInput(Problem,String,String),
+    CheckZeroWithInput(Problem,String,String,bool),
     Ping,
 }
 

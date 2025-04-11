@@ -503,7 +503,7 @@ impl Problem {
         //if self.passive.degree != crate::line::Degree::Finite(2) {
         //    panic!("This option only works when the passive degree is 2");
         //}
-        println!("computing stuff");
+        //println!("computing stuff");
         let passive = self.passive.all_choices(true);
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
         let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
@@ -518,7 +518,7 @@ impl Problem {
 
 
 
-        println!("computing trees");
+        //println!("computing trees");
         let tree_for_labels = Problem::minimal_ways_to_obtain_labels_or_successors(&passive_successors,&passive_successors_rev,&tostr);
         //for (l,v) in &tree_for_labels {
         //    println!("{}",tostr[l]);
@@ -536,7 +536,7 @@ impl Problem {
         //Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(a_b_c_d_e)"]);
         //println!("----End Tree----");
 
-        println!("Computing passive");
+        //println!("Computing passive");
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
         let passive = passive.edited(|g| Group::from(passive_successors[&g.first()].iter().cloned().sorted().collect()));
         //for line in &passive.lines {
@@ -544,15 +544,15 @@ impl Problem {
         //}
         //println!();
 
-        println!("computing zero lines");
+        //println!("computing zero lines");
         let mut maximal_zero = Constraint{ lines: vec![], is_maximized: false, degree: passive.degree };
 
 
         for line in passive.all_choices(true) {
-            println!("line {}",line.to_string(&tostr));
+            //println!("line {}",line.to_string(&tostr));
 
             if line.parts.len() == 1 {
-                println!("zero line {}",line.to_string(&tostr));
+                //println!("zero line {}",line.to_string(&tostr));
 
                 maximal_zero.add_line_and_discard_non_maximal_with_custom_supersets(line, Some(|g1 : &Group,g2 : &Group|{
                     passive_successors[&g1.first()].contains(&g2.first())
@@ -561,14 +561,14 @@ impl Problem {
         }
 
 
-        for line in &maximal_zero.lines {
-            println!("mz {}",line.to_string(&tostr));
-        }
+        //for line in &maximal_zero.lines {
+        //    println!("mz {}",line.to_string(&tostr));
+        //}
 
 
 
 
-        println!("generating zero active lines");
+        //println!("generating zero active lines");
         let active = self.active.all_choices(true);
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
         let mut active = active.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
@@ -613,9 +613,9 @@ impl Problem {
         //}
         //println!();
 
-        println!("going through zero lines");
+        //println!("going through zero lines");
         for target_line in all_zero.all_choices(true) {
-            println!("trying {}",target_line.to_string(&tostr));
+            //println!("trying {}",target_line.to_string(&tostr));
             let group = target_line.line_set();
             let part = Part {
                 gtype: GroupType::Many(passive.finite_degree() as Exponent),
@@ -685,7 +685,7 @@ impl Problem {
         let i = AtomicU32::new(0);
         v.par_iter().map(|&label| {
             let x = i.fetch_add(1,Ordering::SeqCst);
-            println!("{}/{}",x,tot);
+            //println!("{}/{}",x,tot);
             (*label,Problem::maximal_ways_to_obtain_label_or_successor(reachability,reachability_rev,*label,tostr))
         }).collect()
     }
@@ -1353,6 +1353,70 @@ fn add_diagram_edges(&mut self){
         
     }
 }*/
+
+
+#[test]
+fn hypercubes() {
+    let mut eh = EventHandler::null();
+
+let p = Problem::from_string(
+    "A A A
+B B B
+C C C
+
+A BC
+B C").unwrap();
+
+let p = Problem::from_string(
+    "A A X
+B B Y
+
+AX BY
+XY XY").unwrap();
+
+
+    let map : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+    
+    for i in 0.. {
+        println!("i = {}",i);
+        let labels_diag = (0..(1<<i)).collect_vec();
+        let labels_problem = p.labels();
+        for choice in labels_diag.iter().cloned().permutations(labels_problem.len()) {
+            //let choice = choice.into_iter().map(|x|(((1<<i)-1)<<i)+x).collect_vec();
+            //let i = 2*i;
+
+        //for choice in (0..labels_problem.len()).map(|_|0..labels_diag.len()).multi_cartesian_product() {
+            let mut diagram = String::new();
+            for (j,l) in labels_problem.iter().enumerate() {
+                let s = &map[l];
+                diagram.push_str(&format!("{} = ({:0i$b})\n",s,choice[j]));
+            }
+            for l in 0..(1<<i) {
+                diagram.push_str(&format!("({:0i$b}') -> ({:0i$b})\n",l,l));
+            }
+            for l in 0..(1<<i) {
+                for j in 0..i {
+                    if ((l >> j)&1) == 0 {
+                        let l2 = l | (1<<j);
+                        diagram.push_str(&format!("({:0i$b}) -> ({:0i$b}')\n",l,l2));
+                    }
+                }
+            }
+            //println!("{}",diagram);
+            match p.fixpoint_custom(diagram.clone(), true, &mut eh) {
+                Ok((new,_,_)) => {
+                    if new.fixpoint_procedure_works.unwrap() {
+                        println!("Fixpoint procedure works with the following custom diagram:\n{}",diagram);
+                        return;
+                    }
+                }
+                Err(_) => {  },
+            }
+        }
+
+    }
+
+}
 
 /* 
 #[test]

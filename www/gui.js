@@ -203,9 +203,9 @@ function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max
     return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
-function check_zero_with_input(problem, active, passive, onresult, onerror, progress){
+function check_zero_with_input(problem, active, passive, reverse, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ CheckZeroWithInput : [problem, active, passive] }, ondata , function(){});
+    return api.request({ CheckZeroWithInput : [problem, active, passive, reverse] }, ondata , function(){});
 }
 
 
@@ -373,7 +373,7 @@ Vue.component('re-performed-action', {
                 case "simplifymergesd":
                     return "Performed SubDiagram Merging\n" + this.action.sd;
                 case "zerowithinput":
-                    return "Checked whether the problem is zero-round solvable with the following input:\n\n"+this.action.active+"\n\n" + this.action.passive;
+                    return "Checked whether the problem is zero-round solvable with the following input:\n\n"+this.action.active+"\n\n" + this.action.passive + "\n\nReverse: " + this.action.reverse;
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
                 case "criticalharden":
@@ -2059,8 +2059,15 @@ Vue.component('re-zero-input',{
         on_zero(){
             call_api_generating_problem(
                 this.stuff,
-                {type:"zerowithinput", active:this.active,passive:this.passive},
-                check_zero_with_input,[this.problem, this.active,this.passive]
+                {type:"zerowithinput", active:this.active,passive:this.passive, reverse : false},
+                check_zero_with_input,[this.problem, this.active,this.passive, false]
+            );
+        },
+        on_zero_reverse(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"zerowithinput", active:this.active,passive:this.passive, reverse : true},
+                check_zero_with_input,[this.problem, this.active,this.passive, true]
             );
         },
     },
@@ -2075,6 +2082,7 @@ Vue.component('re-zero-input',{
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="passive"></textarea>
             </div>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_zero">Check</button>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_zero_reverse">Reverse Check</button>
         </re-card>
     `
 })
