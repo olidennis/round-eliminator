@@ -165,9 +165,12 @@ impl Problem {
             let d1 : HashSet<_> = compatible_with_m.difference(&compatible_with_u).cloned().collect();
             let d2 : HashSet<_> = compatible_with_u.difference(&compatible_with_m).cloned().collect();
             let d3 : HashSet<_> = compatible_with_p.difference(&compatible_with_m).cloned().collect();
+            let d4 : HashSet<_> = compatible_with_p.difference(&compatible_with_u).cloned().collect();
+
             let mut toremove = d1;
             toremove.extend(d2.into_iter());
             toremove.extend(d3.into_iter());
+            toremove.extend(d4.into_iter());
             let tokeep : HashSet<_> = HashSet::from_iter(labels.iter().cloned()).difference(&toremove).cloned().collect();
 
             let mut after_remove = self.harden_keep(&tokeep, true);
