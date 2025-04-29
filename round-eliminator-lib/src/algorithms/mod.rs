@@ -31,3 +31,4 @@ pub mod parallel;
 pub mod delta_edge_coloring;
 pub mod lll;
 pub mod genetic;
+pub mod dual;

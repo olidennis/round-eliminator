@@ -147,6 +147,28 @@ fn marks(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<
     }
 }
 
+fn dual(p : &Problem, bound : Arc<Mutex<BoundRange>>) {
+    let eh = &mut EventHandler::null();
+    let mut f = Problem::from_string("A B B\n\nAB B").unwrap();
+    let mut p = p.clone();
+
+    p.passive.maximize(eh);
+    f.passive.maximize(eh);
+    //p.compute_diagram(eh);
+    f.compute_diagram(eh);
+
+    let mut dual = p.dual_problem(&f);
+    round_eliminator_lib::serial::fix_problem(&mut dual, true, true, eh);
+
+    f.compute_triviality_with_input(dual);
+
+    if f.triviality_with_input.is_none() {
+        bound.lock().unwrap().new_lb(Bound::Log);
+        println!("{}", bound.lock().unwrap());
+        check_exit(bound.clone());
+    }
+}
+
 fn just_speedups(p : &Problem, c : Option<usize>, pc : Option<usize>, bound : Arc<Mutex<BoundRange>>) {
     let mut eh = EventHandler::null();
     let mut p = p.clone();
@@ -210,6 +232,7 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
         let b6 = bound.clone();
         let b7 = bound.clone();
         let b8 = bound.clone();
+        let b9 = bound.clone();
 
         /*
         s.spawn(|| {
@@ -243,8 +266,12 @@ fn automatic_bounds(p : &Problem, c : Option<usize>, pc : Option<usize>) {
     
          */
     
-        s.spawn(|| {
+        /*s.spawn(|| {
             marks(p,c,pc,b8);
+        });*/
+
+        s.spawn(||{
+            dual(p,b9);
         });
     });
 }

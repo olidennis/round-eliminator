@@ -56,13 +56,11 @@ impl Problem {
             } else {
                 self.compute_partial_diagram(eh);
             }
+            eh.notify("remove weak", 1, 1);
+            self.remove_weak_active_lines();
             eh.notify("discard non maximal", 1, 1);
             self.passive.discard_non_maximal_lines();
             self.active.discard_non_maximal_lines();
-            eh.notify("remove weak", 1, 1);
-            //if self.diagram_indirect.is_some() {
-            self.remove_weak_active_lines();
-            //}
             eh.notify("discard labels at most one side", 1, 1);
             self.discard_labels_used_on_at_most_one_side_from_configurations();
             eh.notify("discard unused internal", 1, 1);
