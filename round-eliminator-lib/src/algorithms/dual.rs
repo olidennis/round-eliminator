@@ -108,9 +108,12 @@ fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<usize>>
                 for i in 0..d {
                     let mut set = vec![];
                     for &succ in &all_successors[&configuration[i]] {
-                        let mut new_configuration = configuration.clone();
-                        new_configuration[i] = succ;
-                        if !is_linep_bad_for_lined(&new_configuration,&bad) {
+                        let old_label_f = labels[configuration[i] as usize][labels_p_to_positions[&bad[i]]];
+                        let new_label_f = labels[succ as usize][labels_p_to_positions[&bad[i]]];
+                        if old_label_f != new_label_f {
+                        //let mut new_configuration = configuration.clone();
+                        //new_configuration[i] = succ;
+                        //if !is_linep_bad_for_lined(&new_configuration,&bad) {
                             set.push(succ);
                         }
                     }
@@ -239,6 +242,15 @@ mod tests {
         });*/
         let eh = &mut EventHandler::null();
 
+let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA BC\nB C\n").unwrap();
+let mut p = Problem::from_string("A B C\n\nA A\nB B\nC C\n").unwrap();
+let mut p = Problem::from_string("A B^2
+1 2 3
+
+3B^2
+1B^2
+2B^2
+B A123B").unwrap();
 
 
         let mut p = Problem::from_string("A B^2
@@ -255,19 +267,6 @@ XB (123)(12)(13)1(23)23XB
 2XB (13)13XB
 3XB (12)12XB
 1XB (23)23XB").unwrap();
-
-
-
-
-let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA BC\nB C\n").unwrap();
-let mut p = Problem::from_string("A B C\n\nA A\nB B\nC C\n").unwrap();
-let mut p = Problem::from_string("A B^2
-1 2 3
-
-3B^2
-1B^2
-2B^2
-B A123B").unwrap();
 
         let mut f = Problem::from_string("A B B\n\nB AB").unwrap();
 
