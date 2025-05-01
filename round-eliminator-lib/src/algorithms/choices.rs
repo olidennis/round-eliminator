@@ -118,3 +118,16 @@ pub fn minimal_sets(all_sets: HashSet<Group>) -> Vec<HashSet<Label>> {
     }
     result
 }
+
+
+pub fn left_labels<T>(labels : &Vec<Label>, is_right: T) -> Vec<Label> where T: Fn(Label, Label) -> bool + Copy + Sync {
+    let mut result: Vec<Label> = vec![];
+    for &label in labels {
+        let len = result.len();
+        result.retain(|&x| !is_right(x,label));
+        if result.len() != len || result.iter().all(|&r| !is_right(label,r)) {
+            result.push(label);
+        }
+    }
+    result
+}

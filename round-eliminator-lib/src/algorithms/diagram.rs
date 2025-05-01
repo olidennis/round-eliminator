@@ -180,35 +180,23 @@ impl Problem {
     }
 
     pub fn diagram_direct_to_succ_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in &self
+        let diagram_direct = &self
             .diagram_direct
             .as_ref()
             .expect("diagram required, but still not computed")
-            .1
-        {
-            h.entry(a).or_default().insert(b);
-        }
-        for label in self.labels() {
-            h.entry(label).or_default();
-        }
-        h
+            .1;
+        let labels = self.labels();
+        diagram_direct_to_succ_adj(&diagram_direct, &labels)
     }
 
     pub fn diagram_direct_to_pred_adj(&self) -> HashMap<Label, HashSet<Label>> {
-        let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
-        for &(a, b) in &self
+        let diagram_direct = &self
             .diagram_direct
             .as_ref()
             .expect("diagram required, but still not computed")
-            .1
-        {
-            h.entry(b).or_default().insert(a);
-        }
-        for label in self.labels() {
-            h.entry(label).or_default();
-        }
-        h
+            .1;
+        let labels = self.labels();
+        diagram_direct_to_pred_adj(&diagram_direct, &labels)
     }
 
 
@@ -467,4 +455,28 @@ pub fn compute_direct_diagram(labels : &[Label], diagram_indirect : &Vec<(Label,
     edges.sort_unstable();
 
     (merged,edges)
+}
+
+pub fn diagram_direct_to_succ_adj(diagram_direct : &Vec<(Label,Label)>,labels : &Vec<Label>) -> HashMap<Label, HashSet<Label>> {
+    let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
+    for &(a, b) in diagram_direct
+    {
+        h.entry(a).or_default().insert(b);
+    }
+    for &label in labels {
+        h.entry(label).or_default();
+    }
+    h
+}
+
+pub fn diagram_direct_to_pred_adj(diagram_direct : &Vec<(Label,Label)>,labels : &Vec<Label>) -> HashMap<Label, HashSet<Label>> {
+    let mut h: HashMap<Label, HashSet<Label>> = HashMap::new();
+    for &(a, b) in diagram_direct
+    {
+        h.entry(b).or_default().insert(a);
+    }
+    for &label in labels {
+        h.entry(label).or_default();
+    }
+    h
 }
