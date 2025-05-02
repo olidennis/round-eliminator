@@ -6,7 +6,7 @@ use serde_json::map;
 
 use crate::{algorithms::choices::left_labels, constraint::Constraint, group::{Group, GroupType, Label}, line::Line, part::Part, problem::Problem};
 
-use super::diagram::{compute_direct_diagram, diagram_direct_to_pred_adj, diagram_direct_to_succ_adj, diagram_indirect_to_reachability_adj};
+use super::{diagram::{compute_direct_diagram, diagram_direct_to_pred_adj, diagram_direct_to_succ_adj, diagram_indirect_to_reachability_adj}, event::EventHandler};
 
 
 impl Line {
@@ -161,7 +161,7 @@ impl Problem {
 
 
 
-    pub fn dual_problem(&self, f : &Problem) -> Problem {
+    pub fn dual_problem(&self, f : &Problem, eh : &mut EventHandler) -> Problem {
         let mut f = f.clone();
         f.add_active_predecessors();
         f.active.is_maximized = true;
@@ -307,13 +307,14 @@ let mut f = Problem::from_string("A B B\n\nB AB").unwrap();
 
 
         p.passive.maximize(eh);
-        f.passive.maximize(eh);
         p.compute_diagram(eh);
+        
+        f.passive.maximize(eh);
         f.compute_diagram(eh);
 
 
 
-        let mut dual = p.dual_problem(&f);
+        let mut dual = p.dual_problem(&f,eh);
         println!("Dual before fixing:\n{}\n",dual);
 
         println!("computed dual, fixing");

@@ -208,6 +208,10 @@ function check_zero_with_input(problem, active, passive, reverse, onresult, oner
     return api.request({ CheckZeroWithInput : [problem, active, passive, reverse] }, ondata , function(){});
 }
 
+function dual(problem, active, passive, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ Dual : [problem, active, passive] }, ondata , function(){});
+}
 
 function fix_problem(p) {
     p.map_label_text = vec_to_map(p.mapping_label_text);
@@ -374,6 +378,8 @@ Vue.component('re-performed-action', {
                     return "Performed SubDiagram Merging\n" + this.action.sd;
                 case "zerowithinput":
                     return "Checked whether the problem is zero-round solvable with the following input:\n\n"+this.action.active+"\n\n" + this.action.passive + "\n\nReverse: " + this.action.reverse;
+                case "dual":
+                    return "Computed dual wrt the following problem:\n\n"+this.action.active+"\n\n" + this.action.passive;
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
                 case "criticalharden":
@@ -1680,6 +1686,7 @@ Vue.component('re-tools', {
             <re-auto-lb :problem="problem" :stuff="stuff"></re-auto-lb>
             <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
             <re-zero-input :problem="problem" :stuff="stuff"></re-zero-input>
+            <re-dual :problem="problem" :stuff="stuff"></re-dual>
         </div>
     `
 })
@@ -2099,6 +2106,76 @@ Vue.component('re-zero-input',{
         </re-card>
     `
 })
+
+
+Vue.component('re-dual',{
+    props: ['problem','stuff'],
+    data: function(){ return {
+            dual_fp_active : "",
+            dual_fp_passive : "",
+            doubledual_fp_active : "",
+            doubledual_fp_passive : "",  
+            doubledual_fp_diagram : "",
+            input_active : "",
+            input_passive : "",
+        }    
+    },
+    methods: {
+        on_dual(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"dual", active:this.dual_fp_active,passive:this.dual_fp_passive},
+                dual,[this.problem, this.dual_fp_active,this.dual_fp_passive]
+            );
+        },
+        on_zero_reverse(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"zerowithinput", active:this.active,passive:this.passive, reverse : true},
+                check_zero_with_input,[this.problem, this.active,this.passive, true]
+            );
+        },
+    },
+    template: `
+        <re-card title="Dual" subtitle="(compute dual and double dual)">
+            Dual w.r.t. the following fixed point.
+            <div class="m-1">
+                <h4>Active</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="dual_fp_active"></textarea>
+            </div>
+            <div class="m-1">
+                <h4>Passive</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="dual_fp_passive"></textarea>
+            </div>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_dual">Dual</button>
+            <hr/>
+            Double dual.<br/> You need to provide the fixed point, or the diagram of the fixed point. 
+            <div class="m-1">
+                <h4>Active</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="duubledual_fp_active"></textarea>
+            </div>
+            <div class="m-1">
+                <h4>Passive</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_passive"></textarea>
+            </div>
+            <div class="m-1">
+                <h4>Fixed Point Diagram</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_diagram"></textarea>
+            </div>
+            You need to provide the input (i.e., the dual).
+            <div class="m-1">
+                <h4>Active</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_active"></textarea>
+            </div>
+            <div class="m-1">
+                <h4>Passive</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_passive"></textarea>
+            </div>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_dual">Double Dual</button>
+        </re-card>
+    `
+})
+
 
 // https://stackoverflow.com/questions/400212/how-do-i-copy-to-the-clipboard-in-javascript
 // navigator.clipboard.writeText(link); only works with HTTPS

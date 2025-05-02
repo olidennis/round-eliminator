@@ -424,6 +424,28 @@ where
                 Err(s) => handler(Response::E(s.into())),
             }
         },
+        Request::Dual(problem, active, passive) => {
+            let fp = Problem::from_string_active_passive(active,passive);
+            match fp {
+                Ok((mut fp,missing_labels)) => {
+                    if missing_labels {
+                        handler(Response::W("Some labels appear on only one side!".into()));
+                    }
+                    if fp.active.degree != problem.active.degree || fp.passive.degree != problem.passive.degree {
+                        handler(Response::E("Problems have different degrees".into()));
+                    } else {
+                        fp.passive.maximize(&mut eh);
+                        fp.compute_diagram(&mut eh);
+                        let mut dual = problem.dual_problem(&fp,&mut eh);
+                        fix_problem(&mut dual, true, false, &mut eh);
+                        let mut dual = dual.merge_subdiagram("",true,&mut eh).unwrap();
+                        dual.compute_triviality(&mut eh);
+                        handler(Response::P(dual));
+                    }
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
+        },
     }
 
     handler(Response::Done);
@@ -465,6 +487,7 @@ pub enum Request {
     AddActivePredecessors(Problem),
     RemoveTrivialLines(Problem),
     CheckZeroWithInput(Problem,String,String,bool),
+    Dual(Problem,String,String),
     Ping,
 }
 
