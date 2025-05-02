@@ -52,11 +52,11 @@ fn dual_diagram(labels_p : &Vec<Label>, labels_d : &Vec<Vec<usize>>, labels_fp :
     diagram
 }
 
-fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<usize>>, labels_p : &Vec<Label>, all_predecessors : &HashMap<Label, HashSet<Label>>, all_successors : &HashMap<Label, HashSet<Label>>) -> Constraint {
+fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<usize>>, labels_p : &Vec<Label>, all_predecessors : &HashMap<Label, HashSet<Label>>, all_successors : &HashMap<Label, HashSet<Label>>, direct_pred : &HashMap<Label, HashSet<Label>>) -> Constraint {
     let labels_p_to_positions : HashMap<_,_> = labels_p.iter().copied().enumerate().map(|(i,l)|(l,i)).collect();
     let d = cp.finite_degree();
     let labels_d = all_successors.keys().copied().collect_vec();
-    let source = *labels_d.iter().filter(|l|all_predecessors[l].len() <= 1 && all_predecessors[l].iter().filter(|x|x!=l).count() == 0).next().unwrap();
+
 
     let to_vector = |line : &Line|{
         line.iter_labels().collect_vec()
@@ -94,7 +94,11 @@ fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<usize>>
         all_successors[&l2].contains(&l1)
     };
     
-    println!("starting");
+    let mut sources = labels_d.iter().filter(|l|direct_pred[l].is_empty());
+    let source = *sources.next().unwrap();
+    if sources.next().is_some() {
+        panic!("non-unique source");
+    }
     let initial_configuration = std::iter::repeat(source).take(d).collect_vec();
     let mut good_configurations = HashSet::new();
     let mut tofix_configurations : HashSet<_> = HashSet::from_iter(vec![initial_configuration].into_iter());
@@ -139,9 +143,9 @@ fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<usize>>
 
     //let lines = (0..d).map(|_|0..labels.len() as Label).multi_cartesian_product()
     //    .filter(|line_d|line_d.is_sorted())
-    //    .filter(|line_d|line_d_is_good(line_d))
+    //    .filter(|line_d|find_bad_linep_for_lined(line_d).is_none())
     let lines = good_configurations.into_iter()
-        .map(|line|to_configuration(&line)).collect_vec();
+        .map(|line|{to_configuration(&line)}).collect_vec();
     let c = Constraint { lines, is_maximized: false, degree: crate::line::Degree::Finite(d)  };
     c.edited(|g|{
         let g = g.iter().fold(HashSet::new(),|mut a,l|{
@@ -173,16 +177,20 @@ impl Problem {
         let inv = d_diag.iter().map(|&(a,b)|(b,a)).collect_vec();
         let all_pred = diagram_indirect_to_reachability_adj(&d_labels, &inv);
 
+        let direct = compute_direct_diagram(&d_labels, &d_diag).1;
+        let direct_succ = diagram_direct_to_succ_adj(&direct, &d_labels);
+        let direct_pred = diagram_direct_to_pred_adj(&direct, &d_labels);
 
-        
-        let dual_active = dual_constraint(&self.active, &f.active, &dual_labels_v, &labels_p, &all_succ, &all_pred);
-        let dual_passive = dual_constraint(&self.passive, &f.passive, &dual_labels_v, &labels_p, &all_pred, &all_succ);
+        let dual_active = dual_constraint(&self.active, &f.active, &dual_labels_v, &labels_p, &all_succ, &all_pred, &direct_succ);
+        let dual_passive = dual_constraint(&self.passive, &f.passive, &dual_labels_v, &labels_p, &all_pred, &all_succ, &direct_pred);
+
+        println!("computed constraints, computing label names");
 
         let active_labels = dual_active.labels_appearing();
         let passive_labels = dual_passive.labels_appearing();
         let dual_labels = active_labels.union(&passive_labels).collect_vec();
 
-        let mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+        /*let mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
 
         let mapping_label_text = dual_labels.into_iter().map(|&l|{
             let v = &dual_labels_v[l as usize];
@@ -197,8 +205,17 @@ impl Problem {
             };
             let s = labels_f.iter().map(|&x|v_to_string(&mapped_to_x(x))).join("_");
             (l,format!("({})",s))
+        }).collect_vec();*/
+
+        let mapping_fp : HashMap<_,_> = f.mapping_label_text.iter().cloned().collect();
+        let join_char = if mapping_fp.values().all(|x|x.len()==1) { "" }else{"_"}; 
+        let mapping_label_text = dual_labels.into_iter().map(|&l|{
+            let v = &dual_labels_v[l as usize];
+            let s = v.iter().map(|&x|&mapping_fp[&(x as Label)]).join(join_char).replace("(","[").replace(")","]");
+            (l,format!("({})",s))
         }).collect_vec();
 
+        println!("done");
 
         Problem {
             active : dual_active,
@@ -242,8 +259,6 @@ mod tests {
         });*/
         let eh = &mut EventHandler::null();
 
-let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA BC\nB C\n").unwrap();
-let mut p = Problem::from_string("A B C\n\nA A\nB B\nC C\n").unwrap();
 let mut p = Problem::from_string("A B^2
 1 2 3
 
@@ -268,7 +283,28 @@ XB (123)(12)(13)1(23)23XB
 3XB (12)12XB
 1XB (23)23XB").unwrap();
 
-        let mut f = Problem::from_string("A B B\n\nB AB").unwrap();
+
+let mut p = Problem::from_string("A B C\n\nA A\nB B\nC C\n").unwrap();
+
+let mut p = Problem::from_string("A A A\nB B B\nC C C\n\nA BC\nB C\n").unwrap();
+
+
+let mut f = Problem::from_string("x O o
+r c O
+r C o
+c R o
+X o^2
+A B^2
+
+OB OCRXB
+ORB^2
+OCB^2
+xorcB oB
+orB ocB
+xXAB B").unwrap();
+
+let mut f = Problem::from_string("A B B\n\nB AB").unwrap();
+
 
         p.passive.maximize(eh);
         f.passive.maximize(eh);
@@ -278,9 +314,13 @@ XB (123)(12)(13)1(23)23XB
 
 
         let mut dual = p.dual_problem(&f);
+        println!("Dual before fixing:\n{}\n",dual);
+
+        println!("computed dual, fixing");
         fix_problem(&mut dual, true, false, eh);
+        println!("merging equivalent labels");
         let mut dual = dual.merge_subdiagram("",true,eh).unwrap();
-        println!("{}",dual);
+        println!("Dual:\n{}\n",dual);
 
         dual.compute_triviality(eh);
         if !dual.trivial_sets.as_ref().unwrap().is_empty() {
