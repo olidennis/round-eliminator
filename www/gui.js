@@ -891,6 +891,18 @@ Vue.component('re-diagram', {
         //prevent vue from adding getters and setters, otherwise some things of vis break
         this.network[0] = network;
         //console.log(this.id + " " + this.visdata.nodes.length);
+        },
+        on_export : function() {
+            let s = "# nodes\n";
+            let map = this.problem.map_label_text;
+            for( let node of this.problem.diagram_direct[0]  ){
+                s += map[node[0]] + " = " + node[1].map(x => this.problem.map_label_text[x]).join(" ") + "\n";
+            }
+            s += "# edges\n";
+            for( let edge of this.problem.diagram_direct[1] ){
+                s += map[edge[0]] + " -> " + map[edge[1]] + "\n";
+            }
+            copyToClipboard(s);
         }
     },
     watch : {
@@ -920,6 +932,7 @@ Vue.component('re-diagram', {
                 <label><input type="checkbox" class="custom-control-input" v-model="physics"><p class="form-control-static custom-control-label">Physics</p></label><br/>
                 <label><input type="checkbox" class="custom-control-input" v-model="hierarchical"><p class="form-control-static custom-control-label">Hierarchical</p></label>
             </div>
+            <button type="button" class="btn btn-primary m-1" v-on:click="on_export">Export to Clipboard</button>
         </div>
     `
 })
