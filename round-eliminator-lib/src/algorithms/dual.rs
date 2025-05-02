@@ -23,12 +23,12 @@ impl Line {
 }
 
 
-fn k_partitions(k : usize, n : usize) -> impl Iterator<Item=Vec<usize>> {
-    (0..n).map(|_|0..k)
+fn k_partitions(k_domain : &Vec<Label>, n : usize) -> impl Iterator<Item=Vec<Label>> + '_ {
+    (0..n).map(|_|k_domain.iter().copied())
         .multi_cartesian_product()
 }
 
-fn dual_diagram(labels_p : &Vec<Label>, labels_d : &Vec<Vec<usize>>, labels_fp : &Vec<Label>, diagram_fp : &Vec<(Label,Label)>) -> Vec<(Label,Label)> {
+fn dual_diagram(labels_p : &Vec<Label>, labels_d : &Vec<Vec<Label>>, labels_fp : &Vec<Label>, diagram_fp : &Vec<(Label,Label)>) -> Vec<(Label,Label)> {
     let labels_d : HashMap<_,_> = labels_d.iter().cloned().enumerate().collect();
     let labels_p_to_positions : HashMap<_,_> = labels_p.iter().copied().enumerate().map(|(i,l)|(l,i)).collect();
 
@@ -52,7 +52,7 @@ fn dual_diagram(labels_p : &Vec<Label>, labels_d : &Vec<Vec<usize>>, labels_fp :
     diagram
 }
 
-fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<usize>>, labels_p : &Vec<Label>, all_predecessors : &HashMap<Label, HashSet<Label>>, all_successors : &HashMap<Label, HashSet<Label>>, direct_pred : &HashMap<Label, HashSet<Label>>) -> Constraint {
+fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<Label>>, labels_p : &Vec<Label>, all_predecessors : &HashMap<Label, HashSet<Label>>, all_successors : &HashMap<Label, HashSet<Label>>, direct_pred : &HashMap<Label, HashSet<Label>>) -> Constraint {
     let labels_p_to_positions : HashMap<_,_> = labels_p.iter().copied().enumerate().map(|(i,l)|(l,i)).collect();
     let d = cp.finite_degree();
     let labels_d = all_successors.keys().copied().collect_vec();
@@ -169,7 +169,7 @@ impl Problem {
         let labels_f = f.labels();
         let labels_p = self.labels();
 
-        let dual_labels_v = k_partitions(labels_f.len(), labels_p.len()).collect_vec();
+        let dual_labels_v = k_partitions(&labels_f, labels_p.len()).collect_vec();
 
         let d_diag = dual_diagram(&self.labels(), &dual_labels_v, &f.labels(), &f.diagram_indirect.as_ref().unwrap());
         let d_labels = (0..dual_labels_v.len()).map(|x|x as Label).collect_vec();
