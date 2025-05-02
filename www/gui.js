@@ -213,6 +213,11 @@ function dual(problem, active, passive, onresult, onerror, progress){
     return api.request({ Dual : [problem, active, passive] }, ondata , function(){});
 }
 
+function doubledual(problem, active, passive,diagram,input_active,input_passive, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ DoubleDual : [problem, active, passive,diagram,input_active,input_passive] }, ondata , function(){});
+}
+
 function fix_problem(p) {
     p.map_label_text = vec_to_map(p.mapping_label_text);
     p.map_label_oldlabels = vec_to_map(p.mapping_label_oldlabels) ?? null;
@@ -380,6 +385,9 @@ Vue.component('re-performed-action', {
                     return "Checked whether the problem is zero-round solvable with the following input:\n\n"+this.action.active+"\n\n" + this.action.passive + "\n\nReverse: " + this.action.reverse;
                 case "dual":
                     return "Computed dual wrt the following problem:\n\n"+this.action.active+"\n\n" + this.action.passive;
+                case "doubledual":
+                    return "Computed dual wrt the following problem:\n\n"+this.action.active+"\n\n" + this.action.passive+"\n\nwrt the following diagram:\n\n" + this.action.diagram + "\n\nwrt the following input:\n\n"+this.action.input_active+"\n\n" + this.action.input_passive;
+                    case "hardenremove":
                 case "hardenremove":
                     return "Performed Hardening: Removed Label " + this.action.label;
                 case "criticalharden":
@@ -2128,11 +2136,11 @@ Vue.component('re-dual',{
                 dual,[this.problem, this.dual_fp_active,this.dual_fp_passive]
             );
         },
-        on_zero_reverse(){
+        on_doubledual(){
             call_api_generating_problem(
                 this.stuff,
-                {type:"zerowithinput", active:this.active,passive:this.passive, reverse : true},
-                check_zero_with_input,[this.problem, this.active,this.passive, true]
+                {type:"doubledual", active:this.doubledual_fp_active,passive:this.doubledual_fp_passive,diagram:this.doubledual_fp_diagram,input_active:this.input_active, input_passive:this.input_passive},
+                doubledual,[this.problem, this.doubledual_fp_active,this.doubledual_fp_passive,this.doubledual_fp_diagram,this.input_active, this.input_passive]
             );
         },
     },
@@ -2152,7 +2160,7 @@ Vue.component('re-dual',{
             Double dual.<br/> You need to provide the fixed point, or the diagram of the fixed point. 
             <div class="m-1">
                 <h4>Active</h4>
-                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="duubledual_fp_active"></textarea>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_active"></textarea>
             </div>
             <div class="m-1">
                 <h4>Passive</h4>
@@ -2162,7 +2170,7 @@ Vue.component('re-dual',{
                 <h4>Fixed Point Diagram</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_diagram"></textarea>
             </div>
-            You need to provide the input (i.e., the dual).
+            If you also provide the input, everything is faster.
             <div class="m-1">
                 <h4>Active</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_active"></textarea>
@@ -2171,7 +2179,7 @@ Vue.component('re-dual',{
                 <h4>Passive</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_passive"></textarea>
             </div>
-            <button type="button" class="btn btn-primary ml-1" v-on:click="on_dual">Double Dual</button>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual">Double Dual</button>
         </re-card>
     `
 })

@@ -443,7 +443,8 @@ impl Problem {
         let text_mapping = text_diag.lines().filter(|line|!line.starts_with("#") && line.contains("=")).join("\n");
         let text_diagram = text_diag.lines().filter(|line|!line.starts_with("#") && (line.contains("->") || line.contains("<-"))).join("\n");
 
-        let mapping_newlabel_text : Vec<_> = text_diagram.split_whitespace().flat_map(|w|w.split("<-")).flat_map(|w|w.split("->")).filter(|&s|s != "->" && s != "<-" && s != "").unique().enumerate().map(|(l,s)|(l as Label,s.to_owned())).collect();
+        let (mapping_newlabel_text,diagram) = parse_diagram(&text_diagram);
+
         let mapping_text_newlabel : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
         let mapping_oldtext_newtext : HashMap<_,_> = text_mapping.lines().map(|line|{
             let mut line = line.split("=");
@@ -461,29 +462,6 @@ impl Problem {
             
         }).collect();
 
-        let diagram : Vec<_> = text_diagram.split("\n").flat_map(|line|{
-            let mut v = vec![];
-            if line.contains("->") {
-                let mut line = line.split("->");
-                let a = line.next().unwrap();
-                let b = line.next().unwrap();
-                for a in a.split_whitespace() {
-                    for b in b.split_whitespace() {
-                        v.push((mapping_text_newlabel[a],mapping_text_newlabel[b]));
-                    }
-                }
-            } else if line.contains("<-") {
-                let mut line = line.split("<-");
-                let b = line.next().unwrap();
-                let a = line.next().unwrap();
-                for a in a.split_whitespace() {
-                    for b in b.split_whitespace() {
-                        v.push((mapping_text_newlabel[a],mapping_text_newlabel[b]));
-                    }
-                }
-            } 
-            v.into_iter()
-        }).collect();
         Ok((self.fixpoint_onestep(only_compute_triviality, &mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0,diagram,mapping_label_newlabel))
     }
 
@@ -1333,6 +1311,39 @@ impl<T> TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Has
             }
         }
     }
+}
+
+pub fn parse_diagram(diagram : &str) -> (Vec<(Label, String)>, Vec<(Label, Label)>) {
+    let text_diagram = diagram.lines().filter(|line|!line.starts_with("#") && (line.contains("->") || line.contains("<-"))).join("\n");
+
+    let mapping_newlabel_text : Vec<_> = text_diagram.split_whitespace().flat_map(|w|w.split("<-")).flat_map(|w|w.split("->")).filter(|&s|s != "->" && s != "<-" && s != "").unique().enumerate().map(|(l,s)|(l as Label,s.to_owned())).collect();
+    let mapping_text_newlabel : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
+
+    let diagram : Vec<_> = text_diagram.split("\n").flat_map(|line|{
+        let mut v = vec![];
+        if line.contains("->") {
+            let mut line = line.split("->");
+            let a = line.next().unwrap();
+            let b = line.next().unwrap();
+            for a in a.split_whitespace() {
+                for b in b.split_whitespace() {
+                    v.push((mapping_text_newlabel[a],mapping_text_newlabel[b]));
+                }
+            }
+        } else if line.contains("<-") {
+            let mut line = line.split("<-");
+            let b = line.next().unwrap();
+            let a = line.next().unwrap();
+            for a in a.split_whitespace() {
+                for b in b.split_whitespace() {
+                    v.push((mapping_text_newlabel[a],mapping_text_newlabel[b]));
+                }
+            }
+        } 
+        v.into_iter()
+    }).collect();
+    
+    (mapping_newlabel_text,diagram)
 }
 
 /* 

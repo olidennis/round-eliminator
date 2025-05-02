@@ -436,14 +436,32 @@ where
                     } else {
                         fp.passive.maximize(&mut eh);
                         fp.compute_diagram(&mut eh);
-                        let mut dual = problem.dual_problem(&fp,&mut eh);
-                        fix_problem(&mut dual, true, false, &mut eh);
-                        let mut dual = dual.merge_subdiagram("",true,&mut eh).unwrap();
-                        dual.compute_triviality(&mut eh);
-                        handler(Response::P(dual));
+                        match problem.dual_problem(&fp, &mut eh) {
+                            Ok(mut dual) => {
+                                fix_problem(&mut dual, true, false, &mut eh);
+                                let mut dual = dual.merge_subdiagram("",true,&mut eh).unwrap();
+                                dual.compute_triviality(&mut eh);
+                                handler(Response::P(dual));
+                            }
+                            Err(s) => handler(Response::E(s.into())),
+                        }
                     }
                 }
                 Err(s) => handler(Response::E(s.into())),
+            }
+        },
+        Request::DoubleDual(problem, active, passive,diagram,input_active,input_passive) => {
+            match problem.doubledual_diagram(&active,&passive,&diagram,&input_active,&input_passive, &mut eh) {
+                Ok(diagram) => {
+                    match problem.fixpoint_generic(None, FixpointType::Custom(diagram),false,&mut eh) {
+                        Ok((mut new,_,_)) => {
+                            fix_problem(&mut new, true, true, &mut eh);
+                            handler(Response::P(new));
+                        }
+                        Err(s) => handler(Response::E(s.into())),
+                    }
+                }
+                Err(s) => handler(Response::E(s.into()))
             }
         },
     }
@@ -488,6 +506,7 @@ pub enum Request {
     RemoveTrivialLines(Problem),
     CheckZeroWithInput(Problem,String,String,bool),
     Dual(Problem,String,String),
+    DoubleDual(Problem,String,String,String,String,String),
     Ping,
 }
 
