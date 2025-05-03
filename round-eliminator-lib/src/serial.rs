@@ -470,7 +470,7 @@ where
                         println!("computing dual");
                         match problem.doubledual_problem(&fp, &mut eh) {
                             Ok(mut dual) => {
-                                fix_problem(&mut dual, true, false, &mut eh);
+                                fix_problem(&mut dual, true, true, &mut eh);
                                 handler(Response::P(dual));
                             }
                             Err(s) => handler(Response::E(s.into())),
