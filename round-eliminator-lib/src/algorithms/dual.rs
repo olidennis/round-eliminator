@@ -172,7 +172,7 @@ fn labels_for_dual(f_mapping_label_text : &Vec<(Label,String)>, dual_labels : &V
 impl Problem {
 
 
-    pub fn dual_problem(&self, f : &Problem, eh : &mut EventHandler) -> Result<(Problem,Vec<Vec<Label>>), &'static str> {
+    pub fn dual_problem(&self, f : &Problem, eh : &mut EventHandler) -> Result<(Problem,Vec<Vec<Label>>,Vec<(Label,Label)>), &'static str> {
         println!("add active pred");
         let mut f = f.clone();
         f.add_active_predecessors();
@@ -248,16 +248,23 @@ impl Problem {
             demisifiable : None,
             is_trivial_with_input : None,
             triviality_with_input : None
-        },dual_labels_v))
+        },dual_labels_v,d_diag))
     }
 
     pub fn doubledual_problem(&self, fp : &Problem, eh : &mut EventHandler) -> Result<Problem, &'static str> {
         let (mapping_label_text_fp,diagram_fp) = (fp.mapping_label_text.clone(),fp.diagram_indirect.clone().unwrap());
 
-        let (mut dual,dual_labels_v) = self.dual_problem(&fp, eh)?;
+        let (mut dual,dual_labels_v,orig_dual_diagram) = self.dual_problem(&fp, eh)?;
         dual.passive.maximize(eh);
         dual.compute_diagram(eh);
         let (equiv,_) = dual.diagram_direct.as_ref().unwrap();
+
+        let orig_dual_labels = (0..dual_labels_v.len() as Label).collect_vec();
+        let orig_dual_diagram = diagram_to_indirect(&orig_dual_labels,&orig_dual_diagram);
+        let orig_dual_diagram = diagram_indirect_to_reachability_adj(&orig_dual_labels, &orig_dual_diagram);
+        let equiv_choice = equiv.iter().map(|(_,v)|{
+            v.iter().copied().sorted_by_key(|x|orig_dual_diagram[x].len()).last().unwrap()
+        }).collect_vec();
 
         let labels_p = self.labels();
 
@@ -281,7 +288,7 @@ impl Problem {
         for &l in &labels_p {
             for &dd in &dualdual_labels {
                 if dualdual_labels_v[dd as usize].iter().enumerate().all(|(i,&r)|{
-                    equiv[i].1.iter().any(|&j|dual_labels_v[j as usize][l as usize] == r)
+                    dual_labels_v[equiv_choice[i] as usize][l as usize] == r
                 }) {
                     mapping.push((l,dd));
                     //break;
@@ -298,7 +305,7 @@ impl Problem {
         for (a,b) in mapping {
             s += &format!("{} = {}\n",p_text[&a],dualdual_text[&b]);
         }
-        println!("{}",s);
+        //println!("{}",s);
         for (a,b) in dualdual_diagram {
             s += &format!("{} -> {}\n",dualdual_text[&a],dualdual_text[&b]);
         }

@@ -440,9 +440,9 @@ where
                         fp.compute_diagram(&mut eh);
                         println!("computing dual");
                         match problem.dual_problem(&fp, &mut eh) {
-                            Ok((mut dual,_)) => {
+                            Ok((mut dual,_,_)) => {
                                 fix_problem(&mut dual, true, false, &mut eh);
-                                let mut dual = dual.merge_subdiagram("",true,&mut eh).unwrap();
+                                //let mut dual = dual.merge_subdiagram("",true,&mut eh).unwrap();
                                 dual.compute_triviality(&mut eh);
                                 handler(Response::P(dual));
                             }
