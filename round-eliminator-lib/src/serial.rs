@@ -434,10 +434,13 @@ where
                     if fp.active.degree != problem.active.degree || fp.passive.degree != problem.passive.degree {
                         handler(Response::E("Problems have different degrees".into()));
                     } else {
+                        println!("maximizing passive fp");
                         fp.passive.maximize(&mut eh);
+                        println!("computing diagram fp");
                         fp.compute_diagram(&mut eh);
+                        println!("computing dual");
                         match problem.dual_problem(&fp, &mut eh) {
-                            Ok(mut dual) => {
+                            Ok((mut dual,_)) => {
                                 fix_problem(&mut dual, true, false, &mut eh);
                                 let mut dual = dual.merge_subdiagram("",true,&mut eh).unwrap();
                                 dual.compute_triviality(&mut eh);
@@ -450,7 +453,34 @@ where
                 Err(s) => handler(Response::E(s.into())),
             }
         },
-        Request::DoubleDual(problem, active, passive,diagram,input_active,input_passive) => {
+        Request::DoubleDual(problem, active, passive) => {
+            let fp = Problem::from_string_active_passive(active,passive);
+            match fp {
+                Ok((mut fp,missing_labels)) => {
+                    if missing_labels {
+                        handler(Response::W("Some labels appear on only one side!".into()));
+                    }
+                    if fp.active.degree != problem.active.degree || fp.passive.degree != problem.passive.degree {
+                        handler(Response::E("Problems have different degrees".into()));
+                    } else {
+                        println!("maximizing passive fp");
+                        fp.passive.maximize(&mut eh);
+                        println!("computing diagram fp");
+                        fp.compute_diagram(&mut eh);
+                        println!("computing dual");
+                        match problem.doubledual_problem(&fp, &mut eh) {
+                            Ok(mut dual) => {
+                                fix_problem(&mut dual, true, false, &mut eh);
+                                handler(Response::P(dual));
+                            }
+                            Err(s) => handler(Response::E(s.into())),
+                        }
+                    }
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
+        },
+        Request::DoubleDual2(problem, active, passive,diagram,input_active,input_passive) => {
             match problem.doubledual_diagram(&active,&passive,&diagram,&input_active,&input_passive, &mut eh) {
                 Ok(diagram) => {
                     match problem.fixpoint_generic(None, FixpointType::Custom(diagram),false,&mut eh) {
@@ -506,7 +536,8 @@ pub enum Request {
     RemoveTrivialLines(Problem),
     CheckZeroWithInput(Problem,String,String,bool),
     Dual(Problem,String,String),
-    DoubleDual(Problem,String,String,String,String,String),
+    DoubleDual(Problem,String,String),
+    DoubleDual2(Problem,String,String,String,String,String),
     Ping,
 }
 

@@ -213,9 +213,14 @@ function dual(problem, active, passive, onresult, onerror, progress){
     return api.request({ Dual : [problem, active, passive] }, ondata , function(){});
 }
 
-function doubledual(problem, active, passive,diagram,input_active,input_passive, onresult, onerror, progress){
+function doubledual(problem, active, passive, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ DoubleDual : [problem, active, passive,diagram,input_active,input_passive] }, ondata , function(){});
+    return api.request({ DoubleDual : [problem, active, passive] }, ondata , function(){});
+}
+
+function doubledual2(problem, active, passive,diagram,input_active,input_passive, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ DoubleDual2 : [problem, active, passive,diagram,input_active,input_passive] }, ondata , function(){});
 }
 
 function fix_problem(p) {
@@ -386,6 +391,8 @@ Vue.component('re-performed-action', {
                 case "dual":
                     return "Computed dual wrt the following problem:\n\n"+this.action.active+"\n\n" + this.action.passive;
                 case "doubledual":
+                    return "Computed double dual wrt the following problem:\n\n"+this.action.active+"\n\n" + this.action.passive;
+                case "doubledual2":
                     return "Computed dual wrt the following problem:\n\n"+this.action.active+"\n\n" + this.action.passive+"\n\nwrt the following diagram:\n\n" + this.action.diagram + "\n\nwrt the following input:\n\n"+this.action.input_active+"\n\n" + this.action.input_passive;
                     case "hardenremove":
                 case "hardenremove":
@@ -2139,14 +2146,23 @@ Vue.component('re-dual',{
         on_doubledual(){
             call_api_generating_problem(
                 this.stuff,
-                {type:"doubledual", active:this.doubledual_fp_active,passive:this.doubledual_fp_passive,diagram:this.doubledual_fp_diagram,input_active:this.input_active, input_passive:this.input_passive},
-                doubledual,[this.problem, this.doubledual_fp_active,this.doubledual_fp_passive,this.doubledual_fp_diagram,this.input_active, this.input_passive]
+                {type:"doubledual", active:this.dual_fp_active,passive:this.dual_fp_passive},
+                doubledual,[this.problem, this.dual_fp_active,this.dual_fp_passive]
+            );
+        },
+        on_doubledual2(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"doubledual2", active:this.doubledual_fp_active,passive:this.doubledual_fp_passive,diagram:this.doubledual_fp_diagram,input_active:this.input_active, input_passive:this.input_passive},
+                doubledual2,[this.problem, this.doubledual_fp_active,this.doubledual_fp_passive,this.doubledual_fp_diagram,this.input_active, this.input_passive]
             );
         },
     },
     template: `
         <re-card title="Dual" subtitle="(compute dual and double dual)">
-            Dual w.r.t. the following fixed point.
+            The dual is computed according to the definition.<br/>
+            The double dual is computed by using the fp procedure.<br/>
+            Dual (or double dual) w.r.t. the following fixed point.
             <div class="m-1">
                 <h4>Active</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="dual_fp_active"></textarea>
@@ -2156,8 +2172,9 @@ Vue.component('re-dual',{
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="dual_fp_passive"></textarea>
             </div>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_dual">Dual</button>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual">Double Dual</button>
             <hr/>
-            Double dual.<br/> You need to provide the fixed point, or the diagram of the fixed point. 
+            Double dual computed by using the fp procedure (the dual computation is skipped).<br/> You need to provide the fixed point, or the diagram of the fixed point. 
             <div class="m-1">
                 <h4>Active</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_active"></textarea>
@@ -2170,7 +2187,7 @@ Vue.component('re-dual',{
                 <h4>Fixed Point Diagram</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_diagram"></textarea>
             </div>
-            If you also provide the input, everything is faster.
+            Optional: custom input.
             <div class="m-1">
                 <h4>Active</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_active"></textarea>
@@ -2179,7 +2196,7 @@ Vue.component('re-dual',{
                 <h4>Passive</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_passive"></textarea>
             </div>
-            <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual">Double Dual</button>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual2">Double Dual</button>
         </re-card>
     `
 })
