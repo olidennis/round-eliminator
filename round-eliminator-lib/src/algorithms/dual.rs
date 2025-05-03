@@ -284,7 +284,7 @@ impl Problem {
                     equiv[i].1.iter().any(|&j|dual_labels_v[j as usize][l as usize] == r)
                 }) {
                     mapping.push((l,dd));
-                    break;
+                    //break;
                 }
             }
         }
@@ -298,10 +298,11 @@ impl Problem {
         for (a,b) in mapping {
             s += &format!("{} = {}\n",p_text[&a],dualdual_text[&b]);
         }
+        println!("{}",s);
         for (a,b) in dualdual_diagram {
             s += &format!("{} -> {}\n",dualdual_text[&a],dualdual_text[&b]);
         }
-        println!("{}",s);
+        
         
         let (p,_,_) = self.fixpoint_generic(None, FixpointType::Custom(s),false, eh)?;
         Ok(p)
