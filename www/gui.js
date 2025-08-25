@@ -2187,7 +2187,7 @@ Vue.component('re-dual',{
                 <h4>Fixed Point Diagram</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="doubledual_fp_diagram"></textarea>
             </div>
-            Optional: custom input.
+            <!-- Optional: custom input.
             <div class="m-1">
                 <h4>Active</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_active"></textarea>
@@ -2195,7 +2195,7 @@ Vue.component('re-dual',{
             <div class="m-1">
                 <h4>Passive</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_passive"></textarea>
-            </div>
+            </div> -->
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual2">Double Dual</button>
         </re-card>
     `
