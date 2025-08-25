@@ -329,6 +329,9 @@ where
         Request::AutoLb(problem, b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, coloring_given, coloring, coloring_given_passive, coloring_passive) => {
             eh.notify("autolb",0,0);
             problem.autoautolb( b_max_labels, max_labels, b_branching, branching, b_max_steps, max_steps, if coloring_given {Some(coloring)} else {None}, if coloring_given_passive {Some(coloring_passive)} else {None}, |len,mut sequence|{
+                for (_,p) in sequence.iter_mut() {
+                    p.compute_passive_gen();
+                }
                 handler(Response::AutoLb(len,sequence));
                 eh.notify("autolb",0,0);
             }, &mut eh_ignore);
