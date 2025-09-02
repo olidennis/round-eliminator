@@ -1185,48 +1185,6 @@ enum TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Hash +
     Expr(Box<TreeNode<T>>,Box<TreeNode<T>>,Operation)
 }
 
-fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
-
-    let mut results = HashMap::<(Line, usize, bool), TreeNode<Label>>::new();
-    let mut tree = HashMap::new();
-    let mut need = vec![];
-    let mut order = vec![];
-
-    need.push((line.clone(),pos,norm_pos));
-    order.push((line.clone(),pos,norm_pos));
-
-    while let Some((line,pos,norm_pos)) = need.pop() {
-        if let Some(rg) = how.get(&line) {
-            let (l1,l2, _, norm_map, parts) = &*rg;
-            let (p1,p2,op) = parts[if norm_pos {norm_map[pos][0]} else {pos}];
-            let sub1 = (l1.clone(),p1,true);
-            let sub2 = (l2.clone(),p2,true);
-            tree.insert((line,pos,norm_pos),(sub1.clone(),sub2.clone(),op));
-            order.push(sub2.clone());
-            order.push(sub1.clone());
-            need.push(sub2);
-            need.push(sub1);
-        }
-    }
-    for (line,pos,norm_pos) in order.into_iter().rev() {
-        let sub = (line.clone(),pos,norm_pos);
-        let result = if let Some((sub1,sub2,op)) = tree.get(&sub) {
-            let part1 = results[sub1].clone();
-            let part2 = results[sub2].clone();
-            let mut v = vec![part1,part2];
-            v.sort();
-            let part2 = v.pop().unwrap();
-            let part1 = v.pop().unwrap();
-            TreeNode::Expr(Box::new(part1),Box::new(part2),*op)
-        } else {
-            TreeNode::Terminal(line.parts[pos].group.first())
-        };
-        results.insert(sub,result);
-    }
-    results[&(line.clone(),pos,norm_pos)].clone()
-}
-
-/* 
 
 fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
     if let Some(rg) = how.get(line) {
@@ -1243,7 +1201,7 @@ fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHa
         TreeNode::Terminal(line.parts[pos].group.first())
     }
 
-}*/
+}
 
 impl<T> std::fmt::Display for TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Hash + Clone + std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
