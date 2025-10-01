@@ -65,7 +65,7 @@ impl Problem {
                 return false;
             }
 
-            let mut subproblem = self.harden_keep(&HashSet::from_iter(subset.iter().cloned()), true);
+            let mut subproblem = self.harden_keep(&HashSet::from_iter(subset.iter().cloned()), false);
             subproblem.passive.maximize(&mut EventHandler::null());
             subproblem.compute_diagram(&mut EventHandler::null()); 
 
@@ -199,7 +199,7 @@ impl Problem {
 
             let tokeep : HashSet<_> = HashSet::from_iter(labels.iter().cloned()).difference(&toremove).cloned().collect();
 
-            let mut after_remove = self.harden_keep(&tokeep, true);
+            let mut after_remove = self.harden_keep(&tokeep, false);
             after_remove.discard_useless_stuff(true, &mut EventHandler::null());
             let after_remove = after_remove.merge_subdiagram(&String::new(), true, &mut EventHandler::null()).unwrap();
 
@@ -310,7 +310,7 @@ impl Problem {
         let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
         let external = HashSet::from([labels["M"],labels["U"]]);
         r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
-
+ 
         let p = Problem::from_string("M U*\nP*\n\nM M\nUP U").unwrap();
         let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
         let external = HashSet::from([labels["U"],labels["P"]]);
