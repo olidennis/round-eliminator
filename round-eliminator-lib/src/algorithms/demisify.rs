@@ -317,16 +317,10 @@ impl Problem {
         r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
 
         let p = Problem::from_string("A\nB\n\nA B").unwrap();
-        let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
-        let external = HashSet::from([labels["A"],labels["B"]]);
+        let external = HashSet::new();
         r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
 
         let p = Problem::from_string("A A\nB B\nC C\n\nA BC\nB C").unwrap();
-        let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
-        let external = HashSet::from([labels["A"],labels["B"],labels["C"]]);
-        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
-
-        let p = Problem::from_string("A B\nA C\nB C\n\nA A\nB B\nC C").unwrap();
         let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
         let external = HashSet::from([labels["A"],labels["B"],labels["C"]]);
         r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
