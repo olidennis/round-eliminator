@@ -406,7 +406,7 @@ Vue.component('re-performed-action', {
                 case "speedup":
                     return "Performed speedup";
                 case "demisifiable":
-                    return "Computed deMISifiable sets.";
+                    return "Computed logstar-Reversible Relaxations";
                 case "add-active-predecessors":
                     return "Added Predecessors On Active Side.";
                 case "remove-trivial-lines":
@@ -517,7 +517,7 @@ Vue.component('re-computing', {
                 case "enumerating configurations":
                     return {bar : false, msg: "Enumerating configurations"};
                 case "demisifiable":
-                    return {bar : true, msg: "Computing deMISifiable sets", max : this.action.max, cur : this.action.cur };
+                    return {bar : true, msg: "Computing logstar-Reversible Relaxations", max : this.action.max, cur : this.action.cur };
                 case "combining line pairs":
                     return {bar : true, msg: "Maximizing, combining lines ("+this.action.max+")", max : this.action.max, cur : this.action.cur };
                 case "triviality":
@@ -638,7 +638,7 @@ Vue.component('re-problem-info', {
             <div class="w-100"/>
             <div v-if="this.problem.info.is_demisifiable" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div>DeMISifiable merges:
+                    <div>logstar-Reversible relaxations:
                         <div v-for="set in this.problem.info.demisifiable">{{ set[0] }} <span v-if="set[1].length > 0">by removing labels {{ set[1] }}</span></div>
                     </div>
                 </div>
@@ -998,7 +998,7 @@ Vue.component('re-demisifiable',{
         }
     },
     template: `
-        <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">DeMISify</button>
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">Logstar Reversible Relaxations</button>
     `
 })
 
