@@ -32,7 +32,8 @@ impl Problem {
             marks_works : None,
             demisifiable : None,
             is_trivial_with_input : None,
-            triviality_with_input : None
+            triviality_with_input : None,
+            expressions : None
         }
     }
 
@@ -77,7 +78,8 @@ impl Problem {
             marks_works : None,
             demisifiable : None,
             is_trivial_with_input : None,
-            triviality_with_input : None
+            triviality_with_input : None,
+            expressions : None
         }
     }
 
@@ -105,7 +107,8 @@ impl Problem {
             marks_works : None,
             demisifiable : None,
             is_trivial_with_input : None,
-            triviality_with_input : None
+            triviality_with_input : None,
+            expressions : None
         }
     }
 }

@@ -378,7 +378,7 @@ type Tracking = (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation
 
 pub enum FixpointType{
     Basic,
-    Dup(Vec<Vec<Label>>),
+    Dup(Vec<Vec<Label>>, bool),
     Custom(String),
     Loop
 }
@@ -514,7 +514,8 @@ impl Problem {
                 marks_works : None,
                 demisifiable : None,
                 is_trivial_with_input : None,
-                triviality_with_input : None
+                triviality_with_input : None,
+                expressions : None
             };
             p.compute_diagram(eh);
             p.discard_useless_stuff(true, eh);
@@ -532,8 +533,8 @@ impl Problem {
             return Ok((p,diagram,self.labels().into_iter().map(|x|(x,x)).collect()));
         } else {
             match fptype {
-                FixpointType::Basic => { self.fixpoint_dup(None, only_compute_triviality,eh) },
-                FixpointType::Dup(dups) => { self.fixpoint_dup(Some(dups),only_compute_triviality,eh) }
+                FixpointType::Basic => { self.fixpoint_dup(None, only_compute_triviality,false,eh) },
+                FixpointType::Dup(dups, track) => { self.fixpoint_dup(Some(dups),only_compute_triviality,track,eh) }
                 FixpointType::Loop => {
                     if only_compute_triviality {
                         return Err("The option 'triviality only' is not allowed for 'loop' mode");
@@ -547,10 +548,10 @@ impl Problem {
     }
 
     pub fn fixpoint(&self, only_compute_triviality:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
-        self.fixpoint_dup(None, only_compute_triviality,eh)
+        self.fixpoint_dup(None, only_compute_triviality,false,eh)
     }
 
-    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, only_compute_triviality:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+    pub fn fixpoint_dup(&self, dup : Option<Vec<Vec<Label>>>, only_compute_triviality:bool,track:bool,eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         //println!("called dup");
         let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
@@ -567,7 +568,39 @@ impl Problem {
         let diagram = fd.diagram.clone();
         //println!("{:?}\n{:?}\n{:?}",mapping_label_newlabel,mapping_newlabel_text,diagram);
         //println!("calling onestep");
-        Ok((self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
+
+        if track {
+            let tracking = CHashMap::new();
+            let tracking_passive = CHashMap::new();
+            let (mut p,passive_before_edit) = self.fixpoint_onestep(false,&mapping_label_newlabel,&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh).unwrap();
+            let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+            let mut expressions = String::new();
+
+            for (lines,tracking,flip) in  [(&p.active.lines,tracking,false),(&passive_before_edit.lines,tracking_passive,true)] {
+                for line in lines {
+                    expressions += &line.to_string(&mapping);
+                    expressions += "\n";
+                    let len = if let Some(rg) = tracking.get(&line) {
+                        let (_,_,before_norm,_,_) = &*rg;
+                        before_norm.parts.len()
+                    } else {
+                        line.parts.len()
+                    };
+                    for i in 0..len {
+                        let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                        if flip {
+                            expr.flip();
+                        }
+                        expressions += &format!("  {}\n",expr.convert(&mapping));
+                    }
+                }                    
+            }
+            p.expressions = Some(expressions);
+            Ok((p,diagram,mapping_label_newlabel))
+        } else {
+            Ok((self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
+        }
+
     }
 
 
@@ -964,7 +997,8 @@ impl Problem {
             marks_works : None,
             demisifiable : None,
             is_trivial_with_input : None,
-            triviality_with_input : None
+            triviality_with_input : None,
+            expressions : None
         };
         p.mapping_label_text = mapping_newlabel_text.clone();
         Ok((p,passive_before_edit))
@@ -1342,7 +1376,7 @@ impl<T> std::fmt::Display for TreeNode<T> where T : Ord + PartialOrd + Eq + Part
             TreeNode::Expr(a,b,op) => {
                 let part1 = a.to_string();
                 let part2 = b.to_string();
-                let op = if *op == Operation::Union { "∩" } else { "∪" };
+                let op = if *op == Operation::Union { " ∩ " } else { " ∪ " };
                 format!("({}{}{})",part1.replace("(","[").replace(")","]") , op , part2.replace("(","[").replace(")","]"))
             }
         };

@@ -82,9 +82,9 @@ function fixpoint_custom(problem, diagram, partial, triviality_only, sublabels, 
     return api.request({ FixpointCustom : [problem, diagram, partial, triviality_only, sublabels] }, ondata , function(){});
 }
 
-function fixpoint_dup(problem, dups, partial, triviality_only, sublabels, onresult, onerror, progress){
+function fixpoint_dup(problem, dups, partial, triviality_only, sublabels, track, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ FixpointDup : [problem, dups, partial, triviality_only, sublabels] }, ondata , function(){});
+    return api.request({ FixpointDup : [problem, dups, partial, triviality_only, sublabels, track] }, ondata , function(){});
 }
 
 function give_orientation(problem, outdegree, onresult, onerror, progress){
@@ -675,6 +675,11 @@ Vue.component('re-problem-info', {
             <div v-if="this.problem.info.non_zero_with_input" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem is NOT zero-round solvable with the given input.</div>
+                </div>
+            </div>
+            <div v-if="this.problem.expressions" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div style="white-space: pre;">Expressions:<br/>{{ this.problem.expressions }}</div>
                 </div>
             </div>
         </div>
@@ -2052,6 +2057,7 @@ Vue.component('re-fixpoint-dup',{
     props: ['problem','stuff','partial','table','triviality_only'],
     data : function(){ return {
         dups : [],  
+        track : false
     }},
     methods: {
         on_delete(index) {
@@ -2066,7 +2072,7 @@ Vue.component('re-fixpoint-dup',{
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", sub : sublabels_text, dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, this.triviality_only, sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-dup", sub : sublabels_text, dups: "["+this.dups.map(x => "["+this.convert(x)+"]").join(",")+"]"},fixpoint_dup,[this.problem, this.dups, this.partial, this.triviality_only, sublabels, this.track]);
         },
         convert(x){
             return labelset_to_string(x,this.problem.fixpoint_diagram[1].map_label_text,", ")
@@ -2085,6 +2091,14 @@ Vue.component('re-fixpoint-dup',{
                     </td>
                 </tr>
             </table>
+            <div class="custom-control custom-switch ml-2">
+                <label>
+                    <input type="checkbox" class="custom-control-input" v-model="track">
+                    <p class="form-control-static custom-control-label">
+                        <span class="rounded m-1 labelborder">Track Expressions</span>
+                    </p>
+                </label>  
+            </div>
             <button type="button" class="btn btn-primary m-1" v-on:click="on_fixpoint">Generate Fixed Point</button>
         </re-card>
     `

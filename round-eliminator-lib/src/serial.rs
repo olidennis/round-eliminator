@@ -151,11 +151,11 @@ where
                 Err(s) => handler(Response::E(s.into())),
             }
         }
-        Request::FixpointDup(mut problem, dups, partial, triviality_only, sublabels) => {
+        Request::FixpointDup(mut problem, dups, partial, triviality_only, sublabels, track) => {
             if problem.diagram_indirect.is_none() {
                 problem.compute_partial_diagram(&mut eh);
             }
-            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Dup(dups),triviality_only,&mut eh) {
+            match problem.fixpoint_generic(if partial {Some(sublabels)} else {None},FixpointType::Dup(dups, track),triviality_only,&mut eh) {
                 Ok((mut new,_,_)) => {
                     fix_problem(&mut new, true, true, &mut eh);
                     handler(Response::P(new));
@@ -515,7 +515,7 @@ pub enum Request {
     FixpointBasic(Problem, bool, bool, Vec<Label>),
     FixpointLoop(Problem, bool, bool, Vec<Label>),
     FixpointCustom(Problem,String, bool, bool, Vec<Label>),
-    FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>),
+    FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>, bool),
     InverseSpeedup(Problem),
     AllDifferentLabels(Problem),
     DeltaEdgeColoring(Problem),
