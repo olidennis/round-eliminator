@@ -588,9 +588,11 @@ impl Problem {
                     };
                     for i in 0..len {
                         let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
-                        if flip {
-                            expr.flip();
-                        }
+                        let expr = if flip {
+                            expr.flip()
+                        } else {
+                            expr
+                        };
                         expressions += &format!("  {}\n",expr.convert(&mapping));
                     }
                 }                    
