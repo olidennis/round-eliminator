@@ -1376,7 +1376,7 @@ impl<T> std::fmt::Display for TreeNode<T> where T : Ord + PartialOrd + Eq + Part
             TreeNode::Expr(a,b,op) => {
                 let part1 = a.to_string();
                 let part2 = b.to_string();
-                let op = if *op == Operation::Union { " ∩ " } else { " ∪ " };
+                let op = if *op == Operation::Union { " → " } else { " ← " };
                 format!("({}{}{})",part1.replace("(","[").replace(")","]") , op , part2.replace("(","[").replace(")","]"))
             }
         };
