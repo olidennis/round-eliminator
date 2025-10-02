@@ -39,7 +39,7 @@ impl Problem {
     }
 
 
-    pub fn generic_demisifiable(&mut self, eh : &mut EventHandler, active : &Constraint, passive : &Constraint, external : &HashSet<Label>) -> Vec<(Vec<Label>, Vec<Label>)> {
+    pub fn generic_demisifiable(&mut self, eh : &mut EventHandler, active : &Constraint, passive : &Constraint, external : &HashSet<Label>, exclude : &HashSet<(Label,Label)>) -> Vec<(Vec<Label>, Vec<Label>)> {
         if self.demisifiable.is_some() {
             panic!("demisifiable sets have been already computed");
         }
@@ -192,6 +192,9 @@ impl Problem {
                     if l1 == l2 {
                         continue;
                     }
+                    if exclude.contains(&(l1,l2)) {
+                        continue;
+                    }
                     let r = compatible_with[&l1].difference(&compatible_with[&l2]);
                     toremove.extend(r);
                 }
@@ -309,21 +312,25 @@ impl Problem {
         let p = Problem::from_string("M*\nP U*\n\nM UP\nU U").unwrap();
         let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
         let external = HashSet::from([labels["M"],labels["U"]]);
-        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
+        let exclude = HashSet::from([]);
+        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external, &exclude).into_iter());
  
         let p = Problem::from_string("M U*\nP*\n\nM M\nUP U").unwrap();
         let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
         let external = HashSet::from([labels["U"],labels["P"]]);
-        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
+        let exclude = HashSet::new();
+        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external, &exclude).into_iter());
 
         let p = Problem::from_string("A\nB\n\nA B").unwrap();
         let external = HashSet::new();
-        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
+        let exclude = HashSet::new();
+        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external, &exclude).into_iter());
 
         let p = Problem::from_string("A A\nB B\nC C\n\nA BC\nB C").unwrap();
         let labels : HashMap<_,_> = p.mapping_label_text.iter().cloned().map(|(l,s)|(s,l)).collect();
         let external = HashSet::from([labels["A"],labels["B"],labels["C"]]);
-        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external).into_iter());
+        let exclude = HashSet::new();
+        r.extend(self.generic_demisifiable(eh, &p.active, &p.passive, &external, &exclude).into_iter());
 
         let r = r.into_iter().map(|(mut v, mut u)|{v.sort(); u.sort(); (v,u)}).unique().collect();
 
