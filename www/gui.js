@@ -62,9 +62,9 @@ function remove_trivial_lines(problem, onresult, onerror, progress){
     return api.request({ RemoveTrivialLines : problem }, ondata , function(){});
 }
 
-function fixpoint_gendefault(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
+function fixpoint_gendefault(problem, partial, triviality_only, sublabels, larger, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ DefaultDiagram : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
+    return api.request({ DefaultDiagram : [problem,partial,triviality_only,sublabels, larger] }, ondata , function(){});
 }
 
 function fixpoint_basic(problem, partial, triviality_only, sublabels, onresult, onerror, progress){
@@ -1958,11 +1958,19 @@ Vue.component('re-fixpoint-gendefault',{
         on_fixpoint() {
             let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
             let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
-            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault", sub : sublabels_text},fixpoint_gendefault,[this.problem,this.partial,this.triviality_only, sublabels]);
+            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault", sub : sublabels_text},fixpoint_gendefault,[this.problem,this.partial,this.triviality_only, sublabels, false]);
+        },
+        on_fixpoint_2() {
+            let sublabels = this.partial? this.table.filter(x => x[3]).map(x => x[0]) : [];
+            let sublabels_text = this.partial? labelset_to_string(sublabels,this.problem.map_label_text) : null;
+            call_api_generating_problem(this.stuff,{type:"fixpoint-gendefault", sub : sublabels_text},fixpoint_gendefault,[this.problem,this.partial,this.triviality_only, sublabels, true]);
         }
     },
     template: `
+        <div>
         <button type="button" class="btn btn-primary m-2" v-on:click="on_fixpoint">Generate Default Diagram</button>
+        <button type="button" class="btn btn-primary m-2" v-on:click="on_fixpoint_2">Generate Larger Default Diagram</button>
+        </div>
     `
 })
 

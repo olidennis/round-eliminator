@@ -351,8 +351,8 @@ where
                 handler(Response::P(problem));
             }
         }
-        Request::DefaultDiagram(mut problem, partial, _triviality_only, labels) => {
-            problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, &mut eh);
+        Request::DefaultDiagram(mut problem, partial, _triviality_only, labels, larger) => {
+            problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, larger, &mut eh);
             handler(Response::P(problem));
         }
         Request::SimplifySD(problem, sd, recompute_full_diagram) => {
@@ -527,7 +527,7 @@ pub enum Request {
     RenameGenerators(Problem),
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
-    DefaultDiagram(Problem, bool, bool, Vec<Label>),
+    DefaultDiagram(Problem, bool, bool, Vec<Label>, bool),
     AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     ColoringSolvability(Problem),

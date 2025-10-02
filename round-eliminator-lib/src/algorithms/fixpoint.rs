@@ -20,11 +20,111 @@ pub struct FixpointDiagram {
     mapping_label_newlabel : Vec<(Label,Label)>,
     mapping_newlabel_text : Vec<(Label, String)>,
     text : String,
-    diagram_direct : DiagramDirect
+    diagram_direct : DiagramDirect,
+    reverse_inclusion : bool
 }
 
 impl FixpointDiagram {
-    fn new(p : &Problem) -> FixpointDiagram {
+    fn new(p : &Problem, larger : bool ) -> Self {
+        if larger {
+            Self::new_larger(p)
+        } else {
+            Self::new_smaller(p)
+        }
+    }
+    fn new_larger(p : &Problem) -> FixpointDiagram {
+        let labels = p.labels();
+        let diagram_indirect = p.diagram_indirect.as_ref().unwrap();
+        let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
+
+        let rcs : Vec<_> = right_closed_subsets(&labels, &successors).into_iter().filter(|s|!s.is_empty()).collect();
+        let rcs_as_sets : Vec<BTreeSet<Label>> = rcs.into_iter().map(|v|BTreeSet::from_iter(v.into_iter())).collect();
+
+        let rcs_to_gen : HashMap<_,_> = rcs_as_sets.iter().map(|rcs|{
+            let mut ignore = BTreeSet::new();
+            for &l1 in rcs {
+                for &l2 in rcs {
+                    if l1 != l2 {
+                        if successors[&l1].contains(&l2) {
+                            ignore.insert(l2);
+                        }
+                    }
+                }
+            }
+            let gen = rcs.difference(&ignore).cloned().collect::<BTreeSet<_>>();
+            (rcs,gen)
+        }).collect();
+
+        let mut rcs_to_label = HashMap::new();
+        for &l in &labels {
+            let containing = rcs_as_sets.iter().filter(|set|set.contains(&l));
+            let gen_l = containing.min_by_key(|x|x.len()).unwrap();
+            rcs_to_label.insert(gen_l.clone(),l);
+        }
+        let mut fresh_label = 0;
+        let mut used_labels : HashSet<_> = rcs_to_label.values().cloned().collect();
+        let orig_labels = used_labels.clone();
+        for rcs in &rcs_as_sets {
+            if rcs_to_label.contains_key(rcs){
+                continue;
+            }
+            while used_labels.contains(&fresh_label) {
+                fresh_label += 1;
+            }
+            used_labels.insert(fresh_label);
+            rcs_to_label.insert(rcs.clone(), fresh_label);
+        }
+        let label_to_rcs : HashMap<_,_> = rcs_to_label.iter().map(|(rcs,l)|(*l,rcs.clone())).collect();
+        let labels_2 : Vec<_> = label_to_rcs.keys().cloned().sorted().collect();
+
+        let mut diagram_indirect_2 = vec![];
+        for s1 in &rcs_as_sets {
+            for s2 in &rcs_as_sets {
+                if s1.is_subset(&s2) {
+                    diagram_indirect_2.push((rcs_to_label[&s1],rcs_to_label[&s2]));
+                }
+            }
+        }
+        let successors_2 =  diagram_indirect_to_reachability_adj(&labels_2, &diagram_indirect_2);
+        let rcs2 : Vec<_> = right_closed_subsets(&labels_2, &successors_2).into_iter().filter(|s|!s.is_empty()).collect();
+
+        let mapping_orig_labels_text : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+
+        let mapping_oldlabel_text = labels_2.iter().map(|&l|{
+            if orig_labels.contains(&l) {
+                (l,mapping_orig_labels_text[&l].clone())
+            } else {
+                let rcs = &label_to_rcs[&l];
+                let s = rcs_to_gen[&rcs].iter().map(|x|&mapping_orig_labels_text[x]).join("");
+                let s = format!("({})",s.replace("(", "[").replace(")","]").replace("_", "-"));
+                (l,s)
+            }
+        }).collect();
+
+        let mut fd = FixpointDiagram {
+            orig_labels : labels,
+            rightclosed : rcs2,
+            diagram : vec![],
+            additional_orig : vec![],
+            mapping_newlabel_text : vec![],
+            mapping_oldlabel_text,
+            mapping_label_newlabel : vec![],
+            mapping_rightclosed_newlabel : vec![],
+            text : "".into(),
+            diagram_direct : (vec![],vec![]),
+            reverse_inclusion : true
+        };
+        
+        
+        fd.compute_mappings();
+        fd.compute_diagram();
+        fd.assign_text();
+        fd.compute_text();
+
+        fd
+    }
+
+    fn new_smaller(p : &Problem) -> FixpointDiagram {
         let labels = p.labels();
         let diagram_indirect = p.diagram_indirect.as_ref().unwrap();
         let successors =  diagram_indirect_to_reachability_adj(&labels, diagram_indirect);
@@ -42,11 +142,12 @@ impl FixpointDiagram {
             mapping_label_newlabel : vec![],
             mapping_rightclosed_newlabel : vec![],
             text : "".into(),
-            diagram_direct : (vec![],vec![])
+            diagram_direct : (vec![],vec![]),
+            reverse_inclusion : false
         };
         fd.compute_mappings();
-        fd.assign_text();
         fd.compute_diagram();
+        fd.assign_text();
         fd.compute_text();
 
         fd
@@ -97,7 +198,12 @@ impl FixpointDiagram {
                 //let set_s2 : HashSet<Label> = HashSet::from_iter(s2.iter().cloned());
                 if is_superset(&sorted_s1,&sorted_s2) {
                     let new_s2 = mapping_rightclosed_newlabel[s2];
-                    diagram.push((new_s1,new_s2));
+                    if !self.reverse_inclusion {
+                        diagram.push((new_s1,new_s2));
+                    } else {
+                        diagram.push((new_s2,new_s1));
+                    }
+                    
                 }
             }
         }
@@ -130,7 +236,33 @@ impl FixpointDiagram {
             .chain(self.additional_orig.iter().enumerate().map(|(i,&l)|(l,format!("(dup{})",i))))
             .collect();
         let onechar = oldtext.iter().all(|(_,t)|t.len() == 1);
+        
+        let newlabels : Vec<_> = self.mapping_rightclosed_newlabel.iter().map(|(_,l)|*l).collect();
+        let diagram = diagram_to_indirect(&newlabels, &self.diagram);
+        let diagram = compute_direct_diagram(&newlabels, &diagram);
+        let predecessors = crate::algorithms::diagram::diagram_direct_to_pred_adj(&diagram.1,&newlabels);
+        let mapping_rightclosed_newlabel : HashMap<Vec<Label>,Label> = self.mapping_rightclosed_newlabel.iter().cloned().collect();
+        let mapping_newlabel_rightclosed : HashMap<Label,Vec<Label>> = self.mapping_rightclosed_newlabel.iter().cloned().map(|(a,b)|(b,a)).collect();
+
         self.mapping_newlabel_text = self.mapping_rightclosed_newlabel.iter().map(|(r,l)|{
+            let r = if self.reverse_inclusion {
+                let mut result : BTreeSet<_> = r.iter().cloned().collect();
+                let r = mapping_rightclosed_newlabel[r];
+                let predecessors : Vec<_> = predecessors[&r].iter().filter(|&&x|x!=r).cloned().collect();
+                if !predecessors.is_empty() {
+                    let one_predecessor = predecessors.iter().next().unwrap();
+                    let mut intersection : BTreeSet<_> = mapping_newlabel_rightclosed[&one_predecessor].iter().cloned().collect();
+                    for &s in &predecessors {
+                        let s : BTreeSet<_> = mapping_newlabel_rightclosed[&s].iter().cloned().collect();
+                        intersection = intersection.intersection(&s).cloned().collect();
+                    }
+                    result = result.difference(&intersection).cloned().collect();
+                }
+                result.iter().cloned().sorted().collect()
+            } else {
+                r.clone()
+            };
+
             if onechar {
                 let mut text = r.iter().map(|ol|&oldtext[ol]).sorted().join("");
                 if text == "" {
@@ -213,8 +345,8 @@ impl FixpointDiagram {
         self.rightclosed = result.into_iter().collect();
         self.additional_orig = additional_orig;
         self.compute_mappings();
-        self.assign_text();
         self.compute_diagram();
+        self.assign_text();
         self.compute_text();
     }
 
@@ -264,13 +396,13 @@ impl Problem {
         format!("# mapping from original labels to diagram labels\n{}\n# diagram edges\n{}\n",mapping,diagram)
     }
 
-    pub fn compute_default_fixpoint_diagram(&mut self, labels : Option<Vec<Label>>, eh: &mut EventHandler) {
+    pub fn compute_default_fixpoint_diagram(&mut self, labels : Option<Vec<Label>>, larger : bool, eh: &mut EventHandler) {
         if let Some(sublabels) = &labels {
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
             subproblem.discard_useless_stuff(false, eh);
-            self.fixpoint_diagram = Some((labels,FixpointDiagram::new(&subproblem)));
+            self.fixpoint_diagram = Some((labels,FixpointDiagram::new(&subproblem,larger)));
         } else {
-            self.fixpoint_diagram = Some((None,FixpointDiagram::new(self)));
+            self.fixpoint_diagram = Some((None,FixpointDiagram::new(self,larger)));
         }
     }
 
@@ -423,7 +555,7 @@ impl Problem {
         let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
-            FixpointDiagram::new(self)
+            FixpointDiagram::new(self, false)
         };
         //println!("generated diagram1");
         if let Some(dup) = dup {
@@ -843,7 +975,7 @@ impl Problem {
         let fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
-            FixpointDiagram::new(self)
+            FixpointDiagram::new(self,false)
         };        
         let orig_diagram = self.diagram_indirect.as_ref().unwrap();
         let mut diagram = fd.diagram;
