@@ -598,9 +598,12 @@ impl Problem {
                 }                    
             }
             p.expressions = Some(expressions);
+            p.fixpoint_diagram = Some((None,fd));
             Ok((p,diagram,mapping_label_newlabel))
         } else {
-            Ok((self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0, diagram, mapping_label_newlabel))
+            let mut p = self.fixpoint_onestep(only_compute_triviality,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, eh)?.0;
+            p.fixpoint_diagram = Some((None,fd));
+            Ok((p,diagram,mapping_label_newlabel))
         }
 
     }
