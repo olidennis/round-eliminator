@@ -574,12 +574,33 @@ impl Problem {
             let tracking_passive = CHashMap::new();
             let (mut p,passive_before_edit) = self.fixpoint_onestep(false,&mapping_label_newlabel,&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh).unwrap();
             let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
-            let mut expressions = String::new();
+            let mut debug = String::new();
 
+            debug += "Active lines:\n";
+            for x in tracking.iter() {
+                let l1 : &Line = &x.0;
+                let l2 : &Line = &x.1;
+                let l3 : &Line = &x.2;
+                debug += &format!("{}\n  {}\n  {}\n",l3.to_string(&mapping),l1.to_string(&mapping),l2.to_string(&mapping));
+            }
+            debug += "Passive lines:\n";
+            for x in tracking_passive.iter() {
+                let l1 : &Line = &x.0;
+                let l2 : &Line = &x.1;
+                let l3 : &Line = &x.2;
+                debug += &format!("{}\n  {}\n  {}\n",l3.to_string(&mapping),l1.to_string(&mapping),l2.to_string(&mapping));
+            }
+
+            debug += "Active expressions:\n";
+            let mut last = false;
             for (lines,tracking,flip) in  [(&p.active.lines,tracking,false),(&passive_before_edit.lines,tracking_passive,true)] {
+                if flip != last {
+                    last = flip;
+                    debug += "Passive expressions:\n";
+                }
                 for line in lines {
-                    expressions += &line.to_string(&mapping);
-                    expressions += "\n";
+                    debug += &line.to_string(&mapping);
+                    debug += "\n";
                     let len = if let Some(rg) = tracking.get(&line) {
                         let (_,_,before_norm,_,_) = &*rg;
                         before_norm.parts.len()
@@ -593,11 +614,11 @@ impl Problem {
                         } else {
                             expr
                         };
-                        expressions += &format!("  {}\n",expr.convert(&mapping));
+                        debug += &format!("  {}\n",expr.convert(&mapping));
                     }
                 }                    
             }
-            p.expressions = Some(expressions);
+            p.expressions = Some(debug);
             p.fixpoint_diagram = Some((None,fd));
             Ok((p,diagram,mapping_label_newlabel))
         } else {

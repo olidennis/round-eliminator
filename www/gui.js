@@ -679,7 +679,7 @@ Vue.component('re-problem-info', {
             </div>
             <div v-if="this.problem.expressions" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
-                    <div style="white-space: pre;">Expressions:<br/>{{ this.problem.expressions }}</div>
+                    <div style="white-space: pre;">{{ this.problem.expressions }}</div>
                 </div>
             </div>
         </div>

@@ -6,7 +6,7 @@ pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality
     if new.passive.degree == Degree::Finite(2) {
         new.diagram_indirect = None;
         new.compute_diagram(eh);
-        new.discard_useless_stuff(true, eh);
+        //new.discard_useless_stuff(true, eh);
         if sort_by_strength {
             new.sort_active_by_strength();
         }
