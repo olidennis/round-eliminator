@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{event::EventHandler, maximize::{Operation}, diagram::{diagram_indirect_to_reachability_adj, diagram_to_indirect}};
 
 
-#[derive(Clone,Debug,Serialize,Deserialize,Eq,PartialEq)]
+#[derive(Clone,Debug,Serialize,Deserialize,Eq,PartialEq, Hash)]
 pub struct FixpointDiagram {
     additional_orig : Vec<Label>,
     orig_labels : Vec<Label>,

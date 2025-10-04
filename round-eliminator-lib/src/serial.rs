@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::{event::EventHandler, fixpoint::FixpointType}, group::Label, line::Degree, problem::Problem};
@@ -405,7 +407,7 @@ where
             fix_problem(&mut newp, true, true, &mut eh);
             handler(Response::P(newp));
         }
-        Request::CheckZeroWithInput(mut problem, active, passive, sat, reverse) => {
+        Request::CheckZeroWithInput(mut problem, active, passive, sat, subset, reverse) => {
             let input = Problem::from_string_active_passive(active,passive);
             match input {
                 Ok((mut input,missing_labels)) => {
@@ -420,8 +422,35 @@ where
                             problem = input;
                             input = t;
                         }
-                        problem.compute_triviality_with_input(input, sat);
-                        handler(Response::P(problem));
+                        if !subset {
+                            problem.compute_triviality_with_input(input, sat);
+                            handler(Response::P(problem));
+                        } else {
+                            let mut best = input.labels().len()+1;
+                            let mut best_arrows = 0;
+                            let f = |mut p : Problem|{
+                                let l = p.labels().len();
+                                if l < best {
+                                    best = l;
+                                    p.diagram_indirect = None;
+                                    p.compute_diagram(&mut eh);
+                                    best_arrows = p.diagram_indirect.as_ref().unwrap().len();
+                                    handler(Response::P(p));
+                                } else if l == best {
+                                    p.diagram_indirect = None;
+                                    p.compute_diagram(&mut eh);
+                                    let arrows = p.diagram_indirect.as_ref().unwrap().len();
+                                    if arrows > best_arrows {
+                                        best = l;
+                                        best_arrows = arrows;
+                                        handler(Response::P(p));
+                                    }
+                                }
+                            };
+                            if problem.compute_subinput_that_gives_nontriviality(input,sat, f).is_none() {
+                                Response::E("Could not find a suitable subinput".into());
+                            }
+                        }
                     }
                 }
                 Err(s) => handler(Response::E(s.into())),
@@ -537,7 +566,7 @@ pub enum Request {
     Demisifiable(Problem),
     AddActivePredecessors(Problem),
     RemoveTrivialLines(Problem),
-    CheckZeroWithInput(Problem,String,String,bool,bool),
+    CheckZeroWithInput(Problem,String,String,bool,bool,bool),
     Dual(Problem,String,String),
     DoubleDual(Problem,String,String),
     DoubleDual2(Problem,String,String,String,String,String),

@@ -8,7 +8,7 @@ use crate::{
     part::Part,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Constraint {
     pub lines: Vec<Line>,
     pub is_maximized: bool,

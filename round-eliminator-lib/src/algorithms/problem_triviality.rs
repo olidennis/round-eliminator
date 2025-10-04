@@ -55,6 +55,11 @@ impl Problem {
     }
 
     pub fn compute_triviality_with_input(&mut self, other:Problem, sat : bool) {
+        if other.labels().len() == 0 {
+            self.is_trivial_with_input = Some(true);
+            self.triviality_with_input = Some((vec![],vec![]));
+            return;
+        }
         if sat {
             self.compute_triviality_with_input_with_sat(other);
         } else {
@@ -274,6 +279,47 @@ impl Problem {
             triviality_with_input : None,
             expressions : None
         },map)
+    }
+    
+    pub fn compute_subinput_that_gives_nontriviality_aux<F>(&mut self, input : Problem, sat : bool, smallest : Label, seen : &mut HashMap<Problem,Label>, f : &mut F) -> Option<Problem> where F : FnMut(Problem) {
+        if let Some(x) = seen.get(&input) {
+            if *x <= smallest {
+                return None;
+            }
+        }
+        seen.insert(input.clone(), smallest);
+
+        self.compute_triviality_with_input(input.clone(), sat);
+        if self.is_trivial_with_input.unwrap() {
+            return None;
+        }
+
+        let mut labels = input.labels();
+        labels.sort();
+        let mut best = input.clone();
+
+        f(input.clone());
+
+        for &l in &labels {
+            if l < smallest {
+                continue;
+            }
+            let subset : HashSet<_> = labels.iter().cloned().filter(|&x|x!=l).collect();
+            let mut subinput = input.harden_keep(&subset, true);
+            subinput.discard_useless_stuff(false, &mut EventHandler::null());
+            if let Some(p) = self.compute_subinput_that_gives_nontriviality_aux(subinput.clone(),sat,l+1, seen, f) {    
+                if p.labels().len() < best.labels().len() {
+                    best = p;
+                }   
+            }
+        }
+
+        Some(best)
+    }
+
+    pub fn compute_subinput_that_gives_nontriviality<F>(&mut self, input : Problem, sat : bool, mut f : F) -> Option<Problem> where F : FnMut(Problem){
+        let mut seen = HashMap::new();
+        self.compute_subinput_that_gives_nontriviality_aux(input, sat, 0, &mut seen,&mut f)
     }
 }
 

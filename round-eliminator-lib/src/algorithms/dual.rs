@@ -476,7 +476,7 @@ let mut f = Problem::from_string("A B B\n\nB AB").unwrap();
 
         let dual = dual.speedup(eh);
         let dual = dual.speedup(eh);
-        f.compute_triviality_with_input(dual);
+        f.compute_triviality_with_input(dual,true);
         if f.triviality_with_input.is_some() {
             println!(":( solves fp");
             return;
