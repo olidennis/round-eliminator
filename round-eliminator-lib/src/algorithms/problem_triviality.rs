@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 use permutator::Permutation;
-use rustsat::types::TernaryVal;
+use rustsat::types::{Lit, TernaryVal};
 use rustsat::{instances::SatInstance, types::constraints::CardConstraint};
 use rustsat::solvers::{Solve, SolverResult};
 
@@ -184,19 +184,14 @@ impl Problem {
         }
 
         let instance = instance.sanitize();
-
-
-        let mut solver = rustsat_minisat::core::Minisat::default();
-        solver.add_cnf(instance.into_cnf().0).unwrap();
-        if solver.solve().unwrap() == SolverResult::Sat {
+        let lits : Vec<_> = ith_label_mapped_to_jth_label.iter().flat_map(|v|v.into_iter().cloned()).collect();
+        if let Some(solution) = solve_sat(instance, &lits) {
+            let true_lits : HashSet<_> = solution.into_iter().collect();
             let mut label_mapping = vec![];
 
-            let solution = solver.full_solution().unwrap();
             for i in 0..input_num_labels {
                 for j in 0..problem_num_labels {
-                    let val = solution.lit_value(ith_label_mapped_to_jth_label[i][j]);
-                    if val == TernaryVal::True {
-                        //println!("{} {}",i,j);
+                    if true_lits.contains(&ith_label_mapped_to_jth_label[i][j]) {
                         label_mapping.push((i as Label,j as Label));
                     }
                 }
@@ -216,9 +211,12 @@ impl Problem {
             let input_mapping = input_mapping.into_iter().map(|(l,h)|(l,h.into_iter().collect())).collect();
 
             self.triviality_with_input = Some((input.mapping_label_text.clone(),input_mapping));
+
         } else {
             self.is_trivial_with_input = Some(false);
         }
+        
+
 
 
     }
@@ -278,6 +276,45 @@ impl Problem {
         },map)
     }
 }
+
+fn solve_sat(instance : SatInstance, lits : &[Lit]) -> Option<Vec<Lit>> {
+
+
+    #[cfg(feature = "all")]
+    {
+        let mut solver = rustsat_minisat::core::Minisat::default();
+        solver.add_cnf(instance.into_cnf().0).unwrap();
+        let res = solver.solve().unwrap();
+        if res != SolverResult::Sat {
+            return None;
+        }
+        let solution = solver.full_solution().unwrap();
+        let true_vars = lits.iter().filter(|lit|{
+            solution.lit_value(**lit) == TernaryVal::True
+        }).cloned().collect_vec();
+        return Some(true_vars);        
+    }
+
+    #[cfg(feature = "onlyrust")]
+    {
+        let mut instance = instance;
+        let mut dimacs = std::io::BufWriter::new(Vec::new());
+        instance.convert_to_cnf();
+        instance.write_dimacs(&mut dimacs).unwrap();
+        let dimacs = dimacs.into_inner().unwrap();
+        let mut solver = varisat::solver::Solver::new();
+        solver.add_dimacs_cnf(&dimacs[..]).unwrap();
+        let solution = solver.solve().unwrap();
+        if !solution {
+            return None;
+        }
+        let lits = solver.model().unwrap().into_iter().filter(|lit|lit.is_positive());
+        let lits = lits.map(|lit|Lit::new(lit.to_dimacs() as u32, false)).collect();
+        
+        return Some(lits);
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
