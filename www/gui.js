@@ -203,9 +203,9 @@ function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max
     return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
-function check_zero_with_input(problem, active, passive, reverse, onresult, onerror, progress){
+function check_zero_with_input(problem, active, passive, sat, reverse, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ CheckZeroWithInput : [problem, active, passive, reverse] }, ondata , function(){});
+    return api.request({ CheckZeroWithInput : [problem, active, passive, sat, reverse] }, ondata , function(){});
 }
 
 function dual(problem, active, passive, onresult, onerror, progress){
@@ -2109,7 +2109,8 @@ Vue.component('re-zero-input',{
     props: ['problem','stuff'],
     data: function(){ return {
             active : "",
-            passive : ""
+            passive : "",
+            sat : true
         }    
     },
     methods: {
@@ -2117,14 +2118,14 @@ Vue.component('re-zero-input',{
             call_api_generating_problem(
                 this.stuff,
                 {type:"zerowithinput", active:this.active,passive:this.passive, reverse : false},
-                check_zero_with_input,[this.problem, this.active,this.passive, false]
+                check_zero_with_input,[this.problem, this.active,this.passive, this.sat, false]
             );
         },
         on_zero_reverse(){
             call_api_generating_problem(
                 this.stuff,
                 {type:"zerowithinput", active:this.active,passive:this.passive, reverse : true},
-                check_zero_with_input,[this.problem, this.active,this.passive, true]
+                check_zero_with_input,[this.problem, this.active,this.passive, this.sat, true]
             );
         },
     },
@@ -2137,6 +2138,9 @@ Vue.component('re-zero-input',{
             <div class="m-1">
                 <h4>Passive</h4>
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="passive"></textarea>
+            </div>
+            <div class="custom-control custom-switch m-2">
+                <label><input type="checkbox" class="custom-control-input" v-model="sat"><p class="form-control-static custom-control-label">Use a sat solver</p></label>
             </div>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_zero">Check</button>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_zero_reverse">Reverse Check</button>

@@ -405,7 +405,7 @@ where
             fix_problem(&mut newp, true, true, &mut eh);
             handler(Response::P(newp));
         }
-        Request::CheckZeroWithInput(mut problem, active, passive, reverse) => {
+        Request::CheckZeroWithInput(mut problem, active, passive, sat, reverse) => {
             let input = Problem::from_string_active_passive(active,passive);
             match input {
                 Ok((mut input,missing_labels)) => {
@@ -420,7 +420,7 @@ where
                             problem = input;
                             input = t;
                         }
-                        problem.compute_triviality_with_input(input);
+                        problem.compute_triviality_with_input(input, sat);
                         handler(Response::P(problem));
                     }
                 }
@@ -537,7 +537,7 @@ pub enum Request {
     Demisifiable(Problem),
     AddActivePredecessors(Problem),
     RemoveTrivialLines(Problem),
-    CheckZeroWithInput(Problem,String,String,bool),
+    CheckZeroWithInput(Problem,String,String,bool,bool),
     Dual(Problem,String,String),
     DoubleDual(Problem,String,String),
     DoubleDual2(Problem,String,String,String,String,String),
