@@ -2120,6 +2120,7 @@ Vue.component('re-zero-input',{
         }    
     },
     methods: {
+        // this is currently bugged, it does not remove the spinner
         on_zero(){
             call_api_generating_problem(
                 this.stuff,
