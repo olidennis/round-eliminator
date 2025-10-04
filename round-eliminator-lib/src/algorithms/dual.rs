@@ -4,7 +4,7 @@ use env_logger::init;
 use itertools::Itertools;
 use serde_json::map;
 
-use crate::{algorithms::{choices::left_labels, fixpoint::{parse_diagram, FixpointType}}, constraint::Constraint, group::{Group, GroupType, Label}, line::Line, part::Part, problem::Problem};
+use crate::{algorithms::{choices::left_labels, fixpoint::{parse_diagram, FixpointType}}, constraint::Constraint, group::{Group, GroupType, Label}, line::{Degree, Line}, part::Part, problem::Problem};
 
 use super::{diagram::{compute_direct_diagram, diagram_direct_to_pred_adj, diagram_direct_to_succ_adj, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler};
 
@@ -95,14 +95,20 @@ fn dual_constraint(cp : &Constraint, cf : &Constraint, labels : &Vec<Vec<Label>>
         all_successors[&l2].contains(&l1)
     };
     
-    let mut sources = labels_d.iter().filter(|l|direct_pred[l].is_empty());
-    let source = *sources.next().unwrap();
-    if sources.next().is_some() {
-        return Err("non-unique source");
-    }
-    let initial_configuration = std::iter::repeat(source).take(d).collect_vec();
+    let sources = labels_d.iter().filter(|l|direct_pred[l].is_empty()).cloned().collect_vec();
+    let initial_configurations = Line{ parts : vec![Part{
+            group : Group::from(sources),
+            gtype: GroupType::Many(d as u8)
+        }]}
+        .all_choices(false)
+        .into_iter()
+        .map(|line|line.parts.into_iter().map(|part|part.group.first()).collect_vec())
+        .map(|mut line|{ line.sort(); line })
+        .unique();
+
+
     let mut good_configurations = HashSet::new();
-    let mut tofix_configurations : HashSet<_> = HashSet::from_iter(vec![initial_configuration].into_iter());
+    let mut tofix_configurations : HashSet<_> = HashSet::from_iter(initial_configurations);
     let mut seen = HashSet::new();
 
     while !tofix_configurations.is_empty() {
