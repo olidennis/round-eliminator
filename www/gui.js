@@ -213,6 +213,11 @@ function dual(problem, active, passive, onresult, onerror, progress){
     return api.request({ Dual : [problem, active, passive] }, ondata , function(){});
 }
 
+function smallest_dual(problem, active, passive, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ SmallestDual : [problem, active, passive] }, ondata , function(){});
+}
+
 function doubledual(problem, active, passive, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ DoubleDual : [problem, active, passive] }, ondata , function(){});
@@ -2189,6 +2194,14 @@ Vue.component('re-dual',{
                 doubledual2,[this.problem, this.doubledual_fp_active,this.doubledual_fp_passive,this.doubledual_fp_diagram,this.input_active, this.input_passive]
             );
         },
+        on_smallest_dual(){
+            call_api_generating_problem(
+                this.stuff,
+                {type:"dual", active:this.dual_fp_active,passive:this.dual_fp_passive},
+                smallest_dual,[this.problem, this.dual_fp_active,this.dual_fp_passive],
+                false
+            );
+        },
     },
     template: `
         <re-card title="Dual" subtitle="(compute dual and double dual)">
@@ -2205,6 +2218,7 @@ Vue.component('re-dual',{
             </div>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_dual">Dual</button>
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual">Double Dual</button>
+            <button type="button" class="btn btn-primary ml-1" v-on:click="on_smallest_dual">Smallest Dual</button>
             <hr/>
             Double dual computed by using the fp procedure (the dual computation is skipped).<br/> You need to provide the fixed point, or the diagram of the fixed point. 
             <div class="m-1">

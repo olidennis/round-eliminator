@@ -448,7 +448,7 @@ where
                                 }
                             };
                             if problem.compute_subinput_that_gives_nontriviality(input,sat, f).is_none() {
-                                Response::E("Could not find a suitable subinput".into());
+                                handler(Response::E("Could not find a suitable subinput".into()));
                             }
                         }
                     }
@@ -526,6 +526,53 @@ where
                 Err(s) => handler(Response::E(s.into()))
             }
         },
+        Request::SmallestDual(mut problem, active, passive) => {
+            let fp = Problem::from_string_active_passive(active,passive);
+            match fp {
+                Ok((mut fp,missing_labels)) => {
+                    if missing_labels {
+                        handler(Response::W("Some labels appear on only one side!".into()));
+                    }
+                    if fp.active.degree != problem.active.degree || fp.passive.degree != problem.passive.degree {
+                        handler(Response::E("Problems have different degrees".into()));
+                    } else {
+                        fp.passive.maximize(&mut eh);
+                        fp.compute_diagram(&mut eh);
+                        match problem.dual_problem(&fp, &mut eh) {
+                            Ok((input,_,_)) => {
+                                let input = input.merge_subdiagram("", true, &mut eh).unwrap();
+                                let mut best = input.labels().len()+1;
+                                let mut best_arrows = 0;
+                                let f = |mut p : Problem|{
+                                    let l = p.labels().len();
+                                    if l < best {
+                                        best = l;
+                                        p.diagram_indirect = None;
+                                        p.compute_diagram(&mut eh);
+                                        best_arrows = p.diagram_indirect.as_ref().unwrap().len();
+                                        handler(Response::P(p));
+                                    } else if l == best {
+                                        p.diagram_indirect = None;
+                                        p.compute_diagram(&mut eh);
+                                        let arrows = p.diagram_indirect.as_ref().unwrap().len();
+                                        if arrows > best_arrows {
+                                            best = l;
+                                            best_arrows = arrows;
+                                            handler(Response::P(p));
+                                        }
+                                    }
+                                };
+                                if fp.compute_subinput_that_gives_nontriviality(input,true, f).is_none() {
+                                    handler(Response::E("Always trivial.".into()));
+                                }
+                            }
+                            Err(s) => handler(Response::E(s.into())),
+                        }
+                    }
+                }
+                Err(s) => handler(Response::E(s.into())),
+            }
+        }
     }
 
     handler(Response::Done);
@@ -570,6 +617,7 @@ pub enum Request {
     Dual(Problem,String,String),
     DoubleDual(Problem,String,String),
     DoubleDual2(Problem,String,String,String,String,String),
+    SmallestDual(Problem,String,String),
     Ping,
 }
 
