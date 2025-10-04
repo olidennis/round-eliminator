@@ -243,10 +243,7 @@ where
             handler(Response::P(new));
         }
         Request::SimplifyMergeGroup(problem, labels, to) => {
-            let mut new = problem;
-            for label in labels {
-                new = new.relax_merge(label, to);
-            }
+            let mut new = problem.relax_merge_group(&labels,to);
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }
@@ -538,9 +535,13 @@ where
                     } else {
                         fp.passive.maximize(&mut eh);
                         fp.compute_diagram(&mut eh);
+                        println!("starting to compute dual");
                         match problem.dual_problem(&fp, &mut eh) {
                             Ok((input,_,_)) => {
+                                println!("dual computed");
+                                let input = input.merge_subdiagram("", false, &mut eh).unwrap();
                                 let input = input.merge_subdiagram("", true, &mut eh).unwrap();
+                                println!("merged equivalent");
                                 let mut best = input.labels().len()+1;
                                 let mut best_arrows = 0;
                                 let f = |mut p : Problem|{

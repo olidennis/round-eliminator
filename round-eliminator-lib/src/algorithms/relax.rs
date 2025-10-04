@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     constraint::Constraint,
@@ -7,6 +7,37 @@ use crate::{
 };
 
 impl Problem {
+
+    pub fn relax_merge_group(&self, from : &Vec<Label>, to: Label) -> Self {
+        let active = self.active.relax_group(from, to, true);
+        let passive = self.passive.relax_group(from, to, true);
+
+        Problem {
+            active,
+            passive,
+            passive_gen : None,
+            mapping_label_text: self.mapping_label_text.clone(),
+            mapping_label_oldlabels: self.mapping_label_oldlabels.clone(),
+            mapping_oldlabel_labels: self.mapping_oldlabel_labels.clone(),
+            mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
+            diagram_direct: None,
+            diagram_indirect_old: self.diagram_indirect_old.clone(),
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
+            orientation_given: self.orientation_given,
+            fixpoint_diagram : None,
+            fixpoint_procedure_works : None,
+            marks_works : None,
+            demisifiable : None,
+            is_trivial_with_input : None,
+            triviality_with_input : None,
+            expressions : None
+        }
+    }
+
     pub fn relax_merge(&self, from: Label, to: Label) -> Self {
         let active = self.active.relax(from, to, true);
         let passive = self.passive.relax(from, to, true);
@@ -123,6 +154,22 @@ impl Constraint {
                 let mut h = g.as_set();
                 if remove_from {
                     h.remove(&from);
+                }
+                h.insert(to);
+                Group::from_set(&h)
+            }
+        })
+    }
+    pub fn relax_group(&self, from: &Vec<Label>, to: Label, remove_from: bool) -> Self {
+        let from = HashSet::from_iter(from.into_iter().cloned());
+
+        self.edited(|g| {
+            let mut h = g.as_set();
+            if from.intersection(&h).next().is_none() {
+                g.clone()
+            } else {
+                if remove_from {
+                    h = h.difference(&from).cloned().collect();
                 }
                 h.insert(to);
                 Group::from_set(&h)

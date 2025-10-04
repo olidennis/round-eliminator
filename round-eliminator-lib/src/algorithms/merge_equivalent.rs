@@ -7,9 +7,7 @@ impl Problem {
         let mut p = self.clone();
         let merge_groups = &self.diagram_direct.as_ref().expect("in order to merge equivalent labels, the diagram is required, but it has not been computed").0;
         for (dest, group) in merge_groups {
-            for from in group {
-                p = p.relax_merge(*from, *dest);
-            }
+            p = p.relax_merge_group(group,*dest);
         }
         p
     }
@@ -18,7 +16,7 @@ impl Problem {
         let mut p = self.clone();
         if p.diagram_indirect.is_none() {
             p.compute_diagram(eh);
-        }        
+        }       
         p = p.merge_equivalent_labels();
         p.discard_useless_stuff(recompute_full_diagram, eh);
         loop {
