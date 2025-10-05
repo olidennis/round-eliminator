@@ -590,7 +590,7 @@ where
             handler(Response::P(new));
         },
         Request::LogstarMIS(problem, labels) => {
-            let mut new = problem.logstar_see(&labels);
+            let mut new = problem.logstar_mis(&labels);
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         }

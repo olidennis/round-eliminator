@@ -232,10 +232,15 @@ impl Problem {
 
 
     pub fn make_some_labels_different(&self, labels : &Vec<Label>) -> (Self,HashMap<Label,Vec<Label>>) {
+        let mut next_label = if labels == &self.labels() {
+            0
+        } else {
+            *self.labels().iter().max().unwrap_or(&0) + 1
+        };
         let labels : HashSet<_> = labels.into_iter().cloned().collect();
 
         let mut map : HashMap<Label, Vec<Label>>= HashMap::new();
-        let mut next_label = *self.labels().iter().max().unwrap_or(&0) + 1;
+
         let mut active = Constraint {
             lines: vec![],
             is_maximized: false,
