@@ -12,6 +12,155 @@ use super::event::EventHandler;
 
 
 impl Problem {
+    
+    pub fn compute_demisifiable<F>(&mut self, mut f : F, eh : &mut EventHandler) where F : FnMut(Vec<Label>) {
+        let labels = self.labels();
+        let mut result = vec![];
+
+        for subset in labels.into_iter().powerset() {
+            if subset.len() >= 2 {
+                if self.is_set_reversible_merge(&subset) {
+                    f(subset.clone());
+                    result.push((subset,vec![]));
+                }
+            }
+        }
+
+        self.demisifiable = Some(result);
+    }
+
+    pub fn is_set_reversible_merge(&mut self, labels : &Vec<Label>) -> bool {
+        if self.passive.degree != Degree::Finite(2) {
+            panic!("this feature is only implemented for passive degree 2");
+        }
+        let m = labels[0];
+        let merged = self.relax_merge_group(labels, m);
+        
+
+        let mut fresh_label = merged.labels().into_iter().max().unwrap() +1;
+        let d = merged.active.finite_degree();
+        let mut color_labels = HashMap::new();
+
+        for i in 1..=d+1 {
+            for j in 0..=d+1 {
+                if i != j {
+                    color_labels.insert((i,j), fresh_label);
+                    fresh_label += 1;
+                }
+            }
+        }
+
+        let mut new_active = Constraint{
+            lines: vec![],
+            is_maximized: false,
+            degree: merged.active.degree,
+        };
+        for line in &merged.active.all_choices(false) {
+            let ms = line.groups().filter(|g|g.first() == m).count();
+            if ms == 0 {
+                new_active.lines.push(line.clone());
+            } else {
+                for i in 1..=ms+1 {
+                    let mut j = 1;
+                    let newline = line.edited(|g|{
+                        let l = g.first();
+                        if l == m {
+                            let g = if j < i {
+                                Group::from(vec![color_labels[&(i,j)]])
+                            } else {
+                                Group::from((0..=d+1).filter(|&j|j!=i).map(|j|color_labels[&(i,j)]).sorted().collect())
+                            };
+                            j += 1;
+                            g
+                        } else {
+                            g.clone()
+                        }
+                    });
+                    new_active.lines.push(newline);
+                }
+            }
+        }
+
+
+        let mut new_passive = Constraint{
+            lines: vec![],
+            is_maximized: false,
+            degree: merged.passive.degree,
+        };
+        for line in merged.passive.all_choices(false) {
+            let l1 = line.parts[0].group.first();
+            let l2 = line.parts[1].group.first();
+            if l1 != m && l2 != m {
+                new_passive.lines.push(line);
+            } else if l1 == m && l2 == m {
+                for c1 in 1..=d+1 {
+                    for c2 in 1..=d+1 {
+                        if c1 != c2 {
+                            let newline = Line{
+                                parts : vec![
+                                    Part{ group : Group::from(vec![color_labels[&(c1,c2)]]), gtype : GroupType::Many(1) },
+                                    Part{ group : Group::from(vec![color_labels[&(c2,c1)]]), gtype : GroupType::Many(1) }
+                                ]
+                            };
+                            new_passive.lines.push(newline);
+                        }
+                    }
+                }
+            } else {
+                let l = if l1 != m { l1 } else { l2 };
+                for c in 1..=d+1 {
+                    let newline = Line{
+                        parts : vec![
+                            Part{ group : Group::from(vec![color_labels[&(c,0)]]), gtype : GroupType::Many(1) },
+                            Part{ group : Group::from(vec![l]), gtype : GroupType::Many(1) }
+                        ]
+                    };
+                    new_passive.lines.push(newline);
+                }
+            }
+        }
+
+        let mut mapping_label_text = merged.mapping_label_text.clone();
+        for i in 1..=d+1 {
+            for j in 0..=d+1 {
+                if i != j {
+                    mapping_label_text.push((color_labels[&(i,j)],format!("(c_{}_{})",i,j)));
+                }
+            }
+        }
+
+        let mut input = Problem {             
+            active : new_active,
+            passive : new_passive,
+            passive_gen : None,
+            mapping_label_text,
+            mapping_label_oldlabels: None,
+            mapping_oldlabel_labels: None,
+            mapping_oldlabel_text: None,
+            trivial_sets: None,
+            coloring_sets: None,
+            diagram_indirect: None,
+            diagram_indirect_old: None,
+            diagram_direct: None,
+            orientation_coloring_sets: None,
+            orientation_trivial_sets: None,
+            orientation_given: None,
+            fixpoint_diagram : None,
+            fixpoint_procedure_works : None,
+            marks_works : None,
+            demisifiable : None,
+            is_trivial_with_input : None,
+            triviality_with_input : None,
+            expressions : None
+        };
+
+        input.discard_useless_stuff(false, &mut EventHandler::null());
+        self.compute_triviality_with_input_with_sat(input);
+        let r = self.is_trivial_with_input.unwrap();
+        self.is_trivial_with_input = None;
+        self.triviality_with_input = None;
+        r
+    }
 
 
     pub fn labels_compatible_with_label(&self, label : Label) -> HashSet<Label> {
@@ -306,7 +455,7 @@ impl Problem {
         return result2;    
     }
 
-    pub fn compute_demisifiable(&mut self, eh : &mut EventHandler) {
+    pub fn compute_demisifiable_old(&mut self, eh : &mut EventHandler) {
         let mut r = vec![];
 
         let p = Problem::from_string("M*\nP U*\n\nM UP\nU U").unwrap();

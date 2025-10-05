@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::{event::EventHandler, fixpoint::FixpointType}, group::Label, line::Degree, problem::Problem};
@@ -392,7 +393,11 @@ where
             }
         }
         Request::Demisifiable(mut p) => {
-            p.compute_demisifiable(&mut eh);
+            let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
+            p.compute_demisifiable(|set|{
+                let set = set.iter().map(|l|&mapping[l]).join("");
+                handler(Response::W(format!("Found set: {}",set)))
+            },&mut eh);
             handler(Response::P(p));
         }
         Request::AddActivePredecessors(mut p) => {
