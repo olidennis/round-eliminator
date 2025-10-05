@@ -47,9 +47,9 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
-function demisifiable(problem, onresult, onerror, progress){
+function demisifiable(problem, old, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ Demisifiable : problem }, ondata , function(){});
+    return api.request({ Demisifiable : [problem,old] }, ondata , function(){});
 }
 
 function add_active_predecessors(problem, onresult, onerror, progress){
@@ -1004,11 +1004,17 @@ Vue.component('re-demisifiable',{
     props: ['problem','stuff'],
     methods: {
         on_demisifiable() {
-            call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem]);
+            call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem,false]);
+        },
+        on_demisifiable_old() {
+            call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem,true]);
         }
     },
     template: `
-        <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">Logstar Reversible Relaxations</button>
+        <div>
+            <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">Logstar Reversible Relaxations</button>
+            <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable_old">Logstar Reversible Relaxations (old)</button>
+        </div>
     `
 })
 

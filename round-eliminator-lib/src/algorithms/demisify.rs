@@ -13,9 +13,20 @@ use super::event::EventHandler;
 
 impl Problem {
     
-    pub fn compute_demisifiable<F>(&mut self, mut f : F, eh : &mut EventHandler) where F : FnMut(Vec<Label>) {
+    pub fn compute_demisifiable<F>(&mut self, mut f : F, old : bool, eh : &mut EventHandler) where F : FnMut(Vec<Label>) {
+        if old {
+            self.compute_demisifiable_old(eh);
+            return;
+        }
+        
         let labels = self.labels();
         let mut result = vec![];
+
+        if self.is_set_reversible_merge(&labels) {
+            f(labels.clone());
+        } else {
+            println!("full set does not work");
+        }
 
         for subset in labels.into_iter().powerset() {
             if subset.len() >= 2 {

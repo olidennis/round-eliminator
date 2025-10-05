@@ -392,12 +392,12 @@ where
                 }
             }
         }
-        Request::Demisifiable(mut p) => {
+        Request::Demisifiable(mut p,old) => {
             let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
             p.compute_demisifiable(|set|{
                 let set = set.iter().map(|l|&mapping[l]).join("");
                 handler(Response::W(format!("Found set: {}",set)))
-            },&mut eh);
+            },old,&mut eh);
             handler(Response::P(p));
         }
         Request::AddActivePredecessors(mut p) => {
@@ -616,7 +616,7 @@ pub enum Request {
     Marks(Problem),
     CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
-    Demisifiable(Problem),
+    Demisifiable(Problem,bool),
     AddActivePredecessors(Problem),
     RemoveTrivialLines(Problem),
     CheckZeroWithInput(Problem,String,String,bool,bool,bool),
