@@ -578,6 +578,21 @@ where
                 }
                 Err(s) => handler(Response::E(s.into())),
             }
+        },
+        Request::LogstarDup(problem, labels) => {
+            let mut new = problem.logstar_dup(&labels);
+            fix_problem(&mut new, true, true, &mut eh);
+            handler(Response::P(new));
+        },
+        Request::LogstarSee(problem, labels) => {
+            let mut new = problem.logstar_see(&labels);
+            fix_problem(&mut new, true, true, &mut eh);
+            handler(Response::P(new));
+        },
+        Request::LogstarMIS(problem, labels) => {
+            let mut new = problem.logstar_see(&labels);
+            fix_problem(&mut new, true, true, &mut eh);
+            handler(Response::P(new));
         }
     }
 
@@ -624,6 +639,9 @@ pub enum Request {
     DoubleDual(Problem,String,String),
     DoubleDual2(Problem,String,String,String,String,String),
     SmallestDual(Problem,String,String),
+    LogstarDup(Problem, Vec<Label>),
+    LogstarSee(Problem, Vec<Label>),
+    LogstarMIS(Problem, Vec<Label>),
     Ping,
 }
 

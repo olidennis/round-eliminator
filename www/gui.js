@@ -142,6 +142,21 @@ function simplify_group(problem, labels, to, onresult, onerror, progress){
     return api.request({ SimplifyMergeGroup : [problem, labels.map(x => parseInt(x)), parseInt(to)] }, ondata , function(){});
 }
 
+function logstar_dup_label(problem, labels, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ LogstarDup : [problem, labels.map(x => parseInt(x))] }, ondata , function(){});
+}
+
+function logstar_see_label(problem, labels, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ LogstarSee : [problem, labels.map(x => parseInt(x))] }, ondata , function(){});
+}
+
+function logstar_mis(problem, labels, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ LogstarMIS : [problem, labels.map(x => parseInt(x))] }, ondata , function(){});
+}
+
 function simplify_addarrow(problem, from, to, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ SimplifyAddarrow : [problem, parseInt(from), parseInt(to)] }, ondata , function(){});
@@ -389,6 +404,12 @@ Vue.component('re-performed-action', {
                     return "Performed Hardening: Kept Label Set " + this.action.labels.join("");
                 case "simplifymergegroup":
                     return "Performed Simplification: Merged Set " + this.action.labels.join("") + "→" + this.action.to;
+                case "logstar_dup_label":
+                    return "Performed Logstar Dup " + this.action.labels.join("");
+                case "logstar_see_label":
+                    return "Performed Logstar See " + this.action.labels.join("");
+                case "logstar_mis":
+                    return "Performed Logstar MIS " + this.action.labels.join("");
                 case "simplifymergesd":
                     return "Performed SubDiagram Merging\n" + this.action.sd;
                 case "zerowithinput":
@@ -1718,6 +1739,7 @@ Vue.component('re-tools', {
             <re-auto-ub :problem="problem" :stuff="stuff"></re-auto-ub>
             <re-zero-input :problem="problem" :stuff="stuff"></re-zero-input>
             <re-dual :problem="problem" :stuff="stuff"></re-dual>
+            <re-ubs :problem="problem" :stuff="stuff"></re-ubs>
         </div>
     `
 })
@@ -2250,6 +2272,76 @@ Vue.component('re-dual',{
                 <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="input_passive"></textarea>
             </div> -->
             <button type="button" class="btn btn-primary ml-1" v-on:click="on_doubledual2">Double Dual</button>
+        </re-card>
+    `
+})
+
+
+Vue.component('re-ubs',{
+    props: ['problem','stuff'],
+    data: function() {
+        return {
+            max_labels : 16,
+            table: this.problem.mapping_label_text.map(x => {
+                let label = x[0];
+                let text = x[1];
+                let oldtext = this.problem.map_label_oldlabels == null ? null : labelset_to_string(this.problem.map_label_oldlabels[label],this.problem.map_oldlabel_text);
+                if( oldtext == null ) {
+                    return [label,text,"",false];
+                } else {
+                    return [label,text,oldtext,false];
+                }
+            })
+        }
+    },
+    methods: {
+        on_dup_label() {
+            let chosen = this.table.filter(x => x[3]).map(x => x[0]);
+            call_api_generating_problem(
+                this.stuff,
+                {type:"logstar_dup_label", labels:chosen.map(x => this.problem.map_label_text[x])},
+                logstar_dup_label,[this.problem, chosen]
+            );
+        },
+        on_see_label() {
+            let chosen = this.table.filter(x => x[3]).map(x => x[0]);
+            call_api_generating_problem(
+                this.stuff,
+                {type:"logstar_see_label", labels:chosen.map(x => this.problem.map_label_text[x])},
+                logstar_see_label,[this.problem, chosen]
+            );
+        },
+        on_mis() {
+            let chosen = this.table.filter(x => x[3]).map(x => x[0]);
+            call_api_generating_problem(
+                this.stuff,
+                {type:"logstar_mis", labels:chosen.map(x => this.problem.map_label_text[x])},
+                logstar_mis,[this.problem, chosen]
+            );
+        },
+        on_autoub() {
+            alert("unimplemented")
+        }
+    },
+    template: `
+        <re-card title="Logstar Upper Bounds" subtitle="">
+            <div v-for="(row,index) in this.table">
+                <div class="custom-control custom-switch ml-2">
+                    <label>
+                        <input type="checkbox" class="custom-control-input" v-model="table[index][3]">
+                        <p class="form-control-static custom-control-label">
+                            <span>{{ row[1] }}</span>
+                            <span v-if="row[2]!=''" class="rounded m-1 labelborder">{{ row[2] }}</span>
+                        </p>
+                    </label>  
+                </div>
+            </div> 
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_dup_label">Make Label Different</button>
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_see_label">Get Label of Other Side</button>
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_mis">MIS</button>
+            <hr/>
+            <div>Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Logstar Upper Bound</button>
         </re-card>
     `
 })

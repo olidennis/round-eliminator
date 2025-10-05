@@ -227,34 +227,54 @@ impl Problem {
     }
 
     pub fn make_all_labels_different(&self) -> (Self,HashMap<Label,Vec<Label>>) {
+        self.make_some_labels_different(&self.labels())
+    }
+
+
+    pub fn make_some_labels_different(&self, labels : &Vec<Label>) -> (Self,HashMap<Label,Vec<Label>>) {
+        let labels : HashSet<_> = labels.into_iter().cloned().collect();
+
         let mut map : HashMap<Label, Vec<Label>>= HashMap::new();
-        let mut next_label = 0;
+        let mut next_label = *self.labels().iter().max().unwrap_or(&0) + 1;
         let mut active = Constraint {
             lines: vec![],
             is_maximized: false,
             degree: self.active.degree,
         };
         for line in self.active.all_choices(false) {
-            let line = line.edited(|g|{
+            let mut line = line.edited(|g|{
                 let mut new_g = vec![];
                 for &l in g.iter() {
-                    map.entry(l).or_default().push(next_label);
-                    new_g.push(next_label);
-                    next_label += 1;
+                    if labels.contains(&l) {
+                        map.entry(l).or_default().push(next_label);
+                        new_g.push(next_label);
+                        next_label += 1;
+                    } else {
+                        new_g.push(l);
+                    }
                 }
                 Group::from(new_g)
             });
+            line.normalize();
             active.lines.push(line);
         }
 
         let passive = self.passive.edited(|g|{
-            Group::from(g.iter().flat_map(|l|map[l].iter().cloned()).collect())
+            Group::from(g.iter().flat_map(|l|{
+                if map.contains_key(l) {
+                    map[l].iter().cloned().collect_vec().into_iter()
+                } else {
+                    vec![*l].into_iter()
+                }
+            }).collect())
         });
+
         let old_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
-        let mapping_label_text = map.iter().flat_map(|(l,v)|{
+        let mut mapping_label_text : Vec<_> = map.iter().flat_map(|(l,v)|{
             let old = old_text[l].replace("(", "").replace(")", "");
             v.iter().enumerate().map(move |(i,new)|(*new,format!("({}_{})",old,i)))
         }).collect();
+        mapping_label_text.extend(old_text.into_iter());
         (Problem {             
             active,
             passive,
