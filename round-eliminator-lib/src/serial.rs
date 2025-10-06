@@ -400,8 +400,16 @@ where
             },old,&mut eh);
             handler(Response::P(p));
         }
-        Request::AddActivePredecessors(mut p) => {
+        Request::AddActivePredecessors(mut p, flip) => {
             p.add_active_predecessors();
+            if flip {
+                let active = p.active.clone();
+                let passive = p.passive.clone();
+                p.passive = active;
+                p.active = passive;
+                p.diagram_indirect = None;
+                fix_problem(&mut p, true, true, &mut eh);
+            }
             handler(Response::P(p));
         }
         Request::RemoveTrivialLines(p) => {
@@ -642,7 +650,7 @@ pub enum Request {
     CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
     Demisifiable(Problem,bool),
-    AddActivePredecessors(Problem),
+    AddActivePredecessors(Problem,bool),
     RemoveTrivialLines(Problem),
     CheckZeroWithInput(Problem,String,String,bool,bool,bool),
     Dual(Problem,String,String),

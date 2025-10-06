@@ -58,9 +58,9 @@ function demisifiable(problem, old, onresult, onerror, progress){
     return api.request({ Demisifiable : [problem,old] }, ondata , function(){});
 }
 
-function add_active_predecessors(problem, onresult, onerror, progress){
+function add_active_predecessors(problem, flip, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AddActivePredecessors : problem }, ondata , function(){});
+    return api.request({ AddActivePredecessors : [problem,flip] }, ondata , function(){});
 }
 
 function remove_trivial_lines(problem, onresult, onerror, progress){
@@ -1070,11 +1070,17 @@ Vue.component('re-add-active-predecessors',{
     props: ['problem','stuff'],
     methods: {
         on_button() {
-            call_api_generating_problem(this.stuff,{type:"add-active-predecessors"},add_active_predecessors,[this.problem]);
+            call_api_generating_problem(this.stuff,{type:"add-active-predecessors"},add_active_predecessors,[this.problem, false]);
+        },
+        on_button2() {
+            call_api_generating_problem(this.stuff,{type:"add-active-predecessors"},add_active_predecessors,[this.problem, true]);
         }
     },
     template: `
-        <button type="button" class="btn btn-primary m-1" v-on:click="on_button">Add Active Predecessors</button>
+        <div>
+          <button type="button" class="btn btn-primary m-1" v-on:click="on_button">Add Active Predecessors</button>
+          <button type="button" class="btn btn-primary m-1" v-on:click="on_button2">Add Active Pred & Flip</button>
+        </div>
     `
 })
 
