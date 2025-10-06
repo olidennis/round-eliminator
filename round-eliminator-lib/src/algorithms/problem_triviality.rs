@@ -227,11 +227,11 @@ impl Problem {
     }
 
     pub fn make_all_labels_different(&self) -> (Self,HashMap<Label,Vec<Label>>) {
-        self.make_some_labels_different(&self.labels())
+        self.make_some_labels_different(&self.labels(),false)
     }
 
 
-    pub fn make_some_labels_different(&self, labels : &Vec<Label>) -> (Self,HashMap<Label,Vec<Label>>) {
+    pub fn make_some_labels_different(&self, labels : &Vec<Label>, same_on_same_line : bool) -> (Self,HashMap<Label,Vec<Label>>) {
         let mut next_label = if labels == &self.labels() {
             0
         } else {
@@ -247,13 +247,25 @@ impl Problem {
             degree: self.active.degree,
         };
         for line in self.active.all_choices(false) {
+            let mut already_dup : HashMap<Label, Label> = HashMap::new();
             let mut line = line.edited(|g|{
                 let mut new_g = vec![];
                 for &l in g.iter() {
                     if labels.contains(&l) {
-                        map.entry(l).or_default().push(next_label);
-                        new_g.push(next_label);
-                        next_label += 1;
+                        if same_on_same_line {
+                            if already_dup.contains_key(&l) {
+                                new_g.push(already_dup[&l]);
+                            } else {
+                                map.entry(l).or_default().push(next_label);
+                                new_g.push(next_label);
+                                already_dup.insert(l,next_label);
+                                next_label += 1;
+                            }
+                        } else {
+                            map.entry(l).or_default().push(next_label);
+                            new_g.push(next_label);
+                            next_label += 1;
+                        }
                     } else {
                         new_g.push(l);
                     }

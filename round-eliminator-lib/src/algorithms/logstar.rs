@@ -11,7 +11,7 @@ use crate::{algorithms::event::EventHandler, constraint::Constraint, group::{Gro
 
 impl Problem {
     pub fn logstar_dup(&self, labels : &Vec<Label>) -> Self {
-        let mut p = self.make_some_labels_different(labels).0;
+        let mut p = self.make_some_labels_different(labels, true).0;
         p.discard_useless_stuff(false, &mut EventHandler::null());
         p
     }
