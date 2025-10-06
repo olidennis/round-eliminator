@@ -580,7 +580,7 @@ where
             }
         },
         Request::LogstarDup(problem, labels) => {
-            let mut new = problem.logstar_dup(&labels);
+            let (mut new,_) = problem.logstar_dup(&labels);
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         },

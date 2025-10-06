@@ -10,10 +10,10 @@ use crate::{algorithms::event::EventHandler, constraint::Constraint, group::{Gro
 
 
 impl Problem {
-    pub fn logstar_dup(&self, labels : &Vec<Label>) -> Self {
-        let mut p = self.make_some_labels_different(labels, true).0;
+    pub fn logstar_dup(&self, labels : &Vec<Label>) -> (Self,HashMap<Label, Vec<Label>>) {
+        let (mut p,map) = self.make_some_labels_different(labels, true);
         p.discard_useless_stuff(false, &mut EventHandler::null());
-        p
+        (p,map)
     }
 
     pub fn logstar_see_one(&self, label : Label) -> Self {
@@ -336,7 +336,16 @@ impl Problem {
                         let labels = p.labels();
                         let random_label = *labels.choose(&mut rng).unwrap();
                         let set_label = vec![random_label];
-                        let new_p = p.logstar_dup(&set_label);
+                        let (new_p,map) = p.logstar_dup(&set_label);
+                        let (_,dups) = map.iter().next().unwrap();
+                        if dups.len() == 1 {
+                            continue;
+                        }
+                        let pivot = rng.gen_range(1..dups.len());
+                        let g1 = dups[0..pivot].into_iter().cloned().collect_vec();
+                        let g2 = &dups[pivot..].into_iter().cloned().collect_vec();
+                        let new_p = new_p.relax_merge_group(&g1,g1[0]);
+                        let new_p = new_p.relax_merge_group(&g2,g2[0]);
                         if new_p.labels().len() > max_labels {
                             continue;
                         }
