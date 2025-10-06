@@ -1,5 +1,6 @@
-use std::{clone, collections::HashMap};
+use std::{clone, collections::HashMap, sync::{atomic::AtomicBool, Arc}};
 
+use chrono::Duration;
 use itertools::Itertools;
 use rand::{seq::SliceRandom, Rng};
 
@@ -227,9 +228,33 @@ impl Problem {
         p
     }
 
-    pub fn autologstar(&mut self, max_labels : usize, mut max_depth : usize, initial_active : String, initial_passive : String, onlybool : bool, eh: &mut EventHandler) -> Option<(usize, Vec<(AutoOperation,Problem)>)> {
-        //v.push((AutoOperation::LogstarMIS(self.labels()),self.clone()));
-        //handler(2,v);
+    pub fn autologstar(&mut self, max_labels : usize, mut max_depth : usize, initial_active : String, initial_passive : String, max_active : usize, max_passive : usize, onlybool : bool, eh: &mut EventHandler) -> Option<(usize, Vec<(AutoOperation,Problem)>)> {
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.autologstar_aux(max_labels,max_depth,initial_active,initial_passive,max_active,max_passive,onlybool,eh, None)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use std::sync::{atomic::AtomicBool, Arc};
+
+            use rayon::iter::{IntoParallelIterator, ParallelIterator};
+            let done = Arc::new(AtomicBool::new(false));
+            let threads = rayon::current_num_threads();
+            let result : Vec<_> = (0..threads).into_par_iter().map(|_|{
+                let done = done.clone();
+                let r = self.clone().autologstar_aux(max_labels,max_depth,initial_active.clone(),initial_passive.clone(),max_active,max_passive,onlybool,&mut EventHandler::null(), Some(done));
+                r
+            })
+                .filter_map(std::convert::identity)
+                .collect::<_>();
+            result.into_iter().next()
+        }
+
+    }
+
+
+    pub fn autologstar_aux(&mut self, max_labels : usize, mut max_depth : usize, initial_active : String, initial_passive : String, max_active : usize, max_passive : usize, onlybool : bool, eh: &mut EventHandler, done : Option<Arc<AtomicBool>>) -> Option<(usize, Vec<(AutoOperation,Problem)>)> {
         let d = self.active.finite_degree();
         let initial = if initial_active == "" {
             Problem::from_string(format!("M^{}\nP U^{}\n\nM UP\nU U",d,d-1)).unwrap()
@@ -240,23 +265,52 @@ impl Problem {
         if onlybool {
             max_depth = 1_000_000;
         }
-        loop{
+        let mut rng = rand::thread_rng();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut last_print = std::time::Instant::now();
+        let mut num_steps = 0;
+
+        'outer: loop{
             let mut v = vec![];
             v.push((AutoOperation::Initial,initial.clone()));
             let mut p = initial.clone();
 
             for _ in 0..max_depth {
+                if let Some(done) = done.as_ref() {
+                    if done.load(std::sync::atomic::Ordering::Relaxed) {
+                        return None;
+                    }
+                }
+                num_steps += 1;
+                #[cfg(not(target_arch = "wasm32"))]
+                if last_print.elapsed() > std::time::Duration::from_secs(1) {
+                    println!("{} steps/sec",num_steps);
+                    last_print = std::time::Instant::now();
+                    num_steps = 0;
+                }
+                if p.active.lines.len() > max_active || p.passive.lines.len() > max_passive {
+                    continue 'outer;
+                }
                 if onlybool {
                     p.mapping_label_text = p.labels().into_iter().enumerate().map(|(i,l)|(l,format!("({})",i))).collect();
                 }
-                p.discard_useless_stuff(true, &mut EventHandler::null());
+                p.discard_useless_stuff(false, &mut EventHandler::null());
+                p.compute_triviality(&mut EventHandler::null());
+                if !p.trivial_sets.as_ref().unwrap().is_empty() {
+                    continue 'outer;
+                }
+                //if p.active.labels_appearing() != p.passive.labels_appearing() {
+                //    panic!("wtf");
+                //}
                 //println!("{}",p);
                 self.compute_triviality_with_input_with_sat(p.clone());
                 if self.is_trivial_with_input.unwrap() {
+                    if let Some(done) = done.as_ref() {
+                        done.store(true,std::sync::atomic::Ordering::Relaxed);
+                    }
                     return Some((v.len(),v))
                 }
-
-                let mut rng = rand::thread_rng();
 
                 let r = if p.labels().len() > max_labels {
                     3

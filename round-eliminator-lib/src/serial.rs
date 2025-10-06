@@ -594,9 +594,9 @@ where
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
         },
-        Request::AutoLogstar(mut problem, max_labels, max_depth, active, passive, onlybool) => {
+        Request::AutoLogstar(mut problem, max_labels, max_depth, active, passive, max_active, max_passive, onlybool) => {
             //eh.notify("logstarautoub",0,0);
-            if let Some((len,sequence)) = problem.autologstar(max_labels, max_depth, active, passive, onlybool, &mut eh) {
+            if let Some((len,sequence)) = problem.autologstar(max_labels, max_depth, active, passive, max_active, max_passive, onlybool, &mut eh) {
                 if !onlybool {
                     handler(Response::Logstar(len,sequence));
                 } else {
@@ -652,7 +652,7 @@ pub enum Request {
     LogstarDup(Problem, Vec<Label>),
     LogstarSee(Problem, Vec<Label>),
     LogstarMIS(Problem, Vec<Label>),
-    AutoLogstar(Problem, usize, usize, String, String, bool),
+    AutoLogstar(Problem, usize, usize, String, String, usize, usize, bool),
     Ping,
 }
 

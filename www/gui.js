@@ -224,9 +224,9 @@ function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max
     return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
-function autologstar(problem, max_labels, max_depth, active, passive, onlybool, onresult, onerror, progress, oncomplete){
+function autologstar(problem, max_labels, max_depth, active, passive, max_active, max_passive, onlybool, onresult, onerror, progress, oncomplete){
     let ondata = x => handle_result(x, onresult, onerror, progress);
-    return api.request({ AutoLogstar : [problem, parseInt(max_labels), parseInt(max_depth), active, passive, onlybool] }, ondata, oncomplete);
+    return api.request({ AutoLogstar : [problem, parseInt(max_labels), parseInt(max_depth), active, passive, parseInt(max_active), parseInt(max_passive), onlybool] }, ondata, oncomplete);
 }
 
 function check_zero_with_input(problem, active, passive, sat, subset, reverse, onresult, onerror, progress){
@@ -2310,6 +2310,8 @@ Vue.component('re-ubs',{
         return {
             max_labels : 16,
             max_depth : 10,
+            max_active : 8,
+            max_passive : 8,
             table: this.problem.mapping_label_text.map(x => {
                 let label = x[0];
                 let text = x[1];
@@ -2350,10 +2352,10 @@ Vue.component('re-ubs',{
             );
         },
         on_autoub() {
-            call_api_generating_sequence(this.stuff,{type:"autologstar"},autologstar,[this.problem, this.max_labels, this.max_depth, this.active, this.passive, false], false);
+            call_api_generating_sequence(this.stuff,{type:"autologstar"},autologstar,[this.problem, this.max_labels, this.max_depth, this.active, this.passive, this.max_active, this.max_passive, false], false);
         },
         on_autoub_bool() {
-            call_api_generating_problem(this.stuff,{type:"autologstar"},autologstar,[this.problem, this.max_labels, this.max_depth, this.active, this.passive, true]);
+            call_api_generating_problem(this.stuff,{type:"autologstar"},autologstar,[this.problem, this.max_labels, this.max_depth, this.active, this.passive, this.max_active, this.max_passive, true]);
         }
     },
     template: `
@@ -2383,6 +2385,9 @@ Vue.component('re-ubs',{
             </div>
             <div>Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
             <div>Max Depth: <input class="form-control m-2" type="number" v-model="max_depth"></div>
+            <div>Max Active: <input class="form-control m-2" type="number" v-model="max_active"></div>
+            <div>Max Passive: <input class="form-control m-2" type="number" v-model="max_passive"></div>
+
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Logstar Upper Bound</button>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub_bool">Just yes/no</button>
         </re-card>
