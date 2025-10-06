@@ -593,7 +593,17 @@ where
             let mut new = problem.logstar_mis(&labels);
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
-        }
+        },
+        Request::AutoLogstar(mut problem, max_labels, max_depth, active, passive, onlybool) => {
+            //eh.notify("logstarautoub",0,0);
+            if let Some((len,sequence)) = problem.autologstar(max_labels, max_depth, active, passive, onlybool, &mut eh) {
+                if !onlybool {
+                    handler(Response::Logstar(len,sequence));
+                } else {
+                    handler(Response::E("Upper Bound Found!".into()));
+                }
+            }
+        },
     }
 
     handler(Response::Done);
@@ -642,6 +652,7 @@ pub enum Request {
     LogstarDup(Problem, Vec<Label>),
     LogstarSee(Problem, Vec<Label>),
     LogstarMIS(Problem, Vec<Label>),
+    AutoLogstar(Problem, usize, usize, String, String, bool),
     Ping,
 }
 
@@ -656,6 +667,7 @@ pub enum Response {
     W(String),
     AutoUb(usize,Vec<(AutoOperation,Problem)>),
     AutoLb(usize,Vec<(AutoOperation,Problem)>),
+    Logstar(usize,Vec<(AutoOperation,Problem)>)
 }
 
 #[derive(Serialize,Deserialize,Clone)]
@@ -663,5 +675,8 @@ pub enum AutoOperation{
     Initial,
     Harden(Vec<Label>),
     Merge(Vec<(Label,Label)>,Problem),
+    LogstarDup(Vec<Label>,Problem),
+    LogstarSee(Vec<Label>,Problem),
+    LogstarMIS(Vec<Label>,Problem),
     Speedup
 }

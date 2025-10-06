@@ -27,6 +27,12 @@ function handle_result(x, onresult, onerror, progress) {
         }
         onresult(x.AutoLb)
     }
+    if( x.Logstar != null ){
+        for( let step of x.Logstar[1] ){
+            fix_problem(step[1]);
+        }
+        onresult(x.Logstar)
+    }
 
     if( x.Event != null ){
         progress.type = x.Event[0];
@@ -218,6 +224,11 @@ function autolb(problem, b_max_labels, max_labels, b_branching, branching, b_max
     return api.request({ AutoLb : [problem, b_max_labels, parseInt(max_labels), b_branching, parseInt(branching),  b_max_steps, parseInt(max_steps), coloring_given, parseInt(coloring), coloring_given_passive, parseInt(coloring_passive)] }, ondata, oncomplete);
 }
 
+function autologstar(problem, max_labels, max_depth, active, passive, onlybool, onresult, onerror, progress, oncomplete){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ AutoLogstar : [problem, parseInt(max_labels), parseInt(max_depth), active, passive, onlybool] }, ondata, oncomplete);
+}
+
 function check_zero_with_input(problem, active, passive, sat, subset, reverse, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ CheckZeroWithInput : [problem, active, passive, sat, subset, reverse] }, ondata , function(){});
@@ -320,6 +331,18 @@ function on_new_what(stuff, action, progress, p, what, removeprogress = true){
                     fix_problem(before_merge);
                     substuff.push({ type : "performed", data : {type:"simplificationmerge", from: before_merge.map_label_text[merge[0]], to : before_merge.map_label_text[merge[1]]} });
                 }
+            } else if( operation.LogstarDup != null ) {
+                let before = operation.LogstarDup[1];
+                fix_problem(before);
+                substuff.push({ type : "performed", data : {type:"logstar_dup_label", labels:operation.LogstarDup.map(x => before.map_label_text[x])} });
+            } else if( operation.LogstarSee != null ) {
+                let before = operation.LogstarSee[1];
+                fix_problem(before);
+                substuff.push({ type : "performed", data : {type:"logstar_see_label", labels:operation.LogstarSee.map(x => before.map_label_text[x])} });
+            } else if( operation.LogstarMIS != null ) {
+                let before = operation.LogstarMIS[1];
+                fix_problem(before);
+                substuff.push({ type : "performed", data : {type:"logstar_mis", labels:operation.LogstarMIS.map(x => before.map_label_text[x])} });
             }
             substuff.push({ type : "problem", data : step[1] });
         }
@@ -471,6 +494,8 @@ Vue.component('re-performed-action', {
                     return "Renamed";
                 case "autoub":
                     return "Automatic Upper Bound. Obtained Upper Bound of " + this.action.len + " Rounds.";
+                case "autologstar":
+                    return "Automatic Logstar Upper Bound found.";
                 case "autolb":
                     if(this.action.len == 999 ){
                         return "Automatic Lower Bound. Obtained a Fixed Point."
@@ -520,6 +545,8 @@ Vue.component('re-computing', {
                     return {bar : false, msg: "Computing Fixed Point with Automatic Diagram Fixing ("+this.action.max+" labels)"}; 
                 case "autoub":
                     return {bar : false, msg: "Computing an Upper Bound Automatically"}; 
+                case "autologstar":
+                    return {bar : false, msg: "Computing a Logstar Upper Bound Automatically"}; 
                 case "autolb":
                     return {bar : false, msg: "Computing a Lower Bound Automatically"}; 
                 case "coloring graph":
@@ -2282,6 +2309,7 @@ Vue.component('re-ubs',{
     data: function() {
         return {
             max_labels : 16,
+            max_depth : 10,
             table: this.problem.mapping_label_text.map(x => {
                 let label = x[0];
                 let text = x[1];
@@ -2291,7 +2319,9 @@ Vue.component('re-ubs',{
                 } else {
                     return [label,text,oldtext,false];
                 }
-            })
+            }),
+            active : "",
+            passive : ""
         }
     },
     methods: {
@@ -2320,7 +2350,10 @@ Vue.component('re-ubs',{
             );
         },
         on_autoub() {
-            alert("unimplemented")
+            call_api_generating_sequence(this.stuff,{type:"autologstar"},autologstar,[this.problem, this.max_labels, this.max_depth, this.active, this.passive, false], false);
+        },
+        on_autoub_bool() {
+            call_api_generating_problem(this.stuff,{type:"autologstar"},autologstar,[this.problem, this.max_labels, this.max_depth, this.active, this.passive, true]);
         }
     },
     template: `
@@ -2340,8 +2373,18 @@ Vue.component('re-ubs',{
             <button type="button" class="btn btn-primary m-2" v-on:click="on_see_label">Get Label of Other Side</button>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_mis">MIS</button>
             <hr/>
+            <div class="m-1">
+                <h4>Initial Active</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="active"></textarea>
+            </div>
+            <div class="m-1">
+                <h4>Initial Passive</h4>
+                <textarea rows="4" cols="30" class="form-control" style="resize: both" v-model="passive"></textarea>
+            </div>
             <div>Max Labels: <input class="form-control m-2" type="number" v-model="max_labels"></div>
+            <div>Max Depth: <input class="form-control m-2" type="number" v-model="max_depth"></div>
             <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub">Automatic Logstar Upper Bound</button>
+            <button type="button" class="btn btn-primary m-2" v-on:click="on_autoub_bool">Just yes/no</button>
         </re-card>
     `
 })
