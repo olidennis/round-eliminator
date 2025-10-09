@@ -115,7 +115,12 @@ impl Problem {
     }
 
     pub fn relax_addarrow(&self, from: Label, to: Label) -> Self {
-        let passive = self.passive.relax(from, to, false);
+        let diagram = self.diagram_indirect_to_reachability_adj();
+        let succ : Vec<_> = diagram[&to].iter().cloned().collect();
+        let mut passive = self.passive.clone();
+        for l in succ {
+            passive = self.passive.relax(from, l, false);
+        }
 
         Problem {
             active: self.active.clone(),
