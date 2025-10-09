@@ -29,6 +29,7 @@ impl FixpointDiagram {
         let mut p = p.clone();
         let mut diag = p.diagram_indirect.take().unwrap();
         diag.extend(addarrows.iter().cloned());
+        let diag = diagram_to_indirect(&p.labels(), &diag);
         p.diagram_indirect = Some(diag);
         if larger {
             Self::new_larger(&p)
@@ -1137,6 +1138,13 @@ impl Problem {
                 let mapping_label_newlabel = fd.mapping_label_newlabel.clone();
                 let mapping_newlabel_text = fd.mapping_newlabel_text.clone();
                 let diagram = fd.diagram.clone();
+                
+                let mapping : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+                for &(l1,l2) in &subset_of_arrows_to_add {
+                    println!("adding arrow {} -> {}",mapping[&l1],mapping[&l2]);
+                }
+
+                println!("computed diagram is\n{}\n",fd.text);
 
                 let mut r = self.fixpoint_onestep(false,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, &mut EventHandler::null()).unwrap().0;
                 //let mut r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
@@ -1375,6 +1383,7 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
                 }
             }
             if common.len() != 1 {
+                println!("case 1 bad labels {} {}",mapping[&l1],mapping[&l2]);
                 return Err("The diagram does not satisfy the requirements");
             }
             //assert!(common.len() == 1);
@@ -1387,6 +1396,7 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
                 }
             }
             if common.len() != 1 {
+                println!("case 2 bad labels {} {}",mapping[&l1],mapping[&l2]);
                 return Err("The diagram does not satisfy the requirements");
             }
             //assert!(common.len() == 1);
