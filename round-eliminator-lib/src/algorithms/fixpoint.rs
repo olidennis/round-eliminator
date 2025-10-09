@@ -1117,7 +1117,7 @@ impl Problem {
     
         for arrows_to_add in 1..=missing_arrows.len() {
             for subset_of_arrows_to_add in missing_arrows.iter().cloned().combinations(arrows_to_add) {
-                let mut p = self.clone();
+                let p = self.clone();
                 /* 
                 for &(l1,l2) in &subset_of_arrows_to_add {
                     if p.diagram_indirect.is_none() {
@@ -1139,12 +1139,12 @@ impl Problem {
                 let mapping_newlabel_text = fd.mapping_newlabel_text.clone();
                 let diagram = fd.diagram.clone();
                 
-                let mapping : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
-                for &(l1,l2) in &subset_of_arrows_to_add {
-                    println!("adding arrow {} -> {}",mapping[&l1],mapping[&l2]);
-                }
+                //let mapping : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+                //for &(l1,l2) in &subset_of_arrows_to_add {
+                //    println!("adding arrow {} -> {}",mapping[&l1],mapping[&l2]);
+                //}
 
-                println!("computed diagram is\n{}\n",fd.text);
+                //println!("computed diagram is\n{}\n",fd.text);
 
                 let mut r = self.fixpoint_onestep(false,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, &mut EventHandler::null()).unwrap().0;
                 //let mut r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
