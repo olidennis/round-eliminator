@@ -1120,6 +1120,11 @@ impl Problem {
                     p = p.relax_addarrow(l1, l2);
                 }
                 p.compute_diagram(&mut EventHandler::null());
+                p.compute_triviality(&mut EventHandler::null());
+                let p_is_trivial = p.trivial_sets.as_ref().unwrap().len() > 0;
+                if p_is_trivial {
+                    continue;
+                }
                 let mut r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
                 r.compute_diagram(&mut EventHandler::null());
                 r.discard_useless_stuff(true, &mut EventHandler::null());
