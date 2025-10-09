@@ -622,7 +622,6 @@ where
                     let msg = format!("Adding [{}] gives a fixed point",arrows_str);
                     handler(Response::E(msg.into()));
                 } else if x >= best {
-                    println!("{:?} {}",arrows, x);
                     best = x;
                     let msg = format!("Adding [{}] gives {} active lines",arrows_str,x);
                     handler(Response::E(msg.into()));
