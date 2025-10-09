@@ -612,6 +612,19 @@ where
                 }
             }
         },
+        Request::FixpointAddarrow(mut problem) => {
+            let mut best = 0;
+
+            problem.fixpoint_addarrow(|arrows : Vec<(Label,Label)>,x : usize|{
+                let mapping : HashMap<_,_> = problem.mapping_label_text.iter().cloned().collect();
+                if x >= best {
+                    best = x;
+                    let arrows = arrows.iter().map(|(l1,l2)|format!("{} -> {}",mapping[&l1],mapping[&l2])).join(", ");
+                    let msg = format!("Adding [{}] gives {} active lines",arrows,x);
+                    handler(Response::E(msg.into()));
+                }
+            });
+        },
     }
 
     handler(Response::Done);
@@ -631,6 +644,7 @@ pub enum Request {
     FixpointLoop(Problem, bool, bool, Vec<Label>),
     FixpointCustom(Problem,String, bool, bool, Vec<Label>),
     FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>, bool),
+    FixpointAddarrow(Problem),
     InverseSpeedup(Problem),
     AllDifferentLabels(Problem),
     DeltaEdgeColoring(Problem),

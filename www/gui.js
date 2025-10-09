@@ -229,6 +229,11 @@ function autologstar(problem, max_labels, max_depth, active, passive, max_active
     return api.request({ AutoLogstar : [problem, parseInt(max_labels), parseInt(max_depth), active, passive, parseInt(max_active), parseInt(max_passive), onlybool] }, ondata, oncomplete);
 }
 
+function fixpoint_addarrow(problem, onresult, onerror, progress, oncomplete){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FixpointAddarrow : problem }, ondata, oncomplete);
+}
+
 function check_zero_with_input(problem, active, passive, sat, subset, reverse, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ CheckZeroWithInput : [problem, active, passive, sat, subset, reverse] }, ondata , function(){});
@@ -1974,6 +1979,9 @@ Vue.component('re-fixpoint',{
                     this.table.splice(i,1,row);
                 }
             }
+        },
+        on_fp_addarrow(){
+            call_api_generating_problem(this.stuff,{type:"fixpoint-addarrow"},fixpoint_addarrow,[this.problem]);
         }
     },
     template: `
@@ -2019,6 +2027,8 @@ Vue.component('re-fixpoint',{
                 <re-fixpoint-dup :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-dup>
             </div>
             <re-fixpoint-custom :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-custom>
+            <hr>
+            <button type="button" class="btn btn-primary ml-2" v-on:click="on_fp_addarrow">Find best add arrow</button>       
         </re-card>
     `
 })

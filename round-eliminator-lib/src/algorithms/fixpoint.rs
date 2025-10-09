@@ -1103,6 +1103,26 @@ impl Problem {
     }
 
 
+    pub fn fixpoint_addarrow<F>(&self, mut f: F) where F: FnMut(Vec<(Label, Label)>, usize) {
+        let labels = self.labels();
+        let succ = self.diagram_indirect_to_reachability_adj();
+        let missing_arrows = labels.iter().cloned().cartesian_product(labels.iter().cloned()).filter(|(l1,l2)|{
+            !succ[l1].contains(l2)
+        }).collect_vec();
+    
+        for arrows_to_add in 1..=missing_arrows.len() {
+            for subset_of_arrows_to_add in missing_arrows.iter().cloned().combinations(arrows_to_add) {
+                let mut p = self.clone();
+                for &(l1,l2) in &subset_of_arrows_to_add {
+                    p = p.relax_addarrow(l1, l2);
+                }
+                p.compute_diagram(&mut EventHandler::null());
+                let r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
+                f(subset_of_arrows_to_add,r.active.lines.len());
+            }
+        }
+    }
+
 }
 
 
