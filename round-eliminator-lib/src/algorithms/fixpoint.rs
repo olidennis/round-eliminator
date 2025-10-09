@@ -1103,7 +1103,7 @@ impl Problem {
     }
 
 
-    pub fn fixpoint_addarrow<F>(&self, mut f: F) where F: FnMut(Vec<(Label, Label)>, usize) {
+    pub fn fixpoint_addarrow<F>(&self, mut f: F) where F: FnMut(Vec<(Label, Label)>, usize, bool) {
         let labels = self.labels();
         let succ = self.diagram_indirect_to_reachability_adj();
         let missing_arrows = labels.iter().cloned().cartesian_product(labels.iter().cloned()).filter(|(l1,l2)|{
@@ -1114,11 +1114,21 @@ impl Problem {
             for subset_of_arrows_to_add in missing_arrows.iter().cloned().combinations(arrows_to_add) {
                 let mut p = self.clone();
                 for &(l1,l2) in &subset_of_arrows_to_add {
+                    if p.diagram_indirect.is_none() {
+                        p.compute_diagram(&mut EventHandler::null());
+                    }
                     p = p.relax_addarrow(l1, l2);
                 }
                 p.compute_diagram(&mut EventHandler::null());
-                let r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
-                f(subset_of_arrows_to_add,r.active.lines.len());
+                let mut r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
+                r.compute_diagram(&mut EventHandler::null());
+                r.discard_useless_stuff(true, &mut EventHandler::null());
+                r.compute_triviality(&mut EventHandler::null());
+                let is_trivial = r.trivial_sets.as_ref().unwrap().len() > 0;
+                f(subset_of_arrows_to_add,r.active.lines.len(), is_trivial);
+                if !is_trivial {
+                    return;
+                }
             }
         }
     }

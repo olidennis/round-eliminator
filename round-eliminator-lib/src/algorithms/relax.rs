@@ -119,7 +119,7 @@ impl Problem {
         let succ : Vec<_> = diagram[&to].iter().cloned().collect();
         let mut passive = self.passive.clone();
         for l in succ {
-            passive = self.passive.relax(from, l, false);
+            passive = passive.relax(from, l, false);
         }
 
         Problem {

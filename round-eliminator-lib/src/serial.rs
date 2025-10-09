@@ -615,12 +615,16 @@ where
         Request::FixpointAddarrow(mut problem) => {
             let mut best = 0;
 
-            problem.fixpoint_addarrow(|arrows : Vec<(Label,Label)>,x : usize|{
+            problem.fixpoint_addarrow(|arrows : Vec<(Label,Label)>,x : usize, is_trivial : bool|{
                 let mapping : HashMap<_,_> = problem.mapping_label_text.iter().cloned().collect();
-                if x >= best {
+                let arrows_str = arrows.iter().map(|(l1,l2)|format!("{} -> {}",mapping[&l1],mapping[&l2])).join(", ");
+                if !is_trivial {
+                    let msg = format!("Adding [{}] gives a fixed point",arrows_str);
+                    handler(Response::E(msg.into()));
+                } else if x >= best {
+                    println!("{:?} {}",arrows, x);
                     best = x;
-                    let arrows = arrows.iter().map(|(l1,l2)|format!("{} -> {}",mapping[&l1],mapping[&l2])).join(", ");
-                    let msg = format!("Adding [{}] gives {} active lines",arrows,x);
+                    let msg = format!("Adding [{}] gives {} active lines",arrows_str,x);
                     handler(Response::E(msg.into()));
                 }
             });
