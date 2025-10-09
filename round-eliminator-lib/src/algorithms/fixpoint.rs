@@ -25,11 +25,15 @@ pub struct FixpointDiagram {
 }
 
 impl FixpointDiagram {
-    fn new(p : &Problem, larger : bool ) -> Self {
+    fn new(p : &Problem, larger : bool, addarrows : Vec<(Label,Label)> ) -> Self {
+        let mut p = p.clone();
+        let mut diag = p.diagram_indirect.take().unwrap();
+        diag.extend(addarrows.iter().cloned());
+        p.diagram_indirect = Some(diag);
         if larger {
-            Self::new_larger(p)
+            Self::new_larger(&p)
         } else {
-            Self::new_smaller(p)
+            Self::new_smaller(&p)
         }
     }
     fn new_larger(p : &Problem) -> FixpointDiagram {
@@ -396,13 +400,13 @@ impl Problem {
         format!("# mapping from original labels to diagram labels\n{}\n# diagram edges\n{}\n",mapping,diagram)
     }
 
-    pub fn compute_default_fixpoint_diagram(&mut self, labels : Option<Vec<Label>>, larger : bool, eh: &mut EventHandler) {
+    pub fn compute_default_fixpoint_diagram(&mut self, labels : Option<Vec<Label>>, larger : bool, addarrows : Vec<(Label,Label)>,eh: &mut EventHandler) {
         if let Some(sublabels) = &labels {
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
             subproblem.discard_useless_stuff(false, eh);
-            self.fixpoint_diagram = Some((labels,FixpointDiagram::new(&subproblem,larger)));
+            self.fixpoint_diagram = Some((labels,FixpointDiagram::new(&subproblem,larger,addarrows)));
         } else {
-            self.fixpoint_diagram = Some((None,FixpointDiagram::new(self,larger)));
+            self.fixpoint_diagram = Some((None,FixpointDiagram::new(self,larger, addarrows)));
         }
     }
 
@@ -556,7 +560,7 @@ impl Problem {
         let mut fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
-            FixpointDiagram::new(self, false)
+            FixpointDiagram::new(self, false,vec![])
         };
         //println!("generated diagram1");
         if let Some(dup) = dup {
@@ -1035,7 +1039,7 @@ impl Problem {
         let fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
-            FixpointDiagram::new(self,false)
+            FixpointDiagram::new(self,false,vec![])
         };        
         let orig_diagram = self.diagram_indirect.as_ref().unwrap();
         let mut diagram = fd.diagram;
@@ -1113,6 +1117,7 @@ impl Problem {
         for arrows_to_add in 1..=missing_arrows.len() {
             for subset_of_arrows_to_add in missing_arrows.iter().cloned().combinations(arrows_to_add) {
                 let mut p = self.clone();
+                /* 
                 for &(l1,l2) in &subset_of_arrows_to_add {
                     if p.diagram_indirect.is_none() {
                         p.compute_diagram(&mut EventHandler::null());
@@ -1124,8 +1129,17 @@ impl Problem {
                 let p_is_trivial = p.trivial_sets.as_ref().unwrap().len() > 0;
                 if p_is_trivial {
                     continue;
-                }
-                let mut r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
+                }*/
+                //let mut diag = p.diagram_indirect.take().unwrap();
+                //diag.extend(subset_of_arrows_to_add.iter().cloned());
+                //p.diagram_indirect = Some(diag);
+                let fd = FixpointDiagram::new(&self,false,subset_of_arrows_to_add.clone());
+                let mapping_label_newlabel = fd.mapping_label_newlabel.clone();
+                let mapping_newlabel_text = fd.mapping_newlabel_text.clone();
+                let diagram = fd.diagram.clone();
+
+                let mut r = self.fixpoint_onestep(false,&mapping_label_newlabel, &mapping_newlabel_text, &diagram, None, None, &mut EventHandler::null()).unwrap().0;
+                //let mut r = p.fixpoint_generic(None,FixpointType::Basic,false, &mut EventHandler::null()).unwrap().0;
                 r.compute_diagram(&mut EventHandler::null());
                 r.discard_useless_stuff(true, &mut EventHandler::null());
                 r.compute_triviality(&mut EventHandler::null());

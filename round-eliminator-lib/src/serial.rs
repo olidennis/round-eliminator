@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::{algorithms::{event::EventHandler, fixpoint::FixpointType}, group::Label, line::Degree, problem::Problem};
+use crate::{algorithms::{event::EventHandler, fixpoint::{parse_diagram, FixpointType}}, group::Label, line::Degree, problem::Problem};
 
 pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and_coloring : bool, eh: &mut EventHandler) {
     if new.passive.degree == Degree::Finite(2) {
@@ -351,8 +351,14 @@ where
                 handler(Response::P(problem));
             }
         }
-        Request::DefaultDiagram(mut problem, partial, _triviality_only, labels, larger) => {
-            problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, larger, &mut eh);
+        Request::DefaultDiagram(mut problem, partial, _triviality_only, labels, larger, addarrows) => {
+            let (mapping_label_text,arrows) = parse_diagram(&addarrows);
+            let diag_to_s : HashMap<_,_> = mapping_label_text.iter().cloned().collect();
+            let s_to_l  : HashMap<_,_> = problem.mapping_label_text.iter().cloned().map(|(a,b)|(b,a)).collect();
+            let addarrows = arrows.into_iter().map(|(l1,l2)|{
+                (s_to_l[&diag_to_s[&l1]],s_to_l[&diag_to_s[&l2]])
+            }).collect();
+            problem.compute_default_fixpoint_diagram(if partial {Some(labels)} else {None}, larger, addarrows, &mut eh);
             handler(Response::P(problem));
         }
         Request::SimplifySD(problem, sd, recompute_full_diagram) => {
@@ -659,7 +665,7 @@ pub enum Request {
     RenameGenerators(Problem),
     Rename(Problem, Vec<(Label, String)>),
     Orientation(Problem, usize),
-    DefaultDiagram(Problem, bool, bool, Vec<Label>, bool),
+    DefaultDiagram(Problem, bool, bool, Vec<Label>, bool, String),
     AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     ColoringSolvability(Problem),
