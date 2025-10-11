@@ -310,6 +310,8 @@ impl Problem {
                 return Some(p);
             } else {
                 println!("did not find a fixed point");
+                let mut expressions_to_add = HashSet::new();
+
                 for line in p.active.lines {
                     if trivial_sets.iter().any(|sets|{
                         line.parts.iter().all(|part|{
@@ -330,8 +332,8 @@ impl Problem {
                             let me = E::mirror(expr).as_expr().convert(&mapping_newlabel_label);
                             println!("adding expressions {} and {}",e.convert(&mapping_label_text),me.convert(&mapping_label_text));
                             obtained_expressions.push((me.clone(),e.clone()));
-                            e.all_subexprs(&mut context.expressions);
-                            me.all_subexprs(&mut context.expressions);
+                            e.all_subexprs(&mut expressions_to_add);
+                            me.all_subexprs(&mut expressions_to_add);
                         }
                         let mut not_all_of_these = vec![];
                         for (me1,_) in &obtained_expressions {
@@ -342,6 +344,17 @@ impl Problem {
                         expr_to_check.push(not_all_of_these);
                     }
                 }
+
+                let mut really_to_add = vec![];
+                'outer: for expr in expressions_to_add {
+                    for existing in context.expressions.iter().chain(really_to_add.iter()) {
+                        if existing.is_pred(&expr, &mut context.relations) && expr.is_pred(existing, &mut context.relations) {
+                            continue 'outer;
+                        }
+                    }
+                    really_to_add.push(expr);
+                }
+                context.expressions.extend(really_to_add.into_iter());
             }
 
         }
@@ -386,7 +399,10 @@ impl Problem {
             if let Some(expr) = stuff_to_add.next() {
                 //println!("adding expression {}",expr.convert(&mapping_label_text));
                 context.expressions.insert(expr.clone());
-                context.expressions.insert(expr.mirrored());
+                let mirrored = expr.mirrored();
+                if !expr.is_pred(&mirrored, &mut context.relations) || !mirrored.is_pred(expr, &mut context.relations) {
+                    context.expressions.insert(mirrored);
+                }
             } else {
                 break;
             }
@@ -425,13 +441,14 @@ impl Problem {
         let ids = mapping_node_to_id.values().cloned().collect_vec();
         let (equiv,diagram) = compute_direct_diagram(&ids, &diagram);
         let mapping_id_to_node : HashMap<_,_> = mapping_node_to_id.iter().map(|(e,i)|(*i,e.clone())).collect();
+        let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
 
         let mut mapping_label_newlabel = vec![];
         let mut mapping_newlabel_text = vec![];
 
         for (_,v) in equiv {
             if v.len() != 1 {
-                println!("{}",v.iter().map(|id|&mapping_id_to_node[id]).join("      "));
+                println!("{}",v.iter().map(|id|mapping_id_to_node[id].convert(&mapping_label_text)).join("      "));
                 panic!("got equivalent labels while fixing the diagram");
             }
         }
@@ -534,7 +551,9 @@ fn nofixpoint_fix_context(context : &mut Context<Label>){
 
     for e1 in &context.expressions {
         for e2 in &context.expressions {
-            let _ = e1.is_pred(&e2, &mut context.relations);
+            if e1 != e2 {
+                let _ = e1.is_pred(&e2, &mut context.relations);
+            }
         }
     }
 
