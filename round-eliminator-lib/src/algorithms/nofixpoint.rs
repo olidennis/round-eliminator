@@ -169,6 +169,27 @@ impl<T> Expr<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord{
             Expr::Right(e1, e2) => { Expr::right(e1.convert(mapping),e2.convert(mapping)) }
         }
     }
+    fn as_e(&self) -> E<T> {
+        match self {
+            Expr::Base(x, b) => {
+                if *b {
+                    E::mirror(E::Base(x.clone()))
+                } else {
+                    E::Base(x.clone())
+                }
+            },
+            Expr::Left(e1, e2) => {
+                E::left(e1.as_e(),e2.as_e())
+            },
+            Expr::Right(e1, e2) => {
+                E::right(e1.as_e(),e2.as_e())
+            },
+        }
+    }
+
+    fn mirrored(&self) -> Self {
+        E::mirror(self.as_e()).as_expr()
+    }
 
 }
 
@@ -309,8 +330,8 @@ impl Problem {
                             let me = E::mirror(expr).as_expr().convert(&mapping_newlabel_label);
                             println!("adding expressions {} and {}",e.convert(&mapping_label_text),me.convert(&mapping_label_text));
                             obtained_expressions.push((me.clone(),e.clone()));
-                            context.expressions.insert(e.clone());
-                            context.expressions.insert(me.clone());
+                            e.all_subexprs(&mut context.expressions);
+                            me.all_subexprs(&mut context.expressions);
                         }
                         let mut not_all_of_these = vec![];
                         for (me1,_) in &obtained_expressions {
@@ -365,6 +386,7 @@ impl Problem {
             if let Some(expr) = stuff_to_add.next() {
                 //println!("adding expression {}",expr.convert(&mapping_label_text));
                 context.expressions.insert(expr.clone());
+                context.expressions.insert(expr.mirrored());
             } else {
                 break;
             }
