@@ -94,6 +94,29 @@ impl<T> Expr<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord{
         Expr::Right(Box::new(e1),Box::new(e2))
     }
 
+    fn is_pred_partial(&self, e : &Expr<T>, context : &mut Relations<T>) -> bool {
+        match (self,e) {
+            (Expr::Left(e1, e2), Expr::Left(e3, e4)) => {
+                if e1 == e3 && *context.get(&(e2.deref().clone(),e4.deref().clone())).unwrap_or(&false) {
+                    return true;
+                }
+                if e2 == e4 && *context.get(&(e1.deref().clone(),e3.deref().clone())).unwrap_or(&false) {
+                    return true;
+                }
+            },
+            (Expr::Right(e1, e2), Expr::Right(e3, e4)) => {
+                if e1 == e3 && *context.get(&(e2.deref().clone(),e4.deref().clone())).unwrap_or(&false) {
+                    return true;
+                }
+                if e2 == e4 && *context.get(&(e1.deref().clone(),e3.deref().clone())).unwrap_or(&false) {
+                    return true;
+                }
+            },
+            _ => {}
+        }
+        false
+    }
+
 
     fn is_pred(&self, e : &Expr<T>, context : &mut Relations<T>) -> bool {
         if self == e {
@@ -366,46 +389,19 @@ impl Problem {
         let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
 
         loop{
+            println!("updating edges 1");
             nofixpoint_fix_context(context);
-            let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context,&mapping_label_text);
-            let old_expressions = context.expressions.clone();
-
-            context.expressions.extend(missing_sources.iter().cloned());
-            context.expressions.extend(missing_sinks.iter().cloned());
-
-            nofixpoint_fix_context(context);
-
-            let mut sources_to_add : HashSet<_> = missing_sources.iter().cloned().collect();
-            for s1 in &missing_sources {
-                for s2 in &missing_sources {
-                    if s1 != s2 {
-                        if sources_to_add.contains(s1) && s1.is_pred(s2, &mut context.relations) {
-                            sources_to_add.remove(s2);
-                        }
-                    }
-                }
-            }
-            let mut sinks_to_add : HashSet<_> = missing_sinks.iter().cloned().collect();
-            for s1 in &missing_sinks {
-                for s2 in &missing_sinks {
-                    if s1 != s2 {
-                        if sinks_to_add.contains(s2) && s1.is_pred(s2, &mut context.relations) {
-                            sinks_to_add.remove(s1);
-                        }
-                    }
-                }
-            }
-            let mut stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
-            context.expressions = old_expressions;
-            if let Some(expr) = stuff_to_add.next() {
+            println!("done");
+            self.nofixpoint_print_diagram(context);
+            
+            if let Some(expr) = find_good_expression_to_add(context) {
                 println!("adding expression {}",expr.convert(&mapping_label_text));
                 context.expressions.insert(expr.clone());
                 let mirrored = expr.mirrored();
-                if !expr.is_pred(&mirrored, &mut context.relations) || !mirrored.is_pred(expr, &mut context.relations) {
+                if !expr.is_pred(&mirrored, &mut context.relations) || !mirrored.is_pred(&expr, &mut context.relations) {
                     context.expressions.insert(mirrored);
                 }
             } else {
-                //let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context,&mapping_label_text);
                 break;
             }
 
@@ -495,7 +491,74 @@ fn nofixpoint_context_to_diagram(context : &Context<Label>) -> (Vec<(Label,Label
     (diagram,node_to_id)
 }
 
-fn nofixpoint_missing_sources_and_sinks(context : &Context<Label>, mapping_label_text : &HashMap<Label,String>) -> (HashSet<Expr<Label>>,HashSet<Expr<Label>>) {
+fn find_good_expression_to_add(context : &mut Context<Label>) -> Option<Expr<Label>> {
+    println!("finding missing sources and sinks");
+    let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context);
+    println!("done, got {} {}",missing_sources.len(),missing_sinks.len());
+    let old_expressions = context.expressions.clone();
+
+
+    let mut sources_to_add : HashSet<_> = missing_sources.iter().cloned().collect();
+    for s1 in &missing_sources {
+        for s2 in &missing_sources {
+            if s1 != s2 {
+                if sources_to_add.contains(s1) && s1.is_pred_partial(s2, &mut context.relations) {
+                    sources_to_add.remove(s2);
+                }
+            }
+        }
+    }
+    let missing_sources = sources_to_add;
+
+
+    let mut sinks_to_add : HashSet<_> = missing_sinks.iter().cloned().collect();
+    for s1 in &missing_sinks {
+        for s2 in &missing_sinks {
+            if s1 != s2 {
+                if sinks_to_add.contains(s2) && s1.is_pred_partial(s2, &mut context.relations) {
+                    sinks_to_add.remove(s1);
+                }
+            }
+        }
+    }
+    let missing_sinks = sinks_to_add;
+
+    context.expressions.extend(missing_sources.iter().cloned());
+    context.expressions.extend(missing_sinks.iter().cloned());
+
+    println!("filtered, got {} {}",missing_sources.len(),missing_sinks.len());
+
+    println!("updating edges 2");
+    nofixpoint_fix_context(context);
+    println!("done");
+
+    let mut sources_to_add : HashSet<_> = missing_sources.iter().cloned().collect();
+    for s1 in &missing_sources {
+        for s2 in &missing_sources {
+            if s1 != s2 {
+                if sources_to_add.contains(s1) && s1.is_pred(s2, &mut context.relations) {
+                    sources_to_add.remove(s2);
+                }
+            }
+        }
+    }
+    let mut sinks_to_add : HashSet<_> = missing_sinks.iter().cloned().collect();
+    for s1 in &missing_sinks {
+        for s2 in &missing_sinks {
+            if s1 != s2 {
+                if sinks_to_add.contains(s2) && s1.is_pred(s2, &mut context.relations) {
+                    sinks_to_add.remove(s1);
+                }
+            }
+        }
+    }
+    let stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
+    context.expressions = old_expressions;
+
+    stuff_to_add.cloned().next()
+}
+
+fn nofixpoint_missing_sources_and_sinks(context : &Context<Label>) -> (HashSet<Expr<Label>>,HashSet<Expr<Label>>) {
     let mut missing_sources = HashSet::new();
     let mut missing_sinks = HashSet::new();
 
