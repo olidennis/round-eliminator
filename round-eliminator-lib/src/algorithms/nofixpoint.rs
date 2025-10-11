@@ -276,6 +276,7 @@ impl Problem {
 
         loop {
             nofixpoint_fix_context(&mut context);
+            println!("fixing diagram");
             self.nofixpoint_fix_diagram(&mut context);
 
 
@@ -365,8 +366,8 @@ impl Problem {
         let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
 
         loop{
+            nofixpoint_fix_context(context);
             let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context,&mapping_label_text);
-            
             let old_expressions = context.expressions.clone();
 
             context.expressions.extend(missing_sources.iter().cloned());
@@ -378,7 +379,7 @@ impl Problem {
             for s1 in &missing_sources {
                 for s2 in &missing_sources {
                     if s1 != s2 {
-                        if s1.is_pred(s2, &mut context.relations) {
+                        if sources_to_add.contains(s1) && s1.is_pred(s2, &mut context.relations) {
                             sources_to_add.remove(s2);
                         }
                     }
@@ -388,7 +389,7 @@ impl Problem {
             for s1 in &missing_sinks {
                 for s2 in &missing_sinks {
                     if s1 != s2 {
-                        if s1.is_pred(s2, &mut context.relations) {
+                        if sinks_to_add.contains(s2) && s1.is_pred(s2, &mut context.relations) {
                             sinks_to_add.remove(s1);
                         }
                     }
@@ -397,13 +398,14 @@ impl Problem {
             let mut stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
             context.expressions = old_expressions;
             if let Some(expr) = stuff_to_add.next() {
-                //println!("adding expression {}",expr.convert(&mapping_label_text));
+                println!("adding expression {}",expr.convert(&mapping_label_text));
                 context.expressions.insert(expr.clone());
                 let mirrored = expr.mirrored();
                 if !expr.is_pred(&mirrored, &mut context.relations) || !mirrored.is_pred(expr, &mut context.relations) {
                     context.expressions.insert(mirrored);
                 }
             } else {
+                //let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context,&mapping_label_text);
                 break;
             }
 
