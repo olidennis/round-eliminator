@@ -288,7 +288,7 @@ impl Problem {
         Context{expressions,relations}
     }
 
-    fn nofixpoint(&self) -> Option<Problem> {
+    fn nofixpoint(&self) -> Result<Problem,String> {
         let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
 
         let eh = &mut EventHandler::null();
@@ -311,7 +311,13 @@ impl Problem {
                     m.is_pred(e,&mut context.relations)
                 }) {
                     println!("cannot get a fixed point!");
-                    return None;
+                    let mut s = String::new();
+                    s += "No fixed point can be found. These expressions will be pairwise compatible with any diagram: ";
+                    let exprs = not_all_of_these.iter().map(|(_,e)|e).unique();
+                    for e in exprs {
+                        s += &format!("{}, ",e.convert(&mapping_label_text));
+                    }
+                    return Err(s);
                 }
             }
 
@@ -331,7 +337,7 @@ impl Problem {
             let mapping_newlabel_label : HashMap<_,_> = mapping_label_newlabel.iter().cloned().map(|(l,n)|(n,l)).collect();
             if trivial_sets.is_empty() {
                 println!("found a fixed point!\n{}",p);
-                return Some(p);
+                return Ok(p);
             } else {
                 println!("did not find a fixed point");
                 let mut expressions_to_add = HashSet::new();
@@ -463,8 +469,8 @@ impl Problem {
         (diagram,mapping_label_newlabel,mapping_newlabel_text,mapping_id_to_node.into_iter().collect_vec())        
     }
 
-    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
-        self.nofixpoint().map(|p|(p,vec![],vec![])).ok_or("No fixed point can be found.")
+    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
+        self.nofixpoint().map(|p|(p,vec![],vec![]))
     }
 
 

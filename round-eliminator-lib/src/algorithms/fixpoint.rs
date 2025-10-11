@@ -412,10 +412,10 @@ impl Problem {
     }
 
 
-    pub fn fixpoint_generic(&self, sublabels : Option<Vec<Label>>, fptype : FixpointType, only_compute_triviality : bool, eh: &mut EventHandler ) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+    pub fn fixpoint_generic(&self, sublabels : Option<Vec<Label>>, fptype : FixpointType, only_compute_triviality : bool, eh: &mut EventHandler ) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
         if let Some(sublabels) = sublabels {
             if only_compute_triviality {
-                return Err("The option 'triviality only' is not allowed for partial fixpointing");
+                return Err("The option 'triviality only' is not allowed for partial fixpointing".into());
             }
             let sublabels_set : HashSet<_> = sublabels.iter().cloned().collect();
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
@@ -538,15 +538,15 @@ impl Problem {
             return Ok((p,diagram,self.labels().into_iter().map(|x|(x,x)).collect()));
         } else {
             match fptype {
-                FixpointType::Basic => { self.fixpoint_dup(None, only_compute_triviality,false,eh) },
-                FixpointType::Dup(dups, track) => { self.fixpoint_dup(Some(dups),only_compute_triviality,track,eh) }
+                FixpointType::Basic => { self.fixpoint_dup(None, only_compute_triviality,false,eh).map_err(|e|e.into()) },
+                FixpointType::Dup(dups, track) => { self.fixpoint_dup(Some(dups),only_compute_triviality,track,eh).map_err(|e|e.into()) }
                 FixpointType::Loop => {
                     if only_compute_triviality {
-                        return Err("The option 'triviality only' is not allowed for 'loop' mode");
+                        return Err("The option 'triviality only' is not allowed for 'loop' mode".into());
                     }
                     self.fixpoint_loop(eh)
                 },
-                FixpointType::Custom(s) => { self.fixpoint_custom(s,only_compute_triviality,eh) },
+                FixpointType::Custom(s) => { self.fixpoint_custom(s,only_compute_triviality,eh).map_err(|e|e.into()) },
 
             }
         }

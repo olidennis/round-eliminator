@@ -258,7 +258,7 @@ impl Problem {
         },dual_labels_v,d_diag))
     }
 
-    pub fn doubledual_problem(&self, fp : &Problem, eh : &mut EventHandler) -> Result<Problem, &'static str> {
+    pub fn doubledual_problem(&self, fp : &Problem, eh : &mut EventHandler) -> Result<Problem, String> {
         let (mapping_label_text_fp,diagram_fp) = (fp.mapping_label_text.clone(),fp.diagram_indirect.clone().unwrap());
 
         let (mut dual,dual_labels_v,orig_dual_diagram) = self.dual_problem(&fp, eh)?;
