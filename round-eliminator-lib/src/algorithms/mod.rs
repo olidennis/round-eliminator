@@ -33,3 +33,4 @@ pub mod lll;
 pub mod genetic;
 pub mod dual;
 pub mod logstar;
+pub mod nofixpoint;

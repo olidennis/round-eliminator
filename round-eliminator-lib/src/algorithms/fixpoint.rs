@@ -1036,7 +1036,7 @@ impl Problem {
     }
 
 
-    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
+    pub fn fixpoint_loop_old(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         let fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
         } else {
