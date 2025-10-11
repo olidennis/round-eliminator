@@ -1,9 +1,10 @@
-use std::{clone, collections::{HashMap, HashSet}, fmt::Display};
+use std::{clone, collections::{HashMap, HashSet}, fmt::Display, ops::Deref};
 use std::hash::Hash;
 
+use dashmap::DashMap as CHashMap;
 use itertools::Itertools;
 
-use crate::{algorithms::{diagram::{compute_direct_diagram, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler}, group::Label, problem::Problem};
+use crate::{algorithms::{diagram::{compute_direct_diagram, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler, fixpoint::{expression_for_line_at, FixpointDiagram, TreeNode}}, group::Label, problem::Problem};
 
 
 
@@ -176,16 +177,16 @@ impl<T> Display for Expr<T> where T : Display + Hash  + Clone + Eq + PartialEq +
         match self {
             Expr::Base(s, m) => {
                 if *m {
-                    write!(f,"m({})",s)
+                    write!(f,"m[{}]",s)
                 } else {
                     write!(f,"{}",s)
                 }
             },
             Expr::Left(e1, e2) => {
-                write!(f,"({}←{})",e1,e2)
+                write!(f,"[{}←{}]",e1,e2)
             },
             Expr::Right(e1, e2) => {
-                write!(f,"({}→{})",e1,e2)
+                write!(f,"[{}→{}]",e1,e2)
             },
         }
     }
@@ -196,6 +197,20 @@ type Relations<T> = HashMap<(Expr<T>,Expr<T>),bool>;
 struct Context<T : Hash + Clone + Eq + PartialEq + Ord + PartialOrd> {
     expressions : HashSet<Expr<T>>,
     relations : Relations<T>
+}
+
+impl<T> TreeNode<T> where T : Hash + Clone + Eq + PartialEq + Ord + PartialOrd {
+    fn to_expr(&self) -> E<T> {
+        match self {
+            TreeNode::Terminal(x) => E::Base(x.clone()),
+            TreeNode::Expr(e1, e2, op) => {
+                match op {
+                    super::maximize::Operation::Union => { E::right(e1.to_expr(), e2.to_expr()) },
+                    super::maximize::Operation::Intersection => { E::left(e1.to_expr(), e2.to_expr()) }
+                }
+            }
+        }
+    }
 }
 
 impl Problem {
@@ -229,11 +244,87 @@ impl Problem {
         Context{expressions,relations}
     }
 
-    fn nofixpoint(&self) {
+    fn nofixpoint(&self) -> Option<Problem> {
+        let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
+
+        let eh = &mut EventHandler::null();
+
         let mut context = self.nofixpoint_initial_context();
-        nofixpoint_fix_context(&mut context);
-        self.nofixpoint_fix_diagram(&mut context);
-        self.nofixpoint_print_diagram(&context);
+        
+        let mut expr_to_check : Vec<Vec<(Expr<u32>, Expr<u32>)>> = vec![];
+
+        loop {
+            nofixpoint_fix_context(&mut context);
+            self.nofixpoint_fix_diagram(&mut context);
+
+
+            println!("new diagram");
+            self.nofixpoint_print_diagram(&context);
+
+            for not_all_of_these in &expr_to_check {
+                if not_all_of_these.iter().all(|(m,e)|{
+                    m.is_pred(e,&mut context.relations)
+                }) {
+                    println!("cannot get a fixed point!");
+                    return None;
+                }
+            }
+
+
+            let (diagram,mapping_label_newlabel,mapping_newlabel_text,_) = self.nofixpoint_diagram(&context);
+
+            let tracking = CHashMap::new();
+            let tracking_passive = CHashMap::new();
+
+            let (mut p,_) = self.fixpoint_onestep(false,&mapping_label_newlabel,&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh).unwrap();
+
+            println!("procedure terminated");
+
+            p.compute_triviality(eh);
+            let trivial_sets = p.trivial_sets.clone().unwrap();
+            let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+            let mapping_newlabel_label : HashMap<_,_> = mapping_label_newlabel.iter().cloned().map(|(l,n)|(n,l)).collect();
+            if trivial_sets.is_empty() {
+                println!("found a fixed point!\n{}",p);
+                return Some(p);
+            } else {
+                println!("did not find a fixed point");
+                for line in p.active.lines {
+                    if trivial_sets.iter().any(|sets|{
+                        line.parts.iter().all(|part|{
+                            sets.contains(&part.group.first())
+                        })
+                    }) {
+                        let len = if let Some(rg) = tracking.get(&line) {
+                            let (_,_,before_norm,_,_) = &*rg;
+                            before_norm.parts.len()
+                        } else {
+                            line.parts.len()
+                        };
+                        let mut obtained_expressions = vec![];
+                        for i in 0..len {
+                            let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                            let expr : E<Label> = expr.to_expr();
+                            let e = expr.as_expr().convert(&mapping_newlabel_label);
+                            let me = E::mirror(expr).as_expr().convert(&mapping_newlabel_label);
+                            println!("adding expressions {} and {}",e.convert(&mapping_label_text),me.convert(&mapping_label_text));
+                            obtained_expressions.push((me.clone(),e.clone()));
+                            context.expressions.insert(e.clone());
+                            context.expressions.insert(me.clone());
+                        }
+                        let mut not_all_of_these = vec![];
+                        for (me1,_) in &obtained_expressions {
+                            for (_,e2) in &obtained_expressions {
+                                not_all_of_these.push((me1.clone(),e2.clone()));
+                            }
+                        }
+                        expr_to_check.push(not_all_of_these);
+                    }
+                }
+            }
+
+        }
+
     }
 
     fn nofixpoint_fix_diagram(&self, context : &mut Context<Label>) {
@@ -285,40 +376,58 @@ impl Problem {
     }
 
     fn nofixpoint_print_diagram(&self, context : &Context<Label>) {
+        let (diagram,mapping_label_newlabel,mapping_newlabel_text,mapping_newlabel_expr) = self.nofixpoint_diagram(context);
+        let mapping_newlabel_text : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+        let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
+        let mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
+        //let mapping_newlabel_expr : HashMap<_,_> = mapping_newlabel_expr.iter().cloned().collect();
+
+
+        for (l,n) in &mapping_label_newlabel {
+            println!("{} = {}",mapping_label_text[&l],mapping_newlabel_text[&n]);
+        }
+        for (a,b) in &diagram {
+            println!("{} -> {}",mapping_newlabel_text[&a],mapping_newlabel_text[&b]);
+        }
+        /*println!("");
+        for (l,_) in &mapping_label_newlabel {
+            println!("{} = ({})",mapping_label_text[&l],mapping_label_text[&l]);
+        }
+        for (a,b) in diagram {
+            println!("({}) -> ({})",mapping_newlabel_expr[&a].convert(&mapping_label_text),mapping_newlabel_expr[&b].convert(&mapping_label_text));
+        }*/
+    }
+
+    fn nofixpoint_diagram(&self, context : &Context<Label>) -> (Vec<(Label,Label)>,Vec<(Label,Label)>,Vec<(Label,String)>,Vec<(Label,Expr<Label>)>) {
         let (diagram,mapping_node_to_id) = nofixpoint_context_to_diagram(&context);
         let ids = mapping_node_to_id.values().cloned().collect_vec();
         let (equiv,diagram) = compute_direct_diagram(&ids, &diagram);
-        let mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
         let mapping_id_to_node : HashMap<_,_> = mapping_node_to_id.iter().map(|(e,i)|(*i,e.clone())).collect();
 
-        println!("\n\n");
+        let mut mapping_label_newlabel = vec![];
+        let mut mapping_newlabel_text = vec![];
 
         for (_,v) in equiv {
             if v.len() != 1 {
-                //println!("equivalence {}",v.iter().join(" "));
                 println!("{}",v.iter().map(|id|&mapping_id_to_node[id]).join("      "));
-
+                panic!("got equivalent labels while fixing the diagram");
             }
         }
         for label in self.labels() {
             let expr = Expr::Base(label.clone(), false);
             let id = mapping_node_to_id[&expr];
-            println!("{} = ({})",mapping_label_text[&label],id);
+            mapping_label_newlabel.push((label,id));
         }
 
-        for (a,b) in &diagram {
-            //let id1 = &mapping_id_to_node[&a];
-            //let id2 = &mapping_id_to_node[&b];
-            //println!("{} -> {}",id1.convert(&mapping_label_text),id2.convert(&mapping_label_text));
-            println!("({}) -> ({})",a,b);
+        for newlabel in ids {
+            mapping_newlabel_text.push((newlabel,format!("({})",newlabel)));
         }
-        println!("\n\n");
 
+        (diagram,mapping_label_newlabel,mapping_newlabel_text,mapping_id_to_node.into_iter().collect_vec())        
     }
 
     pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
-        self.nofixpoint();
-        unimplemented!();
+        self.nofixpoint().map(|p|(p,vec![],vec![])).ok_or("No fixed point can be found.")
     }
 
 

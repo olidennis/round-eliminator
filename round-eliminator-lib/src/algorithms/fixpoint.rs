@@ -1431,13 +1431,13 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
 
 
 #[derive(Ord,PartialOrd,Eq,PartialEq,Hash,Clone)]
-enum TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Hash + Clone{
+pub enum TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Hash + Clone{
     Terminal(T),
     Expr(Box<TreeNode<T>>,Box<TreeNode<T>>,Operation)
 }
 
 
-fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
+pub fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
     if let Some(rg) = how.get(line) {
         let (l1,l2, _, norm_map, parts) = &*rg;
         let (p1,p2,op) = parts[if norm_pos {norm_map[pos][0]} else {pos}];
@@ -1482,7 +1482,7 @@ impl<T> TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Has
         }
     }
 
-    fn reduce_rep(&self) -> Self {
+    pub fn reduce_rep(&self) -> Self {
         let mut t = self.clone();
         loop {
             let nt = t.reduce();
