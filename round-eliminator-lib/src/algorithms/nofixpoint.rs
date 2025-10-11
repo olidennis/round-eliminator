@@ -94,7 +94,7 @@ impl<T> Expr<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord{
     }
 
 
-    fn is_pred(&self, e : &Expr<T>, context : &mut Context<T>) -> bool {
+    fn is_pred(&self, e : &Expr<T>, context : &mut Relations<T>) -> bool {
         if self == e {
             return true;
         }
@@ -191,14 +191,19 @@ impl<T> Display for Expr<T> where T : Display + Hash  + Clone + Eq + PartialEq +
     }
 }
 
-type Context<T> = HashMap<(Expr<T>,Expr<T>),bool>;
+
+type Relations<T> = HashMap<(Expr<T>,Expr<T>),bool>;
+struct Context<T : Hash + Clone + Eq + PartialEq + Ord + PartialOrd> {
+    expressions : HashSet<Expr<T>>,
+    relations : Relations<T>
+}
 
 impl Problem {
-    fn nofixpoint_initial_context(&self) -> (HashSet<Expr<Label>>,Context<Label>) {
+    fn nofixpoint_initial_context(&self) -> Context<Label> {
         let succs = self.diagram_indirect_to_reachability_adj();
         let labels = self.labels();
         let mut expressions = HashSet::new();
-        let mut context: Context<Label> = HashMap::new();
+        let mut relations = HashMap::new();
 
         for &label in &labels {
             let expr_label = Expr::Base(label,false);
@@ -209,89 +214,78 @@ impl Problem {
 
             for &succ in &succs[&label] {
                 let expr_succ = Expr::Base(succ,false);
-                context.insert((expr_label.clone(),expr_succ),true);
+                relations.insert((expr_label.clone(),expr_succ),true);
             }
             for &succ in &succs[&label] {
                 let expr_mirror_succ = Expr::Base(succ,true);
-                context.insert((expr_mirror_succ,expr_mirror_label.clone()),true);
+                relations.insert((expr_mirror_succ,expr_mirror_label.clone()),true);
             }
             for compatible in self.labels_compatible_with_label(label) {
                 let expr_compatible = Expr::Base(compatible, false);
-                context.insert((expr_mirror_label.clone(),expr_compatible),true);
+                relations.insert((expr_mirror_label.clone(),expr_compatible),true);
             }
         }
         
-        (expressions,context)
+        Context{expressions,relations}
     }
 
     fn nofixpoint(&self) {
+        let mut context = self.nofixpoint_initial_context();
+        nofixpoint_fix_context(&mut context);
+        self.nofixpoint_fix_diagram(&mut context);
+        self.nofixpoint_print_diagram(&context);
+    }
+
+    fn nofixpoint_fix_diagram(&self, context : &mut Context<Label>) {
         let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
-        //println!("computing initial context");
-        let (mut expressions,mut context) = self.nofixpoint_initial_context();
 
-        //println!("adding arrows");
-        loop {
-            let before = context.clone();
-            //println!("fixing context");
-            nofixpoint_fix_context(&expressions, &mut context);
+        loop{
+            let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context,&mapping_label_text);
+            
+            let old_expressions = context.expressions.clone();
 
-            //self.nofixpoint_print_diagram(&expressions, &context);
+            context.expressions.extend(missing_sources.iter().cloned());
+            context.expressions.extend(missing_sinks.iter().cloned());
 
-            loop{
-                //println!("computing missing sources and sinks");
-                let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(&expressions, &context,&mapping_label_text);
-                //println!("adding missing sources and sinks");
-                let mut new_expressions = expressions.clone();
-                new_expressions.extend(missing_sources.iter().cloned());
-                new_expressions.extend(missing_sinks.iter().cloned());
+            nofixpoint_fix_context(context);
 
-                nofixpoint_fix_context(&new_expressions,&mut context);
-
-                let mut sources_to_add : HashSet<_> = missing_sources.iter().cloned().collect();
-                for s1 in &missing_sources {
-                    for s2 in &missing_sources {
-                        if s1 != s2 {
-                            if s1.is_pred(s2, &mut context) {
-                                sources_to_add.remove(s2);
-                            }
+            let mut sources_to_add : HashSet<_> = missing_sources.iter().cloned().collect();
+            for s1 in &missing_sources {
+                for s2 in &missing_sources {
+                    if s1 != s2 {
+                        if s1.is_pred(s2, &mut context.relations) {
+                            sources_to_add.remove(s2);
                         }
                     }
                 }
-                let mut sinks_to_add : HashSet<_> = missing_sinks.iter().cloned().collect();
-                for s1 in &missing_sinks {
-                    for s2 in &missing_sinks {
-                        if s1 != s2 {
-                            if s1.is_pred(s2, &mut context) {
-                                sinks_to_add.remove(s1);
-                            }
-                        }
-                    }
-                }
-                let mut stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
-                if let Some(expr) = stuff_to_add.next() {
-                    //println!("adding expression {}",expr.convert(&mapping_label_text));
-                    expressions.insert(expr.clone());
-                } else {
-                    break;
-                }
-
             }
-
-
-            //println!("checking if we got something new");
-            if context == before {
+            let mut sinks_to_add : HashSet<_> = missing_sinks.iter().cloned().collect();
+            for s1 in &missing_sinks {
+                for s2 in &missing_sinks {
+                    if s1 != s2 {
+                        if s1.is_pred(s2, &mut context.relations) {
+                            sinks_to_add.remove(s1);
+                        }
+                    }
+                }
+            }
+            let mut stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
+            context.expressions = old_expressions;
+            if let Some(expr) = stuff_to_add.next() {
+                //println!("adding expression {}",expr.convert(&mapping_label_text));
+                context.expressions.insert(expr.clone());
+            } else {
                 break;
             }
+
         }
 
-        //println!("printing diagram");
-        self.nofixpoint_print_diagram(&expressions,&context);
-        
+
 
     }
 
-    fn nofixpoint_print_diagram(&self, expressions : &HashSet<Expr<Label>>, context : &Context<Label>) {
-        let (diagram,mapping_node_to_id) = nofixpoint_context_to_diagram(expressions,context);
+    fn nofixpoint_print_diagram(&self, context : &Context<Label>) {
+        let (diagram,mapping_node_to_id) = nofixpoint_context_to_diagram(&context);
         let ids = mapping_node_to_id.values().cloned().collect_vec();
         let (equiv,diagram) = compute_direct_diagram(&ids, &diagram);
         let mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
@@ -331,14 +325,16 @@ impl Problem {
 }
 
 
-fn nofixpoint_context_to_diagram(expressions : &HashSet<Expr<Label>>, context : &Context<Label>) -> (Vec<(Label,Label)>, HashMap<Expr<Label>,Label>) {
+fn nofixpoint_context_to_diagram(context : &Context<Label>) -> (Vec<(Label,Label)>, HashMap<Expr<Label>,Label>) {
+    let expressions = &context.expressions;
+    let relations = &context.relations;
 
     let node_to_id : HashMap<_,_> = expressions.iter().sorted().enumerate().map(|(i,e)|(e.clone(),i as Label)).collect();
     let mut diagram = vec![];
 
     for e1 in expressions {
         for e2 in expressions {
-            if *context.get(&(e1.clone(),e2.clone())).unwrap_or(&false) {
+            if *relations.get(&(e1.clone(),e2.clone())).unwrap_or(&false) {
                 diagram.push((node_to_id[e1],node_to_id[e2]));
             }
         }
@@ -349,19 +345,19 @@ fn nofixpoint_context_to_diagram(expressions : &HashSet<Expr<Label>>, context : 
     (diagram,node_to_id)
 }
 
-fn nofixpoint_missing_sources_and_sinks(expressions : &HashSet<Expr<Label>>, context : &Context<Label>, mapping_label_text : &HashMap<Label,String>) -> (HashSet<Expr<Label>>,HashSet<Expr<Label>>) {
+fn nofixpoint_missing_sources_and_sinks(context : &Context<Label>, mapping_label_text : &HashMap<Label,String>) -> (HashSet<Expr<Label>>,HashSet<Expr<Label>>) {
     let mut missing_sources = HashSet::new();
     let mut missing_sinks = HashSet::new();
 
-    let (diagram,mapping_node_to_id) = nofixpoint_context_to_diagram(expressions, context);
+    let (diagram,mapping_node_to_id) = nofixpoint_context_to_diagram(context);
     let ids = mapping_node_to_id.values().cloned().collect_vec();
     let succ = diagram_indirect_to_reachability_adj(&ids, &diagram);
     let reverse_diagram = diagram.iter().cloned().map(|(a,b)|(b,a)).collect_vec();
     let pred = diagram_indirect_to_reachability_adj(&ids, &reverse_diagram);
     //let mapping_id_to_node : HashMap<_,_> = mapping_node_to_id.iter().map(|(node,id)|(*id,node.clone())).collect();
 
-    for e1 in expressions {
-        for e2 in expressions {
+    for e1 in &context.expressions {
+        for e2 in &context.expressions {
             if e1 < e2 {
                 let id_e1 = mapping_node_to_id[e1];
                 let id_e2 = mapping_node_to_id[e2];
@@ -403,11 +399,11 @@ fn nofixpoint_missing_sources_and_sinks(expressions : &HashSet<Expr<Label>>, con
 
 
 
-fn nofixpoint_fix_context(expressions : &HashSet<Expr<Label>>, context : &mut Context<Label>){
+fn nofixpoint_fix_context(context : &mut Context<Label>){
 
-    for e1 in expressions {
-        for e2 in expressions {
-            let _ = e1.is_pred(e2, context);
+    for e1 in &context.expressions {
+        for e2 in &context.expressions {
+            let _ = e1.is_pred(&e2, &mut context.relations);
         }
     }
 
