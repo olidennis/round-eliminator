@@ -117,6 +117,19 @@ impl<T> Expr<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord{
         false
     }
 
+    fn is_left(&self) -> bool {
+        match self {
+            Expr::Left(_, _) => { true },
+            _ => { false }
+        }
+    }
+
+    fn is_right(&self) -> bool {
+        match self {
+            Expr::Right(_, _) => { true },
+            _ => { false }
+        }
+    }
 
     fn is_pred(&self, e : &Expr<T>, context : &mut Relations<T>) -> bool {
         if self == e {
@@ -394,6 +407,8 @@ impl Problem {
     fn nofixpoint_fix_diagram(&self, context : &mut Context<Label>) {
         let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
 
+        let mut new_expressions = HashSet::new();
+
         loop{
             println!("updating edges 1");
             nofixpoint_fix_context(context);
@@ -403,9 +418,14 @@ impl Problem {
             if let Some(expr) = find_good_expression_to_add(context) {
                 println!("adding expression {}",expr.convert(&mapping_label_text));
                 context.expressions.insert(expr.clone());
+                new_expressions.insert(expr.clone());
+                discard_useless_expresisions(context, &new_expressions, &expr);
+                
                 let mirrored = expr.mirrored();
                 if !expr.is_pred(&mirrored, &mut context.relations) || !mirrored.is_pred(&expr, &mut context.relations) {
-                    context.expressions.insert(mirrored);
+                    context.expressions.insert(mirrored.clone());
+                    new_expressions.insert(mirrored.clone());
+                    discard_useless_expresisions(context, &new_expressions, &mirrored);
                 }
             } else {
                 break;
@@ -414,7 +434,7 @@ impl Problem {
         }
 
 
-
+        println!("diagram fixed\n\n");
     }
 
     fn nofixpoint_print_diagram(&self, context : &Context<Label>) {
@@ -474,6 +494,28 @@ impl Problem {
     }
 
 
+}
+
+fn discard_useless_expresisions(context : &mut Context<Label>, new_expressions : &HashSet<Expr<Label>>, added : &Expr<Label>) {
+    match added {
+        Expr::Left(e1, e2) => {
+            if e1.is_left() && new_expressions.contains(e1) {
+                context.expressions.remove(e1);
+            }
+            if e2.is_left() && new_expressions.contains(e2) {
+                context.expressions.remove(e2);
+            }
+        },
+        Expr::Right(e1, e2) => {
+            if e1.is_right() && new_expressions.contains(e1) {
+                context.expressions.remove(e1);
+            }
+            if e2.is_right() && new_expressions.contains(e2) {
+                context.expressions.remove(e2);
+            }
+        },
+        _ => { unreachable!() }
+    };
 }
 
 
