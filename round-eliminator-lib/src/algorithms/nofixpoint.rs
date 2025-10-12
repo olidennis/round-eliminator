@@ -1,10 +1,10 @@
-use std::{clone, collections::{HashMap, HashSet}, fmt::Display, ops::Deref};
+use std::{collections::{HashMap, HashSet}, fmt::Display, ops::Deref};
 use std::hash::Hash;
 
 use dashmap::DashMap as CHashMap;
 use itertools::Itertools;
 
-use crate::{algorithms::{diagram::{compute_direct_diagram, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler, fixpoint::{expression_for_line_at, FixpointDiagram, TreeNode}}, group::Label, problem::Problem};
+use crate::{algorithms::{diagram::{compute_direct_diagram, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler, fixpoint::{expression_for_line_at, TreeNode}}, group::Label, problem::Problem};
 
 
 
@@ -253,7 +253,8 @@ impl<T> Display for Expr<T> where T : Display + Hash  + Clone + Eq + PartialEq +
 type Relations<T> = HashMap<(Expr<T>,Expr<T>),bool>;
 struct Context<T : Hash + Clone + Eq + PartialEq + Ord + PartialOrd> {
     expressions : HashSet<Expr<T>>,
-    relations : Relations<T>
+    relations : Relations<T>,
+    mapping_label_text : HashMap<Label,String>
 }
 
 impl<T> TreeNode<T> where T : Hash + Clone + Eq + PartialEq + Ord + PartialOrd {
@@ -298,11 +299,11 @@ impl Problem {
             }
         }
         
-        Context{expressions,relations}
+        let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
+        Context{expressions,relations,mapping_label_text}
     }
 
     fn nofixpoint(&self) -> Result<Problem,String> {
-        let mapping_label_text : HashMap<_, _> = self.mapping_label_text.iter().cloned().collect();
 
         let eh = &mut EventHandler::null();
 
@@ -317,7 +318,7 @@ impl Problem {
 
 
             println!("new diagram");
-            self.nofixpoint_print_diagram(&context);
+            //self.nofixpoint_print_diagram(&context);
 
             for not_all_of_these in &expr_to_check {
                 if not_all_of_these.iter().all(|(m,e)|{
@@ -328,7 +329,7 @@ impl Problem {
                     s += "No fixed point can be found. These expressions will be pairwise compatible with any diagram: ";
                     let exprs = not_all_of_these.iter().map(|(_,e)|e).unique();
                     for e in exprs {
-                        s += &format!("{}, ",e.convert(&mapping_label_text));
+                        s += &format!("{}, ",e.convert(&context.mapping_label_text));
                     }
                     return Err(s);
                 }
@@ -373,7 +374,7 @@ impl Problem {
                             let expr : E<Label> = expr.to_expr();
                             let e = expr.as_expr().convert(&mapping_newlabel_label);
                             let me = E::mirror(expr).as_expr().convert(&mapping_newlabel_label);
-                            println!("adding expressions {} and {}",e.convert(&mapping_label_text),me.convert(&mapping_label_text));
+                            println!("adding expressions {} and {}",e.convert(&context.mapping_label_text),me.convert(&context.mapping_label_text));
                             obtained_expressions.push((me.clone(),e.clone()));
                             e.all_subexprs(&mut expressions_to_add);
                             me.all_subexprs(&mut expressions_to_add);
@@ -415,18 +416,19 @@ impl Problem {
             println!("done");
             self.nofixpoint_print_diagram(context);
             
-            if let Some(expr) = find_good_expression_to_add(context) {
+            if let Some(expr) = find_good_expression_to_add(context, &new_expressions) {
                 println!("adding expression {}",expr.convert(&mapping_label_text));
                 context.expressions.insert(expr.clone());
                 new_expressions.insert(expr.clone());
-                discard_useless_expresisions(context, &new_expressions, &expr);
+                discard_useless_expressions(context, &new_expressions, &expr);
                 
                 let mirrored = expr.mirrored();
                 if !expr.is_pred(&mirrored, &mut context.relations) || !mirrored.is_pred(&expr, &mut context.relations) {
+                    println!("adding expression {}",mirrored.convert(&mapping_label_text));
                     context.expressions.insert(mirrored.clone());
                     new_expressions.insert(mirrored.clone());
-                    discard_useless_expresisions(context, &new_expressions, &mirrored);
-                }
+                    discard_useless_expressions(context, &new_expressions, &mirrored);
+               }
             } else {
                 break;
             }
@@ -442,7 +444,7 @@ impl Problem {
         let mapping_newlabel_text : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
         let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
         let mapping_label_text : HashMap<_,_> = self.mapping_label_text.iter().cloned().collect();
-        //let mapping_newlabel_expr : HashMap<_,_> = mapping_newlabel_expr.iter().cloned().collect();
+        let mapping_newlabel_expr : HashMap<_,_> = mapping_newlabel_expr.iter().cloned().collect();
 
 
         for (l,n) in &mapping_label_newlabel {
@@ -451,13 +453,14 @@ impl Problem {
         for (a,b) in &diagram {
             println!("{} -> {}",mapping_newlabel_text[&a],mapping_newlabel_text[&b]);
         }
-        /*println!("");
-        for (l,_) in &mapping_label_newlabel {
-            println!("{} = ({})",mapping_label_text[&l],mapping_label_text[&l]);
+        println!("");
+        //for (l,_) in &mapping_label_newlabel {
+        //    println!("{} = ({})",mapping_label_text[&l],mapping_label_text[&l]);
+        //}
+        for (a,b) in &diagram {
+            println!("\"{}\" \"{}\"",mapping_newlabel_expr[a].convert(&mapping_label_text),mapping_newlabel_expr[b].convert(&mapping_label_text));
         }
-        for (a,b) in diagram {
-            println!("({}) -> ({})",mapping_newlabel_expr[&a].convert(&mapping_label_text),mapping_newlabel_expr[&b].convert(&mapping_label_text));
-        }*/
+        println!("");
     }
 
     fn nofixpoint_diagram(&self, context : &Context<Label>) -> (Vec<(Label,Label)>,Vec<(Label,Label)>,Vec<(Label,String)>,Vec<(Label,Expr<Label>)>) {
@@ -489,28 +492,32 @@ impl Problem {
         (diagram,mapping_label_newlabel,mapping_newlabel_text,mapping_id_to_node.into_iter().collect_vec())        
     }
 
-    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
+    pub fn fixpoint_loop(&self, _eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
         self.nofixpoint().map(|p|(p,vec![],vec![]))
     }
 
 
 }
 
-fn discard_useless_expresisions(context : &mut Context<Label>, new_expressions : &HashSet<Expr<Label>>, added : &Expr<Label>) {
+fn discard_useless_expressions(context : &mut Context<Label>, new_expressions : &HashSet<Expr<Label>>, added : &Expr<Label>) {
     match added {
         Expr::Left(e1, e2) => {
             if e1.is_left() && new_expressions.contains(e1) {
+                println!("removing expression {}",e1.convert(&context.mapping_label_text));
                 context.expressions.remove(e1);
             }
             if e2.is_left() && new_expressions.contains(e2) {
+                println!("removing expression {}",e2.convert(&context.mapping_label_text));
                 context.expressions.remove(e2);
             }
         },
         Expr::Right(e1, e2) => {
             if e1.is_right() && new_expressions.contains(e1) {
+                println!("removing expression {}",e1.convert(&context.mapping_label_text));
                 context.expressions.remove(e1);
             }
             if e2.is_right() && new_expressions.contains(e2) {
+                println!("removing expression {}",e2.convert(&context.mapping_label_text));
                 context.expressions.remove(e2);
             }
         },
@@ -539,12 +546,11 @@ fn nofixpoint_context_to_diagram(context : &Context<Label>) -> (Vec<(Label,Label
     (diagram,node_to_id)
 }
 
-fn find_good_expression_to_add(context : &mut Context<Label>) -> Option<Expr<Label>> {
+fn find_good_expression_to_add(context : &mut Context<Label>, new_expressions : &HashSet<Expr<Label>>) -> Option<Expr<Label>> {
     println!("finding missing sources and sinks");
     let (missing_sources,missing_sinks) = nofixpoint_missing_sources_and_sinks(context);
     println!("done, got {} {}",missing_sources.len(),missing_sinks.len());
     let old_expressions = context.expressions.clone();
-
 
     let mut sources_to_add : HashSet<_> = missing_sources.iter().cloned().collect();
     for s1 in &missing_sources {
@@ -600,9 +606,9 @@ fn find_good_expression_to_add(context : &mut Context<Label>) -> Option<Expr<Lab
             }
         }
     }
-    let stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
-    context.expressions = old_expressions;
 
+    context.expressions = old_expressions;
+    let stuff_to_add = sources_to_add.iter().chain(sinks_to_add.iter());
     stuff_to_add.cloned().next()
 }
 
