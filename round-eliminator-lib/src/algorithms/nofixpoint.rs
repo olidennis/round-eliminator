@@ -710,9 +710,9 @@ impl Problem {
             context.fix_diagram();
 
             println!("new diagram");
-            //self.nofixpoint_print_diagram(&context);
+            //context.print_diagram();
 
-            for not_all_of_these in &expr_to_check {
+            /*for not_all_of_these in &expr_to_check {
                 if not_all_of_these.iter().all(|(m,e)|{
                     m.is_pred(e,&mut context.relations)
                 }) {
@@ -725,7 +725,7 @@ impl Problem {
                     }
                     return Err(s);
                 }
-            }
+            }*/
 
             println!("computing diagram for rerunning fp procedure");
 
