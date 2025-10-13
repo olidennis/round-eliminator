@@ -760,7 +760,7 @@ impl Problem {
                         let mut obtained_expressions = HashSet::new();
                         for i in 0..degree {
                             println!("\n\nposition {}",i);
-                            let expr = expression_for_line_at(&line,i,true, &tracking,&mapping).reduce_rep();
+                            let expr = expression_for_line_at(&line,i, &tracking,&mapping).reduce_rep();
                             let expr : E<Label> = expr.to_expr();
                             let e = expr.as_expr().convert(&mapping_newlabel_label);
                             obtained_expressions.insert(e);

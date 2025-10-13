@@ -606,14 +606,9 @@ impl Problem {
                 for line in lines {
                     debug += &line.to_string(&mapping);
                     debug += "\n";
-                    let len = if let Some(rg) = tracking.get(&line) {
-                        let (_,_,before_norm,_,_) = &*rg;
-                        before_norm.parts.len()
-                    } else {
-                        line.parts.len()
-                    };
+                    let len = self.active.finite_degree();
                     for i in 0..len {
-                        let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                        let expr = expression_for_line_at(&line,i, &tracking,&mapping).reduce_rep();
                         let expr = if flip {
                             expr.flip()
                         } else {
@@ -1035,7 +1030,7 @@ impl Problem {
         Ok((p,passive_before_edit))
     }
 
-
+/* 
     pub fn fixpoint_loop_old(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
         let fd = if let Some((_,fd)) = self.fixpoint_diagram.clone() {
             fd
@@ -1105,7 +1100,7 @@ impl Problem {
         };
 
         Ok((p,diagram,mapping_label_newlabel.iter().map(|(&a,&b)|(a,b)).collect()))
-    }
+    }*/
 
 
     pub fn fixpoint_addarrow<F>(&self, mut f: F) where F: FnMut(Vec<(Label, Label)>, usize, bool) {
@@ -1437,7 +1432,7 @@ pub enum TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Ha
 }
 
 
-pub fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
+pub fn expression_for_line_at(line : &Line, pos : usize, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
     if let Some(rg) = how.get(line) {
         let (l1,l2, l3, norm_map, parts) = &*rg;
 
@@ -1448,13 +1443,13 @@ pub fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : 
 
         //println!("norm_pos = {:?}\nnorm_map = {:?}\nflattened = {:?}\nflattened_mult = {:?}\nl3 = {}\nline = {}\n{:?}",norm_pos,norm_map,flattened,flattened_mult,l3.to_string(mapping),line.to_string(mapping),parts);
         
-        let (p1,p2,op) = parts[if norm_pos { flattened_mult[pos] } else {pos}];
+        let (p1,p2,op) = parts[flattened_mult[pos]];
         let to_add = flattened_mult[0..pos].iter().filter(|&&x|x==flattened_mult[pos]).count();
         let idx1 = l1.parts[0..p1].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add;
         let idx2 = l2.parts[0..p2].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add;
 
-        let part1 = expression_for_line_at(l1, idx1, true, how, mapping);
-        let part2 = expression_for_line_at(l2, idx2, true, how, mapping);
+        let part1 = expression_for_line_at(l1, idx1, how, mapping);
+        let part2 = expression_for_line_at(l2, idx2, how, mapping);
         let mut v = vec![part1,part2];
         v.sort();
         let part2 = v.pop().unwrap();
