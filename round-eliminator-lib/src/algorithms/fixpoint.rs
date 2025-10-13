@@ -986,20 +986,26 @@ impl Problem {
         if only_compute_triviality {
             return self.fixpoint_onestep_only_determine_triviality(mapping_label_newlabel,mapping_newlabel_text,diagram,tracking,tracking_passive,eh);
         }
+
         let active = self.active.all_choices(true);
         let passive = self.passive.all_choices(true);
+
         let active = Constraint{ lines: active, is_maximized: false, degree: self.active.degree  };
         let passive = Constraint{ lines: passive, is_maximized: false, degree: self.passive.degree  };
         let mapping_label_newlabel : HashMap<_,_> = mapping_label_newlabel.iter().cloned().collect();
         let active = active.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
         let passive = passive.edited(|g| Group::from(vec![mapping_label_newlabel[&g.first()]]));
         let newlabels : Vec<Label> = mapping_newlabel_text.iter().map(|&(l,_)|l).collect();
+
         let diagram_indirect = diagram_to_indirect(&newlabels,&diagram);
         let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
+
         let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text, tracking, eh)?;
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
+
         let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
         let passive_before_edit = passive.clone();
+
         let passive = passive.edited(|g| Group::from(passive_successors[&g.first()].iter().cloned().sorted().collect()));
 
         let mut p = Problem {
@@ -1369,6 +1375,9 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
     let mut unions = HashMap::<(Label,Label),Label>::new();
     let mut intersections = HashMap::<(Label,Label),Label>::new();
 
+
+    eh.notify("checking if the diagram is valid", 0, 0);
+
     for &l1 in labels {
         for &l2 in labels {
             let mut common : HashSet<Label> = successors[&l1].intersection(&successors[&l2]).cloned().collect();
@@ -1414,13 +1423,11 @@ fn procedure(constraint : &Constraint, labels : &[Label], diagram_indirect : &Ve
     let mut newconstraint = constraint.clone();
     newconstraint.is_maximized = false;
 
-
     newconstraint.maximize_custom(eh,true,false,tracking,f_is_superset, f_union, f_intersection);
     /*println!("obtained constraint");
     for line in &newconstraint.lines {
         println!("{}",line.to_string(&mapping));
     }*/
-
     Ok(newconstraint)
 }
 

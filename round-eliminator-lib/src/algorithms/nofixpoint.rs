@@ -537,7 +537,7 @@ impl Context<Label> {
 
 
 
-    fn find_good_expression_to_add(&mut self, definitely_fixed : &mut HashSet<Label>) -> Option<Expr<Label>> {
+    fn find_good_expression_to_add(&mut self, definitely_fixed : &mut HashSet<Label>, eh : &mut EventHandler) -> Option<Expr<Label>> {
         println!("computing toposort data");
         let reachable = &self.predecessors;
         /*let diagram = self.diagram.iter().filter(|(a,b)|{
@@ -601,6 +601,7 @@ impl Context<Label> {
                     }
                     let result = Expr::left(self.mapping_ids_to_expressions[&id_e1].clone(),self.mapping_ids_to_expressions[&id_e2].clone());
                     println!("found in position {} {}, total nodes {}",i,j,sorted_nodes.len());
+                    eh.notify("fixpoint autofix", 0, sorted_nodes.len());
                     return Some(result);
                 }
             }
@@ -639,7 +640,7 @@ impl Context<Label> {
         };
     }
     
-    fn fix_diagram(&mut self) {
+    fn fix_diagram(&mut self, eh : &mut EventHandler) {
 
         let mut new_expressions = HashSet::new();
 
@@ -664,10 +665,9 @@ impl Context<Label> {
         //println!("done");
 
         loop{
-
             //self.print_diagram();
             
-            if let Some(expr) = self.find_good_expression_to_add(&mut definitely_fixed) {
+            if let Some(expr) = self.find_good_expression_to_add(&mut definitely_fixed, eh) {
                 //let expr = expr.reduce(&mut context.relations);
                 //println!("adding expression {}",expr.convert(&self.mapping_label_text));
                 self.add_expression(&expr);
@@ -696,10 +696,8 @@ impl Context<Label> {
 impl Problem {
 
 
-    fn nofixpoint(&self) -> Result<Problem,String> {
+    fn nofixpoint(&self, eh : &mut EventHandler) -> Result<Problem,String> {
         let degree = self.active.finite_degree();
-
-        let eh = &mut EventHandler::null();
 
         let mut context = Context::init_from_problem(self);
 
@@ -711,7 +709,7 @@ impl Problem {
         loop {
             //context.fix();
             println!("fixing diagram");
-            context.fix_diagram();
+            context.fix_diagram(eh);
 
             println!("new diagram");
             context.print_diagram();
@@ -812,8 +810,8 @@ impl Problem {
 
     
 
-    pub fn fixpoint_loop(&self, _eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
-        self.nofixpoint().map(|p|(p,vec![],vec![]))
+    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
+        self.nofixpoint(eh).map(|p|(p,vec![],vec![]))
     }
 
 

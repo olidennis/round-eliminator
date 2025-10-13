@@ -547,7 +547,9 @@ Vue.component('re-computing', {
         state: function() {
             switch( this.action.type ) {
                 case "fixpoint autofix":
-                    return {bar : false, msg: "Computing Fixed Point with Automatic Diagram Fixing ("+this.action.max+" labels)"}; 
+                    return {bar : false, msg: "Fixing diagram ("+this.action.max+" missing nodes)"}; 
+                case "checking if the diagram is valid":
+                    return {bar : false, msg: "Checking if the diagram is valid for running the procedure"};
                 case "autoub":
                     return {bar : false, msg: "Computing an Upper Bound Automatically"}; 
                 case "autologstar":
