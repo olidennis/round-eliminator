@@ -697,6 +697,7 @@ impl Problem {
 
 
     fn nofixpoint(&self) -> Result<Problem,String> {
+        let degree = self.active.finite_degree();
 
         let eh = &mut EventHandler::null();
 
@@ -710,9 +711,9 @@ impl Problem {
             context.fix_diagram();
 
             println!("new diagram");
-            //context.print_diagram();
+            context.print_diagram();
 
-            /*for not_all_of_these in &expr_to_check {
+            for not_all_of_these in &expr_to_check {
                 if not_all_of_these.iter().all(|(m,e)|{
                     m.is_pred(e,&mut context.relations)
                 }) {
@@ -725,7 +726,7 @@ impl Problem {
                     }
                     return Err(s);
                 }
-            }*/
+            }
 
             println!("computing diagram for rerunning fp procedure");
 
@@ -756,15 +757,10 @@ impl Problem {
                             sets.contains(&part.group.first())
                         })
                     }) {
-                        let len = if let Some(rg) = tracking.get(&line) {
-                            let (_,_,before_norm,_,_) = &*rg;
-                            before_norm.parts.len()
-                        } else {
-                            line.parts.len()
-                        };
                         let mut obtained_expressions = HashSet::new();
-                        for i in 0..len {
-                            let expr = expression_for_line_at(&line,i,false, &tracking,&mapping).reduce_rep();
+                        for i in 0..degree {
+                            println!("\n\nposition {}",i);
+                            let expr = expression_for_line_at(&line,i,true, &tracking,&mapping).reduce_rep();
                             let expr : E<Label> = expr.to_expr();
                             let e = expr.as_expr().convert(&mapping_newlabel_label);
                             obtained_expressions.insert(e);

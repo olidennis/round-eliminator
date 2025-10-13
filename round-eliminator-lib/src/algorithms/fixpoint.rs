@@ -1439,17 +1439,39 @@ pub enum TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Ha
 
 pub fn expression_for_line_at(line : &Line, pos : usize, norm_pos : bool, how : &CHashMap<Line, (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>)>, mapping : &HashMap<Label,String>) -> TreeNode<Label> {
     if let Some(rg) = how.get(line) {
-        let (l1,l2, _, norm_map, parts) = &*rg;
-        let (p1,p2,op) = parts[if norm_pos {norm_map[pos][0]} else {pos}];
-        let part1 = expression_for_line_at(l1, p1, true, how, mapping);
-        let part2 = expression_for_line_at(l2, p2, true, how, mapping);
+        let (l1,l2, l3, norm_map, parts) = &*rg;
+
+        let flattened = norm_map.iter().flat_map(|v|v.iter().cloned()).collect_vec();
+        let flattened_mult = flattened.iter().flat_map(|x|{
+            std::iter::repeat(*x).take(l3.parts[*x].gtype.value())
+        }).collect_vec();
+
+        //println!("norm_pos = {:?}\nnorm_map = {:?}\nflattened = {:?}\nflattened_mult = {:?}\nl3 = {}\nline = {}\n{:?}",norm_pos,norm_map,flattened,flattened_mult,l3.to_string(mapping),line.to_string(mapping),parts);
+        
+        let (p1,p2,op) = parts[if norm_pos { flattened_mult[pos] } else {pos}];
+        let to_add = flattened_mult[0..pos].iter().filter(|&&x|x==flattened_mult[pos]).count();
+        let idx1 = l1.parts[0..p1].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add;
+        let idx2 = l2.parts[0..p2].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add;
+
+        let part1 = expression_for_line_at(l1, idx1, true, how, mapping);
+        let part2 = expression_for_line_at(l2, idx2, true, how, mapping);
         let mut v = vec![part1,part2];
         v.sort();
         let part2 = v.pop().unwrap();
         let part1 = v.pop().unwrap();
+        println!("in order to get {}, we combined {} and {}",line.to_string(mapping),l1.to_string(mapping),l2.to_string(mapping));
+        println!("obtaining expressions {:?} {} {}",op,part1.convert(mapping),part2.convert(mapping));
         TreeNode::Expr(Box::new(part1),Box::new(part2),op)
     } else {
-        TreeNode::Terminal(line.parts[pos].group.first())
+        let mut s = 0;
+        for part in &line.parts {
+            let x = part.gtype.value();
+            if s + x > pos {
+                return TreeNode::Terminal(part.group.first());
+            }
+            s += x;
+        }
+        unreachable!();
     }
 
 }
