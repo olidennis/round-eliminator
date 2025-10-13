@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, fmt::Display, ops::Deref};
+use std::{collections::{BTreeSet, HashMap, HashSet}, fmt::Display, ops::Deref};
 use std::hash::Hash;
 
 use dashmap::DashMap as CHashMap;
@@ -310,7 +310,7 @@ impl Context<Label> {
         self.diagram_reversed = diagram_reversed;
     }
 
-    fn add_expression(&mut self, e : &Expr<Label>) {
+    fn add_expression(&mut self, e : &Expr<Label>) -> Label {
         self.fresh_id += 1;
         self.expressions.insert(e.clone());
         self.mapping_expressions_to_ids.insert(e.clone(),self.fresh_id);
@@ -318,6 +318,7 @@ impl Context<Label> {
         self.successors.entry(self.fresh_id).or_default().insert(self.fresh_id);
         self.predecessors.entry(self.fresh_id).or_default().insert(self.fresh_id);
         self.update_relations_of_expression(e);
+        self.fresh_id
     }
 
     fn remove_expression(&mut self, e : &Expr<Label>) {
@@ -536,7 +537,7 @@ impl Context<Label> {
     } 
 
 
-
+    /* 
     fn find_good_expression_to_add(&mut self, definitely_fixed : &mut HashSet<Label>, eh : &mut EventHandler) -> Option<Expr<Label>> {
         println!("computing toposort data");
         let reachable = &self.predecessors;
@@ -609,7 +610,7 @@ impl Context<Label> {
         }
 
         None
-    }
+    }*/
 
 
 
@@ -640,7 +641,102 @@ impl Context<Label> {
         };
     }
     
+    fn rightmost(&self, orig_set : &HashSet<Label>) -> HashSet<Label> {
+        let mut set = orig_set.clone();
+        for &l in orig_set.iter() {
+            for r in self.predecessors[&l].iter().filter(|&&x|x != l) {
+                set.remove(r);
+            }
+        }
+        set
+    }
+
     fn fix_diagram(&mut self, eh : &mut EventHandler) {
+
+        self.add_unique_source_and_sink();
+
+        let mut labels : HashSet<_> = self.predecessors.keys().cloned().collect();
+        let mut sinks : HashMap<(Label,Label),HashSet<Label>> = HashMap::new();
+
+        // precompute rightmost sources
+        for &id1 in &labels {
+            for &id2 in &labels {
+                if id1 < id2 {
+                    let predecessors1 = &self.predecessors[&id1];
+                    let predecessors2 = &self.predecessors[&id2];
+                    let predecessors_intersection : HashSet<Label> = predecessors1.intersection(predecessors2).cloned().collect();
+                    let predecessors_intersection = self.rightmost(&predecessors_intersection);
+                    sinks.insert((id1,id2), predecessors_intersection.clone());
+                    sinks.insert((id2,id1), predecessors_intersection.clone());
+                } else if id1 == id2 {
+                    sinks.insert((id1,id2), self.predecessors[&id1].clone());
+                }
+            }
+        }
+
+        let mut sets = HashSet::new();
+        for &label in &labels {
+            sets.insert(BTreeSet::from([label]));
+        }
+        let mut last_sets = sets.clone();
+
+
+        while !last_sets.is_empty() {
+            eh.notify("fixpoint autofix", 0, last_sets.len());
+            println!("there are {} sets, and {} are new",sets.len(),last_sets.len());
+            let mut used_labels = HashSet::new();
+            let mut new_sets = HashSet::new();
+            for set in &last_sets {
+                for &label in &labels {
+                    let intersection : HashSet<_> = set.iter().flat_map(|&other|{
+                        sinks[&(other,label)].iter().cloned()
+                    }).collect();
+                    let new_set : BTreeSet<_> = self.rightmost(&intersection).into_iter().collect();
+                    if !sets.contains(&new_set) {
+                        used_labels.insert(label);
+                        sets.insert(new_set.clone());   
+                        new_sets.insert(new_set);   
+                    }
+                }
+            }
+            last_sets = new_sets;
+            labels = used_labels;
+        }
+
+        println!("computed expressions for fixing diagram, adding them");
+        let len = sets.len();
+        for (i,set) in sets.into_iter().enumerate() {
+            if set.len() != 1 {
+                let expr = self.right_of(set.into_iter());
+                eh.notify("diagram", i, len);
+                self.add_expression(&expr);
+            }
+        }
+        println!("done");
+    }
+
+    fn right_of<T>(&self, mut ids : T) -> Expr<Label> where T : Iterator<Item=Label>{
+        let mut expr = self.mapping_ids_to_expressions[&ids.next().unwrap()].clone();
+        for id in ids {
+            expr = Expr::right(expr, self.mapping_ids_to_expressions[&id].clone());
+        }
+        expr
+    }
+
+    fn add_unique_source_and_sink(&mut self) {
+        let sinks = self.mapping_ids_to_expressions.keys().filter(|id|{
+            self.successors[&id].len() == 1
+        }).cloned();
+
+        if sinks.clone().count() != 1 {
+            let sink = self.right_of(sinks);
+            self.add_expression(&sink);
+            self.add_expression(&sink.mirrored());
+        }
+    }
+
+    /* 
+    fn fix_diagram_old(&mut self, eh : &mut EventHandler) {
 
         let mut new_expressions = HashSet::new();
 
@@ -689,9 +785,11 @@ impl Context<Label> {
         }
 
         println!("diagram fixed\n\n");
-    }
+    }*/
 
 }
+
+
 
 impl Problem {
 
@@ -760,7 +858,7 @@ impl Problem {
                     }) {
                         let mut obtained_expressions = HashSet::new();
                         for i in 0..degree {
-                            println!("\n\nposition {}",i);
+                            //println!("\n\nposition {}",i);
                             let expr = expression_for_line_at(&line,i, &tracking,&mapping).reduce_rep();
                             let expr : E<Label> = expr.to_expr();
                             let e = expr.as_expr().convert(&mapping_newlabel_label);
