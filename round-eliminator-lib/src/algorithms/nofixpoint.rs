@@ -537,29 +537,38 @@ impl Context<Label> {
 
 
 
-    fn find_good_expression_to_add(&mut self, definitely_fixed : &mut HashSet<Expr<Label>>) -> Option<Expr<Label>> {
+    fn find_good_expression_to_add(&mut self, definitely_fixed : &mut HashSet<Label>) -> Option<Expr<Label>> {
+        println!("computing toposort data");
         let reachable = &self.predecessors;
-        let diagram = self.diagram.iter().filter(|(a,b)|{
+        /*let diagram = self.diagram.iter().filter(|(a,b)|{
             match (self.mapping_ids_to_expressions.get(a),self.mapping_ids_to_expressions.get(b)) {
                 (Some(e1), Some(e2)) => { !definitely_fixed.contains(e1) && !definitely_fixed.contains(e2) },
                 _ => { false }
             }
         });
 
-        let diagram_without_selfloops = diagram.filter(|(a,b)|{ a!=b });
+        let diagram_without_selfloops = diagram.filter(|(a,b)|{ a!=b });*/
 
+        let ids : HashSet<_> = self.mapping_ids_to_expressions.keys().cloned().collect();
+        let nodes = ids.difference(&definitely_fixed).cloned().collect_vec();
         let mut graph = Graph::<(), ()>::new();
         let mut ids_to_graphids = vec![];
-        let nodes = diagram_without_selfloops.clone().flat_map(|(a,b)|[a,b].into_iter()).unique().sorted().collect_vec();
-        for v in nodes {
+        for &v in &nodes {
             let id_v = graph.add_node(());
             ids_to_graphids.push((v,id_v));
         }
-
         let mapping_ids_to_graphids : HashMap<_,_> = ids_to_graphids.iter().cloned().collect();
-        for (u,v) in diagram_without_selfloops {
-            graph.add_edge(mapping_ids_to_graphids[&u], mapping_ids_to_graphids[&v], ());
+
+        for &v in &nodes {
+            let succ = self.successors[&v].iter().cloned();
+            for u in succ {
+                if v != u {
+                    graph.add_edge(mapping_ids_to_graphids[&v], mapping_ids_to_graphids[&u], ());
+                }
+            }
         }
+
+
         let mapping_graphids_to_ids : HashMap<_,_> = ids_to_graphids.iter().cloned().map(|(a,b)|(b,a)).collect();
         //println!("nodes of the graph {}",.join(" "));
         //println!("{:?}",diagram_without_selfloops.clone().collect_vec());
@@ -570,7 +579,7 @@ impl Context<Label> {
 
         println!("searching for fix");
         for i in 0..sorted_nodes.len() {
-            if definitely_fixed.contains(&self.mapping_ids_to_expressions[&sorted_nodes[i]]) {
+            if definitely_fixed.contains(&sorted_nodes[i]) {
                 continue;
             }
             for j in i+1..sorted_nodes.len() {
@@ -587,17 +596,15 @@ impl Context<Label> {
                 }
 
                 if reachable_intersection.len() != 1 {
-                    let e1 = self.mapping_ids_to_expressions[&id_e1].clone();
-                    let e2 = self.mapping_ids_to_expressions[&id_e2].clone();
-                    if definitely_fixed.contains(&e1) || definitely_fixed.contains(&e2) {
+                    if definitely_fixed.contains(&id_e1) || definitely_fixed.contains(&id_e2) {
                         panic!("sebastian is wrong");
                     }
-                    let result = Expr::left(e1,e2);
+                    let result = Expr::left(self.mapping_ids_to_expressions[&id_e1].clone(),self.mapping_ids_to_expressions[&id_e2].clone());
                     println!("found in position {} {}, total nodes {}",i,j,sorted_nodes.len());
                     return Some(result);
                 }
             }
-            definitely_fixed.insert(self.mapping_ids_to_expressions[&sorted_nodes[i]].clone());
+            definitely_fixed.insert(sorted_nodes[i]);
         }
 
         None
@@ -610,11 +617,11 @@ impl Context<Label> {
         match added {
             Expr::Left(e1, e2) => {
                 if e1.is_left() && new_expressions.contains(e1) && self.predecessors[&self.mapping_expressions_to_ids[e1.deref()]].len() == self.predecessors[&self.mapping_expressions_to_ids[added]].len() + 1 {
-                    println!("removing expression {}",e1.convert(&self.mapping_label_text));
+                    //println!("removing expression {}",e1.convert(&self.mapping_label_text));
                     self.remove_expression(e1);
                 }
                 if e2.is_left() && new_expressions.contains(e2) && self.predecessors[&self.mapping_expressions_to_ids[e2.deref()]].len() == self.predecessors[&self.mapping_expressions_to_ids[added]].len() + 1 {
-                    println!("removing expression {}",e2.convert(&self.mapping_label_text));
+                    //println!("removing expression {}",e2.convert(&self.mapping_label_text));
                     self.remove_expression(e2);
                 }
             },
@@ -658,11 +665,11 @@ impl Context<Label> {
 
         loop{
 
-            self.print_diagram();
+            //self.print_diagram();
             
             if let Some(expr) = self.find_good_expression_to_add(&mut definitely_fixed) {
                 //let expr = expr.reduce(&mut context.relations);
-                println!("adding expression {}",expr.convert(&self.mapping_label_text));
+                //println!("adding expression {}",expr.convert(&self.mapping_label_text));
                 self.add_expression(&expr);
                 new_expressions.insert(expr.clone());
                 //self.fix_for_expression(&expr);
@@ -724,7 +731,7 @@ impl Problem {
 
 
             let (diagram,mapping_label_newlabel,mapping_newlabel_text,_) = context.diagram_for_fixpoint_procedure();
-
+            println!("running fp procedure");
             let tracking = CHashMap::new();
             let tracking_passive = CHashMap::new();
 
