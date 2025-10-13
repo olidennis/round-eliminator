@@ -1454,8 +1454,8 @@ pub fn expression_for_line_at(line : &Line, pos : usize, how : &CHashMap<Line, (
         v.sort();
         let part2 = v.pop().unwrap();
         let part1 = v.pop().unwrap();
-        println!("in order to get {}, we combined {} and {}",line.to_string(mapping),l1.to_string(mapping),l2.to_string(mapping));
-        println!("obtaining expressions {:?} {} {}",op,part1.convert(mapping),part2.convert(mapping));
+        //println!("in order to get {}, we combined {} and {}",line.to_string(mapping),l1.to_string(mapping),l2.to_string(mapping));
+        //println!("obtaining expressions {:?} {} {}",op,part1.convert(mapping),part2.convert(mapping));
         TreeNode::Expr(Box::new(part1),Box::new(part2),op)
     } else {
         let mut s = 0;

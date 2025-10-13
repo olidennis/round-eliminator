@@ -702,6 +702,9 @@ impl Problem {
         let eh = &mut EventHandler::null();
 
         let mut context = Context::init_from_problem(self);
+
+        println!("starting diagram");
+        context.print_diagram();
         
         let mut expr_to_check : Vec<Vec<(Expr<u32>, Expr<u32>)>> = vec![];
 
