@@ -1448,19 +1448,22 @@ pub fn expression_for_line_at(line : &Line, pos : usize, how : &CHashMap<Line, (
             std::iter::repeat(*x).take(l3.parts[*x].gtype.value())
         }).collect_vec();
 
-        //println!("norm_pos = {:?}\nnorm_map = {:?}\nflattened = {:?}\nflattened_mult = {:?}\nl3 = {}\nline = {}\n{:?}",norm_pos,norm_map,flattened,flattened_mult,l3.to_string(mapping),line.to_string(mapping),parts);
+        //println!("pos = {}",pos);
+        //println!("l1 = {}\nl2 = {}",l1.to_string(mapping),l2.to_string(mapping));
+        //println!("norm_map = {:?}\nflattened = {:?}\nflattened_mult = {:?}\nl3 = {}\nline = {}\n{:?}\n",norm_map,flattened,flattened_mult,l3.to_string(mapping),line.to_string(mapping),parts);
         
         let (p1,p2,op) = parts[flattened_mult[pos]];
-        let to_add = flattened_mult[0..pos].iter().filter(|&&x|x==flattened_mult[pos]).count();
-        let idx1 = l1.parts[0..p1].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add;
-        let idx2 = l2.parts[0..p2].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add;
+        let to_add_1 = flattened_mult[0..pos].iter().filter(|&&x|parts[x].0 == parts[flattened_mult[pos]].0).count();
+        let to_add_2 = flattened_mult[0..pos].iter().filter(|&&x|parts[x].1 == parts[flattened_mult[pos]].1).count();
 
+        let idx1 = l1.parts[0..p1].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add_1;
+        let idx2 = l2.parts[0..p2].iter().map(|part|part.gtype.value()).sum::<usize>() + to_add_2;
+
+        //println!("calling recursion from {} for {} at position {}",l3.to_string(mapping),l1.to_string(mapping),idx1);
         let part1 = expression_for_line_at(l1, idx1, how, mapping);
+        //println!("calling recursion from {} for {} at position {}",l3.to_string(mapping),l2.to_string(mapping),idx2);
         let part2 = expression_for_line_at(l2, idx2, how, mapping);
-        let mut v = vec![part1,part2];
-        v.sort();
-        let part2 = v.pop().unwrap();
-        let part1 = v.pop().unwrap();
+
         //println!("in order to get {}, we combined {} and {}",line.to_string(mapping),l1.to_string(mapping),l2.to_string(mapping));
         //println!("obtaining expressions {:?} {} {}",op,part1.convert(mapping),part2.convert(mapping));
         TreeNode::Expr(Box::new(part1),Box::new(part2),op)

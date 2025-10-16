@@ -441,7 +441,12 @@ impl Context<Label> {
         }
 
         for newlabel in ids {
-            mapping_newlabel_text.push((newlabel,format!("({})",newlabel)));
+            let expr = &self.mapping_ids_to_expressions[&newlabel];
+            if let Expr::Base(x,false) = expr {
+                mapping_newlabel_text.push((newlabel,mapping_label_text[x].clone()));
+            } else {
+                mapping_newlabel_text.push((newlabel,format!("({})",newlabel)));
+            }
         }
 
         (diagram,mapping_label_newlabel,mapping_newlabel_text,mapping_id_to_node.into_iter().collect_vec())        
@@ -810,7 +815,7 @@ impl Problem {
             context.fix_diagram(eh);
 
             println!("new diagram");
-            context.print_diagram();
+            //context.print_diagram();
 
             for not_all_of_these in &expr_to_check {
                 if not_all_of_these.iter().all(|(m,e)|{
@@ -835,20 +840,30 @@ impl Problem {
             let tracking = CHashMap::new();
             let tracking_passive = CHashMap::new();
 
-            let (mut p,_) = self.fixpoint_onestep(false,&mapping_label_newlabel,&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh).unwrap();
+            let mut expressions_to_add = HashSet::new();
 
-            println!("procedure terminated");
+            for _ in 0..1 {
+                let (mut p,_) = self.fixpoint_onestep(false,&mapping_label_newlabel,&mapping_newlabel_text,&diagram,Some(&tracking),Some(&tracking_passive),eh).unwrap();
 
-            p.compute_triviality(eh);
-            let trivial_sets = p.trivial_sets.clone().unwrap();
-            let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
-            let mapping_newlabel_label : HashMap<_,_> = mapping_label_newlabel.iter().cloned().map(|(l,n)|(n,l)).collect();
-            if trivial_sets.is_empty() {
-                println!("found a fixed point!\n{}",p);
-                return Ok(p);
-            } else {
+                println!("procedure terminated");
+
+                p.compute_triviality(eh);
+                let trivial_sets = p.trivial_sets.clone().unwrap();
+                let mapping : HashMap<_,_> = mapping_newlabel_text.iter().cloned().collect();
+                /*for x in tracking.iter() {
+                    let l1 = &x.0;
+                    let l2 = &x.1;
+                    let l3 = &x.2;
+                    println!("{}\n  {}\n  {}\n",l3.to_string(&mapping),l1.to_string(&mapping),l2.to_string(&mapping));
+                }*/
+
+                let mapping_newlabel_label : HashMap<_,_> = mapping_label_newlabel.iter().cloned().map(|(l,n)|(n,l)).collect();
+                if trivial_sets.is_empty() {
+                    println!("found a fixed point!\n{}",p);
+                    return Ok(p);
+                }
+
                 println!("did not find a fixed point");
-                let mut expressions_to_add = HashSet::new();
 
                 for line in p.active.lines {
                     if trivial_sets.iter().any(|sets|{
@@ -856,12 +871,14 @@ impl Problem {
                             sets.contains(&part.group.first())
                         })
                     }) {
+                        println!("trivial line: {}",line.to_string(&mapping));
                         let mut obtained_expressions = HashSet::new();
                         for i in 0..degree {
                             //println!("\n\nposition {}",i);
-                            let expr = expression_for_line_at(&line,i, &tracking,&mapping).reduce_rep();
+                            let expr = expression_for_line_at(&line,i, &tracking,&mapping);
                             let expr : E<Label> = expr.to_expr();
                             let e = expr.as_expr().convert(&mapping_newlabel_label);
+                            println!("GOT {}",e.convert(&context.mapping_label_text));
                             obtained_expressions.insert(e);
                         }
                         let leftmost_expressions = context.leftmost_expressions(&obtained_expressions);
@@ -870,6 +887,8 @@ impl Problem {
                             let me = e.mirrored();
                             println!("adding expressions {} and {}",e.convert(&context.mapping_label_text),me.convert(&context.mapping_label_text));
                             obtained_pairs.push((me.clone(),e.clone()));
+                            //expressions_to_add.insert(e.clone());
+                            //expressions_to_add.insert(me);
                             e.all_subexprs(&mut expressions_to_add);
                             me.all_subexprs(&mut expressions_to_add);
                         }
@@ -882,21 +901,20 @@ impl Problem {
                         expr_to_check.push(not_all_of_these);
                     }
                 }
+            }
 
-                let mut really_to_add = vec![];
-                'outer: for expr in expressions_to_add {
-                    for existing in context.expressions.iter().chain(really_to_add.iter()) {
-                        if existing.is_pred(&expr, &mut context.relations) && expr.is_pred(existing, &mut context.relations) {
-                            continue 'outer;
-                        }
+            let mut really_to_add = vec![];
+            'outer: for expr in expressions_to_add {
+                for existing in context.expressions.iter().chain(really_to_add.iter()) {
+                    if existing.is_pred(&expr, &mut context.relations) && expr.is_pred(existing, &mut context.relations) {
+                        continue 'outer;
                     }
-                    really_to_add.push(expr);
                 }
-                for expr in really_to_add {
-                    let reduced = expr.reduce(&mut context.relations);
-                    context.add_expression(&reduced);
-                }
-
+                really_to_add.push(expr);
+            }
+            for expr in really_to_add {
+                let reduced = expr.reduce(&mut context.relations);
+                context.add_expression(&reduced);
             }
 
         }
