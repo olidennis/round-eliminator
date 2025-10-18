@@ -532,7 +532,7 @@ Vue.component('re-error', {
     template: `
         <div class="card m-2 p-2" :class="this.warning? 'bg-warning text-black' : 'bg-danger text-white'">
             <span>
-                {{ this.error }}
+                <div style="white-space: pre-wrap;">{{ this.error }}</div>
                 <button type="button" class="close" aria-label="Close" v-on:click="on_close">
                     <span aria-hidden="true">&times;</span>
                 </button>

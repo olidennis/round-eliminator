@@ -1,11 +1,13 @@
 use std::{collections::{BTreeSet, HashMap, HashSet}, fmt::Display, ops::Deref};
 use std::hash::Hash;
+use std::cmp::Ordering;
 
 use dashmap::DashMap as CHashMap;
-use itertools::Itertools;
+use itertools::{iproduct, Itertools};
 use petgraph::{algo::toposort, Graph};
+use rustsat::{instances::SatInstance, types::{constraints::CardConstraint, Lit}};
 
-use crate::{algorithms::{diagram::{compute_direct_diagram, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler, fixpoint::{expression_for_line_at, TreeNode}}, group::Label, problem::Problem};
+use crate::{algorithms::{diagram::{compute_direct_diagram, diagram_indirect_to_reachability_adj, diagram_to_indirect}, event::EventHandler, fixpoint::{expression_for_line_at, TreeNode}, problem_triviality::solve_sat}, group::{Group, GroupType, Label}, line::Line, part::Part, problem::Problem};
 
 
 
@@ -246,6 +248,94 @@ impl<T> Expr<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord{
             Expr::Base(_, _) => { return self.clone(); },
         }
     }
+
+    fn number_of_arrows(&self) -> usize {
+        match self {
+            Expr::Base(_, _) => 0,
+            Expr::Left(e1, e2) => 1 + std::cmp::max(e1.number_of_arrows(),e2.number_of_arrows()),
+            Expr::Right(e1, e2) => 1 + std::cmp::max(e1.number_of_arrows(),e2.number_of_arrows())
+        }
+    }
+
+    fn inorder_visit(&self) -> (Vec<InOrder<T>>,InOrder<T>) {
+        let mut v = vec![];
+        let (_,root) = self.inorder_visit_aux(&mut v,0);
+        (v,root)
+    }
+
+    fn inorder_visit_aux(&self, v : &mut Vec<InOrder<T>>, before : usize) -> (usize,InOrder<T>) {
+        match self {
+            Expr::Base(x, b) => {
+                let leaf = InOrder::Leaf(x.clone(),*b);
+                v.push(leaf.clone());
+                (before,leaf)
+            },
+            Expr::Left(e1, e2) => {
+                let (after_left,left) = e1.inorder_visit_aux(v,before);
+                let parent_pos = after_left;
+                let after_parent = parent_pos + 1;
+                let (after_right,right) = e2.inorder_visit_aux(v,after_parent);
+                let internal = InOrder::Internal(Arrow::Left, parent_pos, Box::new(left), Box::new(right));
+                v.push(internal.clone());
+                (after_right,internal)
+            },
+            Expr::Right(e1, e2) => {
+                let (after_left,left) = e1.inorder_visit_aux(v,before);
+                let parent_pos = after_left;
+                let after_parent = parent_pos + 1;
+                let (after_right,right) = e2.inorder_visit_aux(v,after_parent);
+                let internal = InOrder::Internal(Arrow::Right, parent_pos, Box::new(left), Box::new(right));
+                v.push(internal.clone());
+                (after_right,internal)
+            }
+        }
+    }
+
+
+    fn arrows_inorder_visit(&self) -> Vec<Arrow> {
+        self.inorder_visit().0.into_iter().filter_map(|x|{
+            match x {
+                InOrder::Leaf(_, _) => None,
+                InOrder::Internal(arrow, id, _, _) => Some((arrow,id)),
+            }
+        })
+            .sorted_by_key(|(_,id)|*id)
+            .map(|(arrow,_)|arrow)
+            .collect_vec()
+    }
+
+    fn constraint_outer_gt_inner<F>(&self, instance : &mut SatInstance, less_than : F) where F : Copy + Fn(usize,usize) -> Lit {
+        let visit = self.inorder_visit().0;
+        for node in visit {
+            match node {
+                InOrder::Leaf(_, _) => {},
+                InOrder::Internal(_, id, left, right) => {
+                    if let InOrder::Internal(_,left ,_ ,_ ) = left.deref() {
+                        instance.add_clause([less_than(*left,id)].into());
+                    }
+                    if let InOrder::Internal(_,right ,_ ,_ ) = right.deref() {
+                        instance.add_clause([less_than(*right,id)].into());
+                    }
+                },
+            }
+        }
+    }
+
+
+
+
+}
+
+#[derive(Eq,PartialEq,Clone,Hash)]
+enum InOrder<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord + Hash{
+    Leaf(T,bool),
+    Internal(Arrow,usize,Box<InOrder<T>>,Box<InOrder<T>>)
+}
+
+#[derive(Eq,PartialEq,Copy,Clone,Hash)]
+enum Arrow{
+    Left,
+    Right
 }
 
 impl<T> Display for Expr<T> where T : Display + Hash  + Clone + Eq + PartialEq + PartialOrd + Ord {
@@ -797,6 +887,232 @@ impl Context<Label> {
 
 
 impl Problem {
+    
+    pub fn nofixpoint_find_algorithm(&self, exprs: &Vec<Expr<Label>>, context : &Context<Label>) -> Option<String> {
+        println!("got zero round line, trying to get an algorithm");
+        for e in exprs {
+            println!("{}",e.convert(&context.mapping_label_text));
+        }
+        println!("");
+
+        let mut instance: SatInstance = SatInstance::new();
+
+        let d = exprs.len();
+        let arrows_per_expr = exprs[0].number_of_arrows();
+        let arrows_per_line = arrows_per_expr * d;
+        let numbers = arrows_per_line * (d+1);
+
+        // ordering encoded as tournament
+        let ordering : Vec<Vec<Lit>> = (0..numbers).map(|_|{
+            (0..numbers).map(|_|{
+                instance.new_lit()
+            }).collect()
+        }).collect();
+        
+        for i in 0..numbers {
+            for j in 0..numbers {
+                if j != i {
+                    instance.add_card_constr(CardConstraint::new_eq([ordering[i][j],ordering[j][i]].into_iter(),1));
+                } else {
+                    instance.add_clause([ordering[i][i]].into());
+                }
+            }
+        }
+        for i in 0..numbers {
+            for j in 0..numbers {
+                for k in 0..numbers {
+                    instance.add_cube_impl_lit(&[ordering[i][j],ordering[j][k]],ordering[i][k]);
+                }
+            }
+        }
+
+        let less_than = |copy_1 : usize, expr_1 : usize,pos_1 : usize ,copy_2 : usize,expr_2 : usize,pos_2 : usize| -> Lit {
+            ordering[arrows_per_line*copy_1 + arrows_per_expr*expr_1 + pos_1][arrows_per_line*copy_2 + arrows_per_expr*expr_2 + pos_2]
+        };
+
+        let flattened = (0..d).map(|i|exprs[i].arrows_inorder_visit()).collect_vec();
+        // column: right > left
+        for i in 0..d {
+            for j in 0..d {
+                for k in 0..arrows_per_expr {
+                    if flattened[i][k] == Arrow::Right && flattened[j][k] == Arrow::Left {
+                        for copy in 0..d+1 {
+                            instance.add_clause([less_than(copy,j,k,copy,i,k)].into());
+                        }
+                    }
+                }
+            }
+        }
+        
+
+        // outer > inner
+        for i in 0..d {
+            for copy in 0..d+1 {
+                let less_than = |j : usize, k : usize| -> Lit {
+                    ordering[arrows_per_line*copy + arrows_per_expr*i + j][arrows_per_line*copy + arrows_per_expr*i + k]
+                };
+                exprs[i].constraint_outer_gt_inner(&mut instance, less_than);
+            }
+        }
+
+
+        for l1 in 0..d+1 {
+            for l2 in 0..d+1 {
+                if l1 < l2 {
+                    for p1 in 0..d {
+                        for p2 in 0..d {
+                            let e1 = &exprs[p1];
+                            let e2 = &exprs[p2];
+                            let (v1,root1) = e1.inorder_visit();
+                            let (v2,root2) = e2.inorder_visit();
+                            let id1_to_game1 : HashMap<_,_> = v1.iter().enumerate().filter_map(|(i,x)|{
+                                match x {
+                                    InOrder::Leaf(_, _) => None,
+                                    InOrder::Internal(_, id, _, _) => Some((id,i)),
+                                }
+                            }).collect();
+                            let id2_to_game2 : HashMap<_,_> = v2.iter().enumerate().filter_map(|(i,x)|{
+                                match x {
+                                    InOrder::Leaf(_, _) => None,
+                                    InOrder::Internal(_, id, _, _) => Some((id,i)),
+                                }
+                            }).collect();
+                            let inorder1_to_game1 : HashMap<_,_> = v1.iter().enumerate().map(|(i,x)|(x,i)).collect();
+                            let inorder2_to_game2 : HashMap<_,_> = v2.iter().enumerate().map(|(i,x)|(x,i)).collect();
+
+                            let inorder1_to_game1 = |x : &InOrder<Label>| {
+                                match x {
+                                    InOrder::Leaf(_, _) => inorder1_to_game1[x],
+                                    InOrder::Internal(_, id, _, _) => id1_to_game1[id],
+                                }
+                            };
+
+                            let inorder2_to_game2 = |x : &InOrder<Label>| {
+                                match x {
+                                    InOrder::Leaf(_, _) => inorder2_to_game2[x],
+                                    InOrder::Internal(_, id, _, _) => id2_to_game2[id],
+                                }
+                            };
+
+                            let subgames = (0..v1.len()).map(|_|(0..v2.len()).map(|_|instance.new_lit()).collect_vec()).collect_vec();
+                            for i in 0..v1.len() {
+                                for j in 0..v2.len() {
+                                    match (&v1[i],&v2[j]) {
+                                        (InOrder::Leaf(x1, _), InOrder::Leaf(x2, _)) => {
+                                            let line = Line{
+                                                parts: vec![
+                                                    Part{
+                                                        group : Group::from(vec![*x1]),
+                                                        gtype : GroupType::Many(1)
+                                                    },
+                                                    Part{
+                                                        group : Group::from(vec![*x2]),
+                                                        gtype : GroupType::Many(1)
+                                                    },
+                                                ]
+                                            };
+                                            let game = subgames[i][j];
+                                            if self.passive.includes(&line) {
+                                                instance.add_clause([game].into());
+                                            } else {
+                                                instance.add_clause([!game].into());
+                                            }
+                                        },
+                                        (InOrder::Leaf(_, _), InOrder::Internal(arrow, _, left, right)) => {
+                                            let g1 = subgames[i][inorder2_to_game2(left.deref())];
+                                            let g2 = subgames[i][inorder2_to_game2(right.deref())];
+                                            let game = subgames[i][j];
+                                            match arrow {
+                                                Arrow::Left => {
+                                                    instance.add_lit_impl_cube(game, &[g1,g2]);
+                                                },
+                                                Arrow::Right => {
+                                                    instance.add_lit_impl_clause(game, &[g1,g2]);
+                                                },
+                                            }
+                                        },
+                                        (InOrder::Internal(arrow, _, left, right), InOrder::Leaf(_, _)) => {
+                                            let g1 = subgames[inorder1_to_game1(left.deref())][j];
+                                            let g2 = subgames[inorder1_to_game1(right.deref())][j];
+                                            let game = subgames[i][j];
+                                            match arrow {
+                                                Arrow::Left => {
+                                                    instance.add_lit_impl_cube(game, &[g1,g2]);
+                                                },
+                                                Arrow::Right => {
+                                                    instance.add_lit_impl_clause(game, &[g1,g2]);
+                                                },
+                                            }
+                                        },
+                                        (InOrder::Internal(a1, id1, left1, right1), InOrder::Internal(a2, id2, left2, right2)) => {
+                                            let lt = less_than(l1,p1,*id1,l2,p2,*id2);
+                                            let g1 = subgames[inorder1_to_game1(left1.deref())][j];
+                                            let g2 = subgames[inorder1_to_game1(right1.deref())][j];
+                                            let g3 = subgames[i][inorder2_to_game2(left2.deref())];
+                                            let g4 = subgames[i][inorder2_to_game2(right2.deref())];
+                                            let game = subgames[i][j];
+                                            match a1 {
+                                                Arrow::Left => {
+                                                    instance.add_cube_impl_cube(&[!lt,game], &[g1,g2]);
+                                                },
+                                                Arrow::Right => {
+                                                    instance.add_cube_impl_clause(&[!lt,game], &[g1,g2]);
+                                                },
+                                            }
+                                            match a2 {
+                                                Arrow::Left => {
+                                                    instance.add_cube_impl_cube(&[lt,game], &[g3,g4]);
+                                                },
+                                                Arrow::Right => {
+                                                    instance.add_cube_impl_clause(&[lt,game], &[g3,g4]);
+                                                },
+                                            }
+                                        },
+                                    }
+                                }
+                            }
+                            let root1 = inorder1_to_game1(&root1);
+                            let root2 = inorder1_to_game1(&root2);
+                            let game = subgames[root1][root2];
+                            instance.add_clause([game].into());
+                        }
+                    }
+                }
+            }
+        }
+
+
+        // extract the solution
+        let ordering_flattened = ordering.iter().flat_map(|v|v.iter().cloned()).collect_vec();
+        if let Some(solution) = solve_sat(instance,&ordering_flattened) {
+            let true_lits : HashSet<_> = solution.into_iter().collect();
+            let mut numbers = (0..numbers).collect_vec();
+            numbers.sort_by(|&a,&b|{
+                if true_lits.contains(&ordering[a][b]) {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            });
+            let mut result = vec![0;numbers.len()];
+            for i in 0..numbers.len() {
+                result[numbers[i]] = i;
+            }
+            let mut s = String::new();
+            for copy in 0..d+1 {
+                for i in 0..d {
+                    for j in 0..arrows_per_expr {
+                        s += &format!("{:3}",result[copy*arrows_per_line + i*arrows_per_expr + j]);
+                    }
+                    s += &format!("\n");
+                }
+                s += &format!("\n");
+            }
+            Some(s)
+        } else {
+            None
+        }
+    }
 
 
     fn nofixpoint(&self, eh : &mut EventHandler) -> Result<Problem,String> {
@@ -807,8 +1123,9 @@ impl Problem {
         println!("starting diagram");
         context.print_diagram();
         
-        let mut expr_to_check : Vec<Vec<(Expr<u32>, Expr<u32>)>> = vec![];
-
+        let mut expr_to_check : Vec<Vec<(Expr<Label>, Expr<Label>)>> = vec![];
+        let mut original_expr : Vec<Vec<Expr<Label>>> = vec![];
+        
         loop {
             //context.fix();
             println!("fixing diagram");
@@ -817,7 +1134,7 @@ impl Problem {
             println!("new diagram");
             //context.print_diagram();
 
-            for not_all_of_these in &expr_to_check {
+            for (i,not_all_of_these) in expr_to_check.iter().enumerate() {
                 if not_all_of_these.iter().all(|(m,e)|{
                     m.is_pred(e,&mut context.relations)
                 }) {
@@ -827,6 +1144,17 @@ impl Problem {
                     let exprs = not_all_of_these.iter().map(|(_,e)|e).unique();
                     for e in exprs {
                         s += &format!("{}, ",e.convert(&context.mapping_label_text));
+                    }
+                    s += "\nOriginal expressions:\n";
+                    for e in original_expr[i].iter() {
+                        s += &format!("{}\n",e.convert(&context.mapping_label_text));
+                    }
+                    s += "\n";
+                    if let Some(algo) = self.nofixpoint_find_algorithm(&original_expr[i],&context) {
+                        s += "Obtained algorithm:\n";
+                        s += &algo;
+                    } else {
+                        s += "Cannot convert it into an algorithm";
                     }
                     return Err(s);
                 }
@@ -872,16 +1200,16 @@ impl Problem {
                         })
                     }) {
                         println!("trivial line: {}",line.to_string(&mapping));
-                        let mut obtained_expressions = HashSet::new();
+                        let mut obtained_expressions = vec![];
                         for i in 0..degree {
                             //println!("\n\nposition {}",i);
                             let expr = expression_for_line_at(&line,i, &tracking,&mapping);
                             let expr : E<Label> = expr.to_expr();
                             let e = expr.as_expr().convert(&mapping_newlabel_label);
-                            println!("GOT {}",e.convert(&context.mapping_label_text));
-                            obtained_expressions.insert(e);
+                            //println!("GOT {}",e.convert(&context.mapping_label_text));
+                            obtained_expressions.push(e);
                         }
-                        let leftmost_expressions = context.leftmost_expressions(&obtained_expressions);
+                        let leftmost_expressions = context.leftmost_expressions(&obtained_expressions.iter().unique().cloned().collect());
                         let mut obtained_pairs = vec![];
                         for e in &leftmost_expressions {
                             let me = e.mirrored();
@@ -895,10 +1223,11 @@ impl Problem {
                         let mut not_all_of_these = vec![];
                         for (me1,_) in &obtained_pairs {
                             for (_,e2) in &obtained_pairs {
-                                not_all_of_these.push((me1.clone(),e2.clone()));
+                                not_all_of_these.push((me1.clone().reduce(&mut context.relations),e2.clone().reduce(&mut context.relations)));
                             }
                         }
                         expr_to_check.push(not_all_of_these);
+                        original_expr.push(obtained_expressions);
                     }
                 }
             }

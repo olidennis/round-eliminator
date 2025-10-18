@@ -360,7 +360,7 @@ impl Problem {
     }
 }
 
-fn solve_sat(instance : SatInstance, lits : &[Lit]) -> Option<Vec<Lit>> {
+pub fn solve_sat(instance : SatInstance, lits : &[Lit]) -> Option<Vec<Lit>> {
 
 
     #[cfg(feature = "all")]
