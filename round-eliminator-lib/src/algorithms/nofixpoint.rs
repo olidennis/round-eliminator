@@ -898,9 +898,10 @@ impl Problem {
         let mut instance: SatInstance = SatInstance::new();
 
         let d = exprs.len();
+        let colors = d+1;
         let arrows_per_expr = exprs[0].number_of_arrows();
         let arrows_per_line = arrows_per_expr * d;
-        let numbers = arrows_per_line * (d+1);
+        let numbers = arrows_per_line * colors;
 
         // ordering encoded as tournament
         let ordering : Vec<Vec<Lit>> = (0..numbers).map(|_|{
@@ -936,7 +937,7 @@ impl Problem {
             for j in 0..d {
                 for k in 0..arrows_per_expr {
                     if flattened[i][k] == Arrow::Right && flattened[j][k] == Arrow::Left {
-                        for copy in 0..d+1 {
+                        for copy in 0..colors {
                             instance.add_clause([less_than(copy,j,k,copy,i,k)].into());
                         }
                     }
@@ -947,7 +948,7 @@ impl Problem {
 
         // outer > inner
         for i in 0..d {
-            for copy in 0..d+1 {
+            for copy in 0..colors {
                 let less_than = |j : usize, k : usize| -> Lit {
                     ordering[arrows_per_line*copy + arrows_per_expr*i + j][arrows_per_line*copy + arrows_per_expr*i + k]
                 };
@@ -956,8 +957,8 @@ impl Problem {
         }
 
 
-        for l1 in 0..d+1 {
-            for l2 in 0..d+1 {
+        for l1 in 0..colors {
+            for l2 in 0..colors {
                 if l1 < l2 {
                     for p1 in 0..d {
                         for p2 in 0..d {
@@ -1099,7 +1100,7 @@ impl Problem {
                 result[numbers[i]] = i;
             }
             let mut s = String::new();
-            for copy in 0..d+1 {
+            for copy in 0..colors {
                 for i in 0..d {
                     for j in 0..arrows_per_expr {
                         s += &format!("{:3}",result[copy*arrows_per_line + i*arrows_per_expr + j]);
