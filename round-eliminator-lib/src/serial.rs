@@ -139,7 +139,7 @@ where
                     fix_problem(&mut new, true, true, &mut eh);
                     handler(Response::P(new));
                 }
-                Err(s) => handler(Response::E(s.into())),
+                Err(s) => handler(Response::W(s.into())),
             }
         }
         Request::FixpointCustom(mut problem, diagram, partial, triviality_only, sublabels) => {
