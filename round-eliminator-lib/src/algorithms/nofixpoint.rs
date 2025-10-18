@@ -252,8 +252,8 @@ impl<T> Expr<T> where T : Hash + Clone + Eq + PartialEq + PartialOrd + Ord{
     fn number_of_arrows(&self) -> usize {
         match self {
             Expr::Base(_, _) => 0,
-            Expr::Left(e1, e2) => 1 + std::cmp::max(e1.number_of_arrows(),e2.number_of_arrows()),
-            Expr::Right(e1, e2) => 1 + std::cmp::max(e1.number_of_arrows(),e2.number_of_arrows())
+            Expr::Left(e1, e2) => 1 + e1.number_of_arrows() + e2.number_of_arrows(),
+            Expr::Right(e1, e2) => 1 + e1.number_of_arrows() + e2.number_of_arrows()
         }
     }
 
