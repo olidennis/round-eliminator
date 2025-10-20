@@ -1103,7 +1103,7 @@ impl Problem {
             for copy in 0..colors {
                 for i in 0..d {
                     for j in 0..arrows_per_expr {
-                        s += &format!("{:3}",result[copy*arrows_per_line + i*arrows_per_expr + j]);
+                        s += &format!("{:3} ",result[copy*arrows_per_line + i*arrows_per_expr + j]);
                     }
                     s += &format!("\n");
                 }
@@ -1154,9 +1154,11 @@ impl Problem {
                     if let Some(algo) = self.nofixpoint_find_algorithm(&original_expr[i],&context) {
                         s += "Obtained algorithm:\n";
                         s += &algo;
+                        //return Err(s);
                     } else {
                         s += "Cannot convert it into an algorithm";
                     }
+                    //println!("{}",s);
                     return Err(s);
                 }
             }
