@@ -374,9 +374,8 @@ fn parse_subdiagram(subdiagram : &str) -> Option<Vec<SubDiagram>> {
     ";
 
     let grammar: Grammar = grammar.parse().unwrap();
-
-
-    let parsed = grammar.parse_input(subdiagram).next()?;
+    let parser = grammar.build_parser().ok()?;
+    let parsed = parser.parse_input(subdiagram).next()?;
     parse_input(&parsed)
 }
 

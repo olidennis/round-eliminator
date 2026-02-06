@@ -26,7 +26,7 @@ rayon = "1.10"
 rustsat = "0.5"
 chrono = "0.4"
 bit-vec = "0.8"
-bnf = "0.5"
+bnf = "0.6"
 parking_lot = "0.12"
 varisat = { version = "0.2", optional = true }
 rustsat-minisat = { version = "0.3", optional = true }
