@@ -1151,13 +1151,13 @@ impl Problem {
                         s += &format!("{}\n",e.convert(&context.mapping_label_text));
                     }
                     s += "\n";
-                    if let Some(algo) = self.nofixpoint_find_algorithm(&original_expr[i],&context) {
+                    /*if let Some(algo) = self.nofixpoint_find_algorithm(&original_expr[i],&context) {
                         s += "Obtained algorithm:\n";
                         s += &algo;
                         //return Err(s);
                     } else {
                         s += "Cannot convert it into an algorithm";
-                    }
+                    }*/
                     //println!("{}",s);
                     return Err(s);
                 }

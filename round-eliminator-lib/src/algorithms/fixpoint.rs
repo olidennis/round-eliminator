@@ -700,10 +700,11 @@ impl Problem {
         let old_labels : HashMap<Label,String> = mapping_label_newlabel.iter().map(|(l,&n)|{
             (n,old_to_str[l].clone())
         }).collect();
-        //let avoidance = Problem::avoidance_sets(&old_labels.keys().cloned().collect(),&passive_successors);
-        //println!("----Tree----");
-        //Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(X_Y)"]);
-        //println!("----End Tree----");
+        let avoidance = Problem::avoidance_sets(&old_labels.keys().cloned().collect(),&passive_successors);
+        println!("{:?}",tostr_rev);
+        println!("----Tree----");
+        Problem::print_tree_for_label(&tree_for_labels,&tostr,&avoidance,&old_labels,tostr_rev["(B_G_X)"]);
+        println!("----End Tree----");
 
         //println!("Computing passive");
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
@@ -792,7 +793,7 @@ impl Problem {
             };
             let line = Line { parts: vec![part] };
             if passive.includes(&line) {
-                //println!("candidate {}",target_line.to_string(&tostr));
+                println!("candidate {}",target_line.to_string(&tostr));
                 if Problem::fp_is_obtainable(&mut active, &mut not_obtainable,&target_line, &passive_successors,&tostr,&tree_for_labels) {
                     let mut p = self.clone();
                     p.fixpoint_procedure_works = Some(false);
@@ -821,11 +822,13 @@ impl Problem {
 
     fn print_tree_for_label_aux(tree_for_labels: &HashMap<Label,Vec<(Label,Label)>>,tostr:&HashMap<Label,String>, avoidance: &HashMap<Label, Vec<Label>>, old_labels : &HashMap<Label,String>,label : Label,parent_id : usize, id : &mut usize ){
         let v = &tree_for_labels[&label];
+        //println!("v.len = {}, parent_id = {}",v.len(),parent_id);
         if v.len() != 1 || parent_id == 0 {
             let avoided_labels = avoidance[&label].iter().map(|l|&old_labels[&l]).sorted().join("");
             *id += 1;
             let node_id = *id;
             println!("  {}[label=\"{} {}\"]",node_id,avoided_labels,tostr[&label]);
+            //println!("  {}[label=\"{}\"]",node_id,avoided_labels);
             if parent_id != 0 { println!("  {} -> {}",parent_id,node_id); }
             //println!("{} ({})",tostr[&label],avoided_labels);
             //for (l1,l2) in v {
@@ -833,6 +836,7 @@ impl Problem {
             //}
             println!();
             for (l1,l2) in v {
+                //println!("case1, to get {} we can use {} {}",tostr[&label],tostr[l1],tostr[l2]);
                 *id += 1;
                 let branch_id = *id;
                 println!("  {}[label=\"\" shape=point]",branch_id);
@@ -842,6 +846,7 @@ impl Problem {
             }
         } else {
             for (l1,l2) in v {
+                //println!("case2, to get {} we can use {} {}",tostr[&label],tostr[l1],tostr[l2]);
                 Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,*l1,parent_id,id);
                 Problem::print_tree_for_label_aux(tree_for_labels,tostr,avoidance,old_labels,*l2,parent_id,id);
             }
@@ -905,6 +910,12 @@ impl Problem {
             }
         }
         let good_pairs : Vec<_> = good_pairs.into_iter().unique().collect();
+        //println!("{:?}",tostr);
+        //if tostr[&label] == "(X_Y_Z)" {
+        //    for (l1,l2) in &good_pairs {
+        //        println!("good pair {} {}",tostr[l1],tostr[l2]);
+        //    }
+        //}
         /* 
         let mut good_pairs = vec![];
         for &l1 in &candidates {
@@ -928,6 +939,11 @@ impl Problem {
             (line.parts[0].group.first(),line.parts[1].group.first())
         }).collect();
 
+        //if tostr[&label] == "(X_Y_Z)" {
+        //    for (l1,l2) in &resulting_pairs {
+        //        println!("resulting pair {} {}",tostr[l1],tostr[l2]);
+        //    }
+        //}
 
         for (l1,l2) in &resulting_pairs {
             if reachability[&l1].contains(&label) && reachability[&l2].contains(&label) {
@@ -1707,7 +1723,7 @@ XY XY").unwrap();
 
 }
 
-/* 
+
 #[test]
 fn defective_coloring(){
     let eh = &mut EventHandler::null();
@@ -1722,9 +1738,10 @@ Bb CcDd
 Cc Dd
 abcd abcd").unwrap();
     p.compute_partial_diagram(eh);
-    p.compute_default_fixpoint_diagram(None,eh);
+    p.compute_default_fixpoint_diagram(None,false,vec![],eh);
 
     let m : HashMap<String,Label> = p.fixpoint_diagram.as_ref().unwrap().1.mapping_newlabel_text.iter().cloned().map(|(a,b)|(b.chars().filter(|&c|c!='('&&c!=')').collect(),a)).collect();
+    println!("starting fp procedure");
     let p = p.fixpoint_generic(None,FixpointType::Dup(
             vec![
                 vec![m["ABabcd"],m["Aabcd"],m["Babcd"],m["abcd"],m["Aacd"],m["Bbcd"],m["bcd"],m["acd"],m["cd"]],
@@ -1733,12 +1750,12 @@ abcd abcd").unwrap();
                 vec![m["BCabcd"],m["Babcd"],m["Cabcd"],m["abcd"],m["Babd"],m["Cacd"],m["acd"],m["abd"],m["ad"]],
                 vec![m["BDabcd"],m["Babcd"],m["Dabcd"],m["abcd"],m["Babc"],m["Dacd"],m["acd"],m["abc"],m["ac"]],
                 vec![m["CDabcd"],m["Cabcd"],m["Dabcd"],m["abcd"],m["Cabc"],m["Dabd"],m["abd"],m["abc"],m["ab"]],
-                vec![m["Aabcd"],m["abcd"],m["bcd"]],
-                vec![m["Babcd"],m["abcd"],m["acd"]],
-                vec![m["Cabcd"],m["abcd"],m["abd"]],
-                vec![m["Dabcd"],m["abcd"],m["abc"]],
-                vec![m["abcd"]]
-            ]),true,eh).unwrap().0;
+                //vec![m["Aabcd"],m["abcd"],m["bcd"]],
+                //vec![m["Babcd"],m["abcd"],m["acd"]],
+                //vec![m["Cabcd"],m["abcd"],m["abd"]],
+                //vec![m["Dabcd"],m["abcd"],m["abc"]],
+                //vec![m["abcd"]]
+            ],false),true,eh).unwrap().0;
     let is_fp = *p.fixpoint_procedure_works.as_ref().unwrap();
     if is_fp {
         println!("got a fixed point");
@@ -1766,7 +1783,7 @@ fn cubes(s : &str, append : &str) -> Vec<String> {
     out
 }
 
-
+/* 
 #[test]
 fn defective_5_coloring(){
     let eh = &mut EventHandler::null();
