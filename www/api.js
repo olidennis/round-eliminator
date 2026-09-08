@@ -105,6 +105,10 @@ function request_server(req, onresult, oncomplete) {
 
 let use_wasm = !window.location.href.includes("server");
 
+export function supports_lattice_normalization() {
+    return !use_wasm;
+}
+
 export function request(req, onresult, oncomplete) {
     if( use_wasm ){
         //console.log("wasm request");

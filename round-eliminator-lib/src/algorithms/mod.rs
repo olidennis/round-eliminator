@@ -37,3 +37,5 @@ pub mod logstar;
 pub mod nofixpoint;
 #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
 pub mod fixpoint_sat;
+#[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+pub mod fixpoint_normalize;

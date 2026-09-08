@@ -555,10 +555,13 @@ struct Failure {
 /// name mergers. Do not use mapping_label_oldlabels: a lattice node is not a
 /// speedup label/set, and "rename by generators" would be misleading here.
 fn name_fixed_point(original: &Problem, candidate: &Candidate, result: &mut Problem) {
+    name_fixed_point_with_mapping(original, &candidate.label_mapping(), candidate.order.len(), result);
+}
+
+pub(super) fn name_fixed_point_with_mapping(original: &Problem, mapping: &[(Label, Label)], nodes: usize, result: &mut Problem) {
     let original_names: HashMap<_, _> = original.mapping_label_text.iter().cloned().collect();
-    let mapping = candidate.label_mapping();
-    let mut preimages = vec![Vec::new(); candidate.order.len()];
-    for &(a, b) in &mapping {
+    let mut preimages = vec![Vec::new(); nodes];
+    for &(a, b) in mapping {
         preimages[b as usize].push(original_names[&a].clone());
     }
     for labels in &mut preimages {
@@ -605,7 +608,7 @@ fn name_fixed_point(original: &Problem, candidate: &Candidate, result: &mut Prob
             .map(|&(a, _)| (a, original_names[&a].clone()))
             .collect(),
     );
-    result.mapping_oldlabel_labels = Some(mapping.into_iter().map(|(a, b)| (a, vec![b])).collect());
+    result.mapping_oldlabel_labels = Some(mapping.iter().map(|&(a, b)| (a, vec![b])).collect());
 }
 
 /// An active derivation A and, for each ordered pair of positions of A, a

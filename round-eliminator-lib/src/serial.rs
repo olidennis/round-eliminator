@@ -82,7 +82,7 @@ where
         // Echo the native SAT search's existing, throttled GUI progress to the
         // server terminal as well. Use stderr so JSON output stays untouched.
         #[cfg(not(target_arch = "wasm32"))]
-        if x.0 != "Loop: searches running" && (x.0.starts_with("SAT:") || x.0.starts_with("Proof:") || x.0.starts_with("Loop:")) {
+        if x.0 != "Loop: searches running" && (x.0.starts_with("SAT:") || x.0.starts_with("Proof:") || x.0.starts_with("Loop:") || x.0.starts_with("Normalize:")) {
             if x.2 > 0 {
                 eprintln!("{} ({}/{})", x.0, x.1, x.2);
             } else if x.1 > 0 {
@@ -164,6 +164,20 @@ where
                     handler(Response::P(new));
                 }
                 Err(s) => handler(Response::E(s.into())),
+            }
+        }
+        Request::FixpointNormalize(problem) => {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+            match problem.normalize_fixed_point(&Default::default(), &mut eh) {
+                // Already verified and prepared for display. Do not run
+                // fix_problem: it removes auxiliary construction elements.
+                Ok(result) => handler(Response::P(result.problem)),
+                Err(message) => handler(Response::E(message)),
+            }
+            #[cfg(not(all(not(target_arch = "wasm32"), feature = "all")))]
+            {
+                let _ = problem;
+                handler(Response::E("Lattice normalization requires the native server built with the all feature".into()));
             }
         }
         Request::FixpointCustom(mut problem, diagram, partial, triviality_only, sublabels) => {
@@ -677,6 +691,7 @@ pub enum Request {
     FixpointBasic(Problem, bool, bool, Vec<Label>),
     FixpointLoop(Problem, bool, bool, Vec<Label>),
     FixpointCustom(Problem,String, bool, bool, Vec<Label>),
+    FixpointNormalize(Problem),
     FixpointDup(Problem,Vec<Vec<Label>>, bool, bool, Vec<Label>, bool),
     FixpointAddarrow(Problem),
     InverseSpeedup(Problem),

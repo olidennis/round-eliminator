@@ -88,6 +88,11 @@ function fixpoint_loop(problem, partial, triviality_only, sublabels, onresult, o
     return api.request({ FixpointLoop : [problem,partial,triviality_only,sublabels] }, ondata , function(){});
 }
 
+function fixpoint_normalize(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ FixpointNormalize : problem }, ondata, function(){});
+}
+
 function fixpoint_custom(problem, diagram, partial, triviality_only, sublabels, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ FixpointCustom : [problem, diagram, partial, triviality_only, sublabels] }, ondata , function(){});
@@ -478,6 +483,8 @@ Vue.component('re-performed-action', {
                     return "Generated Default Fixed Point Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
                 case "fixpoint-loop":
                     return "Generated Fixed Point with Automatic Diagram Fixing" + (this.action.sub !== null ? " for labels " + this.action.sub : "");
+                case "fixpoint-normalize":
+                    return "Constructed a Nontrivial Lattice-Based Fixed Point Relaxation";
                 case "fixpoint-custom":
                     return "Generated Fixed Point with Custom Diagram" + (this.action.sub !== null ? " for labels " + this.action.sub : "") + ":\n" + this.action.diagram;
                 case "fixpoint-dup":
@@ -1981,6 +1988,9 @@ Vue.component('re-begin', {
 
 Vue.component('re-fixpoint',{
     props: ['problem','stuff'],
+    computed: {
+        native_normalization() { return api.supports_lattice_normalization(); }
+    },
     data: function(){ return {
         table: this.problem.mapping_label_text.map(x => {
                 let enabled = this.problem.fixpoint_diagram !== null && this.problem.fixpoint_diagram[0] !== null && this.problem.fixpoint_diagram[0].indexOf(x[0]) !== -1;
@@ -2016,6 +2026,9 @@ Vue.component('re-fixpoint',{
         },
         on_fp_addarrow(){
             call_api_generating_problem(this.stuff,{type:"fixpoint-addarrow"},fixpoint_addarrow,[this.problem]);
+        },
+        on_normalize(){
+            call_api_generating_problem(this.stuff,{type:"fixpoint-normalize"},fixpoint_normalize,[this.problem]);
         }
     },
     template: `
@@ -2054,6 +2067,10 @@ Vue.component('re-fixpoint',{
             </div>
             <div class="m-2"><re-fixpoint-basic :problem="problem" :stuff="stuff" :partial="partial" :table="table" :triviality_only="triviality_only"></re-fixpoint-basic> (with default diagram)</div>
             <div class="m-2"><re-fixpoint-loop :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-loop> (with default diagram, automatic fixing)</div>
+            <div v-if="native_normalization" class="m-2">
+                <button type="button" class="btn btn-primary m-2" v-on:click="on_normalize">Make fixed point good</button>
+                <div>Lattice Diagram</div>
+            </div>
             <div v-if="this.problem.fixpoint_diagram === null" class="m-2">
                 <re-fixpoint-gendefault :problem="problem" :stuff="stuff" :partial="partial" :table="table"  :triviality_only="triviality_only"></re-fixpoint-gendefault> for additional options, click here
             </div>
