@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     use std::io::Write;
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let usage = "Usage: fixpoint_certificate_algorithm extract PROBLEM CERTIFICATE OUTPUT.json [seconds] [--sat-only]\n       fixpoint_certificate_algorithm verify PROBLEM ALGORITHM.json";
+    let usage = "Usage: fixpoint_certificate_algorithm extract PROBLEM CERTIFICATE OUTPUT.json [seconds] [--sat-only]\n       fixpoint_certificate_algorithm normalize PROBLEM CERTIFICATE OUTPUT.txt [seconds]\n       fixpoint_certificate_algorithm verify PROBLEM ALGORITHM.json";
     if args.len() < 3 {
         return Err(usage.into());
     }
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         return Ok(());
     }
-    if args[0] != "extract" || args.len() < 4 {
+    if !matches!(args[0].as_str(), "extract" | "normalize") || args.len() < 4 {
         return Err(usage.into());
     }
     if std::path::Path::new(&args[3]).exists() {
@@ -44,6 +44,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let certificate = std::fs::read_to_string(&args[2])?;
     let mut eh =
         EventHandler::with(|(message, current, total)| eprintln!("{message}: {current}/{total}"));
+    if args[0] == "normalize" {
+        match algorithm::normalize_certificate(&problem, &certificate, options.time_limit, &mut eh)?
+        {
+            Some(normalized) => {
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&args[3])?;
+                file.write_all(normalized.as_bytes())?;
+                println!("Verified synchronized certificate saved to {}", args[3]);
+            }
+            None => println!("Certificate reconstruction budget reached; inconclusive."),
+        }
+        return Ok(());
+    }
     match algorithm::extract(&problem, &certificate, &options, &mut eh)? {
         Outcome::Found(found) => {
             algorithm::verify(&problem, &found)?;
@@ -62,10 +77,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&found.stats)?);
         }
         Outcome::NoSchedule(stats) => {
-            println!("No schedule exists in this certificate's priority-based extraction scheme. This is NOT a lower bound on distributed algorithms.\n{}",serde_json::to_string_pretty(&stats)?);
+            println!("No schedule exists for this certificate's chosen synchronized derivation in the priority-based extraction scheme. This is NOT a lower bound on distributed algorithms, nor does it exclude other reconstructions.\n{}",serde_json::to_string_pretty(&stats)?);
         }
         Outcome::Inconclusive(stats) => println!(
-            "Algorithm extraction time limit reached; inconclusive.\n{}",
+            "Algorithm extraction budget reached (time or reconstruction limit); inconclusive.\n{}",
             serde_json::to_string_pretty(&stats)?
         ),
     }

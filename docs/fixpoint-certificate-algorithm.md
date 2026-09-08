@@ -1,10 +1,14 @@
 # Extracting a priority algorithm from a supplied certificate
 
 The native runner takes an existing nonexistence certificate; it does not
-search for a diagram or rediscover the certificate. Use the unshortened
-`Original expressions`, since their synchronized derivation columns are
-needed by the extractor. The automatic extraction call in GUI Loop remains
-disabled, and WASM is unchanged.
+search for a diagram or rediscover the certificate. It now accepts the
+`Original expressions` printed by native Loop even when their tree shapes
+have been simplified independently. Before priority search it restores a
+synchronized active derivation using only commutativity and idempotency,
+then checks the active derivation, projection equivalence, and universal
+certificate. Already-synchronized certificates keep their exact trees.
+The automatic extraction call in GUI Loop remains disabled, and WASM is
+unchanged.
 
 Two bugs in the original helper were fixed: the second tree's root now uses
 the second tree's index map, and the priority comparator returns `Equal`
@@ -47,6 +51,39 @@ and inorder arrow position. Higher ranks act first. The extractor uses
 degree-plus-one colors. `--sat-only` disables the preliminary deterministic
 schedule candidates and their SAT phase hints.
 
+Saved algorithms include the original readable text as `source_certificate`
+and the full reconstructed trees as `certificate`. Verification uses the
+saved full trees and does not rerun reconstruction. Existing algorithm JSON
+without the optional provenance field is still accepted.
+
+To restore and save a certificate without running priority SAT:
+
+```sh
+round-eliminator-lib/target/release/examples/fixpoint_certificate_algorithm normalize \
+  problem.txt certificate.txt synchronized.txt 60
+```
+
+Reconstruction is deterministic and memoized over tuples of the supplied
+subterms. It preserves repeated label occurrences and verifies original
+active leaf configurations. It does not invent arbitrary new subexpressions
+or relax certificate checking. The search stops inconclusively at its time
+budget or 200,000 cached tuple states; expansion beyond one million tree
+nodes is rejected explicitly. These limits do not imply impossibility.
+
+Different placements of restored redundant operators can produce different
+priority-search instances. Only the first recovered derivation is searched;
+an UNSAT result does **not** exclude other reconstructions. The original
+certificate and its nonexistence conclusion are unaffected.
+
+The 19 previously rejected certificates (cases 1–15 and 17–20 of the
+unclassified batch) were rerun with 60 seconds per extraction. All 19 now
+reach priority search and return UNSAT for their chosen reconstructed
+derivation. There were no input failures or timeouts; measured wall times
+were 0.01–3.29 seconds, running two cases concurrently. Reconstructed trees
+had 8–64 arrows per expression. No algorithm was found in this experiment.
+The exact reduced inputs are retained in the regression fixture
+`round-eliminator-lib/src/algorithms/nofixpoint/algorithm/fixtures/loop_certificates.json`.
+
 ## Supplied hard certificate: completed, UNSAT
 
 The first corrected, lazy-cycle implementation completed the supplied case
@@ -83,8 +120,13 @@ different certificate or a more general extraction scheme.
 
 ## Regression checks
 
-Five native tests cover the old helper's second-root bug, all four-event
-tournaments and lazy cycle exclusions, SAT/concrete-game agreement for all
-six-event schedules of a small example, independent schedule verification,
-and parsing/validation of the exact supplied certificate.
-All five pass, as do all 37 existing native fixed-point SAT/game/proof tests.
+Tests cover the old helper's second-root bug, all four-event tournaments
+and lazy cycle exclusions, SAT/concrete-game agreement for all six-event
+schedules of a small example, independent schedule verification, and the
+exact supplied hard certificate. Reconstruction tests cover idempotent
+columns, independently swapped children, repeated occurrences, invalid
+leaves, interruption, and exact normalization round trips for all 19 saved
+Loop certificates that previously failed before SAT search.
+All 40 native fixed-point SAT/game/proof tests and all eight algorithm
+extraction tests pass, including a recovered schedule's JSON round trip and
+independent verification.

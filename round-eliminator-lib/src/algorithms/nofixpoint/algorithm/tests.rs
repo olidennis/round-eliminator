@@ -148,3 +148,72 @@ fn supplied_certificate_is_accepted_without_searching_for_it() {
         (4, 5, 61, 1220)
     );
 }
+
+#[test]
+fn all_nineteen_reduced_loop_certificates_reconstruct_and_round_trip() {
+    #[derive(serde::Deserialize)]
+    struct Case {
+        id: usize,
+        problem: String,
+        certificate: String,
+    }
+    let cases: Vec<Case> =
+        serde_json::from_str(include_str!("fixtures/loop_certificates.json")).unwrap();
+    assert_eq!(cases.len(), 19);
+    for case in cases {
+        let p = problem(&case.problem);
+        let normalized = normalize_certificate(
+            &p,
+            &case.certificate,
+            Some(Duration::from_secs(30)),
+            &mut EventHandler::null(),
+        )
+        .unwrap_or_else(|e| panic!("case {}: {e}", case.id))
+        .unwrap_or_else(|| panic!("case {} timed out", case.id));
+        let prepared = prepare(&p, &normalized).unwrap();
+        assert_eq!(prepared.degree, 3);
+        assert_eq!(prepared.colors, 4);
+        assert_eq!(
+            normalize_certificate(&p, &normalized, None, &mut EventHandler::null())
+                .unwrap()
+                .unwrap(),
+            normalized
+        );
+    }
+}
+
+#[test]
+fn reconstruction_timeout_is_inconclusive_not_unsat() {
+    let p = problem("A A\n\nA A");
+    let outcome = extract(
+        &p,
+        "Original expressions:\nA\nA\n",
+        &Options {
+            time_limit: Some(Duration::ZERO),
+            ..Default::default()
+        },
+        &mut EventHandler::null(),
+    )
+    .unwrap();
+    assert!(matches!(outcome, Outcome::Inconclusive(_)));
+}
+
+#[test]
+fn recovered_algorithm_saves_full_trees_and_round_trips_without_reconstruction() {
+    let p = problem("A A B\nA B C\n\nABC ABC");
+    let reduced = "Original expressions:\nA\n[C←A]\nB\n";
+    let Outcome::Found(found) =
+        extract(&p, reduced, &Options::default(), &mut EventHandler::null()).unwrap()
+    else {
+        panic!("All passive label pairs are compatible");
+    };
+    assert_eq!(found.source_certificate.as_deref(), Some(reduced));
+    assert_ne!(found.certificate, reduced);
+    assert_eq!(found.arrows_per_expression, 1);
+    let mut json = serde_json::to_value(&found).unwrap();
+    let saved: Algorithm = serde_json::from_value(json.clone()).unwrap();
+    verify(&p, &saved).unwrap();
+    // Provenance is optional for backwards-compatible algorithm JSON.
+    json.as_object_mut().unwrap().remove("source_certificate");
+    verify(&p, &serde_json::from_value(json).unwrap()).unwrap();
+}

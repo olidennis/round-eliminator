@@ -7,6 +7,7 @@ use std::io::Write;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+mod reconstruct;
 mod restrictions;
 
 /// Optional benchmark restrictions. These do not change the GUI Loop search.
@@ -302,6 +303,46 @@ pub(crate) fn validated_certificate_terms(problem: &Problem, text: &str) -> Resu
     Ok(terms)
 }
 
+/// Restore a synchronized active derivation from Loop's idempotency-reduced,
+/// independently commuted projections. A budget stop is not a failed proof.
+pub(crate) fn reconstructed_certificate_terms(
+    problem: &Problem,
+    text: &str,
+    checkpoint: &mut dyn FnMut(usize) -> bool,
+) -> Result<Option<Vec<Term>>> {
+    let problem = prepare(problem)?;
+    let terms = parse_known(&problem, text)?;
+    if NonexistenceOracle::new(&problem).check(&terms).is_none() {
+        return Err("Expressions are not a universal nonexistence certificate".into());
+    }
+    if !checkpoint(0) {
+        return Ok(None);
+    }
+    let inputs = input_terms(&problem);
+    // Never change an already synchronized certificate: its precise tree
+    // positions are part of the fixed-priority extraction scheme.
+    if reconstruct::synchronized(&terms) {
+        KnownPlan::new(&inputs).derive(&terms)?;
+        return Ok(Some(terms));
+    }
+    let Some(restored) = reconstruct::restore(&inputs, &terms, checkpoint)? else {
+        return Ok(None);
+    };
+    if !reconstruct::synchronized(&restored)
+        || terms
+            .iter()
+            .zip(&restored)
+            .any(|(a, b)| canonical(a) != canonical(b))
+    {
+        return Err("Reconstructed certificate changed a projection".into());
+    }
+    KnownPlan::new(&inputs).derive(&restored)?;
+    if NonexistenceOracle::new(&problem).check(&restored).is_none() {
+        return Err("Reconstructed certificate failed the independent oracle".into());
+    }
+    Ok(Some(restored))
+}
+
 /// Export the exact, unrestricted current proof encoding at one fixed bound.
 /// Optional known terms are used as SAT ASSUMPTIONS in a separate validation
 /// solve. Neither those assumptions nor learned clauses enter the DIMACS file.
@@ -376,7 +417,10 @@ pub fn export_with_options(
     } else {
         "Unrestricted"
     };
-    writeln!(cnf, "c {qualifier} active-derivation certificate search: {steps} steps, original leaves only")?;
+    writeln!(
+        cnf,
+        "c {qualifier} active-derivation certificate search: {steps} steps, original leaves only"
+    )?;
     if options.max_depth.is_some() || options.symmetry {
         writeln!(
             cnf,

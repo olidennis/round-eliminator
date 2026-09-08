@@ -41,6 +41,10 @@ pub struct Stats {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Algorithm {
     pub certificate: String,
+    /// Original readable Loop output, for provenance. The schedule indexes
+    /// the synchronized `certificate`, not these possibly reduced trees.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_certificate: Option<String>,
     pub degree: usize,
     pub colors: usize,
     pub arrows_per_expression: usize,
@@ -53,7 +57,7 @@ pub struct Algorithm {
 #[derive(Debug, serde::Serialize)]
 pub enum Outcome {
     Found(Algorithm),
-    /// No ordering for THIS extraction scheme/certificate, not a lower bound.
+    /// No ordering for THIS scheme/chosen reconstruction, not a lower bound.
     NoSchedule(Stats),
     Inconclusive(Stats),
 }
@@ -632,6 +636,52 @@ fn prepare(problem: &Problem, certificate: &str) -> Result<Prepared, String> {
     Prepared::new(problem, &exprs)
 }
 
+/// Restore only commutativity/idempotency reductions, then verify the full
+/// active derivation and universal certificate. None means budget exhaustion.
+/// Saving this text avoids repeating reconstruction when verifying a schedule.
+pub fn normalize_certificate(
+    problem: &Problem,
+    certificate: &str,
+    time_limit: Option<Duration>,
+    eh: &mut EventHandler,
+) -> Result<Option<String>, String> {
+    let started = Instant::now();
+    eh.notify("Algorithm: reconstructing synchronized certificate", 0, 0);
+    let terms = crate::algorithms::fixpoint_sat::certificate_cnf::reconstructed_certificate_terms(
+        problem,
+        certificate,
+        &mut |states| {
+            eh.notify(
+                "Algorithm: reconstructing synchronized certificate",
+                states,
+                200_000,
+            );
+            !eh.is_cancelled() && !time_limit.is_some_and(|limit| started.elapsed() >= limit)
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    if eh.is_cancelled() {
+        return Err("Algorithm extraction cancelled".into());
+    }
+    let Some(terms) = terms else { return Ok(None) };
+    let exprs: Vec<_> = terms.iter().map(|t| t.to_expr().as_expr()).collect();
+    let prepared = Prepared::new(problem, &exprs)?;
+    let names: HashMap<_, _> = problem.mapping_label_text.iter().cloned().collect();
+    let text = format!(
+        "Original expressions:\n{}\n",
+        exprs
+            .iter()
+            .map(|e| e.convert(&names).to_string())
+            .join("\n")
+    );
+    eh.notify(
+        "Algorithm: synchronized certificate verified (arrows per expression)",
+        prepared.arrows,
+        0,
+    );
+    Ok(Some(text))
+}
+
 /// Independently verify a saved algorithm against its certificate and problem.
 pub fn verify(problem: &Problem, algorithm: &Algorithm) -> Result<(), String> {
     let p = prepare(problem, &algorithm.certificate)?;
@@ -651,7 +701,19 @@ pub fn extract(
     eh: &mut EventHandler,
 ) -> Result<Outcome, String> {
     let started = Instant::now();
-    let p = prepare(problem, certificate)?;
+    let Some(normalized) = normalize_certificate(problem, certificate, options.time_limit, eh)?
+    else {
+        eh.notify(
+            "Algorithm: certificate reconstruction budget reached (inconclusive)",
+            0,
+            0,
+        );
+        return Ok(Outcome::Inconclusive(Stats {
+            elapsed_seconds: started.elapsed().as_secs_f64(),
+            ..Default::default()
+        }));
+    };
+    let p = prepare(problem, &normalized)?;
     let mut stats = Stats {
         priorities: p.priorities(),
         games: p.colors * (p.colors - 1) / 2 * p.degree * p.degree,
@@ -659,7 +721,8 @@ pub fn extract(
     };
     let found = |ranks, stats| {
         Outcome::Found(Algorithm {
-            certificate: certificate.into(),
+            certificate: normalized.clone(),
+            source_certificate: Some(certificate.into()),
             degree: p.degree,
             colors: p.colors,
             arrows_per_expression: p.arrows,
