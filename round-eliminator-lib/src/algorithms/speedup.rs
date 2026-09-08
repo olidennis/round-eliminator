@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 
 use crate::{
+    constraint::Constraint,
     group::{Group, Label},
     problem::Problem,
 };
@@ -14,6 +15,23 @@ impl Problem {
         let mut newactive_before_renaming = self.passive.clone();
         newactive_before_renaming.maximize(eh);
 
+        self.speedup_from_universal_constraint(newactive_before_renaming)
+    }
+
+    pub fn speedup_with_star_relaxation(
+        &self,
+        eh: &mut EventHandler,
+    ) -> Result<Self, &'static str> {
+        let mut newactive_before_renaming = self.passive.clone();
+        newactive_before_renaming.maximize_with_star_relaxation(eh)?;
+
+        Ok(self.speedup_from_universal_constraint(newactive_before_renaming))
+    }
+
+    fn speedup_from_universal_constraint(
+        &self,
+        newactive_before_renaming: Constraint,
+    ) -> Self {
         let mapping_label_oldlabels: Vec<_> = newactive_before_renaming
             .groups()
             .unique()
@@ -118,6 +136,7 @@ impl Problem {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
 
     use crate::{algorithms::event::EventHandler, problem::Problem};
 
@@ -128,6 +147,43 @@ mod tests {
         p.compute_diagram(&mut EventHandler::null());
         p.sort_active_by_strength();
         assert_eq!(format!("{}", p), "A^2\nB C\n\nA BC^3\nAC C^3\n");
+    }
+
+    #[test]
+    fn speedup_with_star_relaxation_uses_star_sets_for_exists() {
+        let p = Problem::from_string(
+            "A A C\nA C C\nC C C\nB B C\n\nA B\nA C\nB B",
+        )
+        .unwrap();
+        let p = p
+            .speedup_with_star_relaxation(&mut EventHandler::null())
+            .unwrap();
+
+        assert_eq!(
+            p.mapping_label_oldlabels,
+            Some(vec![(0, vec![0, 2]), (1, vec![1, 2])])
+        );
+
+        let mapping = p.mapping_label_text.iter().cloned().collect();
+        let active_lines = p
+            .active
+            .lines
+            .iter()
+            .map(|line| line.to_string(&mapping))
+            .sorted()
+            .collect_vec();
+        assert_eq!(active_lines, vec!["A B", "A^2"]);
+
+        // The ordinary existential phase is applied using exactly the new
+        // labels A={old A,old B} and B={old B,old C}.
+        let passive_lines = p
+            .passive
+            .lines
+            .iter()
+            .map(|line| line.to_string(&mapping))
+            .sorted()
+            .collect_vec();
+        assert_eq!(passive_lines, vec!["A B^2", "B AB^2", "B A^2", "B^3"]);
     }
 
     #[test]

@@ -79,6 +79,18 @@ where
     };
 
     let mut eh = EventHandler::with(move |x: (String, usize, usize)| {
+        // Echo the native SAT search's existing, throttled GUI progress to the
+        // server terminal as well. Use stderr so JSON output stays untouched.
+        #[cfg(not(target_arch = "wasm32"))]
+        if x.0 != "Loop: searches running" && (x.0.starts_with("SAT:") || x.0.starts_with("Proof:") || x.0.starts_with("Loop:")) {
+            if x.2 > 0 {
+                eprintln!("{} ({}/{})", x.0, x.1, x.2);
+            } else if x.1 > 0 {
+                eprintln!("{} ({})", x.0, x.1);
+            } else {
+                eprintln!("{}", x.0);
+            }
+        }
         let resp = Response::Event(x.0, x.1, x.2);
         handler(resp);
     });
@@ -117,6 +129,18 @@ where
             let mut new = problem.speedup(&mut eh);
             fix_problem(&mut new, true, true, &mut eh);
             handler(Response::P(new));
+        }
+        Request::SpeedupStarRelaxation(mut problem) => {
+            if problem.diagram_indirect.is_none() {
+                problem.compute_partial_diagram(&mut eh);
+            }
+            match problem.speedup_with_star_relaxation(&mut eh) {
+                Ok(mut new) => {
+                    fix_problem(&mut new, true, true, &mut eh);
+                    handler(Response::P(new));
+                }
+                Err(message) => handler(Response::E(message.into())),
+            }
         }
         Request::FixpointBasic(mut problem, partial, triviality_only, sublabels) => {
             if problem.diagram_indirect.is_none() {
@@ -649,6 +673,7 @@ pub enum Request {
     HardenRemove(Problem, Label, bool),
     HardenKeep(Problem, Vec<Label>, bool),
     Speedup(Problem),
+    SpeedupStarRelaxation(Problem),
     FixpointBasic(Problem, bool, bool, Vec<Label>),
     FixpointLoop(Problem, bool, bool, Vec<Label>),
     FixpointCustom(Problem,String, bool, bool, Vec<Label>),
@@ -710,4 +735,29 @@ pub enum AutoOperation{
     LogstarSee(Vec<Label>,Problem),
     LogstarMIS(Vec<Label>,Problem),
     Speedup
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use super::{request_json, Request, Response};
+    use crate::problem::Problem;
+
+    #[test]
+    fn speedup_star_relaxation_request_reaches_the_new_operator() {
+        let problem = Problem::from_string("A\n\nA A A\nA A B\nA B B").unwrap();
+        let request = serde_json::to_string(&Request::SpeedupStarRelaxation(problem)).unwrap();
+        let responses = Mutex::new(Vec::new());
+
+        request_json(&request, |response, primary| {
+            if primary {
+                responses.lock().unwrap().push(response);
+            }
+        });
+
+        assert!(responses.into_inner().unwrap().iter().any(|response| {
+            matches!(serde_json::from_str(response).unwrap(), Response::P(_))
+        }));
+    }
 }

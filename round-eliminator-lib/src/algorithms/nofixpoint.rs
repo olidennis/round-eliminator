@@ -1073,7 +1073,7 @@ impl Problem {
                                 }
                             }
                             let root1 = inorder1_to_game1(&root1);
-                            let root2 = inorder1_to_game1(&root2);
+                            let root2 = inorder2_to_game2(&root2);
                             let game = subgames[root1][root2];
                             instance.add_clause([game].into());
                         }
@@ -1089,7 +1089,9 @@ impl Problem {
             let true_lits : HashSet<_> = solution.into_iter().collect();
             let mut numbers = (0..numbers).collect_vec();
             numbers.sort_by(|&a,&b|{
-                if true_lits.contains(&ordering[a][b]) {
+                if a == b {
+                    Ordering::Equal
+                } else if true_lits.contains(&ordering[a][b]) {
                     Ordering::Less
                 } else {
                     Ordering::Greater
@@ -1258,11 +1260,77 @@ impl Problem {
 
     
 
-    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
+    /// The original expression-completion search, including its unbounded
+    /// nonexistence certificates. Also available on builds without native SAT.
+    pub fn fixpoint_loop_symbolic(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
         self.nofixpoint(eh).map(|p|(p,vec![],vec![]))
     }
 
+    pub fn fixpoint_loop(&self, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), String> {
+        #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+        if matches!(self.active.degree, crate::line::Degree::Finite(n) if n > 0)
+            && self.passive.degree == crate::line::Degree::Finite(2)
+        {
+            use super::fixpoint_sat::{SatSearchOptions, SatSearchOutcome};
+            return match self.fixpoint_search(&SatSearchOptions::default(), &Default::default(), eh)? {
+                SatSearchOutcome::Found(found) => Ok((found.problem, found.diagram, found.mapping)),
+                SatSearchOutcome::NoFixedPoint { certificate, .. } => Err(certificate),
+                SatSearchOutcome::Exhausted { min_nodes, max_nodes, .. } =>
+                    Err(format!("No good diagram with {min_nodes} through {max_nodes} nodes exists")),
+                SatSearchOutcome::Inconclusive { nodes, .. } =>
+                    Err(format!("SAT search stopped at {nodes} nodes without a conclusion")),
+            };
+        }
+        self.fixpoint_loop_symbolic(eh)
+    }
 
+
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+pub mod algorithm;
+
+/// Reuses the symbolic loop's all-size obstruction test, without constructing
+/// its finite expression diagram. Mirrors are used only inside this proof
+/// oracle, never as additional nodes or constraints in SAT candidates.
+#[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+pub(super) struct NonexistenceOracle {
+    context: Context<Label>,
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+impl NonexistenceOracle {
+    pub(super) fn new(problem: &Problem) -> Self {
+        Self { context: Context::init_from_problem(problem) }
+    }
+
+    /// Ground facts for the proof SAT encoding. All other compatibility
+    /// judgments are obtained by the same recursive rules as `is_pred`.
+    pub(super) fn atomic_compatibility(&mut self, a: Label, b: Label) -> bool {
+        Expr::Base(a, true).is_pred(&Expr::Base(b, false), &mut self.context.relations)
+    }
+
+    #[cfg(test)]
+    pub(super) fn terms_compatible(&mut self, a: &TreeNode<Label>, b: &TreeNode<Label>) -> bool {
+        a.to_expr().as_expr().mirrored().is_pred(&b.to_expr().as_expr(), &mut self.context.relations)
+    }
+
+    pub(super) fn check(&mut self, terms: &[TreeNode<Label>]) -> Option<String> {
+        let expressions: HashSet<_> = terms.iter().map(|t| t.to_expr().as_expr()).collect();
+        let expressions = self.context.leftmost_expressions(&expressions);
+        for a in &expressions {
+            for b in &expressions {
+                if !a.mirrored().is_pred(b, &mut self.context.relations) {
+                    return None;
+                }
+            }
+        }
+        Some(format!(
+            "No fixed point can be found. These expressions will be pairwise compatible with any good diagram: {}.\nOriginal expressions:\n{}",
+            expressions.iter().sorted().map(|e| e.convert(&self.context.mapping_label_text).to_string()).join(", "),
+            terms.iter().map(|t| t.to_expr().as_expr().convert(&self.context.mapping_label_text).to_string()).join("\n")
+        ))
+    }
 }
 
 
@@ -1350,5 +1418,3 @@ fn nofixpoint_missing_sources_or_sinks(context : &Context<Label>, sources : bool
 
     missing
 }*/
-
-

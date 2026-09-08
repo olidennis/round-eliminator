@@ -379,7 +379,7 @@ impl FixpointDiagram {
     }
 }
 
-type Tracking = (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>);
+pub(super) type Tracking = (Line, Line, Line, Vec<Vec<usize>>, Vec<(usize, usize, Operation)>);
 
 pub enum FixpointType{
     Basic,
@@ -421,7 +421,14 @@ impl Problem {
             let mut subproblem = self.harden_keep(&sublabels.iter().cloned().collect(), false);
             subproblem.discard_useless_stuff(false, eh);
             subproblem.fixpoint_diagram = self.fixpoint_diagram.clone();
-            let (fixpoint, diagram, mapping_label_newlabel) = subproblem.fixpoint_generic(None, fptype, false,eh).unwrap();
+            // The partial-extension code below inverts the original-label
+            // mapping. Keep its existing loop path: native SAT also searches
+            // noninjective mappings, which this partial extension cannot use.
+            let (fixpoint, diagram, mapping_label_newlabel) = if matches!(fptype, FixpointType::Loop) {
+                subproblem.fixpoint_loop_symbolic(eh)?
+            } else {
+                subproblem.fixpoint_generic(None, fptype, false,eh)?
+            };
             let mut newlabel_to_label : HashMap<Label,Label> = mapping_label_newlabel.into_iter().filter(|(l,_)|sublabels.contains(l)).map(|(l,n)|(n,l)).collect();
             let orig_newlabels : HashSet<_> = newlabel_to_label.keys().cloned().collect();
             let mut next_fresh = *self.labels().iter().max().unwrap_or(&0) + 1;
@@ -631,18 +638,14 @@ impl Problem {
 
 
     pub fn fixpoint_custom(&self, text_diag : String, only_compute_triviality:bool, eh: &mut EventHandler) -> Result<(Self,Vec<(Label,Label)>,Vec<(Label,Label)>), &'static str> {
-        let text_mapping = text_diag.lines().filter(|line|!line.starts_with("#") && line.contains("=")).join("\n");
-        let text_diagram = text_diag.lines().filter(|line|!line.starts_with("#") && (line.contains("->") || line.contains("<-"))).join("\n");
-
-        let (mapping_newlabel_text,diagram) = parse_diagram(&text_diagram);
+        let (mapping_newlabel_text,diagram) = parse_diagram(&text_diag);
 
         let mapping_text_newlabel : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
-        let mapping_oldtext_newtext : HashMap<_,_> = text_mapping.lines().map(|line|{
-            let mut line = line.split("=");
-            let a = line.next().unwrap().trim();
-            let b = line.next().unwrap().trim();
-            (a.to_owned(),b.to_owned())
-        }).collect();
+        let mapping_oldtext_newtext : HashMap<_,_> = text_diag.lines()
+            .filter(|line| !line.trim_start().starts_with("#"))
+            .filter_map(|line| split_diagram_token(line, "="))
+            .map(|(a, b)| (a.trim().to_owned(), b.trim().to_owned()))
+            .collect();
 
         let mapping_label_newlabel : Vec<_> = self.mapping_label_text.iter().map(|(l,s)|{
             if mapping_oldtext_newtext.contains_key(s) {
@@ -1017,7 +1020,9 @@ impl Problem {
         let diagram_indirect_rev = diagram_indirect.iter().map(|&(a,b)|(b,a)).collect();
 
         let active = procedure(&active, &newlabels, &diagram_indirect, &mapping_newlabel_text, tracking, eh)?;
+        if eh.is_cancelled() { return Err("Fixed-point search cancelled"); }
         let passive = procedure(&passive, &newlabels, &diagram_indirect_rev, &mapping_newlabel_text, tracking_passive, eh)?;
+        if eh.is_cancelled() { return Err("Fixed-point search cancelled"); }
 
         let passive_successors = diagram_indirect_to_reachability_adj(&newlabels,&diagram_indirect);
         let passive_before_edit = passive.clone();
@@ -1607,37 +1612,45 @@ impl<T> TreeNode<T> where T : Ord + PartialOrd + Eq + PartialEq + std::hash::Has
     }
 }
 
+// Parenthesized labels may themselves contain '=' or arrows, notably the SAT
+// search's merger names such as (A=B). Only delimiters outside labels count.
+fn split_diagram_token<'a>(line: &'a str, token: &str) -> Option<(&'a str, &'a str)> {
+    let mut depth = 0usize;
+    for (i, c) in line.char_indices() {
+        if depth == 0 && line[i..].starts_with(token) {
+            return Some((&line[..i], &line[i + token.len()..]));
+        }
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
+}
+
 pub fn parse_diagram(diagram : &str) -> (Vec<(Label, String)>, Vec<(Label, Label)>) {
-    let text_diagram = diagram.lines().filter(|line|!line.starts_with("#") && (line.contains("->") || line.contains("<-"))).join("\n");
-
-    let mapping_newlabel_text : Vec<_> = text_diagram.split_whitespace().flat_map(|w|w.split("<-")).flat_map(|w|w.split("->")).filter(|&s|s != "->" && s != "<-" && s != "").unique().enumerate().map(|(l,s)|(l as Label,s.to_owned())).collect();
-    let mapping_text_newlabel : HashMap<_,_> = mapping_newlabel_text.iter().cloned().map(|(a,b)|(b,a)).collect();
-
-    let diagram : Vec<_> = text_diagram.split("\n").flat_map(|line|{
-        let mut v = vec![];
-        if line.contains("->") {
-            let mut line = line.split("->");
-            let a = line.next().unwrap();
-            let b = line.next().unwrap();
-            for a in a.split_whitespace() {
-                for b in b.split_whitespace() {
-                    v.push((mapping_text_newlabel[a],mapping_text_newlabel[b]));
-                }
+    let lines: Vec<_> = diagram.lines()
+        .filter(|line| !line.trim_start().starts_with("#") && split_diagram_token(line, "=").is_none())
+        .filter_map(|line| {
+            split_diagram_token(line, "->").map(|(a, b)| (a, b, false))
+                .or_else(|| split_diagram_token(line, "<-").map(|(a, b)| (a, b, true)))
+        }).collect();
+    let mapping_newlabel_text: Vec<_> = lines.iter()
+        .flat_map(|(a, b, _)| a.split_whitespace().chain(b.split_whitespace()))
+        .unique().enumerate().map(|(l, s)| (l as Label, s.to_owned())).collect();
+    let mapping_text_newlabel: HashMap<_, _> = mapping_newlabel_text.iter()
+        .map(|(l, s)| (s.as_str(), *l)).collect();
+    let mut edges = Vec::new();
+    for (left, right, reverse) in lines {
+        for a in left.split_whitespace() {
+            for b in right.split_whitespace() {
+                let edge = (mapping_text_newlabel[a], mapping_text_newlabel[b]);
+                edges.push(if reverse { (edge.1, edge.0) } else { edge });
             }
-        } else if line.contains("<-") {
-            let mut line = line.split("<-");
-            let b = line.next().unwrap();
-            let a = line.next().unwrap();
-            for a in a.split_whitespace() {
-                for b in b.split_whitespace() {
-                    v.push((mapping_text_newlabel[a],mapping_text_newlabel[b]));
-                }
-            }
-        } 
-        v.into_iter()
-    }).collect();
-    
-    (mapping_newlabel_text,diagram)
+        }
+    }
+    (mapping_newlabel_text, edges)
 }
 
 /* 

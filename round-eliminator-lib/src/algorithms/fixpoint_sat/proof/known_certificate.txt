@@ -1,0 +1,6 @@
+No fixed point can be found. These expressions will be pairwise compatible with any diagram: [[[[[[[B→A]←Y]←W]←[[B←Y]→A]]←[[[V←A]→B]←[[B←Y]→A]]]→[[[B←X]→[U←A]]←[[V←A]→B]]]←[[[[V←A]→B]←[[B←Y]→A]]→[B←X]]],
+Original expressions:
+[[[[[[[[V←A]←A]←[[V←A]←V]]→[[[B←Y]→A]←W]]←[[[B→A]←Y]←Y]]←[[[[[V←A]→B]←V]←[[[B←Y]→A]←Y]]←[[[V←A]→B]←V]]]←[[[[[[V←A]→B]←V]←[[[B←Y]→A]←Y]]←[[[V←A]→B]←V]]←[[[V←A]→B]←V]]]→[[[[[[[B←X]←B]←B]→[[[U←A]←A]←A]]←[[[V←A]←V]→B]]←[[[V←A]←V]→B]]←[[[B→A]←V]←V]]]
+[[[[[[[[B→A]←Y]→[[B←X]←B]]←[[[V←A]←A]→B]]→[[[U←A]←A]←A]]←[[[[[B→A]←V]←V]←[[[B→A]←Y]←Y]]→[[[B←X]←B]←B]]]←[[[[[[B→A]←V]←V]←[[[B→A]←Y]←Y]]←[[[B→A]←V]←V]]→[[[B←X]←B]←B]]]←[[[[[[[B→A]←V]←V]←[[[B→A]←Y]←Y]]←[[[B→A]←V]←V]]←[[[B→A]←V]←V]]→[[[B←X]←B]←B]]]
+[[[[[[[[V←Y]←Y]←[[B→A]←V]]←[[[B→A]←Y]←W]]←[[[B←Y]→A]←Y]]←[[[[[V←A]←V]→B]←[[[B←Y]←Y]→A]]←[[[V←A]←V]→B]]]→[[[[[[B←X]←B]←B]→[[[U←A]←A]←A]]←[[[V←A]←V]→B]]←[[[B→A]←V]←V]]]←[[[[[[[V←A]→B]←V]←[[[B←Y]→A]←Y]]←[[[V←A]→B]←V]]→[[[B←X]←B]←B]]←[[[V←A]←V]→B]]]
+[[[[[[[[B←Y]→A]←[[V←A]→B]]←[[[V←Y]←Y]←W]]←[[[B←Y]←Y]→A]]→[[[[[B←X]←B]←B]→[[[U←A]←A]←A]]←[[[B→A]←V]←V]]]←[[[[[[V←A]←V]→B]←[[[B←Y]←Y]→A]]→[[[B←X]←B]←B]]←[[[V←A]←V]→B]]]←[[[[[[[V←A]←V]→B]←[[[B←Y]←Y]→A]]→[[[B←X]←B]←B]]←[[[V←A]→B]←V]]←[[[V←A]→B]←V]]]

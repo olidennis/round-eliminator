@@ -53,6 +53,11 @@ function speedup(problem, onresult, onerror, progress){
     return api.request({ Speedup : problem }, ondata , function(){});
 }
 
+function speedup_star_relaxation(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ SpeedupStarRelaxation : problem }, ondata , function(){});
+}
+
 function demisifiable(problem, old, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ Demisifiable : [problem,old] }, ondata , function(){});
@@ -459,6 +464,8 @@ Vue.component('re-performed-action', {
                     return "Gave input orientation. Outdegree = " + this.action.outdegree;
                 case "speedup":
                     return "Performed speedup";
+                case "speedup-star-relaxation":
+                    return "Performed speedup with star relaxation";
                 case "demisifiable":
                     return "Computed logstar-Reversible Relaxations";
                 case "add-active-predecessors":
@@ -874,17 +881,25 @@ Vue.component('re-inverse-renaming', {
     computed: {
         table: function() {
             return this.problem.mapping_oldlabel_labels.map(x => ({
-                cur: labelset_to_string(this.problem.map_oldlabel_labels[x[0]],this.problem.map_label_text), 
+                cur: labelset_to_string(this.problem.map_oldlabel_labels[x[0]],this.problem.map_label_text, ", "),
+                removed: this.problem.map_oldlabel_labels[x[0]].length === 0,
                 old: this.problem.map_oldlabel_text[x[0]]
             }));
         }
     },
     template: `
         <table class="table">
+            <thead><tr><th>Original label</th><th></th><th>Result label(s)</th></tr></thead>
+            <tbody>
             <tr v-for="row in this.table">
                 <td>{{ row.old }}</td>
-                <td><span class="rounded m-1 labelborder">{{ row.cur }}</span></td>
+                <td>→</td>
+                <td>
+                    <span v-if="row.removed" class="text-muted">Removed during simplification</span>
+                    <span v-else class="rounded m-1 labelborder">{{ row.cur }}</span>
+                </td>
             </tr>
+            </tbody>
         </table>
     `
 })
@@ -1052,6 +1067,23 @@ Vue.component('re-speedup',{
     },
     template: `
         <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup">Speedup</button>
+    `
+})
+
+Vue.component('re-speedup-star-relaxation',{
+    props: ['problem','stuff'],
+    methods: {
+        on_speedup() {
+            call_api_generating_problem(
+                this.stuff,
+                {type:"speedup-star-relaxation"},
+                speedup_star_relaxation,
+                [this.problem]
+            );
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_speedup" title="Apply round elimination using the one-coordinate-star relaxation for the universal phase">Speedup with Star Relaxation</button>
     `
 })
 
@@ -1739,7 +1771,7 @@ Vue.component('re-operations',{
     props: ['problem','stuff'],
     template: `
         <re-card title="Operations" subtitle="(speedup, maximize, edit, gen renaming, merge)">
-            <div class="m-2"><re-speedup :problem="problem" :stuff="stuff"></re-speedup> apply round elimination</div>
+            <div class="m-2"><re-speedup :problem="problem" :stuff="stuff"></re-speedup><re-speedup-star-relaxation :problem="problem" :stuff="stuff"></re-speedup-star-relaxation> apply round elimination</div>
             <div class="m-2"><re-maximize :problem="problem" :stuff="stuff"></re-maximize> maximize passive side (and compute full diagram, triviality, ...)</div>
             <div class="m-2"><re-fulldiagram :problem="problem" :stuff="stuff"></re-fulldiagram> compute full diagram without showing maximized passive side </div>
             <div class="m-2" v-if="this.problem.info.is_mergeable"><re-merge :problem="problem" :stuff="stuff"></re-merge>merge equivalent labels</div>
@@ -1837,7 +1869,7 @@ Vue.component('re-problem', {
                 <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_label_oldlabels != null">
                     <re-renaming :problem="problem"></re-renaming>
                 </re-card>
-                <re-card title="Renaming" subtitle="Old and new labels" show="true" v-if="this.problem.mapping_oldlabel_labels != null">
+                <re-card title="Label mapping" subtitle="Original → result" show="true" v-if="this.problem.mapping_oldlabel_labels != null">
                     <re-inverse-renaming :problem="problem"></re-inverse-renaming>
                 </re-card>
                 <re-card :title="this.problem.passive.is_maximized ? 'Diagram' : 'Partial Diagram'" subtitle="Strength of passive labels" show="true" v-if="this.problem.diagram_direct != null">
@@ -2580,5 +2612,3 @@ var app = new Vue({
         </div>
     `
 })
-
-

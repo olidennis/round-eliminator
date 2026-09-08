@@ -19,6 +19,7 @@ pub mod problem_triviality;
 pub mod relax;
 pub mod renaming;
 pub mod speedup;
+pub mod star_relaxation;
 pub mod autoub;
 pub mod autolb;
 pub mod fixpoint;
@@ -34,3 +35,5 @@ pub mod genetic;
 pub mod dual;
 pub mod logstar;
 pub mod nofixpoint;
+#[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+pub mod fixpoint_sat;

@@ -1,0 +1,10 @@
+A A A X
+A A Y Y
+B B B U
+B B V V
+B W W W
+
+AXY BUVW
+X XY
+UV UV
+U W

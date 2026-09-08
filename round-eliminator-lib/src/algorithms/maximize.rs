@@ -51,6 +51,9 @@ impl Constraint {
         //let original_lines = self.lines.clone();
 
         loop {
+            // A cancelled native Loop discards this partial result. Leave it
+            // unmaximized, and let its owner return the winning peer's result.
+            if eh.is_cancelled() { return; }
 
             // we must NOT clear seen, it breaks the "loop" FP feature
             //seen.clear();
@@ -110,6 +113,7 @@ impl Constraint {
 
             #[cfg(not(target_arch = "wasm32"))]
             let newconstraint = {
+                let cancellation = eh.cancellation_token();
                 let n_workers = if let Ok(val) = std::env::var("RE_NUM_THREADS") {
                     val.parse::<usize>().unwrap()
                 } else {
@@ -147,8 +151,13 @@ impl Constraint {
                         let in_rx = in_rx.clone();
                         let out_tx = out_tx.clone();
                         let progress2_tx = progress2_tx.clone();
+                        let cancellation = cancellation.clone();
                         s.spawn(move |_|{
                             while let Ok((i,j)) = in_rx.recv() {
+                                if cancellation.as_ref().is_some_and(|c| c.load(Ordering::Relaxed)) {
+                                    out_tx.send(vec![]).unwrap();
+                                    continue;
+                                }
                                 if lines_of_previous_step.contains(&lines[i]) && 
                                    lines_of_previous_step.contains(&lines[j])
                                 {
@@ -283,6 +292,7 @@ impl Constraint {
 
             //println!("seen elements: {}, seen_pairs elements: {}",seen.len(),seen_pairs.len());
 
+            if eh.is_cancelled() { return; }
             if &newconstraint == self {
                 break;
             }
@@ -686,4 +696,3 @@ fn crash_test(){
         assert!(new.rename_by_generators().is_ok());
     //}
 }
-

@@ -56,6 +56,12 @@ Follow Linux instructions, use brew to install dependencies. [TODO: add more det
 It works. [TODO: add more details]
 
 ## How to use Round Eliminator as a library
+
+Native builds also provide a [SAT-based fixed-point diagram search](docs/fixpoint-sat.md),
+including bounded searches and the existing all-size nonexistence certificates.
+An experimental [certificate-to-algorithm runner](docs/fixpoint-certificate-algorithm.md)
+can separately search for a fixed-priority algorithm from a supplied certificate.
+
 First, add the following line to the dependencies section of Cargo.toml:
 ```
 round-eliminator-lib = { git = "https://github.com/olidennis/round-eliminator.git", branch = "master", version = "0.1.0" }
@@ -151,8 +157,6 @@ Results:
 | AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2731 | 25265   |
 | AMD Ryzen 7 7800X3D | Windows 11 | 2613 | 25026   |
 | Apple M1 Pro | MacOS 14.5 | 2216  | 17647         |
-
-
 
 
 
