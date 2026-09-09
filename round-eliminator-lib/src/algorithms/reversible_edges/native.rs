@@ -22,24 +22,35 @@ const CERTIFICATE_BYTES: usize = 2_000_000;
 const REPORT_BYTES: usize = 16_000_000;
 
 fn certificate_cost(c: &Certificate) -> usize {
-    let graph_cost=|g:&Subgraph| match g {Subgraph::All=>32,Subgraph::Pairs(p)=>64+p.len()*32};
-    let recipe_cost:usize=c.recipe.iter().map(|s| match s {
-        Step::Mis(g)|Step::Matching(g)|Step::GreedyColoring(g)|Step::RulingSet(g)=>graph_cost(g),
-        Step::PriorityMis {graph,order}=>graph_cost(graph)+order.iter().map(|r| 32+r.len()*16).sum::<usize>(),
-        Step::RepairPairs(p)=>64+p.len()*32,
-        _=>32,
-    }).sum();
-    1024 + recipe_cost + c
-        .mapping
+    let graph_cost = |g: &Subgraph| match g {
+        Subgraph::All => 32,
+        Subgraph::Pairs(p) => 64 + p.len() * 32,
+    };
+    let recipe_cost: usize = c
+        .recipe
         .iter()
-        .map(|r| {
-            r.input
-                .iter()
-                .map(|s| s.len().saturating_mul(6) + 32)
-                .sum::<usize>()
-                + r.output.len() * 16
+        .map(|s| match s {
+            Step::Mis(g) | Step::Matching(g) | Step::GreedyColoring(g) | Step::RulingSet(g) => {
+                graph_cost(g)
+            }
+            Step::PriorityMis { graph, order } => {
+                graph_cost(graph) + order.iter().map(|r| 32 + r.len() * 16).sum::<usize>()
+            }
+            Step::RepairPairs(p) => 64 + p.len() * 32,
+            _ => 32,
         })
-        .sum::<usize>()
+        .sum();
+    1024 + recipe_cost
+        + c.mapping
+            .iter()
+            .map(|r| {
+                r.input
+                    .iter()
+                    .map(|s| s.len().saturating_mul(6) + 32)
+                    .sum::<usize>()
+                    + r.output.len() * 16
+            })
+            .sum::<usize>()
 }
 
 fn fits_report(report: &Report, c: &Certificate) -> bool {
@@ -223,7 +234,7 @@ fn attempt(
     if cost + 1024 > CERTIFICATE_BYTES {
         return Err(LIMIT.into());
     }
-    let certificate=Certificate {
+    let certificate = Certificate {
         added: added.to_vec(),
         recipe: recipe.to_vec(),
         mapping: input
@@ -236,7 +247,9 @@ fn attempt(
             })
             .collect(),
     };
-    if certificate_cost(&certificate)>CERTIFICATE_BYTES {return Err(LIMIT.into());}
+    if certificate_cost(&certificate) > CERTIFICATE_BYTES {
+        return Err(LIMIT.into());
+    }
     Ok(Some(certificate))
 }
 
@@ -272,8 +285,12 @@ pub fn search(
     let mut schedules = Vec::new();
     let planning = Budget { options, deadline };
     let mut budget_hit = candidates.len() < missing.len();
-    for (i,added) in candidates.iter().enumerate() {
-        eh.notify("Reversible edges: building preprocessing portfolios",i+1,candidates.len());
+    for (i, added) in candidates.iter().enumerate() {
+        eh.notify(
+            "Reversible edges: building preprocessing portfolios",
+            i + 1,
+            candidates.len(),
+        );
         let q = relaxation(p, added)?;
         match schedule::recipes(&q, added, &planning, eh) {
             Ok(recipes) => schedules.push(recipes),

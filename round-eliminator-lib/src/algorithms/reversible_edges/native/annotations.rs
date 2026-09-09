@@ -80,7 +80,9 @@ impl Input {
                 budget.check(eh)?;
                 if p.passive.includes(&edge_line([a, b])) {
                     edges.insert([i, j]);
-                    if edges.len() > 500_000 { return Err(LIMIT.into()); }
+                    if edges.len() > 500_000 {
+                        return Err(LIMIT.into());
+                    }
                 }
             }
         }
@@ -203,7 +205,9 @@ impl Input {
                     };
                     if allowed {
                         edges.insert(edge(3 * a + x, 3 * b + y));
-                        if edges.len() > 500_000 { return Err(LIMIT.into()); }
+                        if edges.len() > 500_000 {
+                            return Err(LIMIT.into());
+                        }
                     }
                 }
             }
@@ -240,7 +244,9 @@ impl Input {
                     budget.check(eh)?;
                     if x != y {
                         edges.insert(edge(a * colors + x, b * colors + y));
-                        if edges.len() > 500_000 { return Err(LIMIT.into()); }
+                        if edges.len() > 500_000 {
+                            return Err(LIMIT.into());
+                        }
                     }
                 }
             }
@@ -370,7 +376,9 @@ impl Input {
                     };
                     if allowed {
                         edges.insert(edge(5 * a + x, 5 * b + y));
-                        if edges.len() > 500_000 { return Err(LIMIT.into()); }
+                        if edges.len() > 500_000 {
+                            return Err(LIMIT.into());
+                        }
                     }
                 }
             }
@@ -470,7 +478,9 @@ impl Input {
                         };
                         if allowed {
                             edges.insert(edge(3 * a + x, 3 * b + y));
-                            if edges.len() > 500_000 { return Err(LIMIT.into()); }
+                            if edges.len() > 500_000 {
+                                return Err(LIMIT.into());
+                            }
                         }
                     }
                 }
@@ -560,7 +570,9 @@ impl Input {
                     };
                     if let (Some(&s), Some(&t)) = states {
                         edges.insert(edge(s, t));
-                        if edges.len() > 500_000 { return Err(LIMIT.into()); }
+                        if edges.len() > 500_000 {
+                            return Err(LIMIT.into());
+                        }
                     }
                 }
             }
@@ -608,7 +620,6 @@ impl Input {
                 for &t in &groups[b] {
                     budget.check(eh)?;
                     edges.insert(edge(s, t));
-                    if edges.len() > 500_000 { return Err(LIMIT.into()); }
                     if edges.len() > 500_000 {
                         return Err(LIMIT.into());
                     }
@@ -705,6 +716,9 @@ impl Input {
                     };
                     if let (Some(&s), Some(&t)) = states {
                         edges.insert(edge(s, t));
+                        if edges.len() > 500_000 {
+                            return Err(LIMIT.into());
+                        }
                     }
                 }
             }

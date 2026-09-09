@@ -107,12 +107,12 @@ test('all stronger recipe kinds render with the original labels', () => {
     const { components } = gui();
     const component = components.get('re-edge-additions');
     const graph = { Pairs: [[0,1]] };
-    const recipe = ['Prune','NodeContext', { Matching: graph },
+    const recipe = ['Prune','NodeContext', { RepairPairs: [[0,1]] }, { Matching: graph },
         { GreedyColoring: graph }, { RulingSet: graph },
         { PriorityMis: { graph, order: [[0,0], [1,1]] } }];
     const text = component.methods.recipe.call({names:{0:'A',1:'B'}}, {recipe});
     for (const expected of ['impossible','whole node','oriented maximal matching',
-        'greedy coloring','distance-two ruling set','priority MIS','A B','(A A) then (B B)']) {
+        'greedy coloring','distance-two ruling set','priority MIS','A B','(A A) then (B B)', 'noninterfering edge-color phases']) {
         assert(text.includes(expected), expected);
     }
 });

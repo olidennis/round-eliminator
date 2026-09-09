@@ -530,6 +530,41 @@ fn portfolio_includes_all_generic_families_and_combined_rules() {
     assert!(recipes
         .iter()
         .any(|r| r.iter().filter(|s| matches!(s, Step::Mis(_))).count() >= 2));
+    assert!(recipes.iter().any(
+        |r| matches!(r.first(), Some(Step::PriorityMis { .. })) && r.contains(&Step::Exchange)
+    ));
+}
+
+#[test]
+fn priority_portfolio_skips_only_irrelevant_order_comparisons() {
+    let original = p("A A\nB B\nC C\n\nA A\nB B\nC C");
+    let a = label(&original, "A");
+    let bb = label(&original, "B");
+    let added = vec![pair(a, bb)];
+    let q = relaxation(&original, &added).unwrap();
+    let options = Options::default();
+    let b = budget(&options);
+    let eh = EventHandler::null();
+    let recipes = schedule::recipes(&q, &added, &b, &eh).unwrap();
+    let orders: BTreeSet<_> = recipes
+        .iter()
+        .filter_map(|r| match r.first() {
+            Some(Step::PriorityMis {
+                graph: Subgraph::All,
+                order,
+            }) => Some(order.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(orders.len(), 2);
+    let signs: BTreeSet<_> = orders
+        .iter()
+        .map(|order| {
+            order.iter().position(|r| r == &vec![a, a]).unwrap()
+                < order.iter().position(|r| r == &vec![bb, bb]).unwrap()
+        })
+        .collect();
+    assert_eq!(signs, BTreeSet::from([false, true]));
 }
 
 #[test]

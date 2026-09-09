@@ -124,10 +124,13 @@ The recipe order is deterministic; parallel completion and wall-clock cutoffs
 can change which witness is retained. Missing pairs are interleaved across
 recipes so every candidate sees cheap attempts early. Every primitive family
 is included, followed by priority orders, information exchange, and bounded
-combinations. All orders of up to five node types are included; for 6–16 types,
+combinations. All inequivalent orders of up to five node types are included; for 6–16 types,
 bounded rotations of both order directions are tried. Node-support and pair
 lists, combinations, and context sizes are bounded; this is not enumeration of
 every possible recipe. A candidate stops after its first verified certificate.
+Orders that agree on all comparisons between node types joined by a selected
+edge are equivalent for priority MIS and are not retried. Priority MIS is also
+combined with neighbor-state exchange.
 The search then grows up to four deterministic chains of jointly addable sets, rechecking
 each proposed union. It does not enumerate every subset or prove maximality.
 
@@ -185,3 +188,14 @@ outcomes on short cycles; check greedy-color and priority-parent restrictions;
 replay every new certificate family; and check joint predicate synthesis,
 two-endpoint repair (three-coloring succeeds, two-coloring fails), and parallel
 versus sequential verified result sets.
+
+## Measurements on the seven-label degree-four example
+
+The expanded portfolio was benchmarked on
+`examples/fixpoint_sat/hard_nonexistence.txt`. The same 18,785 attempts, with
+1,515 resource-bounded attempts, took 93.700 s with one worker, 47.914 s with two,
+and 24.601 s with four on the development machine, without concurrent builds.
+That is 1.96x and 1.95x for the two successive core doublings. All three runs
+returned zero certificates. These are measurements of a bounded portfolio, not
+an impossibility result. Subsequent priority-order deduplication and the addition
+of priority-MIS neighbor exchange change the exact attempt count.

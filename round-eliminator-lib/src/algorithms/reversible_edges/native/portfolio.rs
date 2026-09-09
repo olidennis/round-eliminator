@@ -158,7 +158,7 @@ pub(super) fn run(
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
-        stats.incomplete |= next.load(Ordering::Relaxed)<jobs.len()
+        stats.incomplete |= next.load(Ordering::Relaxed) < jobs.len()
             && !solved.iter().all(|s| s.load(Ordering::Acquire));
         Ok(stats)
     })

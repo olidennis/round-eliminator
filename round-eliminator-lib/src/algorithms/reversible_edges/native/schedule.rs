@@ -95,9 +95,9 @@ pub(super) fn recipes(
     // Priorities are input node types, not label names. Exhaust all orders for
     // at most five types; otherwise use both directions and bounded rotations.
     let mut orders = vec![];
-    if rows.len() <= 5 {
+    if !rows.is_empty() && rows.len() <= 5 {
         orders.extend(rows.iter().cloned().permutations(rows.len()));
-    } else if rows.len() <= 16 {
+    } else if !rows.is_empty() && rows.len() <= 16 {
         for reverse in [false, true] {
             for start in 0..rows.len().min(8) {
                 let mut order = rows.clone();
@@ -109,15 +109,59 @@ pub(super) fn recipes(
             }
         }
     }
+    let type_pairs: Vec<Vec<(usize, usize)>> = if orders.is_empty() {
+        vec![]
+    } else {
+        graphs
+            .iter()
+            .take(8)
+            .map(|graph| {
+                (0..rows.len())
+                    .flat_map(|i| (i + 1..rows.len()).map(move |j| (i, j)))
+                    .filter(|&(i, j)| {
+                        rows[i].iter().any(|&a| {
+                            rows[j].iter().any(|&b| {
+                                let e = pair(a, b);
+                                edges.contains(&e)
+                                    && match graph {
+                                        Subgraph::All => true,
+                                        Subgraph::Pairs(p) => p.contains(&e),
+                                    }
+                            })
+                        })
+                    })
+                    .collect()
+            })
+            .collect()
+    };
+    let mut priorities: Vec<BTreeSet<Vec<bool>>> = vec![BTreeSet::new(); type_pairs.len()];
+    let mut priority_exchange = vec![];
     for order in orders {
-        for graph in graphs.iter().take(8) {
-            result.push(vec![
+        let ranks: Vec<_> = rows
+            .iter()
+            .map(|r| order.iter().position(|s| r == s).unwrap())
+            .collect();
+        for (g, graph) in graphs.iter().take(8).enumerate() {
+            // Only comparisons between types joined by a selected edge can
+            // affect parent eligibility. Avoid repeating equivalent orders.
+            let signature = type_pairs[g]
+                .iter()
+                .map(|&(i, j)| ranks[i] < ranks[j])
+                .collect();
+            if !priorities[g].insert(signature) {
+                continue;
+            }
+            let recipe = vec![
                 Step::PriorityMis {
                     graph: graph.clone(),
                     order: order.clone(),
                 },
                 Step::Prune,
-            ]);
+            ];
+            result.push(recipe.clone());
+            let mut expanded = recipe;
+            expanded.extend([Step::Exchange, Step::Prune]);
+            priority_exchange.push(expanded);
         }
     }
     for graph in &graphs {
@@ -163,6 +207,7 @@ pub(super) fn recipes(
         r.extend([Step::NodeContext, Step::Exchange, Step::Prune]);
         result.push(r);
     }
+    result.extend(priority_exchange);
     let mut seen = BTreeSet::new();
     result.retain(|r| r.len() <= 16 && seen.insert(r.clone()));
     Ok(result)
