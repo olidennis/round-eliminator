@@ -28,7 +28,7 @@ impl Problem {
         Ok(self.speedup_from_universal_constraint(newactive_before_renaming))
     }
 
-    fn speedup_from_universal_constraint(
+    pub(crate) fn speedup_from_universal_constraint(
         &self,
         newactive_before_renaming: Constraint,
     ) -> Self {

@@ -14,8 +14,11 @@ relaxed problem. **Show reverse mapping** displays all annotated node contexts
 and their ordered output occurrences. **Copy certificate** exports a replayable
 JSON bundle. STOP retains results already verified. The Workers field controls
 independent simultaneous attempts: 0 selects up to four available cores, 1 is
-sequential, and explicit values up to 32 are accepted. Each attempt uses the
-existing single-threaded MiniSat; this is a parallel portfolio, not a new solver.
+sequential, and explicit values up to 32 are accepted. This count applies to the
+ordinary search targeting P. One additional independent worker prepares and
+searches against RE²(P); it does not take a worker away from the ordinary search.
+Each attempt uses the existing single-threaded MiniSat; this is a parallel
+portfolio, not a new solver.
 
 ## What is certified
 
@@ -96,6 +99,60 @@ a legal P labeling. For a fixed degree, alphabet, and finite recipe, MIS and
 coloring take O(log* n) deterministic rounds; the remaining communication and
 local mapping cost constant time. This proves the claimed reverse reduction.
 It does not claim to capture every possible O(log* n) reverse reduction.
+
+### Parallel target RE²(P)
+
+Alongside the usual target P, the native search now tries mapping the annotated
+edge relaxation Q to RE(RE(P)). The additions are still to **P's edge constraint**;
+the input is not replaced by a sped-up problem. Two ordinary speedups restore
+the original node/edge degrees. A single speedup, which swaps those roles, is
+not an additional target of this feature.
+
+The RE² worker starts independently of the direct workers. It builds the exact
+ordinary, **unsimplified** target once, with no star relaxation or GUI
+simplifications, and then runs the same preprocessing/mapping portfolio against
+it. The target construction reuses the ordinary union/intersection combinator
+and speedup constructor, with a bounded single-worker closure. Partial closure
+results are discarded. Its deadline is at most ten seconds and never beyond
+the shared overall search deadline. Intermediate alphabets are capped at 64,
+universal closure constraints at 1,024 rows, and seen closure rows at 100,000.
+The other configured expansion and storage limits also apply.
+
+A certificate targeting RE²(P) stores both intermediate problems and their
+set-label dictionaries in an optional `target` field. Its mapping outputs are
+labels of `target.second`, not original P labels. The GUI explicitly marks
+this target and displays both dictionaries; applying it still returns P with
+the certified edge additions and preserves P's node constraint and names.
+Old certificates without `target` continue to mean a direct mapping to P.
+
+Replay verifies the preprocessing and the mapping to the saved second target,
+and independently checks both decoding steps. For each step it reconstructs
+the complete existential constraint from the preceding node constraint and the
+set-label dictionary. It also enumerates every underlying tuple of each
+universal row and checks membership in the preceding edge constraint, without
+trusting maximality flags or diagrams. Dictionary domains, nonempty sets,
+constraint degrees and multiplicities are checked too. Decoder verification
+has a 200,000-tuple limit per step and an interruptible deadline.
+
+These checks establish the constructive reverse reduction: each vertex on the
+existential side jointly chooses a legal tuple of underlying labels, and the
+universal constraints guarantee that independent choices at neighboring
+vertices are compatible. First the original edges decode RE²(P) to RE(P), then
+the original nodes decode RE(P) to P. This costs only constant communication,
+so the full reverse reduction remains O(log* n). Choosing one underlying label
+independently at each port would **not** be the verified decoder.
+
+Both lanes stream through the owner thread, with duplicate addition sets
+coalesced into a single result. Direct results are published even while target
+construction is running. An RE² construction limit or failure leaves direct
+results intact; it is reported as an inconclusive stopped lane, not a negative
+proof. STOP/callback unwinding cancels and joins both lanes and their attempt
+workers. The overall deadline is shared, not restarted after construction.
+Candidate counts now count candidate/target checks; `re2_mapping_attempts`
+reports the RE² share of `mapping_attempts`. Native callers can set
+`Options.re2 = false` to run only the original search; the GUI enables both by
+default. The extra target can increase CPU/memory use and is not guaranteed to
+improve every input.
 
 ### Sequential two-endpoint repair
 

@@ -10,7 +10,9 @@ use std::time::{Duration, Instant};
 
 mod annotations;
 mod mapping;
+mod parallel_targets;
 mod portfolio;
+mod re_target;
 mod repair;
 mod schedule;
 mod synthesis;
@@ -43,7 +45,11 @@ fn certificate_cost(c: &Certificate) -> usize {
             _ => 32,
         })
         .sum();
+    let target_cost = c.target.as_ref().map_or(0, |target| {
+        serde_json::to_vec(target).map_or(CERTIFICATE_BYTES + 1, |bytes| bytes.len())
+    });
     1024 + recipe_cost
+        + target_cost
         + c.mapping
             .iter()
             .map(|r| {
@@ -209,18 +215,31 @@ fn attempt(
     budget: &Budget,
     eh: &mut EventHandler,
 ) -> Result<Option<Certificate>, String> {
+    attempt_target(p, q, added, recipe, None, budget, eh)
+}
+
+fn attempt_target(
+    p: &Problem,
+    q: &Problem,
+    added: &[[Label; 2]],
+    recipe: &[Step],
+    re2: Option<&Re2Target>,
+    budget: &Budget,
+    eh: &mut EventHandler,
+) -> Result<Option<Certificate>, String> {
+    let destination = re2.map_or(p, |target| &target.second);
     if let [Step::FindMis(stages)] = recipe {
-        let Some(graphs) = synthesis::mis_graphs(p, q, *stages, budget, eh)? else {
+        let Some(graphs) = synthesis::mis_graphs(destination, q, *stages, budget, eh)? else {
             return Ok(None);
         };
         let recipe = graphs.into_iter().map(Step::Mis).collect::<Vec<_>>();
-        return attempt(p, q, added, &recipe, budget, eh);
+        return attempt_target(p, q, added, &recipe, re2, budget, eh);
     }
     let input = match transformed(q, recipe, budget, eh) {
         Err(e) if e == repair::NOT_REPAIRABLE => return Ok(None),
         result => result?,
     };
-    let target = Input::new(p, budget, eh)?;
+    let target = Input::new(destination, budget, eh)?;
     let Some(outputs) = mapping::find(&input, &target, budget, eh)? else {
         return Ok(None);
     };
@@ -241,6 +260,7 @@ fn attempt(
     let certificate = Certificate {
         added: added.to_vec(),
         recipe: recipe.to_vec(),
+        target: re2.cloned().map(Box::new),
         mapping: input
             .nodes
             .iter()
@@ -262,11 +282,21 @@ pub fn search(
     p: &Problem,
     options: &Options,
     eh: &mut EventHandler,
-    mut publish: impl FnMut(&Report),
+    publish: impl FnMut(&Report),
 ) -> Result<Report, String> {
     validate(p, options)?;
-    let started = Instant::now();
-    let deadline = started + Duration::from_secs(options.seconds);
+    parallel_targets::search(p, options, eh, publish)
+}
+
+fn search_branch(
+    p: &Problem,
+    options: &Options,
+    re2: Option<&Re2Target>,
+    started: Instant,
+    deadline: Instant,
+    eh: &mut EventHandler,
+    mut publish: impl FnMut(&Report),
+) -> Result<Report, String> {
     let mut report = Report {
         original: p.clone(),
         certificates: vec![],
@@ -307,6 +337,7 @@ pub fn search(
     }
     let summary = portfolio::run(
         p,
+        re2,
         &candidates,
         &schedules,
         options,
@@ -366,6 +397,7 @@ pub fn search(
             let before = report.stats.clone();
             let summary = portfolio::run(
                 p,
+                re2,
                 &[proposed.clone()],
                 &[recipes],
                 options,
@@ -466,6 +498,12 @@ pub fn apply(
         options: &options,
         deadline: Instant::now() + Duration::from_secs(options.seconds),
     };
+    let destination = if let Some(target) = &certificate.target {
+        re_target::verify(p, target, &budget, eh)?;
+        &target.second
+    } else {
+        p
+    };
     let input = transformed(&q, &certificate.recipe, &budget, eh)?;
     if input.nodes.len() != certificate.mapping.len() {
         return Err("Certificate has missing or extra node contexts".into());
@@ -480,7 +518,13 @@ pub fn apply(
         .iter()
         .map(|r| r.output.clone())
         .collect::<Vec<_>>();
-    mapping::verify(&input, &Input::new(p, &budget, eh)?, &outputs, &budget, eh)?;
+    mapping::verify(
+        &input,
+        &Input::new(destination, &budget, eh)?,
+        &outputs,
+        &budget,
+        eh,
+    )?;
     // Do not invoke fix_problem: it can also change the node constraint/labels.
     Ok(q)
 }

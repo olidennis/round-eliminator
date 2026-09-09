@@ -117,6 +117,26 @@ test('all stronger recipe kinds render with the original labels', () => {
     }
 });
 
+test('RE2 certificates distinguish output labels and show both decoding dictionaries', () => {
+    const { components } = gui();
+    const c = components.get('re-edge-additions');
+    const state = { names: { 0: 'original-A', 1: 'original-B' } };
+    const certificate = { target: {
+        first: { mapping_label_text: [[0, 'first-X']], mapping_label_oldlabels: [[0, [0, 1]]] },
+        second: { mapping_label_text: [[0, 'second-Y']], mapping_label_oldlabels: [[0, [0]]] },
+    } };
+    assert.equal(c.methods.outputNames.call(state, certificate)[0], 'second-Y');
+    assert.equal(c.methods.outputNames.call(state, {})[0], 'original-A');
+    assert.match(c.methods.targetName(certificate), /two verified decoding steps/);
+    assert.equal(c.methods.targetName({}), 'P');
+    const stages = c.methods.decoding.call(state, certificate);
+    assert.equal(stages[0].text, 'second-Y = {first-X}');
+    assert.equal(stages[1].text, 'first-X = {original-A, original-B}');
+    assert.equal(c.methods.decoding.call(state, {}).length, 0);
+    assert.match(c.template, /Intermediate RE²\(P\) output labels/);
+    assert.match(components.get('re-demisifiable').template, /one independent worker/);
+});
+
 test('updated controls and result templates compile with the bundled Vue version', () => {
     const VueCompiler = require('./deps/vue.js');
     const previousDocument = global.document;

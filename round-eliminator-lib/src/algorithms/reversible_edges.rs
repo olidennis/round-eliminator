@@ -12,8 +12,10 @@ pub struct Options {
     pub max_configurations: usize,
     pub max_states: usize,
     pub max_variables: usize,
-    /// Independent attempt workers. Zero chooses up to four available cores.
+    /// Direct-target workers. Zero chooses up to four available cores.
+    /// When enabled, RE² has one additional independent worker.
     pub threads: usize,
+    pub re2: bool,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -25,6 +27,7 @@ impl Default for Options {
             max_states: 1024,
             max_variables: 200_000,
             threads: 0,
+            re2: true,
         }
     }
 }
@@ -75,19 +78,32 @@ pub struct MappingRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Re2Target {
+    /// Exact, unsimplified speedups, including their set-label dictionaries.
+    /// Replay verifies the two local decoding obligations independently.
+    pub first: Problem,
+    pub second: Problem,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Certificate {
     pub added: Vec<[Label; 2]>,
     pub recipe: Vec<Step>,
     /// Ordered occurrences in every (canonically enumerated) annotated star.
     pub mapping: Vec<MappingRow>,
+    /// Absent in legacy/direct certificates; outputs otherwise belong to second.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<Box<Re2Target>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Stats {
     pub candidates: usize,
     pub mapping_attempts: usize,
     pub bounded_attempts: usize,
     pub elapsed_ms: u64,
+    pub re2_mapping_attempts: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -350,6 +350,7 @@ fn certificate_pair_limits_cover_the_64_label_alphabet() {
     ] {
         let input = transformed(&q, &[step.clone()], &b, &mut eh).unwrap();
         let mut certificate = Certificate {
+            target: None,
             added: added.clone(),
             recipe: vec![step],
             mapping: input

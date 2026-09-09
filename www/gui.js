@@ -1164,7 +1164,8 @@ Vue.component('re-demisifiable',{
             <div v-if="native_edges">
                 <button type="button" class="btn btn-primary m-1" v-on:click="on_edges">Logstar Reversible Edge Additions</button>
                 <label>Time limit (seconds): <input type="number" min="1" max="86400" v-model="edge_seconds" style="width: 6em"></label>
-                <label>Workers (0 = auto): <input type="number" min="0" max="32" v-model="edge_threads" style="width: 4em"></label>
+                <label>P workers (0 = auto): <input type="number" min="0" max="32" v-model="edge_threads" style="width: 4em"></label>
+                <small>Plus one independent worker targeting RE²(P).</small>
             </div>
         </div>
     `
@@ -1179,6 +1180,19 @@ Vue.component('re-edge-additions', {
     },
     methods: {
         edges(c) { return c.added.map(e => e.map(l => this.names[l]).join(' ')).join(', '); },
+        targetName(c) { return c.target ? 'RE²(P), followed by two verified decoding steps to P' : 'P'; },
+        outputNames(c) { return c.target ? vec_to_map(c.target.second.mapping_label_text) : this.names; },
+        decoding(c) {
+            if (!c.target) return [];
+            let previous = this.names;
+            return [c.target.first, c.target.second].map((stage, i) => {
+                const names = vec_to_map(stage.mapping_label_text);
+                const text = stage.mapping_label_oldlabels.map(([l, set]) =>
+                    names[l] + ' = {' + set.map(old => previous[old]).join(', ') + '}').join('; ');
+                previous = names;
+                return { title: i === 0 ? 'RE(P) labels as sets of P labels' : 'RE²(P) labels as sets of RE(P) labels', text };
+            }).reverse();
+        },
         recipe(c) {
             if (!c.recipe.length) return 'Direct node-local mapping';
             return c.recipe.map((s,i) => {
@@ -1208,17 +1222,21 @@ Vue.component('re-edge-additions', {
             <button type="button" class="close" aria-label="Close" v-on:click="close">&times;</button>
             <h5>Logstar Reversible Edge Additions</h5>
             <p>{{ report.message }}</p>
-            <small>{{ report.stats.candidates }} candidates; {{ report.stats.mapping_attempts }} mapping attempts; {{ report.stats.bounded_attempts }} bounded attempts; {{ (report.stats.elapsed_ms/1000).toFixed(2) }} seconds.</small>
+            <small>{{ report.stats.candidates }} candidate-target checks; {{ report.stats.mapping_attempts }} mapping attempts ({{ report.stats.re2_mapping_attempts || 0 }} targeting RE²); {{ report.stats.bounded_attempts }} bounded attempts; {{ (report.stats.elapsed_ms/1000).toFixed(2) }} seconds.</small>
             <p>Each row is a separately verified alternative. Do not combine rows unless that union is also listed. Original labels and node configurations are preserved.</p>
             <div v-for="(c,i) in report.certificates" :key="i" class="border rounded p-2 m-1">
-                <strong>Add: {{ edges(c) }}</strong><div>{{ recipe(c) }}</div>
+                <strong>Add: {{ edges(c) }}</strong><div>Mapping target: {{ targetName(c) }}</div><div>{{ recipe(c) }}</div>
                 <button v-if="native" class="btn btn-primary m-1" v-on:click="apply(c)">Verify and apply</button>
                 <button class="btn btn-secondary m-1" v-on:click="shown = shown === i ? null : i">Show reverse mapping ({{ c.mapping.length }} contexts)</button>
                 <button class="btn btn-secondary m-1" v-on:click="copy(c)">Copy certificate</button>
                 <div v-if="shown === i" style="max-height: 400px; overflow: auto">
                     <p>I = selected; U = unselected; P = unselected port pointing to a selected neighbor in that MIS subgraph. Output entries correspond to the displayed input occurrences.</p>
-                    <table class="table table-sm"><thead><tr><th>Annotated node configuration</th><th>Original output labels</th></tr></thead>
-                    <tbody><tr v-for="(row,j) in c.mapping" :key="j"><td>{{ row.input.join(' | ') }}</td><td>{{ row.output.map(l => names[l]).join(' ') }}</td></tr></tbody></table>
+                    <div v-if="c.target">
+                        <p>The table outputs intermediate RE²(P) labels. Decode at the edges to RE(P), then jointly choose a legal P tuple at each node. Universal constraints guarantee compatibility; both decoding steps are checked when applying this certificate.</p>
+                        <p v-for="stage in decoding(c)"><strong>{{ stage.title }}:</strong> {{ stage.text }}</p>
+                    </div>
+                    <table class="table table-sm"><thead><tr><th>Annotated node configuration</th><th>{{ c.target ? 'Intermediate RE²(P) output labels' : 'Original output labels' }}</th></tr></thead>
+                    <tbody><tr v-for="(row,j) in c.mapping" :key="j"><td>{{ row.input.join(' | ') }}</td><td>{{ row.output.map(l => outputNames(c)[l]).join(' ') }}</td></tr></tbody></table>
                 </div>
             </div>
         </div>

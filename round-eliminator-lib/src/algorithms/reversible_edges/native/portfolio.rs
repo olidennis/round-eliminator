@@ -22,6 +22,7 @@ enum Message {
 
 pub(super) fn run(
     p: &Problem,
+    re2: Option<&Re2Target>,
     candidates: &[Vec<[Label; 2]>],
     schedules: &[Vec<Vec<Step>>],
     options: &Options,
@@ -97,11 +98,12 @@ pub(super) fn run(
                             .min(Instant::now() + Duration::from_millis(options.attempt_ms)),
                     };
                     let result = relaxation(p, &candidates[i]).and_then(|q| {
-                        attempt(
+                        attempt_target(
                             p,
                             &q,
                             &candidates[i],
                             &schedules[i][r],
+                            re2,
                             &budget,
                             &mut events,
                         )
