@@ -5,6 +5,14 @@ diagram/game worker and the general certificate worker. No button, solver
 dependency, extra mirror relation, or WASM change was added. The final
 certificate checker is still the existing `is_pred`-based oracle.
 
+Guided jobs now run in a [configurable worker pool](fixpoint-sat-parallel.md)
+with one shared archive and scheduler; the benchmarks below predate this change.
+
+The worker now also seeds itself once from a tracked saturation on the ordinary
+default diagram, retaining discarded intermediates as well as final lines.
+The complete bounded seed has separate archive capacity and is revisited by
+the repair pool. See [default-diagram seeding](fixpoint-sat-default-seed.md).
+
 The game exports explicit, finite derivation DAGs, including intermediate
 winning positions and already-explored alternative winning splits. The new
 worker independently replays these from whole original configurations. It
@@ -15,13 +23,17 @@ general worker's job. Interrupted neighborhoods are retried, with a bounded
 cache for solvers and learned clauses. See [the encoding and resource
 limits](fixpoint-sat.md#witness-guided-small-sat-instances).
 
-This implements short recombinations above fixed fragments. It does **not**
-yet implement replacing an internal branch in a fixed game-proof topology,
-or feeding partially successful SAT derivations back into fragment generation.
+The guided worker now also performs **partial-proof feedback and internal
+repair**. It retains original-input derivation DAGs, synthesizes incomplete
+proofs against partial compatibility goals, and feeds those fragments back
+into subsequent synthesis. Repair jobs reopen one to three internal
+combination steps while keeping the surrounding proof wired. Bounded cached
+retries retain learned clauses. See [the implementation and measurements](fixpoint-sat-feedback.md).
 
-## Hard example: not solved yet
+## Earlier bridge-only benchmark: not solved
 
-The optimized native Loop was run on `hard_nonexistence.txt` for 180 seconds,
+Before partial-proof feedback/internal repair, native Loop was run on
+`hard_nonexistence.txt` for 180 seconds,
 without supplying the known certificate or any of its subderivations.
 
 | Measurement | Final development run |

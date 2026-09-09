@@ -104,6 +104,60 @@ impl<'a> Game<'a> {
                 });
             }
         }
+        // The decision game intentionally prunes equivalent decompositions.
+        // For certificate discovery, sample some omitted ones after the check,
+        // using only already won positions or immediate original-input leaves.
+        // No extra reachability search, and no change to the selected strategy
+        // or the blocker. Every exported alternative is a finite actual proof.
+        let mut checks = 0;
+        let mut added = 0;
+        'alternatives: for &root in roots.iter().rev() {
+            let target = &self.positions[root].target;
+            for coordinate in 0..target.len() {
+                for x in 0..self.candidate.order.len() {
+                    for y in x + 1..self.candidate.order.len() {
+                        search::check_event(eh)?;
+                        checks += 1;
+                        if checks > 2048 || added >= 64 {
+                            break 'alternatives;
+                        }
+                        let z = target[coordinate];
+                        if !self.candidate.order[z][self.candidate.join[x][y]]
+                            || self.candidate.order[z][x]
+                            || self.candidate.order[z][y]
+                            || self.splits[z].contains(&(x, y))
+                        {
+                            continue;
+                        }
+                        let replacements = [x, y].map(|v| Self::replacement(target, coordinate, v));
+                        let mut children = Vec::new();
+                        for (child, _) in &replacements {
+                            if let Some(&id) = self.ids.get(child).and_then(|p| ids.get(p)) {
+                                children.push(id);
+                            } else if let Some(Strategy::Input { line, permutation }) =
+                                self.input_strategy(child)
+                            {
+                                let id = result.steps.len();
+                                result.steps.push(Step::Input(
+                                    permutation.iter().map(|&i| self.inputs[line][i]).collect(),
+                                ));
+                                children.push(id);
+                            } else {
+                                break;
+                            }
+                        }
+                        if children.len() == 2 {
+                            result.steps.push(Step::Combine {
+                                parents: [children[0], children[1]],
+                                permutations: replacements.map(|(_, p)| p),
+                                pivot: coordinate,
+                            });
+                            added += 1;
+                        }
+                    }
+                }
+            }
+        }
         Ok(result)
     }
 
@@ -520,6 +574,44 @@ pub(super) fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn certificate_export_visits_omitted_decompositions_without_changing_the_game() {
+        let original = Problem::from_string("A B\n\nA B").unwrap();
+        let candidate = Candidate {
+            order: (0..8)
+                .map(|a| (0..8).map(|b| a & b == a).collect())
+                .collect(),
+            join: (0..8).map(|a| (0..8).map(|b| a | b).collect()).collect(),
+            meet: (0..8).map(|a| (0..8).map(|b| a & b).collect()).collect(),
+            mapping: original
+                .mapping_label_text
+                .iter()
+                .map(|(l, s)| (*l, if s == "A" { 7 } else { 0 }))
+                .collect(),
+        };
+        let mut game = Game::new(&original.active, &candidate);
+        assert_eq!(game.splits[7].len(), 1);
+        let root = game.solve(vec![0, 7], &mut EventHandler::null()).unwrap();
+        assert!(game.moves.is_empty());
+        let dag = game.derivation(&[root], &EventHandler::null()).unwrap();
+        assert!(dag
+            .steps
+            .iter()
+            .any(|s| matches!(s, super::super::proof::guided::Step::Combine { .. })));
+        assert!(game.moves.is_empty());
+        let inputs: Vec<_> = original
+            .active
+            .all_choices(true)
+            .iter()
+            .map(|line| {
+                let mut terms: Vec<_> = expanded(line).into_iter().map(Term::Terminal).collect();
+                terms.sort();
+                terms
+            })
+            .collect();
+        assert!(dag.replay(&inputs, 2, &SearchControl::default()).is_ok());
+    }
 
     #[test]
     fn exported_strategy_replays_whole_intermediate_configurations() {

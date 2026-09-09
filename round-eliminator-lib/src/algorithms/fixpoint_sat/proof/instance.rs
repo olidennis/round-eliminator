@@ -291,6 +291,35 @@ fn parse_known(problem: &Problem, text: &str) -> Result<Vec<Term>> {
     Ok(terms)
 }
 
+#[cfg(test)]
+pub(super) fn known_test_dag(problem: &Problem) -> super::guided::Derivation {
+    use super::guided::{Derivation, Step};
+    let inputs = input_terms(problem);
+    let terms = parse_known(problem, include_str!("known_certificate.txt")).unwrap();
+    let mut plan = KnownPlan::new(&inputs);
+    plan.derive(&terms).unwrap();
+    let mut steps: Vec<_> = inputs
+        .iter()
+        .map(|input| {
+            Step::Input(
+                input
+                    .iter()
+                    .map(|t| match t {
+                        Term::Terminal(l) => *l,
+                        _ => unreachable!(),
+                    })
+                    .collect(),
+            )
+        })
+        .collect();
+    steps.extend(plan.steps.into_iter().map(|s| Step::Combine {
+        parents: s.parents,
+        permutations: s.permutations,
+        pivot: 0,
+    }));
+    Derivation { steps }
+}
+
 /// Parse and verify an externally supplied whole-configuration certificate.
 /// Used by the native algorithm extractor; does not search for a certificate.
 pub(crate) fn validated_certificate_terms(problem: &Problem, text: &str) -> Result<Vec<Term>> {

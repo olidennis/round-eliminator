@@ -9,8 +9,9 @@ whereas SAT allows label mergers.
 
 The diagram/game search looks for a fixed point. The general proof search independently
 looks for a universal nonexistence certificate. A witness-guided worker searches
-small recombinations of actual game derivations. They run on three scoped worker
-threads; a conclusive answer cancels and joins the remaining workers. No GUI button,
+small recombinations of actual game derivations. The first two use dedicated
+workers; guided jobs run in a configurable pool with one shared scheduler.
+A conclusive answer cancels and joins the remaining workers. No GUI button,
 manual restart, or symbolic diagram-completion search is involved. The original
 algorithm remains callable explicitly as `Problem::fixpoint_loop_symbolic`, but
 is not a worker in this native Loop. `is_pred` is unchanged.
@@ -270,8 +271,8 @@ parent order, pivot coordinates, and bijective occurrence permutations. It
 never treats independently selected coordinates as a valid starting line.
 
 Concrete fragments become fixed SAT leaves. Each local instance contains at
-most 12 configurations and initially searches one, two, then three **additional**
-steps. Later rounds extend this local bound one step at a time, up to eight;
+most 12 configurations and initially searches one **additional** step.
+Later slices extend this local bound one step at a time, up to eight;
 a difficult earlier bound does not prevent trying a longer bridge.
 The fixed subexpressions already contain their earlier construction: three new
 steps does not mean expression depth three. Compatibility between concrete
@@ -280,16 +281,24 @@ steps. Non-pivot coordinate permutation symmetry is removed. The native solver
 is still the existing MiniSat dependency; no extra solver or mirror nodes were
 added. SAT results are replayed and verified with the unchanged `is_pred` oracle.
 
-The scheduler combines blocks of six fragments in pairs, so old and new blocks
-can meet instead of searching only consecutive arrivals. Pending subsets can
-be replaced by their supersets. Fresh batches alternate with unfinished batches;
-conflict budgets start at 2,000 and increase on retries. A cache retains native
-solvers and learned clauses up to 300,000 total SAT variables; cold retries
-remain scheduled if a solver does not fit the cache. A user-supplied conflict
-limit instead gives each bound a bounded attempt in each expansion round,
-and disables retries after the final expansion.
+The bridge scheduler lazily pairs six-fragment blocks using round-robin
+matchings. Each round covers the whole archive; a sweep covers every block
+pair. New/changed blocks have a separate priority lane, alternating with the
+regular sweep without resetting it. Only the latest version of each block
+pair is remembered, rather than eagerly queuing thousands of overlapping jobs.
+Fresh batches alternate with unfinished batches. Conflict slices increase
+from 2,000 to 8,000; every retry retains its native solver, learned clauses,
+and already-proved UNSAT bounds. There are no cold retries. A neighborhood
+gets at most 16 slices, each making one bounded SAT call, before retiring
+locally as inconclusive. Bounds grow first, then unresolved bounds are revisited
+in rotation. A user-supplied
+conflict limit disables retries after the final bound expansion.
 
-This optional accelerator caps retained derived configurations at 256, expanded
+This optional accelerator keeps a rotating 256-slot archive for ordinary
+game/feedback derived configurations, in addition to pinned original inputs
+and default-diagram seeds. New valid fragments can replace older unpinned ones;
+in-flight/cached solvers own their original terms independently of archive slots.
+It caps expanded
 configuration trees at 4,096 nodes, and distinct fixed subterms in each batch at
 512. These are heuristic resource limits, not completeness claims. Deduplication
 uses syntactic equality plus commutativity/idempotence, never equality of values
@@ -297,12 +306,104 @@ in one finite diagram. The unrestricted proof worker remains available, with
 its original inputs and grammar. Neither local UNSAT nor a local budget limit
 is reported as a global conclusion.
 
+The same worker additionally runs a bounded **feedback/repair engine** for
+active degrees up to six. It keeps a rotating pool of 96 original-input
+derivation DAGs (up to 96 DAG nodes and 4,096 expanded term nodes per fragment).
+One-to-three-step jobs can satisfy partial compatibility goals rather than
+requiring a complete certificate immediately. Valid models and their
+intermediate derivations are replayed, retained, and reused; complete models
+must still pass the original nonexistence oracle.
+
+Internal repair keeps a proof's surrounding wiring fixed and re-synthesizes
+the parents and occurrence permutations at one to three selected internal
+combination steps. The pivot at each selected step stays fixed. All affected
+ancestors are re-evaluated; they are not treated as unchanged concrete
+expressions. Growth jobs remain available to change topology and proof size.
+
+The pool ranks proofs by compatibility between coordinates and with original
+labels, but retains up to four syntactically distinct proofs per profile/depth
+bucket. Profile equality or equality in a candidate lattice never establishes
+symbolic equality. Scheduling mixes high-scoring proofs with breadth/age-based
+exploration and does not require monotone score gains. Seed batches contain at
+most eight fixed fragments. SAT encoding is capped during allocation at
+150,000 variables, with 2,000 additional variables reserved for partial-goal
+circuitry. Unfinished jobs retain their solvers and are retried with budgets
+increasing from 2,000 to 32,000 conflicts. Bridge and feedback caches share the
+pool's variable-credit budget, with no additional per-family cache cap.
+Under memory pressure the scheduler resumes cached jobs before admitting fresh
+ones, and may leave some worker slots idle. The working set also has a
+16-jobs-per-configured-worker count limit. A finite `max_steps = n` caps fresh
+feedback scheduling at `8*n` turns; saved jobs still receive their bounded hot
+retries. Exhaustion of these
+heuristic resources is always inconclusive.
+
+After the fast game check, witness export also samples up to 64 omitted
+decompositions, with a 2,048-pair work cap, using already winning positions or
+immediate original-input leaves. It does not extend the reachability search,
+change the selected game strategy, or change the learned diagram blocker.
+
+Terminal events `Proof: growing reusable fragments`, `Proof: repairing internal
+branches`, `Proof: retaining partial SAT derivation`, and `Proof: retrying cached
+repair/feedback` describe this work. The displayed best compatibility count is
+a heuristic score, not a guarantee of progress toward a certificate.
+See [the feedback/repair report](fixpoint-sat-feedback.md) for controlled
+reconstruction tests and a separate blind benchmark.
+
 No new GUI control is needed: native **Loop** automatically starts this worker.
 Terminal events prefixed `Proof: guided` report fragment counts, new-step bounds,
 SAT variable counts, local exhaustion/budget limits, and verified certificates.
 The diagram-only API still does not run this worker. With `use_game: false`,
-the guided worker has only original configurations; full-checker witnesses
+the default seed described below is still available; full-checker witnesses
 continue to feed the general proof worker as before.
+
+### One-time default-diagram seed
+
+Native Loop's guided scheduler first constructs the ordinary default lattice
+(right-closed subsets ordered by reverse inclusion) and runs the full **active
+constraint saturation** on it, with provenance tracking. It keeps all recorded
+intermediate configurations, including ones discarded by dominance during
+saturation, not just the final triviality witness. Passive saturation is not
+needed for this bootstrap: it supplies active derivations, and compatibility
+is checked by the unchanged universal oracle.
+
+The bootstrap runs once per Loop invocation, in the guided scheduler thread;
+the diagram and general proof workers run concurrently. It is independent of
+the `use_game` choice and of any cached/custom GUI fixed-point diagram. There
+is no additional GUI control, SAT backend, mirror relation, or WASM change.
+
+All retained bootstrap configurations get additional bridge-archive capacity,
+separate from the ordinary 256-fragment allowance. Their DAGs are also kept as
+a read-only source for the feedback/repair pool: four roots are visited per
+scheduling turn, cycling through the entire source, rather than permanently
+dropping everything beyond a one-time sample. Existing per-fragment and local
+SAT limits still apply. The general proof worker receives optional nonblocking
+hints under its existing 32-configuration/256-subterm admission limits.
+
+To bound the optional startup work, default completion stops at 128 nodes
+(also at 128 original labels), and this bootstrap only handles active degree
+at most six. Saturation has a cooperative five-second / 4,096-tracking-entry
+budget; an in-flight combination may overshoot before returning. Valid partial
+tracking is still exported, with an export checkpoint at 4,096 DAG steps.
+Skipped or interrupted seeding is never a mathematical conclusion. Global
+STOP/winning-peer cancellation is propagated, and every imported DAG is replayed
+from original whole configurations before use. There is no inverse-label guess
+when the default diagram merges equivalent original labels.
+
+Terminal messages prefixed `Proof: default diagram` report startup, extraction,
+retention, and any skipped work; `Proof: saturating default diagram` reports its
+node count. See [the diagnostic and integration report](fixpoint-sat-default-seed.md).
+
+### Parallel guided jobs
+
+The shared guided scheduler now dispatches independent bridge, growth, and
+repair jobs to a worker pool. `RE_GUIDED_THREADS` defaults to available logical
+CPUs minus two, clamped to 1–6; it can be set explicitly from 1 to 32. The
+diagram and unrestricted proof workers remain separate. The shared
+`RE_GUIDED_MAX_VARIABLES` budget defaults to 1,500,000 and covers active job
+reservations plus cached solvers, not an exact RSS bound. Each pool job is
+capped at 152,000 variables. See [configuration, cancellation, and memory
+accounting](fixpoint-sat-parallel.md). Default seeding and fragment imports
+still happen once, not independently in each worker.
 
 To benchmark the real Loop path without providing the known certificate:
 

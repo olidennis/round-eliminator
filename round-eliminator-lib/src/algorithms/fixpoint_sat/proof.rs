@@ -57,6 +57,10 @@ struct Circuit<'a> {
     // Only the standalone benchmark exporter records clauses. Normal Loop
     // keeps its existing memory use and incremental native solver interface.
     recorded: Option<Vec<Vec<Lit>>>,
+    // Only bounded feedback jobs set this; the independent proof grammar is
+    // unbounded. Enforce the cap while allocating, not after a large step.
+    variable_limit: Option<u32>,
+    worker: usize,
 }
 
 impl<'a> Circuit<'a> {
@@ -73,10 +77,18 @@ impl<'a> Circuit<'a> {
             control,
             gates: HashMap::new(),
             recorded: None,
+            variable_limit: None,
+            worker: 2,
         })
     }
 
     fn literal(&mut self) -> Result<Lit, String> {
+        if self
+            .variable_limit
+            .is_some_and(|limit| self.next_var >= limit)
+        {
+            return Err("Proof neighborhood variable budget reached".into());
+        }
         let v = self.next_var;
         self.next_var = v
             .checked_add(1)
@@ -198,6 +210,9 @@ enum Source {
 struct Tuple {
     nodes: Vec<usize>,
     source: Source,
+    // General synthesis normalizes the pivot to zero; a repaired, wired
+    // context must preserve the original occurrence coordinates instead.
+    pivot: usize,
 }
 
 struct ProofEncoding<'a> {
@@ -260,6 +275,7 @@ impl<'a> ProofEncoding<'a> {
             result.tuples.push(Tuple {
                 nodes,
                 source: Source::Leaf(terms.clone()),
+                pivot: 0,
             });
         }
         Ok(result)
@@ -372,6 +388,13 @@ impl<'a> ProofEncoding<'a> {
     }
 
     fn step(&mut self) -> Result<Lit, String> {
+        self.step_at(0)
+    }
+
+    fn step_at(&mut self, pivot: usize) -> Result<Lit, String> {
+        if pivot >= self.degree {
+            return Err("Invalid proof pivot".into());
+        }
         let (left, left_children) = self.parent()?;
         let (right, right_children) = self.parent()?;
         // Union/intersection are commutative; keep one parent ordering.
@@ -386,7 +409,7 @@ impl<'a> ProofEncoding<'a> {
             // Fixing the pivot to coordinate zero loses nothing: both input
             // permutations are free, as are permutations at every later use.
             nodes.push(self.node(Node::Expr {
-                union: coordinate == 0,
+                union: coordinate == pivot,
                 children: [left, right],
             })?);
         }
@@ -399,8 +422,70 @@ impl<'a> ProofEncoding<'a> {
         self.tuples.push(Tuple {
             nodes,
             source: Source::Combine([left, right]),
+            pivot,
         });
         self.circuit.and(pairs)
+    }
+
+    /// A fixed piece of the surrounding proof, not another synthesis choice.
+    fn wired_step(
+        &mut self,
+        parents: [usize; 2],
+        permutations: [Vec<usize>; 2],
+        pivot: usize,
+    ) -> Result<usize, String> {
+        if pivot >= self.degree || parents.iter().any(|&p| p >= self.tuples.len()) {
+            return Err("Invalid wired proof parent or pivot".into());
+        }
+        let truth = self.circuit.truth;
+        let mut encoded = Vec::new();
+        for side in 0..2 {
+            let mut sorted = permutations[side].clone();
+            sorted.sort_unstable();
+            if sorted != (0..self.degree).collect::<Vec<_>>() {
+                return Err("Invalid wired proof permutation".into());
+            }
+            encoded.push(Parent {
+                tuple: (0..self.tuples.len())
+                    .map(|i| if i == parents[side] { truth } else { !truth })
+                    .collect(),
+                permutation: permutations[side]
+                    .iter()
+                    .map(|&p| {
+                        (0..self.degree)
+                            .map(|i| if i == p { truth } else { !truth })
+                            .collect()
+                    })
+                    .collect(),
+            });
+        }
+        let mut nodes = Vec::new();
+        for i in 0..self.degree {
+            let children = [0, 1].map(|side| {
+                vec![(
+                    truth,
+                    self.tuples[parents[side]].nodes[permutations[side][i]],
+                )]
+            });
+            nodes.push(self.node(Node::Expr {
+                union: i == pivot,
+                children,
+            })?);
+        }
+        let id = self.tuples.len();
+        self.tuples.push(Tuple {
+            nodes,
+            source: Source::Combine(encoded.try_into().ok().unwrap()),
+            pivot,
+        });
+        Ok(id)
+    }
+
+    fn pair_goals(&self, root: usize) -> Vec<Lit> {
+        let nodes = &self.tuples[root].nodes;
+        (0..self.degree)
+            .flat_map(|i| (0..=i).map(move |j| self.compatible(nodes[i], nodes[j])))
+            .collect()
     }
 
     fn replay(&self, assignment: &Assignment, root: usize) -> Result<Vec<Term>, String> {
@@ -450,7 +535,7 @@ impl<'a> ProofEncoding<'a> {
                                 Term::Expr(
                                     Box::new(a.clone()),
                                     Box::new(b.clone()),
-                                    if i == 0 {
+                                    if i == tuple.pivot {
                                         Operation::Union
                                     } else {
                                         Operation::Intersection
@@ -556,7 +641,7 @@ pub(super) fn run(
         }
         if changed {
             eh.notify(
-                "Proof: incorporating shared game derivations",
+                "Proof: incorporating shared derivations",
                 seeds.len() - inputs,
                 0,
             );

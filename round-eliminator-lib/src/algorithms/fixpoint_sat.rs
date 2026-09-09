@@ -29,6 +29,7 @@ type Obstruction = Vec<(Term, Term)>;
 mod game;
 mod proof;
 mod search;
+mod seeding;
 
 pub use proof::instance as certificate_cnf;
 pub use proof::{CertificateSearchOptions, CertificateSearchOutcome};

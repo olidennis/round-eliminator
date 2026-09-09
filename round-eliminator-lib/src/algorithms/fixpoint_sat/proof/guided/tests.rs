@@ -118,21 +118,41 @@ fn guided_search_finds_a_certificate_without_external_hints() {
 }
 
 #[test]
-fn cross_batch_schedule_does_not_forget_old_fragments() {
-    let mut bank = Bank::new(Vec::new());
-    for label in 0..25 {
-        bank.tuples.push(vec![Term::Terminal(label)]);
+fn all_default_fragments_get_archive_space_without_using_the_game_allowance() {
+    let original = problem(include_str!(
+        "../../../../../examples/fixpoint_sat/hard_nonexistence.txt"
+    ));
+    let control = SearchControl::default();
+    let dag = super::super::super::seeding::collect(&original, &mut EventHandler::null(), &control)
+        .unwrap()
+        .unwrap();
+    let mut bank = Bank::new(input_terms(&original));
+    let values = dag.replay(&bank.tuples, 4, &control).unwrap();
+    let mut expected = bank.known.clone();
+    for mut row in values {
+        row.sort();
+        expected.insert(row);
     }
-    bank.schedule(0);
-    for a in 0..25 {
-        for b in 0..25 {
-            assert!(bank
-                .pending
-                .iter()
-                .any(|ids| ids.contains(&a) && ids.contains(&b)));
+    let mut oracle = NonexistenceOracle::new(&original);
+    assert!(bank
+        .import_default(dag, &mut oracle, &control, &mut EventHandler::null())
+        .unwrap()
+        .is_none());
+    assert!(bank.known == expected);
+    assert!(bank.tuples.len() - bank.inputs > MAX_FRAGMENTS);
+    assert_eq!(
+        bank.fragment_limit - (bank.tuples.len() - bank.inputs),
+        MAX_FRAGMENTS
+    );
+    // All extracted configurations stay eligible, including the last one and
+    // its cross-batch combinations. No single giant SAT instance is built.
+    let mut seen = HashSet::new();
+    for _ in 0..bank.tuples.len().div_ceil(BATCH_SIZE / 2) {
+        if let Some(batch) = bank.next_batch(&control).unwrap() {
+            seen.extend(batch);
         }
     }
-    assert!(bank.pending.iter().all(|ids| ids.len() <= BATCH_SIZE));
+    assert_eq!(seen.len(), bank.tuples.len());
 }
 
 #[test]
