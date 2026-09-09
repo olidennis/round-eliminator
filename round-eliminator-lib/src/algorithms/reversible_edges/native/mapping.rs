@@ -9,6 +9,19 @@ use rustsat::{
 use rustsat_minisat::{core::Minisat, Limit};
 use std::sync::mpsc;
 
+pub(super) enum Condition {
+    Parameter(usize, bool),
+    All(Vec<usize>),
+    Any(Vec<usize>),
+}
+#[derive(Default)]
+pub(super) struct Activations {
+    /// A topologically ordered Boolean circuit shared between node contexts.
+    pub conditions: Vec<Condition>,
+    /// None means always present; otherwise the context is gated by this node.
+    pub roots: Vec<Option<usize>>,
+}
+
 struct Cnf<'a, 'b> {
     solver: Minisat,
     next: usize,
@@ -55,7 +68,10 @@ pub(super) fn find(
     budget: &Budget,
     eh: &mut EventHandler,
 ) -> Result<Option<Vec<Vec<Label>>>, String> {
-    Ok(find_guarded(input, target, &BTreeMap::new(), 0, budget, eh)?.map(|(outputs, _)| outputs))
+    Ok(
+        find_guarded(input, target, &BTreeMap::new(), 0, None, budget, eh)?
+            .map(|(outputs, _)| outputs),
+    )
 }
 
 pub(super) fn find_guarded(
@@ -63,6 +79,7 @@ pub(super) fn find_guarded(
     target: &Input,
     guards: &BTreeMap<[usize; 2], Vec<(usize, bool)>>,
     parameters: usize,
+    activations: Option<&Activations>,
     budget: &Budget,
     eh: &mut EventHandler,
 ) -> Result<Option<(Vec<Vec<Label>>, Vec<bool>)>, String> {
@@ -86,6 +103,42 @@ pub(super) fn find_guarded(
     let parameters = (0..parameters)
         .map(|_| cnf.var())
         .collect::<Result<Vec<_>, _>>()?;
+    let mut conditions: Vec<Lit> = vec![];
+    if let Some(activations) = activations {
+        for condition in &activations.conditions {
+            budget.check(eh)?;
+            let lit = match condition {
+                Condition::Parameter(i, positive) => {
+                    if *positive {
+                        parameters[*i]
+                    } else {
+                        !parameters[*i]
+                    }
+                }
+                Condition::All(children) => {
+                    let result = cnf.var()?;
+                    for &child in children {
+                        cnf.clause([!result, conditions[child]], eh)?;
+                    }
+                    let mut clause = vec![result];
+                    clause.extend(children.iter().map(|&c| !conditions[c]));
+                    cnf.clause(clause, eh)?;
+                    result
+                }
+                Condition::Any(children) => {
+                    let result = cnf.var()?;
+                    for &child in children {
+                        cnf.clause([result, !conditions[child]], eh)?;
+                    }
+                    let mut clause = vec![!result];
+                    clause.extend(children.iter().map(|&c| conditions[c]));
+                    cnf.clause(clause, eh)?;
+                    result
+                }
+            };
+            conditions.push(lit);
+        }
+    }
     let mut support = vec![];
     for _ in &input.names {
         support.push(
@@ -95,7 +148,7 @@ pub(super) fn find_guarded(
         );
     }
     let mut outputs = vec![];
-    for row in &input.nodes {
+    for (context, row) in input.nodes.iter().enumerate() {
         budget.check(eh)?;
         let mut ports = vec![];
         for &state in row {
@@ -104,7 +157,11 @@ pub(super) fn find_guarded(
                 .collect::<Result<Vec<_>, _>>()?;
             cnf.one(&x, eh)?;
             for a in 0..labels {
-                cnf.clause([!x[a], support[state][a]], eh)?;
+                let mut clause = vec![!x[a], support[state][a]];
+                if let Some(root) = activations.and_then(|a| a.roots[context]) {
+                    clause.push(!conditions[root]);
+                }
+                cnf.clause(clause, eh)?;
             }
             ports.push(x);
         }

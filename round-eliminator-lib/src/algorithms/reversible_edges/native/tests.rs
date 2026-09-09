@@ -568,6 +568,66 @@ fn priority_portfolio_skips_only_irrelevant_order_comparisons() {
 }
 
 #[test]
+fn symbolic_mis_context_activation_matches_every_small_concrete_predicate() {
+    let q = p("A B\n\nAB AB");
+    let options = Options::default();
+    let b = budget(&options);
+    let eh = EventHandler::null();
+    for stages in 1..=2 {
+        let symbolic = synthesis::symbolic(&q, stages, &b, &eh).unwrap();
+        let parameters = stages * symbolic.pairs.len();
+        for mask in 0usize..1 << parameters {
+            let chosen: Vec<_> = (0..parameters).map(|i| mask & (1 << i) != 0).collect();
+            let mut values = vec![];
+            for condition in &symbolic.activation.conditions {
+                values.push(match condition {
+                    mapping::Condition::Parameter(i, positive) => chosen[*i] == *positive,
+                    mapping::Condition::All(children) => children.iter().all(|&c| values[c]),
+                    mapping::Condition::Any(children) => children.iter().any(|&c| values[c]),
+                });
+            }
+            let mut concrete = Input::new(&q, &b, &eh).unwrap();
+            for stage in 0..stages {
+                let graph = Subgraph::Pairs(
+                    symbolic
+                        .pairs
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, &p)| chosen[stage * symbolic.pairs.len() + i].then_some(p))
+                        .collect(),
+                );
+                concrete = concrete
+                    .step(&Step::Mis(graph), stage + 1, &b, &eh)
+                    .unwrap();
+            }
+            let nodes: Vec<_> = symbolic
+                .input
+                .nodes
+                .iter()
+                .zip(&symbolic.activation.roots)
+                .filter(|(_, root)| root.map_or(true, |r| values[r]))
+                .map(|(r, _)| r.clone())
+                .collect();
+            let edges: BTreeSet<_> = symbolic
+                .input
+                .edges
+                .iter()
+                .filter(|e| {
+                    symbolic.guards.get(*e).map_or(true, |conditions| {
+                        conditions
+                            .iter()
+                            .all(|&(i, positive)| chosen[i] == positive)
+                    })
+                })
+                .copied()
+                .collect();
+            assert_eq!(nodes, concrete.nodes, "stages={stages} mask={mask}");
+            assert_eq!(edges, concrete.edges, "stages={stages} mask={mask}");
+        }
+    }
+}
+
+#[test]
 fn synthesized_subgraphs_produce_concrete_independently_verified_certificates() {
     let original = p("M M M\nP U U\n\nM P\nM U\nU U");
     let m = label(&original, "M");

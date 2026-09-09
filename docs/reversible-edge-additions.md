@@ -63,7 +63,11 @@ their labels.
 
 SAT can additionally synthesize arbitrary unions of edge-label pairs for one,
 two, or three MIS stages jointly with the local mapping. Edge clauses are guarded
-by the unknown subgraph predicates. A successful predicate is decoded, and its
+by the unknown subgraph predicates. Node contexts are conditionally enabled too:
+a pointer to a selected neighbor is possible only when some eligible subgraph
+edge exists. This avoids requiring mappings for contexts that disappear under
+the chosen predicates. The Boolean context circuit is tested against every small
+one/two-stage concrete predicate assignment. A successful predicate is decoded, and its
 ordinary concrete MIS recipe is reconstructed, solved, and independently checked.
 Search placeholders never appear in accepted certificates. Failure of this
 bounded synthesis is not a proof against other preprocessing algorithms.
@@ -199,3 +203,7 @@ That is 1.96x and 1.95x for the two successive core doublings. All three runs
 returned zero certificates. These are measurements of a bounded portfolio, not
 an impossibility result. Subsequent priority-order deduplication and the addition
 of priority-MIS neighbor exchange change the exact attempt count.
+Conditional-context synthesis was also strengthened after these measurements.
+With those changes and priority-MIS neighbor exchange, a later run completed
+12,055 attempts (2,917 resource-bounded) and still returned no certificate for
+this example. The unsuccessful variants remain enabled for other inputs.

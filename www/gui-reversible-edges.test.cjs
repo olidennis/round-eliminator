@@ -116,3 +116,31 @@ test('all stronger recipe kinds render with the original labels', () => {
         assert(text.includes(expected), expected);
     }
 });
+
+test('updated controls and result templates compile with the bundled Vue version', () => {
+    const VueCompiler = require('./deps/vue.js');
+    const previousDocument = global.document;
+    const previousHandler = VueCompiler.config.warnHandler;
+    const warnings = [];
+    // Vue's compiler only needs this element to decode HTML entities in text.
+    global.document = { createElement: () => ({
+        innerHTML: '',
+        get textContent() {
+            const entities = { '&lt;':'<', '&gt;':'>', '&amp;':'&', '&quot;':'"', '&#39;':"'" };
+            return this.innerHTML.replace(/&(lt|gt|amp|quot|#39);/g, x => entities[x]);
+        }
+    }) };
+    VueCompiler.config.warnHandler = message => warnings.push(message);
+    try {
+        const { components } = gui();
+        for (const name of ['re-demisifiable', 're-edge-additions']) {
+            const compiled = VueCompiler.compile(components.get(name).template);
+            assert.equal(typeof compiled.render, 'function');
+        }
+        assert.deepEqual(warnings, []);
+    } finally {
+        VueCompiler.config.warnHandler = previousHandler;
+        if (previousDocument === undefined) delete global.document;
+        else global.document = previousDocument;
+    }
+});
