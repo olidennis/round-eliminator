@@ -90,3 +90,29 @@ test('native availability follows the server selector', () => {
         assert.equal(c.supports_reversible_edges(), native);
     }
 });
+
+test('worker controls are validated and transmitted', () => {
+    const g = gui();
+    g.context.start_reversible_edges([], {}, 10, '3');
+    assert.equal(g.requests[0][0].ReversibleEdges[1].threads, 3);
+    for (const threads of [-1, 1.5, 33, NaN]) {
+        const g = gui(), stuff = [];
+        g.context.start_reversible_edges(stuff, {}, 10, threads);
+        assert.equal(g.requests.length, 0);
+        assert.equal(stuff[0].type, 'error');
+    }
+});
+
+test('all stronger recipe kinds render with the original labels', () => {
+    const { components } = gui();
+    const component = components.get('re-edge-additions');
+    const graph = { Pairs: [[0,1]] };
+    const recipe = ['Prune','NodeContext', { Matching: graph },
+        { GreedyColoring: graph }, { RulingSet: graph },
+        { PriorityMis: { graph, order: [[0,0], [1,1]] } }];
+    const text = component.methods.recipe.call({names:{0:'A',1:'B'}}, {recipe});
+    for (const expected of ['impossible','whole node','oriented maximal matching',
+        'greedy coloring','distance-two ruling set','priority MIS','A B','(A A) then (B B)']) {
+        assert(text.includes(expected), expected);
+    }
+});

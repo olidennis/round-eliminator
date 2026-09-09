@@ -55,6 +55,17 @@ pub(super) fn find(
     budget: &Budget,
     eh: &mut EventHandler,
 ) -> Result<Option<Vec<Vec<Label>>>, String> {
+    Ok(find_guarded(input, target, &BTreeMap::new(), 0, budget, eh)?.map(|(outputs, _)| outputs))
+}
+
+pub(super) fn find_guarded(
+    input: &Input,
+    target: &Input,
+    guards: &BTreeMap<[usize; 2], Vec<(usize, bool)>>,
+    parameters: usize,
+    budget: &Budget,
+    eh: &mut EventHandler,
+) -> Result<Option<(Vec<Vec<Label>>, Vec<bool>)>, String> {
     let mut ordered = BTreeSet::new();
     for row in &target.nodes {
         for perm in row.iter().copied().permutations(row.len()) {
@@ -72,6 +83,9 @@ pub(super) fn find(
         budget,
     };
     let labels = target.names.len();
+    let parameters = (0..parameters)
+        .map(|_| cnf.var())
+        .collect::<Result<Vec<_>, _>>()?;
     let mut support = vec![];
     for _ in &input.names {
         support.push(
@@ -112,7 +126,17 @@ pub(super) fn find(
         for a in 0..labels {
             for b in 0..labels {
                 if !target.edges.contains(&annotations::edge(a, b)) {
-                    cnf.clause([!support[s][a], !support[t][b]], eh)?;
+                    let mut clause = vec![!support[s][a], !support[t][b]];
+                    if let Some(conditions) = guards.get(&annotations::edge(s, t)) {
+                        for &(k, positive) in conditions {
+                            clause.push(if positive {
+                                !parameters[k]
+                            } else {
+                                parameters[k]
+                            });
+                        }
+                    }
+                    cnf.clause(clause, eh)?;
                 }
             }
         }
@@ -171,7 +195,11 @@ pub(super) fn find(
         }
         mapping.push(mapped);
     }
-    Ok(Some(mapping))
+    let chosen = parameters
+        .iter()
+        .map(|&l| model.lit_value(l) == TernaryVal::True)
+        .collect();
+    Ok(Some((mapping, chosen)))
 }
 
 pub(super) fn verify(

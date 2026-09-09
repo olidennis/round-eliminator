@@ -10,6 +10,10 @@ use std::time::{Duration, Instant};
 
 mod annotations;
 mod mapping;
+mod portfolio;
+mod repair;
+mod schedule;
+mod synthesis;
 use annotations::Input;
 
 pub(super) const LIMIT: &str = "Reversible edge search budget reached";
@@ -18,7 +22,14 @@ const CERTIFICATE_BYTES: usize = 2_000_000;
 const REPORT_BYTES: usize = 16_000_000;
 
 fn certificate_cost(c: &Certificate) -> usize {
-    1024 + c
+    let graph_cost=|g:&Subgraph| match g {Subgraph::All=>32,Subgraph::Pairs(p)=>64+p.len()*32};
+    let recipe_cost:usize=c.recipe.iter().map(|s| match s {
+        Step::Mis(g)|Step::Matching(g)|Step::GreedyColoring(g)|Step::RulingSet(g)=>graph_cost(g),
+        Step::PriorityMis {graph,order}=>graph_cost(graph)+order.iter().map(|r| 32+r.len()*16).sum::<usize>(),
+        Step::RepairPairs(p)=>64+p.len()*32,
+        _=>32,
+    }).sum();
+    1024 + recipe_cost + c
         .mapping
         .iter()
         .map(|r| {
@@ -94,6 +105,7 @@ fn validate(p: &Problem, options: &Options) -> Result<(), String> {
         || !(1..=10000).contains(&options.max_configurations)
         || !(1..=4096).contains(&options.max_states)
         || !(1..=1_000_000).contains(&options.max_variables)
+        || options.threads > 32
     {
         return Err("Invalid reversible-edge search limits".into());
     }
@@ -182,7 +194,17 @@ fn attempt(
     budget: &Budget,
     eh: &mut EventHandler,
 ) -> Result<Option<Certificate>, String> {
-    let input = transformed(q, recipe, budget, eh)?;
+    if let [Step::FindMis(stages)] = recipe {
+        let Some(graphs) = synthesis::mis_graphs(p, q, *stages, budget, eh)? else {
+            return Ok(None);
+        };
+        let recipe = graphs.into_iter().map(Step::Mis).collect::<Vec<_>>();
+        return attempt(p, q, added, &recipe, budget, eh);
+    }
+    let input = match transformed(q, recipe, budget, eh) {
+        Err(e) if e == repair::NOT_REPAIRABLE => return Ok(None),
+        result => result?,
+    };
     let target = Input::new(p, budget, eh)?;
     let Some(outputs) = mapping::find(&input, &target, budget, eh)? else {
         return Ok(None);
@@ -201,7 +223,7 @@ fn attempt(
     if cost + 1024 > CERTIFICATE_BYTES {
         return Err(LIMIT.into());
     }
-    Ok(Some(Certificate {
+    let certificate=Certificate {
         added: added.to_vec(),
         recipe: recipe.to_vec(),
         mapping: input
@@ -213,7 +235,9 @@ fn attempt(
                 output,
             })
             .collect(),
-    }))
+    };
+    if certificate_cost(&certificate)>CERTIFICATE_BYTES {return Err(LIMIT.into());}
+    Ok(Some(certificate))
 }
 
 /// Stream cumulative reports: STOP can leave already verified results visible.
@@ -246,74 +270,48 @@ pub fn search(
         .map(|&e| vec![e])
         .collect();
     let mut schedules = Vec::new();
-    for added in &candidates {
-        let q = relaxation(p, added)?;
-        schedules.push(recipes(&q, added));
-    }
-    let mut solved = BTreeSet::new();
-    let mut touched = BTreeSet::new();
+    let planning = Budget { options, deadline };
     let mut budget_hit = candidates.len() < missing.len();
-    let depth = schedules.iter().map(Vec::len).max().unwrap_or(0);
-    // Breadth first: cheap recipes get a chance on EVERY candidate first.
-    'singles: for stage in 0..depth {
-        for (i, added) in candidates.iter().enumerate() {
-            if eh.is_cancelled() {
-                return Err(CANCELLED.into());
-            }
-            if Instant::now() >= deadline {
+    for (i,added) in candidates.iter().enumerate() {
+        eh.notify("Reversible edges: building preprocessing portfolios",i+1,candidates.len());
+        let q = relaxation(p, added)?;
+        match schedule::recipes(&q, added, &planning, eh) {
+            Ok(recipes) => schedules.push(recipes),
+            Err(e) if e == LIMIT => {
                 budget_hit = true;
-                break 'singles;
+                schedules.push(vec![]);
             }
-            if solved.contains(&i) || stage >= schedules[i].len() {
-                continue;
-            }
-            touched.insert(i);
-            report.stats.candidates = touched.len();
-            report.stats.mapping_attempts += 1;
-            let names: BTreeMap<_, _> = p.mapping_label_text.iter().cloned().collect();
-            eh.notify(
-                format!(
-                    "Reversible edges: testing {} {} (recipe {})",
-                    names[&added[0][0]],
-                    names[&added[0][1]],
-                    stage + 1
-                ),
-                i + 1,
-                candidates.len(),
-            );
-            let budget = Budget {
-                options,
-                deadline: deadline.min(Instant::now() + Duration::from_millis(options.attempt_ms)),
-            };
-            match attempt(
-                p,
-                &relaxation(p, added)?,
-                added,
-                &schedules[i][stage],
-                &budget,
-                eh,
-            ) {
-                Ok(Some(c)) => {
-                    if !fits_report(&report, &c) {
-                        budget_hit = true;
-                        break 'singles;
-                    }
-                    solved.insert(i);
-                    report.certificates.push(c);
-                    report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
-                    publish(&report);
-                }
-                Ok(None) => {}
-                Err(e) if e == LIMIT => {
-                    report.stats.bounded_attempts += 1;
-                }
-                Err(e) => return Err(e),
-            }
+            Err(e) => return Err(e),
         }
     }
+    let summary = portfolio::run(
+        p,
+        &candidates,
+        &schedules,
+        options,
+        deadline,
+        eh,
+        |_, c, stats| {
+            if !fits_report(&report, &c) {
+                return false;
+            }
+            report.stats.candidates = stats.touched.len();
+            report.stats.mapping_attempts = stats.attempts;
+            report.stats.bounded_attempts = stats.limited;
+            report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
+            report.certificates.push(c);
+            publish(&report);
+            true
+        },
+    )?;
+    budget_hit |= summary.incomplete;
+    report.stats.candidates = summary.touched.len();
+    report.stats.mapping_attempts = summary.attempts;
+    report.stats.bounded_attempts = summary.limited;
     // Grow several deterministic chains, never assuming independent additions
     // can be combined. Every published union has its own reverse certificate.
-    let singles: Vec<_> = report.certificates.iter().map(|c| c.added[0]).collect();
+    let mut singles: Vec<_> = report.certificates.iter().map(|c| c.added[0]).collect();
+    singles.sort();
     let mut seen = BTreeSet::new();
     'joint: for first in 0..singles.len().min(4) {
         let mut added = vec![singles[first]];
@@ -336,34 +334,38 @@ pub fn search(
                 missing.len(),
             );
             let q = relaxation(p, &proposed)?;
-            for recipe in recipes(&q, &proposed) {
-                if Instant::now() >= deadline {
+            let recipes = match schedule::recipes(&q, &proposed, &planning, eh) {
+                Ok(r) => r,
+                Err(e) if e == LIMIT => {
                     budget_hit = true;
-                    break;
+                    break 'joint;
                 }
-                report.stats.mapping_attempts += 1;
-                let budget = Budget {
-                    options,
-                    deadline: deadline
-                        .min(Instant::now() + Duration::from_millis(options.attempt_ms)),
-                };
-                match attempt(p, &q, &proposed, &recipe, &budget, eh) {
-                    Ok(Some(c)) => {
-                        if !fits_report(&report, &c) {
-                            budget_hit = true;
-                            break 'joint;
-                        }
-                        added = proposed.clone();
-                        report.certificates.push(c);
-                        report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
-                        publish(&report);
-                        break;
+                Err(e) => return Err(e),
+            };
+            let before = report.stats.clone();
+            let summary = portfolio::run(
+                p,
+                &[proposed.clone()],
+                &[recipes],
+                options,
+                deadline,
+                eh,
+                |_, c, stats| {
+                    if !fits_report(&report, &c) {
+                        return false;
                     }
-                    Ok(None) => {}
-                    Err(e) if e == LIMIT => report.stats.bounded_attempts += 1,
-                    Err(e) => return Err(e),
-                }
-            }
+                    added = proposed.clone();
+                    report.stats.mapping_attempts = before.mapping_attempts + stats.attempts;
+                    report.stats.bounded_attempts = before.bounded_attempts + stats.limited;
+                    report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
+                    report.certificates.push(c);
+                    publish(&report);
+                    true
+                },
+            )?;
+            report.stats.mapping_attempts = before.mapping_attempts + summary.attempts;
+            report.stats.bounded_attempts = before.bounded_attempts + summary.limited;
+            budget_hit |= summary.incomplete;
         }
     }
     report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
@@ -397,13 +399,44 @@ pub fn apply(
     }
     let labels: BTreeSet<_> = p.labels().into_iter().collect();
     for step in &certificate.recipe {
-        if let Step::Mis(Subgraph::Pairs(pairs)) = step {
+        let graph = match step {
+            Step::Mis(g) | Step::Matching(g) | Step::GreedyColoring(g) | Step::RulingSet(g) => {
+                Some(g)
+            }
+            Step::PriorityMis { graph, order } => {
+                if order.is_empty()
+                    || order.len() > 16
+                    || order.iter().any(|r| {
+                        r.len() != p.active.finite_degree()
+                            || r.windows(2).any(|v| v[0] > v[1])
+                            || r.iter().any(|l| !labels.contains(l))
+                    })
+                    || order.iter().collect::<BTreeSet<_>>().len() != order.len()
+                {
+                    return Err("Invalid MIS priority order in certificate".into());
+                }
+                Some(graph)
+            }
+            Step::RepairPairs(pairs) => {
+                if pairs.is_empty()
+                    || pairs.len() > 528
+                    || pairs
+                        .iter()
+                        .any(|&[a, b]| a > b || !labels.contains(&a) || !labels.contains(&b))
+                {
+                    return Err("Invalid repair edge pairs in certificate".into());
+                }
+                None
+            }
+            _ => None,
+        };
+        if let Some(Subgraph::Pairs(pairs)) = graph {
             if pairs.len() > 528
                 || pairs
                     .iter()
                     .any(|&[a, b]| a > b || !labels.contains(&a) || !labels.contains(&b))
             {
-                return Err("Invalid MIS subgraph in certificate".into());
+                return Err("Invalid preprocessing subgraph in certificate".into());
             }
         }
     }

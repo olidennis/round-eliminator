@@ -12,6 +12,8 @@ pub struct Options {
     pub max_configurations: usize,
     pub max_states: usize,
     pub max_variables: usize,
+    /// Independent attempt workers. Zero chooses up to four available cores.
+    pub threads: usize,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -22,6 +24,7 @@ impl Default for Options {
             max_configurations: 4096,
             max_states: 1024,
             max_variables: 200_000,
+            threads: 0,
         }
     }
 }
@@ -40,6 +43,29 @@ pub enum Step {
     Coloring,
     /// One round of communication revealing the opposite incidence's state.
     Exchange,
+    /// Remove annotated states/contexts that have no locally legal extension.
+    Prune,
+    /// Expose the entire current node context on each of its incidences.
+    NodeContext,
+    /// An oriented maximal matching of a subgraph, obtainable via line-graph MIS.
+    Matching(Subgraph),
+    /// Proper greedy coloring, including the colors of all neighbors.
+    GreedyColoring(Subgraph),
+    /// Process original node configurations in order, finding MIS in the
+    /// remaining undominated vertices of each class.
+    PriorityMis {
+        graph: Subgraph,
+        order: Vec<Vec<Label>>,
+    },
+    /// MIS in the square of the selected subgraph: centers are at distance
+    /// at least three and every vertex is within distance two of a center.
+    RulingSet(Subgraph),
+    /// Remove these edge pairs by universally checked two-endpoint repairs,
+    /// scheduled using a strong edge coloring.
+    RepairPairs(Vec<[Label; 2]>),
+    /// Search-only placeholder: synthesize an MIS edge predicate jointly with
+    /// its mapping. Published certificates contain the concrete Mis step.
+    FindMis(usize),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

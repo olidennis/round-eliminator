@@ -285,3 +285,388 @@ fn stop_callback_cancels_and_joins_the_sat_worker() {
     .is_err());
     assert!(stopped.load(std::sync::atomic::Ordering::Relaxed));
 }
+
+#[test]
+fn stronger_recipes_roundtrip_and_reject_invalid_priorities() {
+    let original = p("A A\nB B\n\nA A\nA B");
+    let a = label(&original, "A");
+    let bb = label(&original, "B");
+    let options = Options::default();
+    let b = budget(&options);
+    let mut eh = EventHandler::null();
+    let q = relaxation(&original, &[[bb, bb]]).unwrap();
+    let order = vec![vec![a, a], vec![bb, bb]];
+    let recipes = vec![
+        vec![Step::NodeContext, Step::Exchange, Step::Prune],
+        vec![Step::Matching(Subgraph::All), Step::Prune],
+        vec![Step::Matching(Subgraph::Pairs(vec![[a, a]])), Step::Prune],
+        vec![Step::GreedyColoring(Subgraph::All), Step::Prune],
+        vec![
+            Step::GreedyColoring(Subgraph::Pairs(vec![[a, a]])),
+            Step::Prune,
+        ],
+        vec![Step::RulingSet(Subgraph::All), Step::Prune],
+        vec![Step::RulingSet(Subgraph::Pairs(vec![[a, a]])), Step::Prune],
+        vec![
+            Step::PriorityMis {
+                graph: Subgraph::All,
+                order: order.clone(),
+            },
+            Step::Prune,
+        ],
+    ];
+    for recipe in recipes {
+        let c = attempt(&original, &q, &[[bb, bb]], &recipe, &b, &mut eh)
+            .unwrap()
+            .unwrap();
+        let c: Certificate = serde_json::from_str(&serde_json::to_string(&c).unwrap()).unwrap();
+        let result = apply(&original, &c, &mut eh).unwrap();
+        assert_eq!(result.active, original.active);
+        assert_eq!(result.mapping_label_text, original.mapping_label_text);
+    }
+    let mut c = attempt(
+        &original,
+        &q,
+        &[[bb, bb]],
+        &[Step::PriorityMis {
+            graph: Subgraph::All,
+            order,
+        }],
+        &b,
+        &mut eh,
+    )
+    .unwrap()
+    .unwrap();
+    if let Step::PriorityMis { order, .. } = &mut c.recipe[0] {
+        order.push(order[0].clone());
+    }
+    assert!(apply(&original, &c, &mut eh)
+        .unwrap_err()
+        .contains("priority order"));
+}
+
+fn permits_cycle(input: &Input, states: &[[usize; 2]]) -> bool {
+    states.iter().enumerate().all(|(v, &[left, right])| {
+        input.nodes.contains(&{
+            let mut r = vec![left, right];
+            r.sort();
+            r
+        }) && input
+            .edges
+            .contains(&annotations::edge(right, states[(v + 1) % states.len()][0]))
+    })
+}
+
+#[test]
+fn ruling_set_represents_all_square_mis_outcomes_on_short_cycles() {
+    let original = p("A A\n\nA A");
+    let options = Options::default();
+    let b = budget(&options);
+    let eh = EventHandler::null();
+    let input = Input::new(&original, &b, &eh)
+        .unwrap()
+        .step(&Step::RulingSet(Subgraph::All), 1, &b, &eh)
+        .unwrap();
+    let state = |c, d| {
+        input
+            .names
+            .iter()
+            .position(|s| s.ends_with(&format!("ruling1={c}, neighbor={d}")))
+            .unwrap()
+    };
+    for n in 3..=8 {
+        let mut realizable = 0;
+        for mask in 1usize..(1 << n) {
+            let centers: Vec<_> = (0..n).filter(|&v| mask & (1 << v) != 0).collect();
+            let distance = |v: usize, w: usize| {
+                let d = v.abs_diff(w);
+                d.min(n - d)
+            };
+            if centers
+                .iter()
+                .any(|&v| centers.iter().any(|&w| v != w && distance(v, w) <= 2))
+            {
+                continue;
+            }
+            let dist: Vec<_> = (0..n)
+                .map(|v| centers.iter().map(|&w| distance(v, w)).min().unwrap())
+                .collect();
+            if dist.iter().any(|&d| d > 2) {
+                continue;
+            }
+            let states: Vec<_> = (0..n)
+                .map(|v| {
+                    [
+                        state(dist[v], dist[(v + n - 1) % n]),
+                        state(dist[v], dist[(v + 1) % n]),
+                    ]
+                })
+                .collect();
+            assert!(permits_cycle(&input, &states), "n={n} centers={centers:?}");
+            realizable += 1;
+        }
+        assert!(realizable > 0);
+    }
+    // Two centers at distance two share a distance-one vertex, which is illegal.
+    let invalid = [0, 1, 0, 1];
+    let states: Vec<_> = (0..4)
+        .map(|v| {
+            [
+                state(invalid[v], invalid[(v + 3) % 4]),
+                state(invalid[v], invalid[(v + 1) % 4]),
+            ]
+        })
+        .collect();
+    assert!(!permits_cycle(&input, &states));
+}
+
+#[test]
+fn matching_represents_oriented_maximal_matchings_and_rejects_unmatched_edges() {
+    let original = p("A A\n\nA A");
+    let options = Options::default();
+    let b = budget(&options);
+    let eh = EventHandler::null();
+    let input = Input::new(&original, &b, &eh)
+        .unwrap()
+        .step(&Step::Matching(Subgraph::All), 1, &b, &eh)
+        .unwrap();
+    let state = |r| {
+        input
+            .names
+            .iter()
+            .position(|s| s.ends_with(&format!("match1={r}")))
+            .unwrap()
+    };
+    for n in 3..=7 {
+        for mask in 0usize..1 << n {
+            let selected: Vec<_> = (0..n).filter(|&v| mask & (1 << v) != 0).collect();
+            if selected.iter().any(|&v| selected.contains(&((v + 1) % n))) {
+                continue;
+            }
+            let matched = |v| selected.contains(&v) || selected.contains(&((v + n - 1) % n));
+            if (0..n).any(|v| !matched(v) && !matched((v + 1) % n)) {
+                continue;
+            }
+            for orientation in 0usize..1 << selected.len() {
+                let mut states = vec![[state("U"); 2]; n];
+                for (i, &v) in selected.iter().enumerate() {
+                    let [v_role, w_role] = if orientation & (1 << i) == 0 {
+                        [("H", "h"), ("T", "t")]
+                    } else {
+                        [("T", "t"), ("H", "h")]
+                    };
+                    states[v] = [state(v_role.1), state(v_role.0)];
+                    states[(v + 1) % n] = [state(w_role.0), state(w_role.1)];
+                }
+                assert!(permits_cycle(&input, &states));
+            }
+        }
+    }
+    assert!(!permits_cycle(&input, &vec![[state("U"); 2]; 5]));
+}
+
+#[test]
+fn parallel_and_sequential_searches_publish_the_same_verified_sets_on_small_inputs() {
+    let original = p("A A\nB B\nC C\n\nA A\nA B");
+    let mut sets = vec![];
+    for threads in [1, 4] {
+        let options = Options {
+            seconds: 10,
+            threads,
+            ..Default::default()
+        };
+        let report = search(&original, &options, &mut EventHandler::null(), |_| {}).unwrap();
+        for c in &report.certificates {
+            apply(&original, c, &mut EventHandler::null()).unwrap();
+        }
+        sets.push(
+            report
+                .certificates
+                .iter()
+                .map(|c| c.added.clone())
+                .collect::<BTreeSet<_>>(),
+        );
+    }
+    assert!(!sets[0].is_empty());
+    assert_eq!(sets[0], sets[1]);
+}
+
+#[test]
+fn portfolio_includes_all_generic_families_and_combined_rules() {
+    let original = p(include_str!(
+        "../../../../examples/fixpoint_sat/hard_nonexistence.txt"
+    ));
+    let a = label(&original, "A");
+    let options = Options::default();
+    let b = budget(&options);
+    let eh = EventHandler::null();
+    let q = relaxation(&original, &[[a, a]]).unwrap();
+    let recipes = schedule::recipes(&q, &[[a, a]], &b, &eh).unwrap();
+    for wanted in [
+        "Mis",
+        "Matching",
+        "GreedyColoring",
+        "RulingSet",
+        "PriorityMis",
+        "NodeContext",
+        "Exchange",
+        "Prune",
+        "FindMis",
+        "RepairPairs",
+    ] {
+        assert!(
+            recipes
+                .iter()
+                .flatten()
+                .any(|s| format!("{s:?}").starts_with(wanted)),
+            "{wanted}"
+        );
+    }
+    assert!(recipes.iter().any(|r| r
+        .iter()
+        .filter(|s| matches!(s, Step::GreedyColoring(_)))
+        .count()
+        == 2));
+    assert!(recipes
+        .iter()
+        .any(|r| r.iter().filter(|s| matches!(s, Step::Mis(_))).count() >= 2));
+}
+
+#[test]
+fn synthesized_subgraphs_produce_concrete_independently_verified_certificates() {
+    let original = p("M M M\nP U U\n\nM P\nM U\nU U");
+    let m = label(&original, "M");
+    let options = Options::default();
+    let b = budget(&options);
+    let mut eh = EventHandler::null();
+    let q = relaxation(&original, &[[m, m]]).unwrap();
+    for stages in 1..=3 {
+        let c = attempt(
+            &original,
+            &q,
+            &[[m, m]],
+            &[Step::FindMis(stages)],
+            &b,
+            &mut eh,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(c.recipe.len(), stages);
+        assert!(c
+            .recipe
+            .iter()
+            .all(|s| matches!(s, Step::Mis(Subgraph::Pairs(_)))));
+        apply(&original, &c, &mut eh).unwrap();
+    }
+    let mut c = attempt(
+        &original,
+        &q,
+        &[[m, m]],
+        &[Step::Mis(Subgraph::All)],
+        &b,
+        &mut eh,
+    )
+    .unwrap()
+    .unwrap();
+    c.recipe = vec![Step::FindMis(1)];
+    assert!(apply(&original, &c, &mut eh)
+        .unwrap_err()
+        .contains("Unresolved"));
+}
+
+#[test]
+fn two_endpoint_repair_proves_three_coloring_but_not_two_coloring() {
+    let options = Options::default();
+    let b = budget(&options);
+    let mut eh = EventHandler::null();
+    for colors in [2, 3] {
+        let original = if colors == 2 {
+            p("A A\nB B\n\nA B")
+        } else {
+            p("A A\nB B\nC C\n\nA B\nA C\nB C")
+        };
+        let a = label(&original, "A");
+        let q = relaxation(&original, &[[a, a]]).unwrap();
+        let c = attempt(
+            &original,
+            &q,
+            &[[a, a]],
+            &[Step::RepairPairs(vec![[a, a]])],
+            &b,
+            &mut eh,
+        )
+        .unwrap();
+        if colors == 2 {
+            assert!(c.is_none());
+        } else {
+            let c = c.unwrap();
+            assert_eq!(c.mapping.len(), 3);
+            apply(&original, &c, &mut eh).unwrap();
+        }
+    }
+}
+
+#[test]
+fn greedy_coloring_requires_lower_neighbor_colors_and_priority_mis_requires_earlier_parents() {
+    let options = Options::default();
+    let b = budget(&options);
+    let eh = EventHandler::null();
+    let p1 = p("A A\n\nA A");
+    let colored = Input::new(&p1, &b, &eh)
+        .unwrap()
+        .step(&Step::GreedyColoring(Subgraph::All), 1, &b, &eh)
+        .unwrap();
+    let state = |c, d| {
+        colored
+            .names
+            .iter()
+            .position(|s| s.ends_with(&format!("greedy1={c}, neighbor={d}")))
+            .unwrap()
+    };
+    assert!(permits_cycle(
+        &colored,
+        &[
+            [state(0, 1); 2],
+            [state(1, 0); 2],
+            [state(0, 1); 2],
+            [state(1, 0); 2]
+        ]
+    ));
+    assert!(!permits_cycle(
+        &colored,
+        &[
+            [state(0, 2); 2],
+            [state(2, 0); 2],
+            [state(0, 2); 2],
+            [state(2, 0); 2]
+        ]
+    ));
+    let p2 = p("A A\nB B\n\nAB AB");
+    let a = label(&p2, "A");
+    let bb = label(&p2, "B");
+    let prioritized = Input::new(&p2, &b, &eh)
+        .unwrap()
+        .step(
+            &Step::PriorityMis {
+                graph: Subgraph::All,
+                order: vec![vec![a, a], vec![bb, bb]],
+            },
+            1,
+            &b,
+            &eh,
+        )
+        .unwrap();
+    let state = |rank, role| {
+        prioritized
+            .names
+            .iter()
+            .position(|s| s.ends_with(&format!("priorityMIS1[{rank}]={role}")))
+            .unwrap()
+    };
+    assert!(!prioritized
+        .edges
+        .contains(&annotations::edge(state(0, "P"), state(1, "I"))));
+    assert!(prioritized
+        .edges
+        .contains(&annotations::edge(state(0, "I"), state(1, "P"))));
+}

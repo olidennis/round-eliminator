@@ -76,10 +76,15 @@ function apply_reversible_edges(problem, certificate, onresult, onerror, progres
         x => handle_result(x, onresult, onerror, progress), function(){});
 }
 
-function start_reversible_edges(stuff, problem, seconds) {
+function start_reversible_edges(stuff, problem, seconds, threads=0) {
     seconds = Number(seconds);
+    threads = Number(threads);
     if (!Number.isInteger(seconds) || seconds < 1 || seconds > 86400) {
         stuff.push({ type: 'error', data: 'Time limit must be an integer from 1 to 86400 seconds.', warning: false });
+        return function(){};
+    }
+    if (!Number.isInteger(threads) || threads < 0 || threads > 32) {
+        stuff.push({ type: 'error', data: 'Workers must be an integer from 0 (automatic) to 32.', warning: false });
         return function(){};
     }
     const entry = { type: 'edgeadditions', data: {
@@ -89,7 +94,7 @@ function start_reversible_edges(stuff, problem, seconds) {
     const progress = { type: 'computing', data: { type: 'Reversible edges: starting', cur: 0, max: 0, onstop: function(){} } };
     stuff.push(entry, progress);
     const finish = () => { const i = stuff.indexOf(progress); if (i >= 0) stuff.splice(i, 1); };
-    const stop = reversible_edges(problem, { seconds: Number(seconds) }, report => { entry.data = report; },
+    const stop = reversible_edges(problem, { seconds, threads }, report => { entry.data = report; },
         (message, warning=false) => {
             stuff.push({ type: 'error', data: message, warning });
             if (!warning) { entry.data.message = 'Search failed; any results already listed remain verified. ' + message; finish(); }
@@ -1139,11 +1144,11 @@ Vue.component('re-speedup-star-relaxation',{
 
 Vue.component('re-demisifiable',{
     props: ['problem','stuff'],
-    data: function() { return { edge_seconds: 60 }; },
+    data: function() { return { edge_seconds: 60, edge_threads: 0 }; },
     computed: { native_edges: function() { return api.supports_reversible_edges(); } },
     methods: {
         on_edges() {
-            start_reversible_edges(this.stuff, this.problem, this.edge_seconds);
+            start_reversible_edges(this.stuff, this.problem, this.edge_seconds, this.edge_threads);
         },
         on_demisifiable() {
             call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem,false]);
@@ -1159,7 +1164,8 @@ Vue.component('re-demisifiable',{
             <div v-if="native_edges">
                 <button type="button" class="btn btn-primary m-1" v-on:click="on_edges">Logstar Reversible Edge Additions</button>
                 <label>Time limit (seconds): <input type="number" min="1" max="86400" v-model="edge_seconds" style="width: 6em"></label>
-                <small>Verified reverse mappings using coloring and label-preserving MIS annotations. Node degree 1–6.</small>
+                <label>Workers (0 = auto): <input type="number" min="0" max="32" v-model="edge_threads" style="width: 4em"></label>
+                <small>Verified mappings using MIS, priority MIS, matching, greedy coloring, ruling sets, and node-neighborhood information. Auto uses up to 4 workers. Node degree 1–6.</small>
             </div>
         </div>
     `
@@ -1179,9 +1185,16 @@ Vue.component('re-edge-additions', {
             return c.recipe.map((s,i) => {
                 if (s === 'Coloring') return (i+1) + ': proper (degree+1)-coloring';
                 if (s === 'Exchange') return (i+1) + ': exchange annotated states across edges';
-                const g = s.Mis;
-                return (i+1) + ': MIS on ' + (g === 'All' ? 'the whole graph' :
-                    'edges with endpoint pairs ' + g.Pairs.map(e => e.map(l => this.names[l]).join(' ')).join(', '));
+                if (s === 'Prune') return (i+1) + ': remove impossible annotated contexts';
+                if (s === 'NodeContext') return (i+1) + ': expose each whole node configuration';
+                if (s.RepairPairs) return (i+1) + ': repair ' + s.RepairPairs.map(e => e.map(l => this.names[l]).join(' ')).join(', ') + ' using noninterfering edge-color phases';
+                const kind = s.PriorityMis ? 'priority MIS' : s.Matching ? 'oriented maximal matching' :
+                    s.GreedyColoring ? 'greedy coloring with neighbor colors' : s.RulingSet ? 'distance-two ruling set' : 'MIS';
+                const g = s.PriorityMis ? s.PriorityMis.graph : s.Matching || s.GreedyColoring || s.RulingSet || s.Mis;
+                const priority = s.PriorityMis ? '; node-type order: ' + s.PriorityMis.order.map(r =>
+                    '(' + r.map(l => this.names[l]).join(' ') + ')').join(' then ') : '';
+                return (i+1) + ': ' + kind + ' on ' + (g === 'All' ? 'the whole graph' :
+                    'edges with endpoint pairs ' + g.Pairs.map(e => e.map(l => this.names[l]).join(' ')).join(', ')) + priority;
             }).join('; ');
         },
         apply(c) {
