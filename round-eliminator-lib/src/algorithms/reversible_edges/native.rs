@@ -133,7 +133,7 @@ fn validate(p: &Problem, options: &Options) -> Result<(), String> {
     if !(1..=86400).contains(&options.seconds)
         || !(1..=60000).contains(&options.attempt_ms)
         || !(1..=4096).contains(&options.max_candidates)
-        || !(1..=10000).contains(&options.max_configurations)
+        || !(1..=32768).contains(&options.max_configurations)
         || !(1..=4096).contains(&options.max_states)
         || !(1..=1_000_000).contains(&options.max_variables)
         || options.threads > 32

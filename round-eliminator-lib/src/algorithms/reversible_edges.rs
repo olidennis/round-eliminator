@@ -21,11 +21,11 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             seconds: 60,
-            attempt_ms: 1500,
-            max_candidates: 128,
-            max_configurations: 4096,
-            max_states: 1024,
-            max_variables: 200_000,
+            attempt_ms: 10000,
+            max_candidates: 4096,
+            max_configurations: 32768,
+            max_states: 4096,
+            max_variables: 1_000_000,
             threads: 0,
             re2: true,
         }
