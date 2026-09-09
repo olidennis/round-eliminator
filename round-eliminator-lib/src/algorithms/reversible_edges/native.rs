@@ -26,6 +26,16 @@ const MAX_EDGE_PAIRS: usize = MAX_LABELS * (MAX_LABELS + 1) / 2;
 const CERTIFICATE_BYTES: usize = 2_000_000;
 const REPORT_BYTES: usize = 16_000_000;
 
+fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = payload.downcast_ref::<&str>() {
+        message.to_string()
+    } else {
+        "non-string panic payload; see the server terminal".into()
+    }
+}
+
 fn certificate_cost(c: &Certificate) -> usize {
     let graph_cost = |g: &Subgraph| match g {
         Subgraph::All => 32,

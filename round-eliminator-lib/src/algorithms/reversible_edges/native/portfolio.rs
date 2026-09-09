@@ -70,6 +70,7 @@ pub(super) fn run(
             let next = &next;
             let solved = &solved;
             let jobs = &jobs;
+            let names = &names;
             scope.spawn(move || {
                 let progress = tx.clone();
                 let mut events = EventHandler::with(move |(s, a, b)| {
@@ -97,16 +98,30 @@ pub(super) fn run(
                         deadline: deadline
                             .min(Instant::now() + Duration::from_millis(options.attempt_ms)),
                     };
-                    let result = relaxation(p, &candidates[i]).and_then(|q| {
-                        attempt_target(
-                            p,
-                            &q,
-                            &candidates[i],
-                            &schedules[i][r],
-                            re2,
-                            &budget,
-                            &mut events,
-                        )
+                    // Catch here, before scope replaces the payload with
+                    // "a scoped thread panicked". Send the error immediately;
+                    // the owner cancels and joins the other attempt workers.
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        relaxation(p, &candidates[i]).and_then(|q| {
+                            attempt_target(
+                                p,
+                                &q,
+                                &candidates[i],
+                                &schedules[i][r],
+                                re2,
+                                &budget,
+                                &mut events,
+                            )
+                        })
+                    }))
+                    .unwrap_or_else(|payload| {
+                        let added = candidates[i].iter().map(|[a, b]| {
+                            format!("{} {}", names.get(a).cloned().unwrap_or_else(|| a.to_string()),
+                                names.get(b).cloned().unwrap_or_else(|| b.to_string()))
+                        }).collect::<Vec<_>>().join(", ");
+                        Err(format!("{} reversible-edge attempt panicked while testing {added} (recipe {}: {:?}): {}",
+                            if re2.is_some() { "RE²" } else { "Direct" },
+                            r + 1, schedules[i][r], panic_message(payload)))
                     });
                     if tx.send(Message::Result(i, result)).is_err() {
                         break;

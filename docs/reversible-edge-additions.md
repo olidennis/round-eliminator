@@ -20,6 +20,11 @@ searches against RE²(P); it does not take a worker away from the ordinary searc
 Each attempt uses the existing single-threaded MiniSat; this is a parallel
 portfolio, not a new solver.
 
+Native builds use a [locally patched CPU-time library](../vendor/cpu-time/LOCAL-PATCH.md)
+for MiniSat's statistics. Regressing CPU-clock readings are clamped to zero
+elapsed CPU time instead of panicking after a solve. Search deadlines still use
+`std::time::Instant`; SAT results, verification and parallelism are unchanged.
+
 ## What is certified
 
 Write the original problem as P=(N,E), and an edge relaxation as Q=(N,E union F).

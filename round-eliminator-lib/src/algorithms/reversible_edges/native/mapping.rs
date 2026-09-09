@@ -214,7 +214,16 @@ pub(super) fn find_guarded(
         let (tx, rx) = mpsc::channel();
         let solver = &mut cnf.solver;
         scope.spawn(move || {
-            let _ = tx.send(solver.solve().map_err(|e| e.to_string()));
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                solver.solve().map_err(|e| e.to_string())
+            }))
+            .unwrap_or_else(|payload| {
+                Err(format!(
+                    "Reverse-mapping SAT worker panicked: {}",
+                    panic_message(payload)
+                ))
+            });
+            let _ = tx.send(result);
         });
         loop {
             budget.check(eh)?;

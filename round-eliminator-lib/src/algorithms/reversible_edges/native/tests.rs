@@ -18,6 +18,69 @@ fn budget(options: &Options) -> Budget<'_> {
 }
 
 #[test]
+fn attempt_panics_report_the_original_error_and_recipe() {
+    let mut original = p("A A\nB B\n\nA B");
+    let b = label(&original, "B");
+    // Deliberately corrupt the private worker's input to exercise a real
+    // indexing panic, rather than the outer scope's generic replacement panic.
+    original.passive.lines[0].parts.clear();
+    let options = Options {
+        threads: 2,
+        ..Default::default()
+    };
+    let error = portfolio::run(
+        &original,
+        None,
+        &[vec![[b, b]]],
+        &[vec![vec![]]],
+        &options,
+        Instant::now() + Duration::from_secs(5),
+        &mut EventHandler::null(),
+        |_, _, _| panic!("a failed attempt must not publish a certificate"),
+    )
+    .err()
+    .expect("corrupt input must be reported");
+    assert!(
+        error.contains("Direct reversible-edge attempt panicked"),
+        "{error}"
+    );
+    assert!(error.contains("B B (recipe 1: [])"), "{error}");
+    assert!(error.contains("index out of bounds"), "{error}");
+    assert!(!error.contains("a scoped thread panicked"), "{error}");
+}
+
+#[test]
+fn two_gui_speedups_then_both_reversible_edge_targets() {
+    let mut original = p("B C C\nB B C\nA A C\nB B B\n\nA B\nC C");
+    let mut eh = EventHandler::null();
+    crate::serial::fix_problem(&mut original, true, true, &mut eh);
+    for _ in 0..2 {
+        if original.diagram_indirect.is_none() {
+            original.compute_partial_diagram(&mut eh);
+        }
+        original = original.speedup(&mut eh);
+        crate::serial::fix_problem(&mut original, true, true, &mut eh);
+    }
+    assert_eq!(original.labels().len(), 4);
+    let report = search(
+        &original,
+        &Options {
+            seconds: 15,
+            threads: 4,
+            ..Default::default()
+        },
+        &mut eh,
+        |_| {},
+    )
+    .unwrap();
+    assert!(report.stats.mapping_attempts > report.stats.re2_mapping_attempts);
+    assert!(report.stats.re2_mapping_attempts > 0);
+    for certificate in &report.certificates {
+        apply(&original, certificate, &mut eh).unwrap();
+    }
+}
+
+#[test]
 fn mis_witnesses_require_independence_maximality_and_the_right_subgraph() {
     let options = Options::default();
     let b = budget(&options);

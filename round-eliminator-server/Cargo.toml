@@ -23,3 +23,7 @@ libmimalloc-sys = {version="0.1.39", features=["extended"]}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.6"
+
+# A dependency's patch section is ignored: the server needs its own override.
+[patch.crates-io]
+cpu-time = { path = "../vendor/cpu-time" }

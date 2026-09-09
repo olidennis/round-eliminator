@@ -50,3 +50,7 @@ debug = true
 [profile.bench]
 debug = true
 
+# MiniSat's CPU-time statistics must tolerate regressing OS clock readings.
+# Cargo patches belong to each build root; see vendor/cpu-time/LOCAL-PATCH.md.
+[patch.crates-io]
+cpu-time = { path = "../vendor/cpu-time" }

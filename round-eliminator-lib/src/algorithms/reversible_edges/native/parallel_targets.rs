@@ -96,11 +96,12 @@ fn search_with_prepare(
                         },
                     )
                 }))
-                .unwrap_or_else(|_| {
+                .unwrap_or_else(|payload| {
+                    let message = panic_message(payload);
                     Err(if re2 {
-                        "RE² worker panicked; direct search was left running".into()
+                        format!("RE² worker panicked: {message}; direct search was left running")
                     } else {
-                        "Direct reversible-edge worker panicked".into()
+                        format!("Direct reversible-edge worker panicked: {message}")
                     })
                 });
                 let _ = tx.send(Message::Done(re2, result));
@@ -200,6 +201,26 @@ mod tests {
 
     fn small() -> Problem {
         Problem::from_string("A A\nB B\n\nA A\nA B").unwrap()
+    }
+
+    #[test]
+    fn target_preparation_panic_keeps_its_message_and_direct_results() {
+        let report = search_with_prepare(
+            &small(),
+            &Options {
+                seconds: 2,
+                threads: 1,
+                ..Default::default()
+            },
+            &mut EventHandler::null(),
+            |_| {},
+            |_, _, _| panic!("specific target preparation error"),
+        )
+        .unwrap();
+        assert!(!report.complete);
+        assert!(!report.certificates.is_empty());
+        assert!(report.message.contains("specific target preparation error"));
+        assert!(report.message.contains("direct results retained"));
     }
 
     #[test]
