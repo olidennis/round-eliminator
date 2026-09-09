@@ -144,7 +144,10 @@ Defaults are 60 seconds overall, 1.5 seconds per attempt, 128 candidate sets,
 stages. Large Cartesian products and annotation descriptions are bounded too.
 Retained mapping tables have conservative text budgets of 2 MB per certificate
 and 16 MB per report, so streaming results cannot accumulate unbounded proofs.
-Supported inputs currently have node degree 1–6, edge degree 2, and 1–32 labels.
+Supported inputs currently have node degree 1–6, edge degree 2, and 1–64 labels.
+The label cap is a resource guard, not a solver or representation limitation.
+Certificate edge-predicate lists support all 2,080 unordered pairs (including
+same-label pairs) over 64 labels; the other search and storage limits still apply.
 The GUI exposes overall time and workers; the native API exposes the other
 principal limits through `reversible_edges::Options`. All workers share the
 overall deadline. STOP and callback unwinding cancel and join all attempt workers

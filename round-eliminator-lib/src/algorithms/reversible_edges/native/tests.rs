@@ -268,6 +268,113 @@ fn invalid_inputs_and_budgets_are_not_negative_proofs() {
     assert!(relaxation(&original, &[[999, 999]]).is_err());
 }
 
+// Every pair is allowed except the highest label paired with itself.
+// Each label also occurs in the degree-one node constraint.
+fn wide_alphabet_problem(count: usize) -> Problem {
+    let names: Vec<_> = (0..count).map(|i| format!("(L{i})")).collect();
+    let all = names.concat();
+    let without_last = names[..count - 1].concat();
+    p(&format!("{all}\n\n{all} {without_last}"))
+}
+
+#[test]
+fn label_limit_accepts_64_and_rejects_65_or_empty_nodes() {
+    let options = Options::default();
+    for count in [32, 33, 64] {
+        let original = wide_alphabet_problem(count);
+        assert_eq!(original.labels().len(), count);
+        validate(&original, &options).unwrap();
+    }
+    assert!(validate(&wide_alphabet_problem(65), &options)
+        .unwrap_err()
+        .contains("1–64 labels"));
+    let mut empty = wide_alphabet_problem(64);
+    empty.active.lines.clear();
+    assert!(validate(&empty, &options)
+        .unwrap_err()
+        .contains("nonempty node constraint"));
+}
+
+#[test]
+fn search_and_certificate_replay_support_64_labels() {
+    let original = wide_alphabet_problem(64);
+    let last = label(&original, "(L63)");
+    let report = search(
+        &original,
+        &Options {
+            seconds: 10,
+            max_candidates: 1,
+            threads: 1,
+            ..Default::default()
+        },
+        &mut EventHandler::null(),
+        |_| {},
+    )
+    .unwrap();
+    assert_eq!(report.certificates.len(), 1);
+    assert_eq!(report.certificates[0].added, vec![[last, last]]);
+    let result = apply(
+        &original,
+        &report.certificates[0],
+        &mut EventHandler::null(),
+    )
+    .unwrap();
+    assert_eq!(result.active, original.active);
+    assert_eq!(result.mapping_label_text, original.mapping_label_text);
+    assert_eq!(result.labels().len(), 64);
+    assert!(result.passive.includes(&edge_line([last, last])));
+}
+
+#[test]
+fn certificate_pair_limits_cover_the_64_label_alphabet() {
+    let original = wide_alphabet_problem(64);
+    let labels = original.labels();
+    let first = labels[0];
+    let last = label(&original, "(L63)");
+    let added = vec![[last, last]];
+    let q = relaxation(&original, &added).unwrap();
+    let pairs: Vec<_> = labels
+        .iter()
+        .enumerate()
+        .flat_map(|(i, &a)| labels[i..].iter().map(move |&b| [a, b]))
+        .collect();
+    assert_eq!(pairs.len(), 2080);
+    let options = Options::default();
+    let b = budget(&options);
+    let mut eh = EventHandler::null();
+    for step in [
+        Step::Mis(Subgraph::Pairs(pairs.clone())),
+        // Keep the first self-pair good: every bad degree-one edge can be
+        // repaired by changing both its endpoints to this first label.
+        Step::RepairPairs(pairs[1..].to_vec()),
+    ] {
+        let input = transformed(&q, &[step.clone()], &b, &mut eh).unwrap();
+        let mut certificate = Certificate {
+            added: added.clone(),
+            recipe: vec![step],
+            mapping: input
+                .nodes
+                .iter()
+                .map(|row| MappingRow {
+                    input: row.iter().map(|&s| input.names[s].clone()).collect(),
+                    output: vec![first; row.len()],
+                })
+                .collect(),
+        };
+        let result = apply(&original, &certificate, &mut eh).unwrap();
+        assert_eq!(result.active, original.active);
+        assert!(result.passive.includes(&edge_line([last, last])));
+        let recipe_pairs = match &mut certificate.recipe[0] {
+            Step::Mis(Subgraph::Pairs(pairs)) | Step::RepairPairs(pairs) => pairs,
+            _ => unreachable!(),
+        };
+        recipe_pairs.resize(2081, [first, first]);
+        assert!(apply(&original, &certificate, &mut eh)
+            .unwrap_err()
+            .contains("Invalid"));
+    }
+}
+
 #[test]
 fn stop_callback_cancels_and_joins_the_sat_worker() {
     let original = p("M M M\nP U U\n\nM P\nM U\nU U");

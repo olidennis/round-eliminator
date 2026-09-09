@@ -18,6 +18,9 @@ use annotations::Input;
 
 pub(super) const LIMIT: &str = "Reversible edge search budget reached";
 const CANCELLED: &str = "Reversible edge search cancelled";
+// Resource guards, not limits of the label representation or SAT solver.
+const MAX_LABELS: usize = 64;
+const MAX_EDGE_PAIRS: usize = MAX_LABELS * (MAX_LABELS + 1) / 2;
 const CERTIFICATE_BYTES: usize = 2_000_000;
 const REPORT_BYTES: usize = 16_000_000;
 
@@ -105,10 +108,11 @@ fn validate(p: &Problem, options: &Options) -> Result<(), String> {
             "Reversible edge additions currently require node degree 1–6 and edge degree 2".into(),
         );
     }
-    if p.labels().is_empty() || p.labels().len() > 32 || p.active.lines.is_empty() {
-        return Err(
-            "Reversible edge additions require 1–32 labels and a nonempty node constraint".into(),
-        );
+    let label_count = p.labels().len();
+    if label_count == 0 || label_count > MAX_LABELS || p.active.lines.is_empty() {
+        return Err(format!(
+            "Reversible edge additions require 1–{MAX_LABELS} labels and a nonempty node constraint"
+        ));
     }
     if !(1..=86400).contains(&options.seconds)
         || !(1..=60000).contains(&options.attempt_ms)
@@ -436,7 +440,7 @@ pub fn apply(
             }
             Step::RepairPairs(pairs) => {
                 if pairs.is_empty()
-                    || pairs.len() > 528
+                    || pairs.len() > MAX_EDGE_PAIRS
                     || pairs
                         .iter()
                         .any(|&[a, b]| a > b || !labels.contains(&a) || !labels.contains(&b))
@@ -448,7 +452,7 @@ pub fn apply(
             _ => None,
         };
         if let Some(Subgraph::Pairs(pairs)) = graph {
-            if pairs.len() > 528
+            if pairs.len() > MAX_EDGE_PAIRS
                 || pairs
                     .iter()
                     .any(|&[a, b]| a > b || !labels.contains(&a) || !labels.contains(&b))

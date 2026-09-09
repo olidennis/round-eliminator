@@ -1165,7 +1165,6 @@ Vue.component('re-demisifiable',{
                 <button type="button" class="btn btn-primary m-1" v-on:click="on_edges">Logstar Reversible Edge Additions</button>
                 <label>Time limit (seconds): <input type="number" min="1" max="86400" v-model="edge_seconds" style="width: 6em"></label>
                 <label>Workers (0 = auto): <input type="number" min="0" max="32" v-model="edge_threads" style="width: 4em"></label>
-                <small>Verified mappings using MIS (including SAT-chosen subgraphs), priority MIS, matching, greedy coloring, ruling sets, node neighborhoods, and local edge repairs. Auto uses up to 4 workers. Simple graphs, node degree 1–6.</small>
             </div>
         </div>
     `
