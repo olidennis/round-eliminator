@@ -114,7 +114,9 @@ impl Constraint {
             #[cfg(not(target_arch = "wasm32"))]
             let newconstraint = {
                 let cancellation = eh.cancellation_token();
-                let n_workers = if let Ok(val) = std::env::var("RE_NUM_THREADS") {
+                let n_workers = if let Some(limit) = eh.worker_limit() {
+                    limit
+                } else if let Ok(val) = std::env::var("RE_NUM_THREADS") {
                     val.parse::<usize>().unwrap()
                 } else {
                     num_cpus::get()

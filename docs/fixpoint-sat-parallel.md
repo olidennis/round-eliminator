@@ -14,9 +14,11 @@ Whole-configuration replay and the final `is_pred` verifier remain unchanged.
 ## Configuration
 
 - `RE_GUIDED_THREADS`: number of guided SAT workers, from 1 to 32. By default,
-  available logical CPUs minus two, clamped to 1–6. Thus a machine with at
-  least eight available CPUs normally gets six guided workers plus the two
-  independent search workers (roughly 800% CPU when all are busy).
+  the certificate CPU share minus the general proof and closure workers,
+  clamped to 1–6. With the optional Gimsatul backend, Loop splits CPUs roughly
+  half/half between diagram SAT and certificates. Ten CPUs give five diagram
+  threads plus three guided, one general proof, and one closure worker.
+  See [the current CPU allocation settings](fixpoint-sat.md#parallel-diagram-sat-and-cpu-allocation).
 - `RE_GUIDED_MAX_VARIABLES`: shared guided variable-credit budget, default
   1,500,000 and minimum 152,000. Each live job reserves 152,000 credits, covering
   its encoding and feedback goals. Cached solvers count their actual variables
@@ -24,8 +26,9 @@ Whole-configuration replay and the final `is_pred` verifier remain unchanged.
   before fresh jobs are admitted; some worker slots may remain idle. Cached
   credits are removed before reserving the resumed job. Solvers are not evicted
   and there are no cold retries.
-- `RE_NUM_THREADS` still controls internal saturation parallelism, not this
-  SAT pool. Default-diagram saturation runs once, before pool startup.
+- `RE_NUM_THREADS` controls saturation in other native operations. Loop caps
+  each certificate worker's nested saturation at one worker. Default-diagram
+  guided seeding still runs once before the guided pool starts.
 
 For example, from `round-eliminator-server`, rebuild/start the native server:
 
@@ -33,8 +36,9 @@ For example, from `round-eliminator-server`, rebuild/start the native server:
 RE_GUIDED_THREADS=6 cargo run --release
 ```
 
-No GUI or WASM changes are needed. One guided worker restores roughly three
-busy search cores; it uses the same scheduler and verifier as larger pools.
+No GUI or WASM changes are needed. One guided worker uses the same scheduler
+and verifier as larger pools; diagram, general proof, and closure workers remain
+independent.
 
 The variable budget is **not an exact byte/RSS limit**: clauses, proof terms,
 oracle caches, and the independent searches also use memory. The old separate
@@ -74,7 +78,7 @@ cached jobs/variables. These distinguish useful coverage from CPU utilization.
 The new-fragment counter counts selected admission versions, not globally
 distinct expressions: an evicted expression can be admitted again.
 
-## Scheduling-fix validation
+## Earlier scheduling-fix validation (before expression closure)
 
 72 native SAT/game/proof/coordinator tests and seven GUI/validation tests pass.
 New regressions cover first-round archive coverage, all cross-block pairs,

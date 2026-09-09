@@ -38,11 +38,11 @@ fn parse_settings(
     Ok(Settings { workers, variables })
 }
 
-pub(crate) fn settings() -> Result<Settings, String> {
+pub(crate) fn settings(certificate_threads: usize) -> Result<Settings, String> {
     parse_settings(
         std::env::var("RE_GUIDED_THREADS").ok().as_deref(),
         std::env::var("RE_GUIDED_MAX_VARIABLES").ok().as_deref(),
-        std::thread::available_parallelism().map_or(1, usize::from),
+        certificate_threads,
     )
 }
 
@@ -293,7 +293,8 @@ pub(super) fn run(
                             b,
                         )));
                     })
-                    .with_cancellation(control.cancelled.clone());
+                    .with_cancellation(control.cancelled.clone())
+                    .with_worker_limit(1);
                     let result =
                         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match work {
                             Work::Bridge(job) => job

@@ -16,7 +16,7 @@ const TIME_BUDGET: Duration = Duration::from_secs(5);
 
 // Same right-closed-set lattice as FixpointDiagram::new_smaller, but enumerate
 // distinct sets incrementally so an exponential completion can be stopped.
-fn default_candidate(
+pub(super) fn default_candidate(
     original: &Problem,
     limit: usize,
     control: &SearchControl,

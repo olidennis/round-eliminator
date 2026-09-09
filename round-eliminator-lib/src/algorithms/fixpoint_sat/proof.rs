@@ -12,6 +12,8 @@ use super::*;
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
 
+pub(super) mod closure;
+
 #[derive(Clone, Debug, Default)]
 pub struct CertificateSearchOptions {
     /// Number of combination steps, not lattice nodes. None is unbounded.

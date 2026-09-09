@@ -27,9 +27,11 @@ type Term = TreeNode<Label>;
 type Obstruction = Vec<(Term, Term)>;
 
 mod game;
+mod parallel;
 mod proof;
 mod search;
 mod seeding;
+mod warm;
 
 pub use proof::instance as certificate_cnf;
 pub use proof::{CertificateSearchOptions, CertificateSearchOutcome};
@@ -114,6 +116,7 @@ pub enum SatSearchOutcome {
 
 struct Encoding {
     solver: Minisat,
+    clauses: Option<Vec<Vec<Lit>>>,
     next_var: u32,
     truth: Lit,
     nodes: usize,
@@ -152,6 +155,9 @@ impl Encoding {
         {
             return Ok(());
         }
+        if let Some(clauses) = &mut self.clauses {
+            clauses.push(literals.clone());
+        }
         self.solver
             .add_clause(literals.into_iter().collect())
             .map_err(|e| e.to_string())
@@ -172,10 +178,20 @@ impl Encoding {
         Self::new_cancellable(problem, nodes, None)
     }
 
+    #[cfg(test)]
     fn new_cancellable(
         problem: &Problem,
         nodes: usize,
         cancellation: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    ) -> Result<Self, String> {
+        Self::new_recorded(problem, nodes, cancellation, false)
+    }
+
+    fn new_recorded(
+        problem: &Problem,
+        nodes: usize,
+        cancellation: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+        record: bool,
     ) -> Result<Self, String> {
         let truth = Lit::new(0, false);
         let mut solver = Minisat::default();
@@ -186,6 +202,7 @@ impl Encoding {
         labels.sort_unstable();
         let mut enc = Self {
             solver,
+            clauses: record.then(|| vec![vec![truth]]),
             next_var: 1,
             truth,
             nodes,
@@ -556,10 +573,20 @@ struct Failure {
 /// name mergers. Do not use mapping_label_oldlabels: a lattice node is not a
 /// speedup label/set, and "rename by generators" would be misleading here.
 fn name_fixed_point(original: &Problem, candidate: &Candidate, result: &mut Problem) {
-    name_fixed_point_with_mapping(original, &candidate.label_mapping(), candidate.order.len(), result);
+    name_fixed_point_with_mapping(
+        original,
+        &candidate.label_mapping(),
+        candidate.order.len(),
+        result,
+    );
 }
 
-pub(super) fn name_fixed_point_with_mapping(original: &Problem, mapping: &[(Label, Label)], nodes: usize, result: &mut Problem) {
+pub(super) fn name_fixed_point_with_mapping(
+    original: &Problem,
+    mapping: &[(Label, Label)],
+    nodes: usize,
+    result: &mut Problem,
+) {
     let original_names: HashMap<_, _> = original.mapping_label_text.iter().cloned().collect();
     let mut preimages = vec![Vec::new(); nodes];
     for &(a, b) in mapping {
@@ -778,6 +805,13 @@ impl Problem {
             .then(|| NonexistenceOracle::new(&original));
         let mut stats = SatSearchStats::default();
         let mut obstructions: Vec<Obstruction> = Vec::new();
+        let standalone;
+        let runtime = if let Some(control) = control {
+            &*control.diagram
+        } else {
+            standalone = parallel::Runtime::new(parallel::Settings::environment()?, true);
+            &standalone
+        };
         let mut nodes = options.min_nodes;
         loop {
             search::check_event(eh)?;
@@ -795,8 +829,9 @@ impl Problem {
                 nodes,
                 options.max_nodes.unwrap_or(0),
             );
+            let external = runtime.settings.uses_external(nodes, options);
             let mut encoding =
-                Encoding::new_cancellable(&original, nodes, eh.cancellation_token())?;
+                Encoding::new_recorded(&original, nodes, eh.cancellation_token(), external)?;
             for obstruction in &obstructions {
                 encoding.block(obstruction)?;
             }
@@ -821,7 +856,12 @@ impl Problem {
                         .conflict_limit
                         .map_or(Limit::None, |n| Limit::Conflicts(n as i64)),
                 );
-                let solved = if let Some(control) = control {
+                let mut external_model = None;
+                let solved = if external {
+                    let (result, model) = parallel::solve(&encoding, runtime, eh, control)?;
+                    external_model = model;
+                    result
+                } else if let Some(control) = control {
                     control.solve(0, &mut encoding.solver, None)?
                 } else {
                     encoding.solver.solve().map_err(|e| e.to_string())?
@@ -834,7 +874,10 @@ impl Problem {
                     }
                     SolverResult::Sat => {}
                 }
-                let assignment = encoding.solver.full_solution().map_err(|e| e.to_string())?;
+                let assignment = match external_model {
+                    Some(model) => model,
+                    None => encoding.solver.full_solution().map_err(|e| e.to_string())?,
+                };
                 let candidate = encoding.candidate(&assignment)?;
                 stats.candidates += 1;
                 let diagram = candidate.diagram();
@@ -922,7 +965,7 @@ impl Problem {
                     control.record_diagram_stats(&stats);
                 }
                 if !trivial {
-                    let mut problem = if let Some(problem) = materialized {
+                    let problem = if let Some(problem) = materialized {
                         problem
                     } else {
                         eh.notify("SAT: materializing successful diagram", nodes, 0);
@@ -942,26 +985,9 @@ impl Problem {
                         }
                         problem
                     };
-                    name_fixed_point(&original, &candidate, &mut problem);
-                    let names: HashMap<_, _> = problem.mapping_label_text.iter().cloned().collect();
-                    let original_names: HashMap<_, _> =
-                        original.mapping_label_text.iter().cloned().collect();
-                    let mut diagram_text = String::from("# original-label mapping\n");
-                    for &(a, b) in &mapping {
-                        diagram_text.push_str(&format!("{} = {}\n", original_names[&a], names[&b]));
-                    }
-                    diagram_text.push_str("# lattice order\n");
-                    for &(a, b) in &diagram {
-                        diagram_text.push_str(&format!("{} -> {}\n", names[&a], names[&b]));
-                    }
-                    return Ok(SatSearchOutcome::Found(SatFixedPoint {
-                        problem,
-                        nodes,
-                        diagram,
-                        mapping,
-                        diagram_text,
-                        stats,
-                    }));
+                    return Ok(SatSearchOutcome::Found(successful_candidate(
+                        &original, &candidate, problem, stats,
+                    )));
                 }
 
                 if !track {
@@ -1018,6 +1044,35 @@ impl Problem {
                 .checked_add(1)
                 .ok_or_else(|| "SAT diagram size overflow".to_string())?;
         }
+    }
+}
+
+fn successful_candidate(
+    original: &Problem,
+    candidate: &Candidate,
+    mut problem: Problem,
+    stats: SatSearchStats,
+) -> SatFixedPoint {
+    name_fixed_point(original, candidate, &mut problem);
+    let mapping = candidate.label_mapping();
+    let diagram = candidate.diagram();
+    let names: HashMap<_, _> = problem.mapping_label_text.iter().cloned().collect();
+    let original_names: HashMap<_, _> = original.mapping_label_text.iter().cloned().collect();
+    let mut diagram_text = String::from("# original-label mapping\n");
+    for &(a, b) in &mapping {
+        diagram_text.push_str(&format!("{} = {}\n", original_names[&a], names[&b]));
+    }
+    diagram_text.push_str("# lattice order\n");
+    for &(a, b) in &diagram {
+        diagram_text.push_str(&format!("{} -> {}\n", names[&a], names[&b]));
+    }
+    SatFixedPoint {
+        problem,
+        nodes: candidate.order.len(),
+        diagram,
+        mapping,
+        diagram_text,
+        stats,
     }
 }
 

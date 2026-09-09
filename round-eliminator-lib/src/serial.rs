@@ -91,6 +91,9 @@ where
                 eprintln!("{}", x.0);
             }
         }
+        if x.0 == "Loop: basic works" {
+            handler(Response::W(format!("The basic fixed-point procedure works ({}-node diagram). Loop is still searching for a minimum-size good diagram.", x.1)));
+        }
         let resp = Response::Event(x.0, x.1, x.2);
         handler(resp);
     });

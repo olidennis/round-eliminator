@@ -1310,6 +1310,10 @@ impl NonexistenceOracle {
         Expr::Base(a, true).is_pred(&Expr::Base(b, false), &mut self.context.relations)
     }
 
+    pub(super) fn terms_precede(&mut self, a: &TreeNode<Label>, b: &TreeNode<Label>) -> bool {
+        a.to_expr().as_expr().is_pred(&b.to_expr().as_expr(), &mut self.context.relations)
+    }
+
     #[cfg(test)]
     pub(super) fn terms_compatible(&mut self, a: &TreeNode<Label>, b: &TreeNode<Label>) -> bool {
         a.to_expr().as_expr().mirrored().is_pred(&b.to_expr().as_expr(), &mut self.context.relations)

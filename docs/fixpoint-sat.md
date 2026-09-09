@@ -1,6 +1,6 @@
 # Native SAT fixed-point search
 
-Native default-feature builds use three cooperating searches for the existing fixed-point `loop`
+Native default-feature builds use four cooperating searches for the existing fixed-point `loop`
 operation when the active degree is finite and positive and the passive degree
 is two. The browser/WASM and `onlyrust` builds keep the original implementation.
 Other degrees and partial fixed-point searches also keep the original path.
@@ -9,8 +9,10 @@ whereas SAT allows label mergers.
 
 The diagram/game search looks for a fixed point. The general proof search independently
 looks for a universal nonexistence certificate. A witness-guided worker searches
-small recombinations of actual game derivations. The first two use dedicated
-workers; guided jobs run in a configurable pool with one shared scheduler.
+small recombinations of actual game derivations. A bounded deterministic expression
+closure worker reuses full-saturation fragments and compatibility profiles. The
+diagram, general proof, and closure searches use dedicated workers; guided jobs
+run in a configurable pool with one shared scheduler.
 A conclusive answer cancels and joins the remaining workers. No GUI button,
 manual restart, or symbolic diagram-completion search is involved. The original
 algorithm remains callable explicitly as `Problem::fixpoint_loop_symbolic`, but
@@ -20,6 +22,103 @@ Native GUI requests also print SAT progress to the server terminal (stderr),
 including the diagram size and proof-step bound being searched, candidate checks, exhausted sizes,
 and construction of the successful fixed point. GUI progress events are still
 sent as before; no extra option is needed to enable terminal output.
+
+Unbounded Loop also makes a bounded (five-second) full check of the default
+closed-set diagram. If it verifies a nontrivial fixed point, the GUI shows a
+**basic works** warning, but does **not** return that candidate. The ascending-size
+SAT search continues to find a minimum diagram. Certificate workers then stop,
+because a verified positive example excludes a universal nonexistence certificate.
+This advisory is skipped for explicitly bounded searches and oversized inputs.
+
+## Parallel diagram SAT and CPU allocation
+
+An optional native [Gimsatul](https://github.com/arminbiere/gimsatul) backend
+solves the same diagram CNF with a clause-sharing thread portfolio. Build the
+pinned revision used in our benchmarks from the repository root:
+
+```sh
+sh tools/build-gimsatul.sh
+```
+
+This requires Git, a C compiler, and Make. The build script retains its source,
+binary, and license under the ignored `target/native-tools/` directory. Native
+Loop automatically detects that binary, or `gimsatul` on `PATH`. Restart an
+already-running server after rebuilding the Rust code. No GUI toggle is needed.
+If Gimsatul is absent, the existing MiniSat backend remains available.
+
+By default, Loop allocates roughly half the available CPUs to diagram SAT and
+half to certificates. On ten CPUs this is **five Gimsatul threads**, plus
+**three guided jobs, one general proof worker, and one closure worker**.
+Saturation inside those certificate workers is capped at one worker per job,
+avoiding nested full-machine worker pools. Scheduler/control threads are not
+counted as CPU workers. The three independent certificate workers are a minimum
+on small machines; the guided pool retains its six-worker default cap and its
+shared memory budget. This is a per-request allocation, not a global server cap.
+
+MiniSat handles sizes below 12 to avoid subprocess overhead on tiny calls.
+Gimsatul handles larger sizes, one size at a time. If the basic advisory succeeds,
+all certificate workers are stopped and joined by their coordinators; the next
+SAT call can use their CPUs too. An already-running SAT call is not restarted
+just to change its thread count. A positive result still requires exhausting
+every smaller requested size and the usual full fixed-point verification.
+
+Environment settings (set before launching the native server or example):
+
+| Variable | Meaning |
+| --- | --- |
+| `RE_SEARCH_THREADS` | Total CPU allocation target; defaults to available CPUs. |
+| `RE_DIAGRAM_THREADS` | Explicit diagram-SAT thread count, including after certificates stop; otherwise half initially and all afterward. |
+| `RE_DIAGRAM_SOLVER` | `minisat`, `gimsatul` on `PATH`, or an executable path implementing Gimsatul's CLI. |
+| `RE_DIAGRAM_MIN_NODES` | First size handled by Gimsatul; default 12. |
+| `RE_DIAGRAM_SECONDS` | Optional per-Gimsatul-call time limit; reaching it is inconclusive, never UNSAT. |
+
+For example, `RE_SEARCH_THREADS=8` gives a four/four initial split. The existing
+`RE_GUIDED_THREADS` override remains available and can deliberately oversubscribe
+the certificate share. Explicit diagram conflict limits select MiniSat, preserving
+their existing semantics. The diagram-only API uses all available CPUs unless
+`RE_DIAGRAM_THREADS` limits it. Other native operations retain `RE_NUM_THREADS`;
+Loop's internal saturation uses its per-worker cap.
+
+Each external SAT model is independently checked against every encoded clause
+before decoding and the normal game/full-procedure checks. Solver failures are
+errors, not UNSAT. Private temporary files avoid pipe deadlocks, and cancellation,
+STOP callback unwinding, or a certificate winner kills and reaps the solver.
+Gimsatul UNSAT answers are trusted, just as MiniSat answers were; no external
+UNSAT proof checker is added. CLI calls restart Gimsatul after each new blocker,
+while the MiniSat path retains its incremental solver within a size.
+
+### Measured scaling
+
+Gimsatul 1.1.3, revision `4664fd74c97f87e30e7f907181707679b6fa49f2`, was tested on
+captured diagram CNFs for the positive four-color example (four equal colors
+at each degree-four node; unequal colors on each edge). These are diagram
+instances, not the earlier certificate-synthesis instances. Median seconds over
+three sequential runs per setting, CPU-pinned on the development ARM64 machine:
+
+| Fixed CNF | 1 thread | 2 threads | 4 threads | 1 → 2 speedup |
+| --- | ---: | ---: | ---: | ---: |
+| Size 13, UNSAT | 4.225 | 2.747 | 1.986 | 1.54× |
+| Size 14, UNSAT | 14.777 | 9.812 | 6.400 | 1.51× |
+| Size 15, UNSAT | 84.696 | 51.352 | 32.264 | **1.65×** |
+
+The sum of these medians improves 1.62× from one to two threads. Whole ascending
+searches (one run each, Gimsatul at every size) found the same minimum size 16 in
+112.45, 83.69, and 59.05 seconds with one, two, and four threads respectively.
+The whole-search one-to-two speedup is only **1.34×**: thread portfolios can
+choose different candidates, which produce different later blockers/CNFs.
+These figures do not establish a uniform 1.65× speedup, nor predict ten-thread
+performance. The hard nonexistence example's captured size-13 CNF timed out
+at 45 seconds with one, two, and four threads; its successful acceleration came
+from the new expression-closure certificate search, not that SAT benchmark.
+
+Fresh integrated Loop checks, with no concurrent build, started with a five/five
+split on ten CPUs. The hard example produced an independently replayed/verified
+14-step certificate in **12.90 seconds**, cancelling diagram SAT at size 12.
+The positive four-color example issued the basic warning, released the certificate
+workers, and then used ten threads for subsequent diagram SAT calls. It returned
+a checked 16-node fixed point in **32.82 seconds**, with sizes 1–15 exhausted.
+These are single end-to-end validation runs with the production hybrid backend,
+not controlled scaling comparisons against the all-Gimsatul runs above.
 
 Successful results are automatically named before being returned, with no GUI
 button or extra step: the image of `A` is named `A`, a shared image of `A` and
@@ -83,10 +182,10 @@ candidate search entirely free of mirrored expressions.
 ## Running the cooperating searches (the native GUI Loop path)
 
 `Problem::fixpoint_sat` remains the diagram-only API for controlled comparisons.
-`Problem::fixpoint_search(&diagram_options, &certificate_options, eh)` runs all three.
+`Problem::fixpoint_search(&diagram_options, &certificate_options, eh)` runs all four.
 `CertificateSearchOptions` has independent optional `max_steps` and
 `conflict_limit` bounds; both are `None` by default. Disabling
-`diagram_options.check_nonexistence` bypasses both certificate workers as well.
+`diagram_options.check_nonexistence` bypasses all certificate workers as well.
 
 For the same parallel search from the terminal:
 
@@ -101,6 +200,60 @@ the diagram and certificate options. The guided worker also respects the
 certificate options, up to its eight-new-step local limit. If all workers
 finish without a conclusive result, the combined API
 returns the diagram worker's `Exhausted` or `Inconclusive` outcome.
+
+## Deterministic expression closure
+
+The additional native worker is enabled automatically by Loop. It does not
+replace the diagram/game search, the general proof grammar, or `is_pred`, and
+does not introduce mirror nodes or mirror relations in candidate diagrams.
+
+It has three stages:
+
+1. Run ordinary active saturation on the default closed-set lattice, retaining
+   original-input provenance for intermediate configurations.
+2. Keep a universally maximal bootstrap set, and repeatedly combine those
+   configurations with each bootstrap fragment whose terms are totally ordered
+   by the universal lattice comparison. This prioritizes reusable constructions
+   without pruning solely by the number of compatible pairs.
+3. Select highly compatible proved configurations and observe expressions
+   against all their subterms. A profile records `C(expression, observer)`.
+   Because the observer set is subterm-closed, profiles of a meet or join can be
+   computed exactly from the operand profiles. Saturating with these profiles
+   retains distinctions relevant to completing that particular partial proof.
+
+Profile equality and default-lattice equality are **only search heuristics**.
+Symbolic simplification uses universal order, associativity, commutativity,
+idempotence, and absorption. A final-step closure check looks for two proved
+configurations whose combination is universally compatible. Its result retains
+the actual whole-tuple parent permutations. Before publication the reachable
+DAG is independently replayed from original active configurations and checked
+by the existing nonexistence oracle.
+
+This accelerator is bounded to 60 seconds, 32 labels, active degree at most 5,
+512 pre-expansion input choices, 100,000 terms/proof records, 4,000 active
+configurations, and 4,096 expanded tree nodes per configuration. Individual
+reusable-fragment closures run at most eight passes; observer sets have at most
+128 subterms. These limits affect only the accelerator: failure or budget
+exhaustion is inconclusive and other searches continue. It is skipped when an
+explicit certificate `max_steps` bound is requested. STOP and other workers'
+successes cancel and join it just like the existing workers.
+
+The hard example in `examples/fixpoint_sat/hard_nonexistence.txt` was solved
+blindly by the native integrated Loop in 24 seconds on the development machine
+while other workers and a test build were active, and in 15.5 seconds on a fresh
+run without a concurrent build. The returned certificate has
+14 distinct combination steps (80 arrows per expanded coordinate); independent
+certificate normalization accepted it. No supplied-certificate expression or
+topology is used as a search seed. The isolated C++ validation prototype took
+5.4 seconds; these are different implementations/workloads, not a solver
+speedup comparison.
+
+The slower blind-discovery regression can be run separately:
+
+```sh
+cargo test --release --manifest-path round-eliminator-lib/Cargo.toml \
+  closure::tests::discovers_hard_certificate_without_a_fixture -- --ignored --nocapture
+```
 
 Proof synthesis alone is also available:
 
@@ -166,8 +319,9 @@ substantial active-saturation work, but is not guaranteed faster on every
 instance: its state space, passive saturation, or SAT encoding can still be
 expensive.
 
-A failed candidate does not advance the size. The same
-incremental Minisat instance receives another blocker and is solved again.
+A failed candidate does not advance the size. Another blocker is added and
+the same size is solved again (incrementally with MiniSat, or with a fresh
+Gimsatul process containing all blockers).
 Only UNSAT advances the size. Thus, without budgets, every size is exhausted
 before moving on; a successful diagram is smallest in the requested interval.
 An exhausted size is reported as a progress event.
@@ -396,9 +550,10 @@ node count. See [the diagnostic and integration report](fixpoint-sat-default-see
 ### Parallel guided jobs
 
 The shared guided scheduler now dispatches independent bridge, growth, and
-repair jobs to a worker pool. `RE_GUIDED_THREADS` defaults to available logical
-CPUs minus two, clamped to 1–6; it can be set explicitly from 1 to 32. The
-diagram and unrestricted proof workers remain separate. The shared
+repair jobs to a worker pool. `RE_GUIDED_THREADS` defaults to the certificate
+CPU share minus the general proof and closure workers, clamped to 1–6;
+it can be set explicitly from 1 to 32. See the CPU allocation section above.
+The diagram, unrestricted proof, and closure workers remain separate. The shared
 `RE_GUIDED_MAX_VARIABLES` budget defaults to 1,500,000 and covers active job
 reservations plus cached solvers, not an exact RSS bound. Each pool job is
 capped at 152,000 variables. See [configuration, cancellation, and memory
@@ -416,15 +571,17 @@ node round-eliminator-lib/examples/fixpoint_sat/guided-benchmark.cjs \
 
 The script writes separate stdout, progress, resource usage, and JSON results.
 It never reads the known-certificate fixture; a timeout remains inconclusive.
-The [development benchmark](fixpoint-sat-guided.md) records the current hard-case
-result: smaller restricted instances, but no certificate within 180 seconds.
+The [earlier development benchmark](fixpoint-sat-guided.md) records the guided-only
+acceleration's hard-case result: smaller restricted instances, but no certificate
+within 180 seconds. The additional expression-closure worker described above
+now finds a certificate without the supplied certificate as input.
 
 The hard-example fixture and its supplied certificate are regression tests:
 the certificate's full active derivation is checked against the grammar, and
 both compatibility implementations accept it. A further test synthesizes a
 certificate from its two proper subderivations, neither of which is itself a
-certificate. These tests do **not** claim fast rediscovery from the original
-problem alone. That remains a performance challenge.
+certificate. Those supplied-seed tests alone do **not** establish blind rediscovery;
+the separate expression-closure regression and integrated runs do.
 
 Neither finite exhaustion nor a budget limit proves unrestricted nonexistence.
 No guaranteed terminating all-size YES/NO procedure is claimed.
