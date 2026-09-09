@@ -34,6 +34,7 @@ pub mod lll;
 pub mod genetic;
 pub mod dual;
 pub mod logstar;
+pub mod reversible_edges;
 pub mod nofixpoint;
 #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
 pub mod fixpoint_sat;

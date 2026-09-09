@@ -1,0 +1,435 @@
+use super::*;
+use crate::{
+    algorithms::event::EventHandler,
+    group::{Group, GroupType},
+    line::{Degree, Line},
+    part::Part,
+};
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::{Duration, Instant};
+
+mod annotations;
+mod mapping;
+use annotations::Input;
+
+pub(super) const LIMIT: &str = "Reversible edge search budget reached";
+const CANCELLED: &str = "Reversible edge search cancelled";
+const CERTIFICATE_BYTES: usize = 2_000_000;
+const REPORT_BYTES: usize = 16_000_000;
+
+fn certificate_cost(c: &Certificate) -> usize {
+    1024 + c
+        .mapping
+        .iter()
+        .map(|r| {
+            r.input
+                .iter()
+                .map(|s| s.len().saturating_mul(6) + 32)
+                .sum::<usize>()
+                + r.output.len() * 16
+        })
+        .sum::<usize>()
+}
+
+fn fits_report(report: &Report, c: &Certificate) -> bool {
+    report
+        .certificates
+        .iter()
+        .map(certificate_cost)
+        .sum::<usize>()
+        + certificate_cost(c)
+        <= REPORT_BYTES
+}
+
+pub(super) struct Budget<'a> {
+    options: &'a Options,
+    deadline: Instant,
+}
+impl Budget<'_> {
+    fn check(&self, eh: &EventHandler) -> Result<(), String> {
+        if eh.is_cancelled() {
+            return Err(CANCELLED.into());
+        }
+        if Instant::now() >= self.deadline {
+            return Err(LIMIT.into());
+        }
+        Ok(())
+    }
+}
+
+pub(super) fn pair(a: Label, b: Label) -> [Label; 2] {
+    [a.min(b), a.max(b)]
+}
+pub(super) fn edge_line([a, b]: [Label; 2]) -> Line {
+    let mut line = Line {
+        parts: vec![
+            Part {
+                group: Group::from(vec![a]),
+                gtype: GroupType::Many(1),
+            },
+            Part {
+                group: Group::from(vec![b]),
+                gtype: GroupType::Many(1),
+            },
+        ],
+    };
+    line.normalize();
+    line
+}
+
+fn validate(p: &Problem, options: &Options) -> Result<(), String> {
+    if !matches!(p.active.degree, Degree::Finite(1..=6)) || p.passive.degree != Degree::Finite(2) {
+        return Err(
+            "Reversible edge additions currently require node degree 1–6 and edge degree 2".into(),
+        );
+    }
+    if p.labels().is_empty() || p.labels().len() > 32 || p.active.lines.is_empty() {
+        return Err(
+            "Reversible edge additions require 1–32 labels and a nonempty node constraint".into(),
+        );
+    }
+    if !(1..=86400).contains(&options.seconds)
+        || !(1..=60000).contains(&options.attempt_ms)
+        || !(1..=4096).contains(&options.max_candidates)
+        || !(1..=10000).contains(&options.max_configurations)
+        || !(1..=4096).contains(&options.max_states)
+        || !(1..=1_000_000).contains(&options.max_variables)
+    {
+        return Err("Invalid reversible-edge search limits".into());
+    }
+    Ok(())
+}
+
+fn relaxation(p: &Problem, added: &[[Label; 2]]) -> Result<Problem, String> {
+    let labels: BTreeSet<_> = p.labels().into_iter().collect();
+    let mut seen = BTreeSet::new();
+    let mut passive = p.passive.clone();
+    passive.is_maximized = false;
+    if added.is_empty() {
+        return Err("An edge-addition certificate must add at least one pair".into());
+    }
+    for &[a, b] in added {
+        if !labels.contains(&a) || !labels.contains(&b) || a > b || !seen.insert([a, b]) {
+            return Err("Invalid, reversed, or duplicate added edge pair".into());
+        }
+        let line = edge_line([a, b]);
+        if p.passive.includes(&line) {
+            return Err("An added edge pair is already allowed".into());
+        }
+        passive.lines.push(line);
+    }
+    Ok(p.replace_passive(passive))
+}
+
+fn recipes(q: &Problem, added: &[[Label; 2]]) -> Vec<Vec<Step>> {
+    let same: Vec<_> = q
+        .labels()
+        .into_iter()
+        .filter(|&a| q.passive.includes(&edge_line([a, a])))
+        .map(|a| Step::Mis(Subgraph::Pairs(vec![[a, a]])))
+        .collect();
+    let mixed: Vec<_> = added
+        .iter()
+        .map(|&e| Step::Mis(Subgraph::Pairs(vec![e])))
+        .collect();
+    let mut recipes = vec![vec![], vec![Step::Coloring], vec![Step::Mis(Subgraph::All)]];
+    recipes.extend(mixed.iter().cloned().map(|s| vec![s]));
+    recipes.extend(same.iter().cloned().map(|s| vec![s]));
+    recipes.push(same.clone());
+    recipes.push(mixed.clone());
+    recipes.push(vec![Step::Mis(Subgraph::Pairs(added.to_vec()))]);
+    let mut combined = same;
+    combined.extend(mixed);
+    combined.dedup();
+    recipes.push(combined);
+    // One communication round can expose the neighbor's MIS/color status.
+    let base = recipes.clone();
+    for mut recipe in base {
+        if recipe.len() <= 8 {
+            recipe.push(Step::Exchange);
+            recipes.push(recipe);
+        }
+    }
+    let mut seen = BTreeSet::new();
+    recipes.retain(|r| r.len() <= 16 && seen.insert(r.clone()));
+    recipes
+}
+
+fn transformed(
+    q: &Problem,
+    recipe: &[Step],
+    budget: &Budget,
+    eh: &mut EventHandler,
+) -> Result<Input, String> {
+    let mut input = Input::new(q, budget, eh)?;
+    for (i, step) in recipe.iter().enumerate() {
+        budget.check(eh)?;
+        eh.notify(
+            "Reversible edges: annotating MIS/coloring states",
+            i + 1,
+            recipe.len(),
+        );
+        input = input.step(step, i + 1, budget, eh)?;
+    }
+    Ok(input)
+}
+
+fn attempt(
+    p: &Problem,
+    q: &Problem,
+    added: &[[Label; 2]],
+    recipe: &[Step],
+    budget: &Budget,
+    eh: &mut EventHandler,
+) -> Result<Option<Certificate>, String> {
+    let input = transformed(q, recipe, budget, eh)?;
+    let target = Input::new(p, budget, eh)?;
+    let Some(outputs) = mapping::find(&input, &target, budget, eh)? else {
+        return Ok(None);
+    };
+    // The checker uses the constraints, not SAT's internal selector variables.
+    mapping::verify(&input, &target, &outputs, budget, eh)?;
+    let cost: usize = input
+        .nodes
+        .iter()
+        .map(|r| {
+            r.iter()
+                .map(|&s| input.names[s].len() * 6 + 48)
+                .sum::<usize>()
+        })
+        .sum();
+    if cost + 1024 > CERTIFICATE_BYTES {
+        return Err(LIMIT.into());
+    }
+    Ok(Some(Certificate {
+        added: added.to_vec(),
+        recipe: recipe.to_vec(),
+        mapping: input
+            .nodes
+            .iter()
+            .zip(outputs)
+            .map(|(row, output)| MappingRow {
+                input: row.iter().map(|&s| input.names[s].clone()).collect(),
+                output,
+            })
+            .collect(),
+    }))
+}
+
+/// Stream cumulative reports: STOP can leave already verified results visible.
+pub fn search(
+    p: &Problem,
+    options: &Options,
+    eh: &mut EventHandler,
+    mut publish: impl FnMut(&Report),
+) -> Result<Report, String> {
+    validate(p, options)?;
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(options.seconds);
+    let mut report = Report {
+        original: p.clone(),
+        certificates: vec![],
+        stats: Stats::default(),
+        complete: false,
+        message: "Searching; only verified additions are listed.".into(),
+    };
+    let labels = p.labels();
+    let missing: Vec<_> = labels
+        .iter()
+        .enumerate()
+        .flat_map(|(i, &a)| labels[i..].iter().map(move |&b| [a, b]))
+        .filter(|&e| !p.passive.includes(&edge_line(e)))
+        .collect();
+    let candidates: Vec<_> = missing
+        .iter()
+        .take(options.max_candidates)
+        .map(|&e| vec![e])
+        .collect();
+    let mut schedules = Vec::new();
+    for added in &candidates {
+        let q = relaxation(p, added)?;
+        schedules.push(recipes(&q, added));
+    }
+    let mut solved = BTreeSet::new();
+    let mut touched = BTreeSet::new();
+    let mut budget_hit = candidates.len() < missing.len();
+    let depth = schedules.iter().map(Vec::len).max().unwrap_or(0);
+    // Breadth first: cheap recipes get a chance on EVERY candidate first.
+    'singles: for stage in 0..depth {
+        for (i, added) in candidates.iter().enumerate() {
+            if eh.is_cancelled() {
+                return Err(CANCELLED.into());
+            }
+            if Instant::now() >= deadline {
+                budget_hit = true;
+                break 'singles;
+            }
+            if solved.contains(&i) || stage >= schedules[i].len() {
+                continue;
+            }
+            touched.insert(i);
+            report.stats.candidates = touched.len();
+            report.stats.mapping_attempts += 1;
+            let names: BTreeMap<_, _> = p.mapping_label_text.iter().cloned().collect();
+            eh.notify(
+                format!(
+                    "Reversible edges: testing {} {} (recipe {})",
+                    names[&added[0][0]],
+                    names[&added[0][1]],
+                    stage + 1
+                ),
+                i + 1,
+                candidates.len(),
+            );
+            let budget = Budget {
+                options,
+                deadline: deadline.min(Instant::now() + Duration::from_millis(options.attempt_ms)),
+            };
+            match attempt(
+                p,
+                &relaxation(p, added)?,
+                added,
+                &schedules[i][stage],
+                &budget,
+                eh,
+            ) {
+                Ok(Some(c)) => {
+                    if !fits_report(&report, &c) {
+                        budget_hit = true;
+                        break 'singles;
+                    }
+                    solved.insert(i);
+                    report.certificates.push(c);
+                    report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
+                    publish(&report);
+                }
+                Ok(None) => {}
+                Err(e) if e == LIMIT => {
+                    report.stats.bounded_attempts += 1;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    // Grow several deterministic chains, never assuming independent additions
+    // can be combined. Every published union has its own reverse certificate.
+    let singles: Vec<_> = report.certificates.iter().map(|c| c.added[0]).collect();
+    let mut seen = BTreeSet::new();
+    'joint: for first in 0..singles.len().min(4) {
+        let mut added = vec![singles[first]];
+        for offset in 1..singles.len() {
+            let edge = singles[(first + offset) % singles.len()];
+            let mut proposed = added.clone();
+            proposed.push(edge);
+            proposed.sort();
+            if !seen.insert(proposed.clone()) {
+                continue;
+            }
+            if Instant::now() >= deadline || report.stats.candidates >= options.max_candidates {
+                budget_hit = true;
+                break;
+            }
+            report.stats.candidates += 1;
+            eh.notify(
+                "Reversible edges: verifying a joint addition",
+                proposed.len(),
+                missing.len(),
+            );
+            let q = relaxation(p, &proposed)?;
+            for recipe in recipes(&q, &proposed) {
+                if Instant::now() >= deadline {
+                    budget_hit = true;
+                    break;
+                }
+                report.stats.mapping_attempts += 1;
+                let budget = Budget {
+                    options,
+                    deadline: deadline
+                        .min(Instant::now() + Duration::from_millis(options.attempt_ms)),
+                };
+                match attempt(p, &q, &proposed, &recipe, &budget, eh) {
+                    Ok(Some(c)) => {
+                        if !fits_report(&report, &c) {
+                            budget_hit = true;
+                            break 'joint;
+                        }
+                        added = proposed.clone();
+                        report.certificates.push(c);
+                        report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
+                        publish(&report);
+                        break;
+                    }
+                    Ok(None) => {}
+                    Err(e) if e == LIMIT => report.stats.bounded_attempts += 1,
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+    }
+    report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
+    report.complete = !budget_hit && report.stats.bounded_attempts == 0;
+    report.message = format!("{} verified additions/sets. {} Unlisted additions are not certified, NOT proved irreversible. Joint sets are searched heuristically, not exhaustively.",
+        report.certificates.len(), if report.complete { "The scheduled search finished." } else { "Some searches reached their limits." });
+    publish(&report);
+    Ok(report)
+}
+
+/// Reconstruct and independently verify even certificates received from the GUI.
+pub fn apply(
+    p: &Problem,
+    certificate: &Certificate,
+    eh: &mut EventHandler,
+) -> Result<Problem, String> {
+    let options = Options {
+        seconds: 60,
+        attempt_ms: 60000,
+        max_configurations: 10000,
+        max_states: 4096,
+        max_variables: 1_000_000,
+        ..Default::default()
+    };
+    validate(p, &options)?;
+    if certificate.recipe.len() > 16 || certificate.mapping.len() > options.max_configurations {
+        return Err("Certificate exceeds verification limits".into());
+    }
+    if certificate_cost(certificate) > CERTIFICATE_BYTES {
+        return Err("Certificate exceeds storage limits".into());
+    }
+    let labels: BTreeSet<_> = p.labels().into_iter().collect();
+    for step in &certificate.recipe {
+        if let Step::Mis(Subgraph::Pairs(pairs)) = step {
+            if pairs.len() > 528
+                || pairs
+                    .iter()
+                    .any(|&[a, b]| a > b || !labels.contains(&a) || !labels.contains(&b))
+            {
+                return Err("Invalid MIS subgraph in certificate".into());
+            }
+        }
+    }
+    let q = relaxation(p, &certificate.added)?;
+    let budget = Budget {
+        options: &options,
+        deadline: Instant::now() + Duration::from_secs(options.seconds),
+    };
+    let input = transformed(&q, &certificate.recipe, &budget, eh)?;
+    if input.nodes.len() != certificate.mapping.len() {
+        return Err("Certificate has missing or extra node contexts".into());
+    }
+    for (row, saved) in input.nodes.iter().zip(&certificate.mapping) {
+        if row.iter().map(|&s| &input.names[s]).ne(saved.input.iter()) {
+            return Err("Certificate annotation/context mismatch".into());
+        }
+    }
+    let outputs = certificate
+        .mapping
+        .iter()
+        .map(|r| r.output.clone())
+        .collect::<Vec<_>>();
+    mapping::verify(&input, &Input::new(p, &budget, eh)?, &outputs, &budget, eh)?;
+    // Do not invoke fix_problem: it can also change the node constraint/labels.
+    Ok(q)
+}
+
+#[cfg(test)]
+mod tests;

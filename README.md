@@ -63,6 +63,8 @@ For existing fixed points, the native GUI also offers a
 [constructive lattice normalization](docs/fixpoint-normalization.md).
 An experimental [certificate-to-algorithm runner](docs/fixpoint-certificate-algorithm.md)
 can separately search for a fixed-priority algorithm from a supplied certificate.
+The native GUI also searches for [logstar-reversible edge additions](docs/reversible-edge-additions.md),
+using verified node-local mappings after label-preserving MIS/coloring preprocessing.
 
 First, add the following line to the dependencies section of Cargo.toml:
 ```
@@ -159,5 +161,4 @@ Results:
 | AMD Ryzen 7 7800X3D | Ubuntu 24.04 | 2731 | 25265   |
 | AMD Ryzen 7 7800X3D | Windows 11 | 2613 | 25026   |
 | Apple M1 Pro | MacOS 14.5 | 2216  | 17647         |
-
 

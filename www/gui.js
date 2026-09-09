@@ -15,6 +15,9 @@ function handle_result(x, onresult, onerror, progress) {
     if( x.W != null ){
         onerror(x.W,true);
     }
+    if (x.ReversibleEdges != null) {
+        onresult(x.ReversibleEdges);
+    }
     if( x.AutoUb != null ){
         for( let step of x.AutoUb[1] ){
             fix_problem(step[1]);
@@ -61,6 +64,41 @@ function speedup_star_relaxation(problem, onresult, onerror, progress){
 function demisifiable(problem, old, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ Demisifiable : [problem,old] }, ondata , function(){});
+}
+
+function reversible_edges(problem, options, onresult, onerror, progress, oncomplete) {
+    return api.request({ ReversibleEdges: [problem, options] },
+        x => handle_result(x, onresult, onerror, progress), oncomplete);
+}
+
+function apply_reversible_edges(problem, certificate, onresult, onerror, progress) {
+    return api.request({ ApplyReversibleEdges: [problem, certificate] },
+        x => handle_result(x, onresult, onerror, progress), function(){});
+}
+
+function start_reversible_edges(stuff, problem, seconds) {
+    seconds = Number(seconds);
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > 86400) {
+        stuff.push({ type: 'error', data: 'Time limit must be an integer from 1 to 86400 seconds.', warning: false });
+        return function(){};
+    }
+    const entry = { type: 'edgeadditions', data: {
+        original: problem, certificates: [], stats: { candidates: 0, mapping_attempts: 0, bounded_attempts: 0, elapsed_ms: 0 },
+        complete: false, message: 'Searching; only verified additions are listed.'
+    } };
+    const progress = { type: 'computing', data: { type: 'Reversible edges: starting', cur: 0, max: 0, onstop: function(){} } };
+    stuff.push(entry, progress);
+    const finish = () => { const i = stuff.indexOf(progress); if (i >= 0) stuff.splice(i, 1); };
+    const stop = reversible_edges(problem, { seconds: Number(seconds) }, report => { entry.data = report; },
+        (message, warning=false) => {
+            stuff.push({ type: 'error', data: message, warning });
+            if (!warning) { entry.data.message = 'Search failed; any results already listed remain verified. ' + message; finish(); }
+        }, progress.data, finish);
+    progress.data.onstop = () => {
+        stop(); finish(); entry.data.complete = false;
+        entry.data.message = 'Stopped. Already listed results are verified; other additions remain undecided.';
+    };
+    return stop;
 }
 
 function add_active_predecessors(problem, flip, onresult, onerror, progress){
@@ -473,6 +511,8 @@ Vue.component('re-performed-action', {
                     return "Performed speedup with star relaxation";
                 case "demisifiable":
                     return "Computed logstar-Reversible Relaxations";
+                case "reversible-edge-apply":
+                    return "Applied verified logstar-reversible edge additions: " + this.action.edges;
                 case "add-active-predecessors":
                     return "Added Predecessors On Active Side.";
                 case "remove-trivial-lines":
@@ -559,6 +599,9 @@ Vue.component('re-computing', {
     props: ['action'],
     computed: {
         state: function() {
+            if (typeof this.action.type === 'string' && this.action.type.startsWith('Reversible edges:')) {
+                return { bar: this.action.max > 0, msg: this.action.type, max: this.action.max, cur: this.action.cur };
+            }
             switch( this.action.type ) {
                 case "fixpoint autofix":
                     return {bar : false, msg: "Fixing diagram ("+this.action.max+" missing nodes)"}; 
@@ -1096,7 +1139,12 @@ Vue.component('re-speedup-star-relaxation',{
 
 Vue.component('re-demisifiable',{
     props: ['problem','stuff'],
+    data: function() { return { edge_seconds: 60 }; },
+    computed: { native_edges: function() { return api.supports_reversible_edges(); } },
     methods: {
+        on_edges() {
+            start_reversible_edges(this.stuff, this.problem, this.edge_seconds);
+        },
         on_demisifiable() {
             call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem,false]);
         },
@@ -1108,9 +1156,62 @@ Vue.component('re-demisifiable',{
         <div>
             <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable">Logstar Reversible Relaxations</button>
             <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable_old">Logstar Reversible Relaxations (old)</button>
+            <div v-if="native_edges">
+                <button type="button" class="btn btn-primary m-1" v-on:click="on_edges">Logstar Reversible Edge Additions</button>
+                <label>Time limit (seconds): <input type="number" min="1" max="86400" v-model="edge_seconds" style="width: 6em"></label>
+                <small>Verified reverse mappings using coloring and label-preserving MIS annotations. Node degree 1–6.</small>
+            </div>
         </div>
     `
 })
+
+Vue.component('re-edge-additions', {
+    props: ['report', 'stuff', 'handle'],
+    data: function() { return { shown: null }; },
+    computed: {
+        names: function() { return vec_to_map(this.report.original.mapping_label_text); },
+        native: function() { return api.supports_reversible_edges(); }
+    },
+    methods: {
+        edges(c) { return c.added.map(e => e.map(l => this.names[l]).join(' ')).join(', '); },
+        recipe(c) {
+            if (!c.recipe.length) return 'Direct node-local mapping';
+            return c.recipe.map((s,i) => {
+                if (s === 'Coloring') return (i+1) + ': proper (degree+1)-coloring';
+                if (s === 'Exchange') return (i+1) + ': exchange annotated states across edges';
+                const g = s.Mis;
+                return (i+1) + ': MIS on ' + (g === 'All' ? 'the whole graph' :
+                    'edges with endpoint pairs ' + g.Pairs.map(e => e.map(l => this.names[l]).join(' ')).join(', '));
+            }).join('; ');
+        },
+        apply(c) {
+            call_api_generating_problem(this.stuff, { type: 'reversible-edge-apply', edges: this.edges(c) },
+                apply_reversible_edges, [this.report.original, c]);
+        },
+        copy(c) { copyToClipboard(JSON.stringify({ problem: this.report.original, certificate: c }, null, 2)); },
+        close() { const i = this.stuff.indexOf(this.handle); if (i >= 0) this.stuff.splice(i,1); }
+    },
+    template: `
+        <div class="card card-body m-2 p-3">
+            <button type="button" class="close" aria-label="Close" v-on:click="close">&times;</button>
+            <h5>Logstar Reversible Edge Additions</h5>
+            <p>{{ report.message }}</p>
+            <small>{{ report.stats.candidates }} candidates; {{ report.stats.mapping_attempts }} mapping attempts; {{ report.stats.bounded_attempts }} bounded attempts; {{ (report.stats.elapsed_ms/1000).toFixed(2) }} seconds.</small>
+            <p>Each row is a separately verified alternative. Do not combine rows unless that union is also listed. Original labels and node configurations are preserved.</p>
+            <div v-for="(c,i) in report.certificates" :key="i" class="border rounded p-2 m-1">
+                <strong>Add: {{ edges(c) }}</strong><div>{{ recipe(c) }}</div>
+                <button v-if="native" class="btn btn-primary m-1" v-on:click="apply(c)">Verify and apply</button>
+                <button class="btn btn-secondary m-1" v-on:click="shown = shown === i ? null : i">Show reverse mapping ({{ c.mapping.length }} contexts)</button>
+                <button class="btn btn-secondary m-1" v-on:click="copy(c)">Copy certificate</button>
+                <div v-if="shown === i" style="max-height: 400px; overflow: auto">
+                    <p>I = selected; U = unselected; P = unselected port pointing to a selected neighbor in that MIS subgraph. Output entries correspond to the displayed input occurrences.</p>
+                    <table class="table table-sm"><thead><tr><th>Annotated node configuration</th><th>Original output labels</th></tr></thead>
+                    <tbody><tr v-for="(row,j) in c.mapping" :key="j"><td>{{ row.input.join(' | ') }}</td><td>{{ row.output.map(l => names[l]).join(' ') }}</td></tr></tbody></table>
+                </div>
+            </div>
+        </div>
+    `
+});
 
 Vue.component('re-add-active-predecessors',{
     props: ['problem','stuff'],
@@ -2568,6 +2669,7 @@ Vue.component('re-stuff', {
                     <re-computing :action='elem.data' v-if='elem.type == "computing"'  :handle="elem"/></re-computing>
                     <re-error :stuff="stuff" :error='elem.data' :warning='elem.warning' v-if='elem.type == "error"'  :handle="elem"/></re-error>
                     <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"' :handle="elem"></re-problem>
+                    <re-edge-additions :report="elem.data" :stuff="stuff" :handle="elem" v-if="elem.type == 'edgeadditions'"></re-edge-additions>
                     <re-stuff :supstuff='stuff' :stuff='elem.data' v-if='elem.type == "sub"' :handle="elem"></re-stuff>
                 </div>
             </div>
@@ -2580,6 +2682,7 @@ Vue.component('re-stuff', {
                     <re-computing :action='elem.data' v-if='elem.type == "computing"'  :handle="elem"/></re-computing>
                     <re-error :stuff="stuff" :error='elem.data' :warning='elem.warning' v-if='elem.type == "error"'  :handle="elem"/></re-error>
                     <re-problem :problem='elem.data' :stuff='stuff' v-if='elem.type == "problem"' :handle="elem"></re-problem>
+                    <re-edge-additions :report="elem.data" :stuff="stuff" :handle="elem" v-if="elem.type == 'edgeadditions'"></re-edge-additions>
                     <re-stuff :supstuff='stuff' :stuff='elem.data' v-if='elem.type == "sub"' :handle="elem"></re-stuff>
                 </div>
             </div>

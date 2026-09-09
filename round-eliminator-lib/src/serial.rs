@@ -82,7 +82,7 @@ where
         // Echo the native SAT search's existing, throttled GUI progress to the
         // server terminal as well. Use stderr so JSON output stays untouched.
         #[cfg(not(target_arch = "wasm32"))]
-        if x.0 != "Loop: searches running" && (x.0.starts_with("SAT:") || x.0.starts_with("Proof:") || x.0.starts_with("Loop:") || x.0.starts_with("Normalize:")) {
+        if x.0 != "Loop: searches running" && (x.0.starts_with("SAT:") || x.0.starts_with("Proof:") || x.0.starts_with("Loop:") || x.0.starts_with("Normalize:") || x.0.starts_with("Reversible edges:")) {
             if x.2 > 0 {
                 eprintln!("{} ({}/{})", x.0, x.1, x.2);
             } else if x.1 > 0 {
@@ -439,6 +439,31 @@ where
                 }
             }
         }
+        Request::ReversibleEdges(p, options) => {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+            if let Err(e) = crate::algorithms::reversible_edges::search(&p, &options, &mut eh,
+                |report| handler(Response::ReversibleEdges(report.clone()))) {
+                handler(Response::E(e));
+            }
+            #[cfg(not(all(not(target_arch = "wasm32"), feature = "all")))]
+            handler(Response::E("Reversible edge synthesis currently requires the native server".into()));
+        }
+        Request::ApplyReversibleEdges(p, certificate) => {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+            match crate::algorithms::reversible_edges::apply(&p, &certificate, &mut eh) {
+                Ok(mut q) => {
+                    // Existing GUI tools expect diagram metadata. Do not use
+                    // fix_problem: its simplification would change the exact
+                    // node constraint and label set that this action preserves.
+                    q.compute_diagram(&mut eh);
+                    q.compute_passive_gen();
+                    handler(Response::P(q));
+                }
+                Err(e) => handler(Response::E(e)),
+            }
+            #[cfg(not(all(not(target_arch = "wasm32"), feature = "all")))]
+            handler(Response::E("Reversible edge verification currently requires the native server".into()));
+        }
         Request::Demisifiable(mut p,old) => {
             let mapping : HashMap<_,_> = p.mapping_label_text.iter().cloned().collect();
             p.compute_demisifiable(|set|{
@@ -716,6 +741,8 @@ pub enum Request {
     CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
     Demisifiable(Problem,bool),
+    ReversibleEdges(Problem, crate::algorithms::reversible_edges::Options),
+    ApplyReversibleEdges(Problem, crate::algorithms::reversible_edges::Certificate),
     AddActivePredecessors(Problem,bool),
     RemoveTrivialLines(Problem),
     CheckZeroWithInput(Problem,String,String,bool,bool,bool),
@@ -739,6 +766,7 @@ pub enum Response {
     P(Problem),
     E(String),
     W(String),
+    ReversibleEdges(crate::algorithms::reversible_edges::Report),
     AutoUb(usize,Vec<(AutoOperation,Problem)>),
     AutoLb(usize,Vec<(AutoOperation,Problem)>),
     Logstar(usize,Vec<(AutoOperation,Problem)>)

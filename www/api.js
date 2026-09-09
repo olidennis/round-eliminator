@@ -109,6 +109,10 @@ export function supports_lattice_normalization() {
     return !use_wasm;
 }
 
+export function supports_reversible_edges() {
+    return !use_wasm;
+}
+
 export function request(req, onresult, oncomplete) {
     if( use_wasm ){
         //console.log("wasm request");
