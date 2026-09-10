@@ -89,6 +89,7 @@ where
     F: Fn(String, bool) + SyncOnlyNonWasm,
 {
     let req: Request = serde_json::from_str(req).unwrap();
+    let suppress_reversible_events = matches!(&req, Request::RecursiveReversibleEdges(_, _));
     let handler = |resp: Response| {
         let s = serde_json::to_string(&resp).unwrap();
         f(s, true);
@@ -96,6 +97,9 @@ where
 
     let mut last_reversible_event = None;
     let mut eh = EventHandler::with(move |x: (String, usize, usize)| {
+        if suppress_reversible_events && x.0.starts_with("Reversible edges:") {
+            return;
+        }
         if !should_send_event(&mut last_reversible_event, &x.0, Instant::now()) {
             return;
         }
@@ -474,6 +478,8 @@ where
                 |step, certificate| handler(Response::RecursiveReversibleEdgeStep(
                     step, certificate.added.clone()))) {
                 Ok(mut q) => {
+                    q.diagram_indirect = None;
+                    q.diagram_direct = None;
                     q.compute_diagram(&mut eh);
                     q.compute_passive_gen();
                     handler(Response::P(q));
@@ -896,6 +902,37 @@ mod tests {
         assert!(responses.iter().any(|response| matches!(
             serde_json::from_str(response).unwrap(),
             Response::P(_)
+        )));
+        assert!(!responses.iter().any(|response| matches!(
+            serde_json::from_str(response).unwrap(),
+            Response::Event(message, _, _) if message.starts_with("Reversible edges:")
+        )));
+    }
+
+    #[test]
+    fn recursive_reversible_edge_request_accepts_an_already_computed_diagram() {
+        let mut problem = Problem::from_string("A A\n\nA A").unwrap();
+        problem.compute_diagram(&mut crate::algorithms::event::EventHandler::null());
+        let request = serde_json::to_string(&Request::RecursiveReversibleEdges(
+            problem,
+            crate::algorithms::reversible_edges::Options {
+                seconds: 2,
+                threads: 1,
+                re2: false,
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        let responses = Mutex::new(Vec::new());
+        request_json(&request, |response, primary| {
+            if primary {
+                responses.lock().unwrap().push(response);
+            }
+        });
+        assert!(responses.into_inner().unwrap().iter().any(|response| matches!(
+            serde_json::from_str(response).unwrap(),
+            Response::P(problem)
+                if problem.diagram_indirect.is_some() && problem.diagram_direct.is_some()
         )));
     }
 }
