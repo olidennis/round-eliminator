@@ -298,6 +298,22 @@ pub fn search(
     parallel_targets::search(p, options, eh, publish)
 }
 
+pub fn recursive(
+    mut p: Problem,
+    options: &Options,
+    eh: &mut EventHandler,
+    mut publish: impl FnMut(usize, &Certificate),
+) -> Result<Problem, String> {
+    validate(&p, options)?;
+    let mut step = 0;
+    while let Some(certificate) = parallel_targets::search_first(&p, options, eh)? {
+        p = apply(&p, &certificate, eh)?;
+        step += 1;
+        publish(step, &certificate);
+    }
+    Ok(p)
+}
+
 fn search_branch(
     p: &Problem,
     options: &Options,
@@ -305,7 +321,7 @@ fn search_branch(
     started: Instant,
     deadline: Instant,
     eh: &mut EventHandler,
-    mut publish: impl FnMut(&Report),
+    mut publish: impl FnMut(&Report) -> bool,
 ) -> Result<Report, String> {
     let mut report = Report {
         original: p.clone(),
@@ -345,6 +361,7 @@ fn search_branch(
             Err(e) => return Err(e),
         }
     }
+    let mut stop_requested = false;
     let summary = portfolio::run(
         p,
         re2,
@@ -362,14 +379,21 @@ fn search_branch(
             report.stats.bounded_attempts = stats.limited;
             report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
             report.certificates.push(c);
-            publish(&report);
-            true
+            if publish(&report) {
+                true
+            } else {
+                stop_requested = true;
+                false
+            }
         },
     )?;
     budget_hit |= summary.incomplete;
     report.stats.candidates = summary.touched.len();
     report.stats.mapping_attempts = summary.attempts;
     report.stats.bounded_attempts = summary.limited;
+    if stop_requested {
+        return Ok(report);
+    }
     // Grow several deterministic chains, never assuming independent additions
     // can be combined. Every published union has its own reverse certificate.
     let mut singles: Vec<_> = report.certificates.iter().map(|c| c.added[0]).collect();
@@ -422,13 +446,20 @@ fn search_branch(
                     report.stats.bounded_attempts = before.bounded_attempts + stats.limited;
                     report.stats.elapsed_ms = started.elapsed().as_millis() as u64;
                     report.certificates.push(c);
-                    publish(&report);
-                    true
+                    if publish(&report) {
+                        true
+                    } else {
+                        stop_requested = true;
+                        false
+                    }
                 },
             )?;
             report.stats.mapping_attempts = before.mapping_attempts + summary.attempts;
             report.stats.bounded_attempts = before.bounded_attempts + summary.limited;
             budget_hit |= summary.incomplete;
+            if stop_requested {
+                return Ok(report);
+            }
         }
     }
     report.stats.elapsed_ms = started.elapsed().as_millis() as u64;

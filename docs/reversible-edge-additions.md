@@ -20,6 +20,17 @@ searches against RE²(P); it does not take a worker away from the ordinary searc
 Each attempt uses the existing single-threaded MiniSat; this is a parallel
 portfolio, not a new solver.
 
+The **Recursive logstar reversible edge additions** button automates the same
+verified operation. It takes the first certificate produced by a search,
+re-verifies and applies it, then starts a fresh search on the resulting problem.
+Each successful application adds a message to the GUI history, but intermediate
+problems are not displayed. When a search finds no certificate, only
+the final problem is returned to the GUI. The time limit and worker setting apply
+separately to every search in the chain. The whole loop runs in one native-server
+request; STOP cancels the active search or verification. Reversible-edge progress
+events sent to the browser are globally rate-limited to two per second so rapidly
+changing worker messages do not consume excessive browser and WebSocket CPU.
+
 Native builds use a [locally patched CPU-time library](../vendor/cpu-time/LOCAL-PATCH.md)
 for MiniSat's statistics. Regressing CPU-clock readings are clamped to zero
 elapsed CPU time instead of panicking after a solve. Search deadlines still use
@@ -235,12 +246,15 @@ cargo run --release --manifest-path round-eliminator-lib/Cargo.toml \
   --example reversible_edges -- verify copied-gui-certificate.json
 ```
 
-The native API is `reversible_edges::search(problem, options, events, publish)`
-and `reversible_edges::apply(problem, certificate, events)`. The wire requests
-are `ReversibleEdges: [problem, options]` and
-`ApplyReversibleEdges: [problem, certificate]`; search responses carry cumulative
-`ReversibleEdges` reports. The search/apply paths currently require the native
-default-feature server; the new button is hidden in WASM mode.
+The native API is `reversible_edges::search(problem, options, events, publish)`,
+`reversible_edges::recursive(problem, options, events, publish_step)`, and
+`reversible_edges::apply(problem, certificate, events)`. The wire requests are
+`ReversibleEdges: [problem, options]`, `RecursiveReversibleEdges: [problem,
+options]`, and `ApplyReversibleEdges: [problem, certificate]`. Ordinary search
+responses carry cumulative `ReversibleEdges` reports; recursive requests carry
+`RecursiveReversibleEdgeStep` messages followed by the final `P`. These paths
+currently require the native default-feature server; both edge-addition buttons
+are hidden in WASM mode.
 
 The CLI's optional arguments are time in seconds and worker count. Omit the worker
 count, or use 0, for automatic selection.

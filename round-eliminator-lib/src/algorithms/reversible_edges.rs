@@ -118,4 +118,4 @@ pub struct Report {
 #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
 mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
-pub use native::{apply, search};
+pub use native::{apply, recursive, search};

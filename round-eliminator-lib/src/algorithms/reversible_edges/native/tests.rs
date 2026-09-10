@@ -306,6 +306,31 @@ fn serialized_gui_search_and_apply_preserve_exact_node_constraint() {
 }
 
 #[test]
+fn recursive_search_applies_results_until_no_pair_is_missing() {
+    let original = p("A A\nB B\n\nA A\nA B");
+    let mut steps = vec![];
+    let result = recursive(
+        original.clone(),
+        &Options {
+            seconds: 2,
+            threads: 1,
+            ..Default::default()
+        },
+        &mut EventHandler::null(),
+        |step, certificate| steps.push((step, certificate.added.clone())),
+    )
+    .unwrap();
+    assert_eq!(steps.len(), 1);
+    assert_eq!(steps[0].0, 1);
+    assert!(steps[0]
+        .1
+        .iter()
+        .all(|&edge| result.passive.includes(&edge_line(edge))));
+    assert_eq!(result.active, original.active);
+    assert_eq!(result.mapping_label_text, original.mapping_label_text);
+}
+
+#[test]
 fn invalid_inputs_and_budgets_are_not_negative_proofs() {
     let original = p("A A\nB B\n\nA B");
     let options = Options {

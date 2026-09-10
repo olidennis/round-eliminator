@@ -29,16 +29,68 @@ pub(super) fn search(
     p: &Problem,
     options: &Options,
     eh: &mut EventHandler,
-    publish: impl FnMut(&Report),
+    mut publish: impl FnMut(&Report),
 ) -> Result<Report, String> {
-    search_with_prepare(p, options, eh, publish, re_target::prepare)
+    search_with_prepare_control(
+        p,
+        options,
+        eh,
+        |report| {
+            publish(report);
+            true
+        },
+        re_target::prepare,
+    )
 }
 
+pub(super) fn search_first(
+    p: &Problem,
+    options: &Options,
+    eh: &mut EventHandler,
+) -> Result<Option<Certificate>, String> {
+    let mut first = None;
+    search_with_prepare_control(
+        p,
+        options,
+        eh,
+        |report| {
+            if let Some(certificate) = report.certificates.first() {
+                first = Some(certificate.clone());
+                false
+            } else {
+                true
+            }
+        },
+        re_target::prepare,
+    )?;
+    Ok(first)
+}
+
+#[cfg(test)]
 fn search_with_prepare(
     p: &Problem,
     options: &Options,
     eh: &mut EventHandler,
     mut publish: impl FnMut(&Report),
+    prepare: impl Fn(&Problem, &Budget<'_>, &mut EventHandler<'_>) -> Result<Re2Target, String> + Sync,
+) -> Result<Report, String> {
+    search_with_prepare_control(
+        p,
+        options,
+        eh,
+        |report| {
+            publish(report);
+            true
+        },
+        prepare,
+    )
+}
+
+fn search_with_prepare_control(
+    p: &Problem,
+    options: &Options,
+    eh: &mut EventHandler,
+    mut publish: impl FnMut(&Report) -> bool,
     prepare: impl Fn(&Problem, &Budget<'_>, &mut EventHandler<'_>) -> Result<Re2Target, String> + Sync,
 ) -> Result<Report, String> {
     let started = Instant::now();
@@ -93,6 +145,7 @@ fn search_with_prepare(
                         &mut events,
                         |r| {
                             let _ = tx.send(Message::Update(re2, r.clone()));
+                            true
                         },
                     )
                 }))
@@ -120,6 +173,7 @@ fn search_with_prepare(
         let mut done = [false, false];
         let mut re2_error = None;
         let mut storage_limited = false;
+        let mut stopped = false;
         while !done.iter().all(|&b| b) {
             if eh.is_cancelled() {
                 return Err(CANCELLED.into());
@@ -147,6 +201,7 @@ fn search_with_prepare(
                             merge(&mut report, &update, &mut storage_limited);
                             latest[lane] = Some(update);
                         }
+                        Err(_) if stopped => {}
                         Err(e) if re2 && e != CANCELLED => {
                             eh.notify(format!("Reversible edges: RE² lane stopped: {e}; direct results retained"), 0, 0);
                             re2_error = Some(e);
@@ -166,7 +221,7 @@ fn search_with_prepare(
                     return Err("Reversible-edge target workers disconnected".into())
                 }
             }
-            if changed {
+            if changed && !stopped {
                 report.stats = Stats::default();
                 for lane in latest.iter().flatten() {
                     report.stats.candidates += lane.stats.candidates;
@@ -188,7 +243,10 @@ fn search_with_prepare(
                     else if report.complete { "Both scheduled searches finished.".into() }
                     else { "Some searches reached their limits.".into() },
                 );
-                publish(&report);
+                if !publish(&report) {
+                    stopped = true;
+                    cancelled.store(true, Ordering::Release);
+                }
             }
         }
         Ok(report)

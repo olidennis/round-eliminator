@@ -1,9 +1,25 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{algorithms::{event::EventHandler, fixpoint::{parse_diagram, FixpointType}}, group::Label, line::Degree, problem::Problem};
+
+fn should_send_event(last_reversible: &mut Option<Instant>, message: &str, now: Instant) -> bool {
+    if !message.starts_with("Reversible edges:") {
+        return true;
+    }
+    if last_reversible
+        .is_some_and(|last| now.duration_since(last) < Duration::from_millis(500))
+    {
+        return false;
+    }
+    *last_reversible = Some(now);
+    true
+}
 
 pub fn fix_problem(new: &mut Problem, sort_by_strength: bool, compute_triviality_and_coloring : bool, eh: &mut EventHandler) {
     if new.passive.degree == Degree::Finite(2) {
@@ -78,7 +94,11 @@ where
         f(s, true);
     };
 
+    let mut last_reversible_event = None;
     let mut eh = EventHandler::with(move |x: (String, usize, usize)| {
+        if !should_send_event(&mut last_reversible_event, &x.0, Instant::now()) {
+            return;
+        }
         // Echo the native SAT search's existing, throttled GUI progress to the
         // server terminal as well. Use stderr so JSON output stays untouched.
         #[cfg(not(target_arch = "wasm32"))]
@@ -448,6 +468,21 @@ where
             #[cfg(not(all(not(target_arch = "wasm32"), feature = "all")))]
             handler(Response::E("Reversible edge synthesis currently requires the native server".into()));
         }
+        Request::RecursiveReversibleEdges(p, options) => {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
+            match crate::algorithms::reversible_edges::recursive(p, &options, &mut eh,
+                |step, certificate| handler(Response::RecursiveReversibleEdgeStep(
+                    step, certificate.added.clone()))) {
+                Ok(mut q) => {
+                    q.compute_diagram(&mut eh);
+                    q.compute_passive_gen();
+                    handler(Response::P(q));
+                }
+                Err(e) => handler(Response::E(e)),
+            }
+            #[cfg(not(all(not(target_arch = "wasm32"), feature = "all")))]
+            handler(Response::E("Recursive reversible edge synthesis currently requires the native server".into()));
+        }
         Request::ApplyReversibleEdges(p, certificate) => {
             #[cfg(all(not(target_arch = "wasm32"), feature = "all"))]
             match crate::algorithms::reversible_edges::apply(&p, &certificate, &mut eh) {
@@ -742,6 +777,7 @@ pub enum Request {
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
     Demisifiable(Problem,bool),
     ReversibleEdges(Problem, crate::algorithms::reversible_edges::Options),
+    RecursiveReversibleEdges(Problem, crate::algorithms::reversible_edges::Options),
     ApplyReversibleEdges(Problem, crate::algorithms::reversible_edges::Certificate),
     AddActivePredecessors(Problem,bool),
     RemoveTrivialLines(Problem),
@@ -767,6 +803,7 @@ pub enum Response {
     E(String),
     W(String),
     ReversibleEdges(crate::algorithms::reversible_edges::Report),
+    RecursiveReversibleEdgeStep(usize, Vec<[Label; 2]>),
     AutoUb(usize,Vec<(AutoOperation,Problem)>),
     AutoLb(usize,Vec<(AutoOperation,Problem)>),
     Logstar(usize,Vec<(AutoOperation,Problem)>)
@@ -785,9 +822,12 @@ pub enum AutoOperation{
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::{
+        sync::Mutex,
+        time::{Duration, Instant},
+    };
 
-    use super::{request_json, Request, Response};
+    use super::{request_json, should_send_event, Request, Response};
     use crate::problem::Problem;
 
     #[test]
@@ -805,5 +845,57 @@ mod tests {
         assert!(responses.into_inner().unwrap().iter().any(|response| {
             matches!(serde_json::from_str(response).unwrap(), Response::P(_))
         }));
+    }
+
+    #[test]
+    fn reversible_edge_browser_events_are_rate_limited_as_one_stream() {
+        let start = Instant::now();
+        let mut last = None;
+        assert!(should_send_event(&mut last, "Reversible edges: first", start));
+        assert!(!should_send_event(
+            &mut last,
+            "Reversible edges: a different worker message",
+            start + Duration::from_millis(499),
+        ));
+        assert!(should_send_event(
+            &mut last,
+            "Reversible edges: next update",
+            start + Duration::from_millis(500),
+        ));
+        assert!(should_send_event(
+            &mut last,
+            "unrelated progress",
+            start + Duration::from_millis(501),
+        ));
+    }
+
+    #[test]
+    fn recursive_reversible_edge_request_emits_steps_and_a_final_problem() {
+        let problem = Problem::from_string("A A\nB B\n\nA A\nA B").unwrap();
+        let request = serde_json::to_string(&Request::RecursiveReversibleEdges(
+            problem,
+            crate::algorithms::reversible_edges::Options {
+                seconds: 2,
+                threads: 1,
+                re2: false,
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        let responses = Mutex::new(Vec::new());
+        request_json(&request, |response, primary| {
+            if primary {
+                responses.lock().unwrap().push(response);
+            }
+        });
+        let responses = responses.into_inner().unwrap();
+        assert!(responses.iter().any(|response| matches!(
+            serde_json::from_str(response).unwrap(),
+            Response::RecursiveReversibleEdgeStep(1, _)
+        )));
+        assert!(responses.iter().any(|response| matches!(
+            serde_json::from_str(response).unwrap(),
+            Response::P(_)
+        )));
     }
 }

@@ -25,9 +25,52 @@ test('new native button leaves the existing merge buttons in place', () => {
     assert.equal(c.computed.native_edges(), true);
     assert.equal(gui(false).components.get('re-demisifiable').computed.native_edges(), false);
     assert.match(c.template, /Logstar Reversible Edge Additions/);
+    assert.match(c.template, /Recursive logstar reversible edge additions/);
     assert.match(c.template, /v-if="native_edges"/);
     assert.match(c.template, /on_demisifiable_old/);
     assert.match(components.get('re-stuff').template, /re-edge-additions/g);
+});
+
+test('recursive edge additions report each apply but expose only the final problem', () => {
+    const g = gui(), results = [], steps = [], errors = [];
+    const first = { mapping_label_text: [[0, 'A'], [1, 'B']] };
+    const final = { mapping_label_text: [[0, 'A'], [1, 'B']], fixpoint_diagram: null };
+    const progress = {};
+    g.context.recursive_reversible_edges(first, { seconds: 7, threads: 2 },
+        action => steps.push(action), result => results.push(result), error => errors.push(error), progress);
+
+    assert.equal(g.requests.length, 1);
+    assert.equal(g.requests[0][0].RecursiveReversibleEdges[0], first);
+    assert.equal(g.requests[0][0].RecursiveReversibleEdges[1].seconds, 7);
+    assert.equal(g.requests[0][0].RecursiveReversibleEdges[1].threads, 2);
+    g.requests[0][1]({ RecursiveReversibleEdgeStep: [1, [[0,1]]] });
+    g.requests[0][1]({ RecursiveReversibleEdgeStep: [2, [[1,1]]] });
+    assert.deepEqual(results, []);
+    assert.equal(steps.length, 2);
+    assert.equal(steps[0].type, 'recursive-reversible-edge-step');
+    assert.equal(steps[0].step, 1);
+    assert.equal(steps[0].edges, 'A B');
+    assert.equal(steps[1].step, 2);
+    assert.equal(steps[1].edges, 'B B');
+    g.requests[0][1]({ P: final });
+    assert.deepEqual(results, [final]);
+    assert.deepEqual(errors, []);
+});
+
+test('recursive edge additions stop cleanly and do not return after a fatal error', () => {
+    const g = gui(), results = [];
+    const stop = g.context.recursive_reversible_edges({}, { seconds: 10, threads: 0 },
+        () => {}, result => results.push(result), () => {}, {});
+    stop();
+    assert.equal(g.stopped(), 1);
+    assert.deepEqual(results, []);
+
+    const failed = gui(), failedResults = [], errors = [];
+    failed.context.recursive_reversible_edges({}, { seconds: 10, threads: 0 },
+        () => {}, result => failedResults.push(result), error => errors.push(error), {});
+    failed.requests[0][1]({ E: 'search failed' });
+    assert.deepEqual(failedResults, []);
+    assert.deepEqual(errors, ['search failed']);
 });
 
 test('streaming reports update one result card; STOP retains verified results', () => {

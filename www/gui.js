@@ -76,6 +76,20 @@ function apply_reversible_edges(problem, certificate, onresult, onerror, progres
         x => handle_result(x, onresult, onerror, progress), function(){});
 }
 
+function recursive_reversible_edges(problem, options, onstep, onresult, onerror, progress) {
+    const names = vec_to_map(problem.mapping_label_text);
+    return api.request({ RecursiveReversibleEdges: [problem, options] }, x => {
+        if (x.RecursiveReversibleEdgeStep != null) {
+            const step = x.RecursiveReversibleEdgeStep[0];
+            const added = x.RecursiveReversibleEdgeStep[1];
+            const edges = added.map(edge => edge.map(label => names[label]).join(' ')).join(', ');
+            onstep({ type: 'recursive-reversible-edge-step', step, edges });
+        } else {
+            handle_result(x, onresult, onerror, progress);
+        }
+    }, function(){});
+}
+
 function start_reversible_edges(stuff, problem, seconds, threads=0) {
     seconds = Number(seconds);
     threads = Number(threads);
@@ -518,6 +532,10 @@ Vue.component('re-performed-action', {
                     return "Computed logstar-Reversible Relaxations";
                 case "reversible-edge-apply":
                     return "Applied verified logstar-reversible edge additions: " + this.action.edges;
+                case "recursive-reversible-edge-step":
+                    return "Applied recursive logstar-reversible edge relaxation " + this.action.step + ": " + this.action.edges;
+                case "recursive-reversible-edge-additions":
+                    return "No further logstar-reversible edge additions found";
                 case "add-active-predecessors":
                     return "Added Predecessors On Active Side.";
                 case "remove-trivial-lines":
@@ -1150,6 +1168,21 @@ Vue.component('re-demisifiable',{
         on_edges() {
             start_reversible_edges(this.stuff, this.problem, this.edge_seconds, this.edge_threads);
         },
+        on_recursive_edges() {
+            const seconds = Number(this.edge_seconds);
+            const threads = Number(this.edge_threads);
+            if (!Number.isInteger(seconds) || seconds < 1 || seconds > 86400) {
+                this.stuff.push({ type: 'error', data: 'Time limit must be an integer from 1 to 86400 seconds.', warning: false });
+                return;
+            }
+            if (!Number.isInteger(threads) || threads < 0 || threads > 32) {
+                this.stuff.push({ type: 'error', data: 'Workers must be an integer from 0 (automatic) to 32.', warning: false });
+                return;
+            }
+            call_api_generating_problem(this.stuff, {type:'recursive-reversible-edge-additions'},
+                recursive_reversible_edges, [this.problem, {seconds, threads},
+                    action => this.stuff.push({type:'performed', data:action})]);
+        },
         on_demisifiable() {
             call_api_generating_problem(this.stuff,{type:"demisifiable"},demisifiable,[this.problem,false]);
         },
@@ -1163,6 +1196,7 @@ Vue.component('re-demisifiable',{
             <button type="button" class="btn btn-primary m-1" v-on:click="on_demisifiable_old">Logstar Reversible Relaxations (old)</button>
             <div v-if="native_edges">
                 <button type="button" class="btn btn-primary m-1" v-on:click="on_edges">Logstar Reversible Edge Additions</button>
+                <button type="button" class="btn btn-primary m-1" v-on:click="on_recursive_edges">Recursive logstar reversible edge additions</button>
                 <label>Time limit (seconds): <input type="number" min="1" max="86400" v-model="edge_seconds" style="width: 6em"></label>
                 <label>P workers (0 = auto): <input type="number" min="0" max="32" v-model="edge_threads" style="width: 4em"></label>
             </div>
