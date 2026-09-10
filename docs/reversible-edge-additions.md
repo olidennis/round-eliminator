@@ -23,6 +23,8 @@ portfolio, not a new solver.
 The **Recursive logstar reversible edge additions** button automates the same
 verified operation. It takes the first certificate produced by a search,
 re-verifies and applies it, then starts a fresh search on the resulting problem.
+Each recursive search shuffles the possible edge additions before scheduling
+them; its P and RE² lanes share that randomized candidate order.
 Each successful application adds a message to the GUI history, but intermediate
 problems are not displayed. When a search finds no certificate, only
 the final problem is returned to the GUI. The time limit and worker setting apply

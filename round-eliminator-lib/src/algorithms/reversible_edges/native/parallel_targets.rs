@@ -39,6 +39,7 @@ pub(super) fn search(
             publish(report);
             true
         },
+        None,
         re_target::prepare,
     )
 }
@@ -61,6 +62,7 @@ pub(super) fn search_first(
                 true
             }
         },
+        Some(rand::random()),
         re_target::prepare,
     )?;
     Ok(first)
@@ -82,6 +84,7 @@ fn search_with_prepare(
             publish(report);
             true
         },
+        None,
         prepare,
     )
 }
@@ -91,12 +94,22 @@ fn search_with_prepare_control(
     options: &Options,
     eh: &mut EventHandler,
     mut publish: impl FnMut(&Report) -> bool,
+    candidate_seed: Option<u64>,
     prepare: impl Fn(&Problem, &Budget<'_>, &mut EventHandler<'_>) -> Result<Re2Target, String> + Sync,
 ) -> Result<Report, String> {
     let started = Instant::now();
     let deadline = started + Duration::from_secs(options.seconds);
     if !options.re2 {
-        return search_branch(p, options, None, started, deadline, eh, publish);
+        return search_branch(
+            p,
+            options,
+            None,
+            started,
+            deadline,
+            candidate_seed,
+            eh,
+            publish,
+        );
     }
     let cancelled = Arc::new(AtomicBool::new(false));
     std::thread::scope(|scope| {
@@ -142,6 +155,7 @@ fn search_with_prepare_control(
                         target.as_ref(),
                         started,
                         deadline,
+                        candidate_seed,
                         &mut events,
                         |r| {
                             let _ = tx.send(Message::Update(re2, r.clone()));

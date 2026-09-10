@@ -5,6 +5,7 @@ use crate::{
     line::{Degree, Line},
     part::Part,
 };
+use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
@@ -314,12 +315,27 @@ pub fn recursive(
     Ok(p)
 }
 
+fn missing_edges(p: &Problem, candidate_seed: Option<u64>) -> Vec<[Label; 2]> {
+    let labels = p.labels();
+    let mut missing: Vec<_> = labels
+        .iter()
+        .enumerate()
+        .flat_map(|(i, &a)| labels[i..].iter().map(move |&b| [a, b]))
+        .filter(|&edge| !p.passive.includes(&edge_line(edge)))
+        .collect();
+    if let Some(seed) = candidate_seed {
+        missing.shuffle(&mut StdRng::seed_from_u64(seed));
+    }
+    missing
+}
+
 fn search_branch(
     p: &Problem,
     options: &Options,
     re2: Option<&Re2Target>,
     started: Instant,
     deadline: Instant,
+    candidate_seed: Option<u64>,
     eh: &mut EventHandler,
     mut publish: impl FnMut(&Report) -> bool,
 ) -> Result<Report, String> {
@@ -330,13 +346,7 @@ fn search_branch(
         complete: false,
         message: "Searching; only verified additions are listed.".into(),
     };
-    let labels = p.labels();
-    let missing: Vec<_> = labels
-        .iter()
-        .enumerate()
-        .flat_map(|(i, &a)| labels[i..].iter().map(move |&b| [a, b]))
-        .filter(|&e| !p.passive.includes(&edge_line(e)))
-        .collect();
+    let missing = missing_edges(p, candidate_seed);
     let candidates: Vec<_> = missing
         .iter()
         .take(options.max_candidates)

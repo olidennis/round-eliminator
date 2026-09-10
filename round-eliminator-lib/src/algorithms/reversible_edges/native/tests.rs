@@ -331,6 +331,21 @@ fn recursive_search_applies_results_until_no_pair_is_missing() {
 }
 
 #[test]
+fn recursive_candidate_order_can_be_randomized_reproducibly() {
+    let original = p("A A\nB B\nC C\nD D\n\nA A");
+    let ordered = missing_edges(&original, None);
+    let shuffled = missing_edges(&original, Some(7));
+    let repeated = missing_edges(&original, Some(7));
+    assert_eq!(shuffled, repeated);
+    assert_ne!(shuffled, ordered);
+    let mut sorted = shuffled;
+    sorted.sort();
+    let mut expected = ordered;
+    expected.sort();
+    assert_eq!(sorted, expected);
+}
+
+#[test]
 fn invalid_inputs_and_budgets_are_not_negative_proofs() {
     let original = p("A A\nB B\n\nA B");
     let options = Options {
