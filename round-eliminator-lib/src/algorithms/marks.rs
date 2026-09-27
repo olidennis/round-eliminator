@@ -226,7 +226,7 @@ impl Problem {
         // eventually all of this will go away, if it is really true that we can use a single row and ignore colors or ports
 
         // port numbering given
-        /*let edge_choices = (0..passive_degree).map(|_|(0..degree).cartesian_product(0..subsets.len())).multi_cartesian_product();
+        let edge_choices = (0..passive_degree).map(|_|(0..degree).cartesian_product(0..subsets.len())).multi_cartesian_product();
         let len = edge_choices.clone().count();
 
         for (k,choice) in edge_choices.enumerate() {
@@ -239,7 +239,7 @@ impl Problem {
 
             let line = Line{parts:choice.iter().map(|(i,j)|Part{ 
                 gtype: GroupType::Many(1),
-                group: Group(complements[*j].clone())
+                group: Group::from(complements[*j].clone())
             }).collect()};
             if !self.passive.exists_choice_in_line(&line) {
                 let lits = choice.iter().map(|&(i,j)|table[i][j]);
@@ -247,9 +247,9 @@ impl Problem {
             } else {
                 //println!("{}",choice.iter().map(|set_index|set_to_string(i,&subsets[*set_index])).join(" "));
             }
-        }*/
+        }
 
-        
+        /* 
         // edge coloring given
         let edge_choices = (0..passive_degree).map(|_|0..subsets.len()).multi_cartesian_product();
         // .filter(|v|v[0] == v[1]); // in many cases this is sufficient to get a LB, in this case a sat solver would not be even needed
@@ -276,7 +276,7 @@ impl Problem {
                     //println!("{}",choice.iter().map(|set_index|set_to_string(i,&subsets[*set_index])).join(" "));
                 }
             }
-        }
+        }*/
 
         //println!("");
         eh.notify("sanitizing",0,0);
