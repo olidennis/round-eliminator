@@ -10,6 +10,8 @@ Keep both worktrees. Read only `round-eliminator-lib`, `round-eliminator-server`
 - Build readable, fast, idiomatic Rust, with coherent modules, tests, and comments.
 - Keep abstractions few and justified, but leave room for all old GUI features and future features.
 - Eventually handle non-regular active/passive graphs and problems with input labels.
+- The first version supports exact degrees only. Reject starred configurations;
+  the user may choose to add them in the future.
 - Input-independent output validity is a pair of ordinary input/output problems.
 - Input-dependent validity may be expressed either as allowed multisets of
   `(input label, output label)` pairs on each side, or as an input problem plus
@@ -23,11 +25,13 @@ Keep both worktrees. Read only `round-eliminator-lib`, `round-eliminator-server`
 
 ## Workflow
 
-`FEATURES.md` inventories existing GUI behavior as unimplemented work. The first
-planned implementation is the equivalent of Start: enter a problem, send it to
-Rust, and display the returned problem. Before implementing that or any later
-feature, discuss meaningful implementation alternatives and their tradeoffs
-with the user, wait for their choice, then implement the selected feature with
-tests and comments. Do not import old algorithms wholesale or implement further
-features ahead of that choice. Treat the source tree as reference, not as code
-to preserve for its own sake.
+`FEATURES.md` inventories existing GUI behavior and tracks unimplemented work.
+The first implementation is Start: enter an input-free problem, send it to Rust,
+and display the returned definition. The user selected a typed Rust protocol
+with generated TypeScript types, thin server/wasm adapters, a degree-indexed
+symbolic constraint model, and Vue with TypeScript. Start does not compute
+analyses. For each later feature, discuss meaningful alternatives and their
+tradeoffs with the user, wait for their choice, then implement the selected
+feature with tests and comments. Do not import old algorithms wholesale or
+implement further features ahead of that choice. Treat the source tree as
+reference, not as code to preserve for its own sake.

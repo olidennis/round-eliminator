@@ -1,2 +1,4 @@
 /target/
-/Cargo.lock
+/web/node_modules/
+/web/dist/
+/web/public/wasm/

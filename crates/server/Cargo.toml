@@ -1,0 +1,10 @@
+[package]
+name = "round-eliminator-3-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8"
+round-eliminator-3 = { path = "../.." }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+tower-http = { version = "0.7", features = ["fs"] }

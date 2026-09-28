@@ -1,0 +1,21 @@
+:root { font-family: system-ui, sans-serif; color: #222; background: #f7f8fa; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+h1 { margin-bottom: .25rem; }
+h2, h3 { margin-top: 0; }
+header p { color: #555; }
+.editors, .constraints { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.editors label { font-weight: 600; }
+textarea { display: block; width: 100%; margin-top: .5rem; padding: .75rem; resize: vertical; font: 1rem/1.45 ui-monospace, monospace; border: 1px solid #aab4c0; border-radius: .4rem; }
+.actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+button, select { font: inherit; padding: .55rem .9rem; border-radius: .35rem; }
+button { background: #175fbd; color: white; border: 0; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+select { margin-left: .4rem; border: 1px solid #aab4c0; background: white; }
+.result { margin-top: 1.5rem; padding: 1.25rem; border: 1px solid #d3dae2; border-radius: .5rem; background: white; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: .5rem; border-bottom: 1px solid #e3e7ed; text-align: left; vertical-align: top; }
+td { font-family: ui-monospace, monospace; }
+.error { padding: .75rem; color: #812018; background: #fff0ed; border: 1px solid #eeafa5; border-radius: .35rem; }
+@media (max-width: 650px) { .editors, .constraints { grid-template-columns: 1fr; } }

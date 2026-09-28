@@ -1,16 +1,19 @@
-# Unimplemented feature inventory
+# Feature inventory
 
 Source: `../round-eliminator/www/gui.js` on `llm-enhanced`, with `api.js` and
-`round-eliminator-lib/src/serial.rs` used to identify behavior. Every feature
-below is **unimplemented** in `re3`; this is an inventory, not a design choice.
-Buttons that share a label but perform different operations have separate entries.
+`round-eliminator-lib/src/serial.rs` used to identify behavior. The tables
+below are **unimplemented** features of `re3`; buttons with the same label but
+different behavior have separate entries.
+
+Implemented: active/passive text entry, Start, parsing and displaying exact-degree
+constraints and label count, and reporting parse errors. Starred configurations
+are deliberately deferred at the user's request.
 
 ## Problem entry, history, and sharing
 
 | Feature | Short description |
 | --- | --- |
-| Active and Passive editors | Enter the two side constraints as text; lines describe allowed configurations. |
-| Start | Parse a new problem in Rust and display the returned problem and any diagnostics. |
+| Starred configuration notation (deferred) | Allow `*` in a configuration to cover a range of degrees. |
 | Clear | Clear the displayed result history. |
 | Edit | Copy a displayed problem back into the input editors. |
 | Expand/collapse cards | Open or close sections of a displayed problem. |
@@ -117,8 +120,6 @@ Buttons that share a label but perform different operations have separate entrie
 
 | Feature | Short description |
 | --- | --- |
-| Constraint tables | Show active and passive allowed configurations, grouped labels, powers, and stars. |
-| Label count | Show the number of labels in the current problem. |
 | Zero-round solvability | Report solvable or unsolvable and show witnessing label sets when available. |
 | Coloring solvability | Report whether a suitable given coloring gives a zero-round solution and show color sets. |
 | Edge-coloring solvability | Report maximal/unbounded feasible palettes and output sets for input colors. |
@@ -137,5 +138,5 @@ Buttons that share a label but perform different operations have separate entrie
 | Export to Clipboard (diagram) | Copy diagram nodes and arrows as text. |
 | Reversible-edge report | Show search statistics, verified alternatives, recipes, and mappings. |
 | Action and sequence history | Display each transformation and nested automatic-search sequence. |
-| Warnings and errors | Display computation diagnostics. |
+| Computation warnings | Display diagnostics beyond the parse errors already supported. |
 | Progress and stop | Show computation status or a progress bar and offer cancellation. |

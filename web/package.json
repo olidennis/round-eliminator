@@ -1,0 +1,20 @@
+{
+  "name": "round-eliminator-3-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "vue-tsc --noEmit",
+    "build": "npm run typecheck && vite build",
+    "test:wasm": "node scripts/test-wasm.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.1",
+    "vue-tsc": "^3.3.11"
+  }
+}
