@@ -1,5 +1,7 @@
 pub mod choices;
 pub mod coloring_solvability;
+mod coloring_sat;
+pub mod edge_coloring_solvability;
 pub mod diagram;
 pub mod discard_useless;
 pub mod event;

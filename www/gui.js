@@ -185,6 +185,11 @@ function compute_coloring_solvability(problem, onresult, onerror, progress){
     return api.request({ ColoringSolvability : problem }, ondata , function(){});
 }
 
+function compute_edge_coloring_solvability(problem, onresult, onerror, progress){
+    let ondata = x => handle_result(x, onresult, onerror, progress);
+    return api.request({ EdgeColoringSolvability : problem }, ondata , function(){});
+}
+
 function apply_marks_technique(problem, onresult, onerror, progress){
     let ondata = x => handle_result(x, onresult, onerror, progress);
     return api.request({ Marks : problem }, ondata , function(){});
@@ -343,6 +348,12 @@ function fix_problem(p) {
     let zerosets = !is_zero ? [] : problem.trivial_sets.map(x => labelset_to_string(x,problem.map_label_text));
     let orientation_zerosets = !orientation_is_zero ? [] : problem.orientation_trivial_sets.map(x => "("+labelset_to_string(x[0],problem.map_label_text)+","+labelset_to_string(x[1],problem.map_label_text)+")");
     let coloringsets = numcolors < 2 ? [] : problem.coloring_sets.map(x => labelset_to_string(x,problem.map_label_text));
+    let edge_coloring = problem.edge_coloring_solvability == null ? null : {
+        maximum: problem.edge_coloring_solvability.maximum,
+        minimum: problem.edge_coloring_solvability.minimum,
+        unbounded: problem.edge_coloring_solvability.unbounded,
+        color_sets: problem.edge_coloring_solvability.color_sets.map(x => labelset_to_string(x,problem.map_label_text))
+    };
     let orientation_coloringsets = orientation_numcolors < 2 ? [] : problem.orientation_coloring_sets.map(x => "("+labelset_to_string(x[0],problem.map_label_text)+","+labelset_to_string(x[1],problem.map_label_text)+")");
     let mergeable = (problem.diagram_direct ?? [[]])[0].filter(x => x[1].length > 1); 
     let is_mergeable = mergeable.length > 0;
@@ -369,7 +380,7 @@ function fix_problem(p) {
         let mapping = problem.triviality_with_input[1];
         triviality_with_input = mapping.map(x => [labelset_to_string([x[0]],input_to_string),  labelset_to_string(x[1],output_to_string)]);
     }
-    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work, zero_with_input:zero_with_input, non_zero_with_input: non_zero_with_input, triviality_with_input : triviality_with_input};
+    p.info = { orientation_coloringsets:orientation_coloringsets, orientation_numcolors:orientation_numcolors, orientation_zerosets:orientation_zerosets,orientation_is_zero:orientation_is_zero, orientation_is_nonzero:orientation_is_nonzero, numlabels : numlabels, is_zero : is_zero, is_nonzero : is_nonzero, numcolors : numcolors, zerosets : zerosets, coloringsets : coloringsets, edge_coloring:edge_coloring, is_mergeable : is_mergeable, mergesets : mergesets, is_demisifiable : is_demisifiable, demisifiable : demisifiable, fp_procedure_works : fp_procedure_works, fp_procedure_does_not_work : fp_procedure_does_not_work, marks_works : marks_works, marks_does_not_work : marks_does_not_work, zero_with_input:zero_with_input, non_zero_with_input: non_zero_with_input, triviality_with_input : triviality_with_input};
 }
 
 
@@ -560,6 +571,8 @@ Vue.component('re-performed-action', {
                     return "Transformed Labels Assuming a Delta Edge Coloring";
                 case "coloring":
                     return "Computed hypergraph strong coloring solvability";
+                case "edgecoloringsolvability":
+                    return "Computed edge coloring solvability";
                 case "marks":
                     return "Applied Marks' technique";
                 case "speedupmaximize":
@@ -638,6 +651,8 @@ Vue.component('re-computing', {
                     return {bar : false, msg: "Computing a Lower Bound Automatically"}; 
                 case "coloring graph":
                     return {bar : true, msg: "Computing graph for determining coloring solvability", max : this.action.max, cur : this.action.cur };
+                case "edge coloring solvability":
+                    return {bar : false, msg: "Computing edge coloring solvability"};
                 case "clique":
                     return {bar : false, msg: "Computing largest clique"};
                 case "diagram":
@@ -737,6 +752,19 @@ Vue.component('re-problem-info', {
             <div v-if="this.problem.info.numcolors ==0 && !this.problem.info.is_zero" class="col-auto m-2 p-0">
                 <div class="card card-body m-0 p-2">
                     <div>The problem is NOT solvable even if given a 2-coloring.</div>
+                </div>
+            </div>
+            <div v-if="this.problem.info.edge_coloring != null" class="col-auto m-2 p-0">
+                <div class="card card-body m-0 p-2">
+                    <div v-if="this.problem.info.edge_coloring.unbounded">Edge coloring solvability: every feasible number of colors (k ≥ {{ this.problem.info.edge_coloring.minimum }}).</div>
+                    <div v-else-if="this.problem.info.edge_coloring.maximum > 0">Edge coloring solvability: {{ this.problem.info.edge_coloring.maximum }} colors.</div>
+                    <div v-else>No feasible edge coloring (k ≥ {{ this.problem.info.edge_coloring.minimum }}) gives a zero-round solution.</div>
+                    <div v-if="this.problem.info.edge_coloring.color_sets.length > 0">
+                        Output label sets for the input colors:
+                        <span v-for="(set, i) in this.problem.info.edge_coloring.color_sets" :key="i">{{ i + 1 }}: {{ set }} </span>
+                    </div>
+                    <div v-if="this.problem.info.edge_coloring.unbounded">The displayed behavior can be repeated for additional colors.</div>
+                    <div v-if="this.problem.passive.degree.Finite != 2">Colors are on the edges of the bipartite active/passive graph.</div>
                 </div>
             </div>
             <div class="w-100"/>
@@ -1356,6 +1384,18 @@ Vue.component('re-coloring',{
     `
 })
 
+Vue.component('re-edge-coloring-solvability',{
+    props: ['problem','stuff'],
+    methods: {
+        on_click() {
+            call_api_generating_problem(this.stuff,{type:"edgecoloringsolvability"},compute_edge_coloring_solvability,[this.problem]);
+        }
+    },
+    template: `
+        <button type="button" class="btn btn-primary m-1" v-on:click="on_click">Edge Coloring Solvability</button>
+    `
+})
+
 Vue.component('re-marks',{
     props: ['problem','stuff'],
     methods: {
@@ -1954,6 +1994,11 @@ Vue.component('re-operations',{
             <div class="m-2"><re-speedup-maximize :problem="problem" :stuff="stuff"></re-speedup-maximize><re-speedup-maximize-rename :problem="problem" :stuff="stuff"></re-speedup-maximize-rename></div>
             <re-orientation-give :problem="problem" :stuff="stuff"></re-orientation-give>
             <div class="m-2" v-if="this.problem.info.numcolors == -1"><re-coloring :problem="problem" :stuff="stuff"></re-coloring> compute hypergraph strong coloring solvability</div>
+            <div class="m-2" v-if="this.problem.info.edge_coloring == null">
+                <re-edge-coloring-solvability :problem="problem" :stuff="stuff"></re-edge-coloring-solvability>
+                compute the largest edge-color palette allowing a zero-round solution
+                <span v-if="this.problem.passive.degree.Finite != 2">(colors on bipartite incidence edges)</span>
+            </div>
             <div class="m-2"><re-marks :problem="problem" :stuff="stuff"></re-marks> apply Marks' technique</div>
             <div class="m-2"><re-demisifiable :problem="problem" :stuff="stuff"></re-demisifiable> compute reversible merges</div>
             <div class="m-2"><re-add-active-predecessors :problem="problem" :stuff="stuff"></re-add-active-predecessors> ...</div>

@@ -302,6 +302,7 @@ impl Problem {
             mapping_oldlabel_text: None,
             trivial_sets: None,
             coloring_sets: None,
+            edge_coloring_solvability: None,
             diagram_indirect: None,
             diagram_indirect_old: None,
             diagram_direct: None,

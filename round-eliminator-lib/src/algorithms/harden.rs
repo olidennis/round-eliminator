@@ -61,6 +61,7 @@ impl Problem {
             mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
             trivial_sets: None,
             coloring_sets: None,
+            edge_coloring_solvability: None,
             diagram_indirect: None,
             diagram_direct: None,
             diagram_indirect_old: self.diagram_indirect_old.clone(),

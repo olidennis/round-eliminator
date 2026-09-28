@@ -19,6 +19,8 @@ pub struct Problem {
     pub mapping_oldlabel_text: Option<Vec<(Label, String)>>,
     pub trivial_sets: Option<Vec<Vec<Label>>>,
     pub coloring_sets: Option<Vec<Vec<Label>>>,
+    #[serde(default)]
+    pub edge_coloring_solvability: Option<EdgeColoringSolvability>,
     pub diagram_indirect: Option<Vec<(Label, Label)>>,
     pub diagram_indirect_old: Option<Vec<(Label, Label)>>,
     pub diagram_direct: Option<DiagramDirect>,
@@ -36,6 +38,16 @@ pub struct Problem {
 
 pub type DiagramDirect = (Vec<(Label, Vec<Label>)>, Vec<(Label, Label)>);
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash)]
+pub struct EdgeColoringSolvability {
+    /// Zero means that no feasible edge-color palette solves the problem.
+    pub maximum: usize,
+    pub minimum: usize,
+    pub unbounded: bool,
+    /// One set for each input edge color. Duplicate sets represent distinct colors.
+    pub color_sets: Vec<Vec<Label>>,
+}
+
 impl Problem {
 
     pub fn replace_passive(&self, passive : Constraint) -> Self {
@@ -49,6 +61,7 @@ impl Problem {
             mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
             trivial_sets: None,
             coloring_sets: None,
+            edge_coloring_solvability: None,
             diagram_indirect: None,
             diagram_direct: None,
             diagram_indirect_old: None,
@@ -91,6 +104,7 @@ impl Problem {
             mapping_oldlabel_text: None,
             trivial_sets: None,
             coloring_sets: None,
+            edge_coloring_solvability: None,
             diagram_indirect: None,
             diagram_direct: None,
             diagram_indirect_old: None,
@@ -177,6 +191,7 @@ impl Problem {
                 mapping_oldlabel_text: self.mapping_oldlabel_text.clone(),
                 trivial_sets: None,
                 coloring_sets: None,
+                edge_coloring_solvability: None,
                 diagram_indirect: None,
                 diagram_direct: None,
                 diagram_indirect_old: self.diagram_indirect_old.clone(),
@@ -345,4 +360,3 @@ mod tests {
         println!("{}", serialized);
     }
 }
-

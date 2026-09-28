@@ -34,6 +34,7 @@ impl Problem {
         // but to emphasize that they now may contain garbage, they are set to None
         self.trivial_sets = None;
         self.coloring_sets = None;
+        self.edge_coloring_solvability = None;
     }
 
     pub fn discard_useless_stuff(&mut self, recompute_full_diagram: bool, eh: &mut EventHandler) {

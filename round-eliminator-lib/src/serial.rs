@@ -406,6 +406,12 @@ where
             problem.compute_passive_gen();
             handler(Response::P(problem));
         }
+        Request::EdgeColoringSolvability(mut problem) => {
+            match problem.compute_edge_coloring_solvability(&mut eh) {
+                Ok(()) => handler(Response::P(problem)),
+                Err(message) => handler(Response::E(message.into())),
+            }
+        }
         Request::Marks(mut problem) => {
             if problem.passive.degree  != Degree::Finite(2) {
                 handler(Response::E(
@@ -778,6 +784,7 @@ pub enum Request {
     AutoUb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     AutoLb(Problem, bool, usize, bool, usize, bool, usize, bool, usize, bool, usize),
     ColoringSolvability(Problem),
+    EdgeColoringSolvability(Problem),
     Marks(Problem),
     CriticalHarden(Problem,bool, usize, bool, usize, usize, bool, bool),
     CriticalRelax(Problem,bool, usize, bool, usize, usize, bool),
@@ -850,6 +857,22 @@ mod tests {
 
         assert!(responses.into_inner().unwrap().iter().any(|response| {
             matches!(serde_json::from_str(response).unwrap(), Response::P(_))
+        }));
+    }
+
+    #[test]
+    fn edge_coloring_solvability_request_returns_result() {
+        let problem = Problem::from_string("A B\n\nA A\nB B").unwrap();
+        let request = serde_json::to_string(&Request::EdgeColoringSolvability(problem)).unwrap();
+        let responses = Mutex::new(Vec::new());
+        request_json(&request, |response, primary| {
+            if primary {
+                responses.lock().unwrap().push(response);
+            }
+        });
+        assert!(responses.into_inner().unwrap().iter().any(|response| {
+            matches!(serde_json::from_str::<Response>(response).unwrap(),
+                Response::P(problem) if problem.edge_coloring_solvability.as_ref().is_some_and(|result| result.maximum == 2))
         }));
     }
 
