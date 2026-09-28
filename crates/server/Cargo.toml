@@ -5,6 +5,6 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8"
-round-eliminator-3 = { path = "../.." }
+round-eliminator-3 = { path = "../core" }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
 tower-http = { version = "0.7", features = ["fs"] }

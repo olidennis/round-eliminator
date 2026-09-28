@@ -5,6 +5,10 @@ Rust parses and validates an input-free active/passive problem, and the GUI
 displays the returned definition. Algorithms and computed properties are not
 implemented yet; see [FEATURES.md](FEATURES.md).
 
+The root is a virtual Cargo workspace. `crates/core` contains the portable
+problem model, parser, and request handler; `crates/server` and `crates/wasm`
+are thin delivery adapters. `web` contains the Vue interface.
+
 ## Constraint text
 
 Each nonempty line is an allowed configuration. Whitespace separates parts.
