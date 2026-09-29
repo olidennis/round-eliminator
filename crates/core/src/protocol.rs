@@ -3,61 +3,59 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{parse_problem, problem::PlainProblem};
+use crate::{
+    parse_problem,
+    parser::{Location, ParseError, ProblemText},
+    problem::Problem,
+};
 
+/// These are the possible requests that we can receive from the UI
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 #[ts(export)]
 pub enum Request {
-    ParseProblem { active: String, passive: String },
+    ParseProblem(ProblemText),
 }
 
+/// These are the possible answers that we can send to the UI
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 #[ts(export)]
 pub enum Response {
-    Problem(PlainProblem),
+    Problem(Problem),
     Error(ApiError),
 }
 
+/// In case of error, we give a message and we say what it refers to.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
 pub struct ApiError {
     pub message: String,
     pub location: Option<Location>,
 }
 
-impl ApiError {
-    pub(crate) fn parse(message: &str, side: Side, line: usize) -> Self {
+impl From<ParseError> for ApiError {
+    fn from(error: ParseError) -> Self {
         Self {
-            message: message.to_owned(),
-            location: Some(Location { side, line }),
+            message: error.message,
+            location: error.location,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, TS)]
-pub struct Location {
-    pub side: Side,
-    pub line: usize,
-}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, TS)]
-#[serde(rename_all = "snake_case")]
-pub enum Side {
-    Active,
-    Passive,
-}
-
+/// Here we map a request to the actual code that computes the response.
 pub fn execute(request: Request) -> Response {
     match request {
-        Request::ParseProblem { active, passive } => match parse_problem(&active, &passive) {
+        Request::ParseProblem(text) => match parse_problem(text) {
             Ok(problem) => Response::Problem(problem),
-            Err(error) => Response::Error(error),
+            Err(error) => Response::Error(error.into()),
         },
     }
 }
 
-/// The identical JSON entry point used by both transport adapters.
+/// Requests and responses use json. This is the main entry point.
+/// We receive a string with some json, we parse, we call the handler,
+/// we create a json output from the response.
 pub fn execute_json(request: &str) -> String {
     let response = match serde_json::from_str::<Request>(request) {
         Ok(request) => execute(request),
@@ -75,15 +73,18 @@ mod tests {
 
     #[test]
     fn json_protocol_returns_problem_and_structured_error() {
-        let request = r#"{"type":"parse_problem","data":{"active":"A B","passive":"AB"}}"#;
+        let request = r#"{"type":"parse_problem","data":{"kind":"plain","constraints":{"active":"A B","passive":"AB"}}}"#;
         let result: serde_json::Value = serde_json::from_str(&execute_json(request)).unwrap();
         assert_eq!(result["type"], "problem");
-        assert_eq!(result["data"]["labels"], serde_json::json!(["A", "B"]));
+        assert_eq!(
+            result["data"]["data"]["output"]["labels"],
+            serde_json::json!(["A", "B"])
+        );
 
-        let request = r#"{"type":"parse_problem","data":{"active":"A","passive":"B^0"}}"#;
+        let request = r#"{"type":"parse_problem","data":{"kind":"plain","constraints":{"active":"A","passive":"B^2..1"}}}"#;
         let result: serde_json::Value = serde_json::from_str(&execute_json(request)).unwrap();
         assert_eq!(result["type"], "error");
-        assert_eq!(result["data"]["location"]["side"], "passive");
+        assert_eq!(result["data"]["location"]["field"], "passive");
         assert_eq!(result["data"]["location"]["line"], 1);
 
         let result: serde_json::Value = serde_json::from_str(&execute_json("not json")).unwrap();

@@ -8,6 +8,14 @@ header p { color: #555; }
 .editors, .constraints { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .editors label { font-weight: 600; }
 textarea { display: block; width: 100%; margin-top: .5rem; padding: .75rem; resize: vertical; font: 1rem/1.45 ui-monospace, monospace; border: 1px solid #aab4c0; border-radius: .4rem; }
+input { display: block; width: 100%; margin-top: .5rem; padding: .6rem; font: inherit; border: 1px solid #aab4c0; border-radius: .4rem; }
+.form-fields { padding: 0; margin: 0; border: 0; min-width: 0; }
+.editor-section, .constraint-section { margin-top: 1.5rem; }
+.editor-section h2 { font-size: 1.15rem; margin-bottom: .75rem; }
+.hint, small { color: #555; font-size: .9rem; }
+small { display: block; margin-top: .4rem; font-family: system-ui, sans-serif; }
+h4 { margin: 0 0 .5rem; }
+.excluded { background: #f3f4f6; color: #666; }
 .actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
 button, select { font: inherit; padding: .55rem .9rem; border-radius: .35rem; }
 button { background: #175fbd; color: white; border: 0; cursor: pointer; }
@@ -18,4 +26,4 @@ table { border-collapse: collapse; width: 100%; }
 th, td { padding: .5rem; border-bottom: 1px solid #e3e7ed; text-align: left; vertical-align: top; }
 td { font-family: ui-monospace, monospace; }
 .error { padding: .75rem; color: #812018; background: #fff0ed; border: 1px solid #eeafa5; border-radius: .35rem; }
-@media (max-width: 650px) { .editors, .constraints { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .editors, .constraints { grid-template-columns: 1fr; } .actions { flex-wrap: wrap; } select { max-width: 100%; margin-left: 0; } }

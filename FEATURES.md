@@ -6,8 +6,35 @@ below are **unimplemented** features of `re3`; buttons with the same label but
 different behavior have separate entries.
 
 Implemented: active/passive text entry, Start, parsing and displaying exact-degree
-constraints and label count, and reporting parse errors. Starred configurations
+constraints and label count, reporting parse errors, and canonical label sets
+with union, intersection, difference, and subset operations. Starred configurations
 are deliberately deferred at the user's request.
+
+Also implemented: entry and display of independent input/output problems,
+direct input/output pair constraints with their input projection, and input-to-output
+maps with separate input/output constraints. Optional active/passive degree lists
+define the graph class for all variants, including pairs; omitted lists use input degrees (output degrees for plain
+problems). Pair problems derive their promise from the input projection. Checked
+model construction, empty constraints, and degree-zero configurations are supported.
+These are definitions only; the solvability analyses below are still unimplemented.
+
+Inclusive exponent ranges (`^5..8`) are expanded during parsing, including zero
+occurrences, for all problem variants, without a fixed expansion limit.
+
+## Things to think about in the future
+
+The current representation supports the implemented parsing and display features.
+Revisit these design considerations as algorithms and transformations are added;
+they do not require immediate changes. Configuration normalization remains
+explicitly deferred at the user's request.
+
+| Topic | Short description |
+| --- | --- |
+| Normalize condensed configurations | Merge identical parts and sort parts. Equality currently compares stored structure; this normalization will not decide all semantic equivalences. |
+| Benchmark label-set storage | Compare the current sorted-vector storage with bitsets on representative algorithm workloads before optimizing it. |
+| Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
+| Support long computations | Before expensive algorithms, design bounded native CPU execution, wasm worker reuse, progress reporting, and cancellation. |
+| Preserve input promises in transformations | For pair problems, preserve the original input promise when changing output validity; deriving it again from modified pairs can silently narrow the problem domain. |
 
 ## Problem entry, history, and sharing
 
