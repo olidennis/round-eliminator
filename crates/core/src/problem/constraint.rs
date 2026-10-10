@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::ValidationError;
@@ -10,7 +10,7 @@ use crate::labels::{LabelId, LabelSet};
 
 /// Allowed condensed configurations, grouped by their degree.
 /// Missing degrees have no allowed configurations.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct Constraint<L = LabelId> {
     degrees: Vec<DegreeGroup<L>>,
 }
@@ -43,6 +43,15 @@ impl<L: Copy + Ord> Constraint<L> {
         self.degrees.iter().flat_map(|group| &group.configurations)
     }
 
+    /// Return the allowed configurations of exactly this degree, or an empty
+    /// slice if the constraint has none. Degree groups are stored in order.
+    pub fn configurations_at_degree(&self, degree: u32) -> &[CondensedConfiguration<L>] {
+        self.degrees
+            .binary_search_by_key(&degree, DegreeGroup::degree)
+            .map(|index| self.degrees[index].configurations())
+            .unwrap_or(&[])
+    }
+
     pub fn labels(&self) -> impl Iterator<Item = L> + '_ {
         self.configurations().flat_map(|configuration| {
             configuration
@@ -54,7 +63,7 @@ impl<L: Copy + Ord> Constraint<L> {
 }
 
 /// All stored configurations in this group have exactly this degree.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct DegreeGroup<L = LabelId> {
     degree: u32,
     configurations: Vec<CondensedConfiguration<L>>,
@@ -73,7 +82,7 @@ impl<L> DegreeGroup<L> {
 /// For example, `AB^2` denotes the multisets `AA`, `AB`, and `BB`.
 /// Zero-count parts are discarded. Otherwise, equality compares stored parts;
 /// it does not perform semantic normalization.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct CondensedConfiguration<L = LabelId> {
     parts: Vec<Part<L>>,
 }
@@ -101,7 +110,7 @@ impl<L> CondensedConfiguration<L> {
 
 /// A part is a set with an exponent.
 /// The set must be nonempty.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct Part<L = LabelId> {
     labels: LabelSet<L>,
     multiplicity: u32,

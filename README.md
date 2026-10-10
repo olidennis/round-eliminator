@@ -3,8 +3,8 @@
 This is a new implementation on the `re3` branch. Start parses and validates
 active/passive problem definitions, and the GUI displays the returned definition.
 It supports plain problems and all three input variants described below.
-Algorithms and computed properties are not
-implemented yet; see [FEATURES.md](FEATURES.md).
+The zero-round check supports all four variants and returns a local-rule witness.
+Other operations remain listed in [FEATURES.md](FEATURES.md).
 
 The root is a virtual Cargo workspace. `crates/core` contains the portable
 problem model, parser, and request handler; `crates/server` and `crates/wasm`
@@ -70,13 +70,21 @@ no nodes on that side. Degree zero is explicitly supported using `()`.
 | File | Responsibility |
 | --- | --- |
 | `crates/core/src/labels.rs` | Numeric IDs and sorted sets of IDs or direct pairs. |
-| `crates/core/src/problem/mod.rs` | Problem variants, graph/input promises, and input-to-output mapping validation. |
+| `crates/core/src/problem/mod.rs` | Problem variants, shared graph/input/mapping accessors, and mapping validation. |
+| `crates/core/src/problem/configuration.rs` | Concrete multisets stored as sorted label/multiplicity entries. |
 | `crates/core/src/problem/constraint.rs` | Generic checked parts and condensed configurations; grouping by computed degree. |
 | `crates/core/src/problem/constraint_pair.rs` | Ordinary and input/output constraint pairs, their label tables and reference validation, and input projection. |
 | `crates/core/src/problem/graph.rs` | Resolved active/passive degree sets. |
 | `crates/core/src/parser/mod.rs` | Text request types, variant assembly, degree and mapping parsing, and parse errors. |
 | `crates/core/src/parser/notation.rs` | Shared row/repetition grammar and the label/pair readers. |
-| `crates/core/src/protocol.rs` | Shared request dispatch and conversion of parse errors into API responses. |
+| `crates/core/src/protocol.rs` | Shared request dispatch, generated response/progress types, and conversion of errors into API responses. |
+| `crates/core/src/computation.rs` | Transport-independent cancellation flag and computation phases. |
+| `crates/core/src/algorithms/sat.rs` | RustSAT formula builder and target-specific backend setup. |
+| `crates/core/src/algorithms/configurations.rs` | Concrete input multiset enumeration and exact membership in condensed constraints. |
+| `crates/core/src/algorithms/zero_round/mod.rs` | Public result types and shared SAT search with counterexample refinement. |
+| `crates/core/src/algorithms/zero_round/prepare.rs` | Zero-round input preparation and shared validity operations on ordinary or pair constraints. |
+| `crates/core/src/algorithms/zero_round/sat.rs` | Cardinality and active configuration matching encodings. |
+| `crates/core/src/algorithms/zero_round/verify.rs` | Exact passive checks and independent witness verification. |
 
 The model and parser each keep their tests in a neighboring `tests.rs` module.
 The constraint containers are generic over two actual element types: `LabelId`
@@ -91,10 +99,92 @@ Model fields are private; construction checks invariants. Equality is structural
 and configuration normalization is still deferred.
 `CondensedConfiguration` denotes a family of multisets: for example, `AB^2`
 represents `AA`, `AB`, and `BB`, rather than one concrete configuration.
+`Configuration<L>` stores a single multiset as `(label, multiplicity)` entries;
+`A^2 B` has two entries, not three occurrences. Construction merges repeated
+labels, sorts entries, discards zero counts, and checks degree overflow. It works
+with ordinary labels and direct input/output pairs. Algorithms expand occurrences
+only where port positions matter, such as local-rule witnesses.
+
+## Zero-round solvability
+
+Press **Start** to display the parsed problem, then choose **Check zero-round
+solvability** inside that problem to search for a deterministic active-side strategy in the port-numbering model. An active node knows its own degree,
+local ports, and all incident inputs; it does not know its neighbors' degrees.
+Each witness row specifies outputs for one active degree and input multiset.
+Input occurrences are ordered by label ID, breaking ties by local port order;
+the UI shows the required input order. Outputs follow that same order. Without
+inputs, outputs use local port order. Repeated input labels can receive different
+outputs, and an output can depend on the full active input configuration.
+
+Start parses the text once, including exponent-range expansion. Subsequent
+zero-round requests carry that displayed structured problem through either
+transport. Serde deserializes the model directly; the client is trusted to send
+the valid snapshot returned by Rust. Constructors validate newly built models.
+Editor changes do not affect an already displayed problem.
+The zero-round response contains only the solvability result and any witness;
+witness label IDs refer to the submitted problem's label tables.
+
+The check uses RustSAT with packaged CaDiCaL 2.2.1 for native builds and pure Rust
+BatSat for wasm. Target-specific dependencies keep CaDiCaL out of wasm builds.
+Solvers may produce different valid witnesses and require different numbers of
+refinement iterations. The encoding
+uses RustSAT literal types and generic solver interfaces; backend construction
+and cancellation setup live in `algorithms/sat.rs`. A different incremental
+backend can run the same encoding and refinement loop. It selects outputs
+and matches them to active configuration parts using capacities, without
+enumerating output permutations. Passive degrees up to two are encoded eagerly.
+For higher degrees, an exact checker searches for a forbidden combination of
+outputs and adds a clause excluding it; solving and checking repeat until a
+valid strategy is found or SAT proves unsolvability. Membership is tested against
+the union of all allowed configurations, so passive maximization is unnecessary.
+Repeated equal inputs are checked using output multisets, avoiding permutations.
+Concrete membership uses petgraph's Dinic maximum flow: distinct labels and
+condensed parts are vertices, and multiplicities are capacities. Large exponents
+do not expand into flow vertices. Single-label and single-part cases are checked
+directly; insufficient capacity rejects a candidate before running flow.
+See [matching benchmarks](crates/core/benches/README.md) for measurements and
+the comparison with the previous occurrence matcher.
+
+Only degrees in the graph class participate. With inputs, the input promise
+determines the local configurations to consider. Every listed active input
+configuration at an allowed degree is an obligation; the check does not first
+decide which input configurations have global graph realizations. A passive
+input with no compatible active neighbors creates no obligation. Degree-zero
+configurations are checked separately, including on the passive side.
+
+`algorithms::zero_round::verify_strategy` checks witness coverage, active validity,
+mapping restrictions, and universal passive validity without a SAT solver.
+Tests compare search results against exhaustive strategies on small instances.
+The search has no imposed configuration or iteration limit; concrete input
+enumeration and passive checking can still be exponential.
+
+While running, the check button becomes an indeterminate progress indicator,
+a description of the current phase, and a **Cancel** button. Completed SAT
+candidate counts are shown when available; no percentage or completion time is
+estimated. Results appear below the constraints. Cancellation preserves the
+parsed problem and offers a retry. Editing the form does not change an existing
+parsed problem or its analysis; pressing Start replaces it and cancels its work.
+
+Native requests run in a blocking pool with concurrency bounded by available
+CPUs. The UI uses `POST /api/stream`, which streams Rust-defined
+`ComputationEvent` values over SSE. Closing the stream cancels queued or running
+work; the permit is held until the worker exits. The same cancellation flag is
+checked during parsing range expansion, input enumeration, clause generation,
+SAT solving, and passive checking. Cancellation is cooperative at these checks.
+`POST /api` remains a convenience endpoint returning only the final JSON result.
+
+Wasm runs each request in a dedicated worker and reports the same progress events
+through messages. Cancellation terminates that worker, including its synchronous
+wasm execution. Both transports use the same Rust request dispatch.
 
 ## Run
 
 From this directory:
+
+Native builds require a C++ compiler and libclang: RustSAT compiles the bundled
+CaDiCaL sources and generates its bindings with bindgen. On macOS, install the
+Xcode Command Line Tools; on Debian/Ubuntu, install `build-essential` and
+`libclang-dev`. Wasm builds use BatSat and do not need these native dependencies.
 
 ```sh
 cargo test --workspace
@@ -104,15 +194,14 @@ cd .. && cargo run -p round-eliminator-3-server
 ```
 
 Open `http://127.0.0.1:8080`. The selector beside Start chooses Server or
-WebAssembly; both send the same JSON request to `execute_json` in the core
-crate. For frontend development, run `npm run dev` in `web` while the Rust
+WebAssembly; both send the same JSON request through the core request handler. For frontend development, run `npm run dev` in `web` while the Rust
 server runs; Vite proxies `/api` to it. The WebAssembly build is needed before
 selecting WebAssembly.
 
 `cargo test --workspace` also regenerates the Rust-defined TypeScript types in
 `web/src/generated`. Commit changes to those files alongside protocol changes.
 
-To compare native and wasm responses for all variants, run the server, then run
+To compare parsed definitions and solvability decisions for all variants, run the server, then run
 `npm run test:wasm -- http://127.0.0.1:8080/api` from `web`.
 Build wasm before building the frontend so that `web/dist` contains the latest
 wasm artifacts.

@@ -22,6 +22,9 @@ button { background: #175fbd; color: white; border: 0; cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
 select { margin-left: .4rem; border: 1px solid #aab4c0; background: white; }
 .result { margin-top: 1.5rem; padding: 1.25rem; border: 1px solid #d3dae2; border-radius: .5rem; background: white; }
+.analysis { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #d3dae2; }
+.computation-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.computation-progress progress { width: 9rem; }
 table { border-collapse: collapse; width: 100%; }
 th, td { padding: .5rem; border-bottom: 1px solid #e3e7ed; text-align: left; vertical-align: top; }
 td { font-family: ui-monospace, monospace; }

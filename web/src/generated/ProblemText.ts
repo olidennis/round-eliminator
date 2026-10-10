@@ -3,6 +3,7 @@ import type { ConstraintText } from "./ConstraintText";
 import type { DegreeText } from "./DegreeText";
 
 /**
- * All variants accept optional degree fields; omitted sides are inferred.
+ * For each possible problem type,
+ * we receive different text fields.
  */
 export type ProblemText = { "kind": "plain", constraints: ConstraintText, degrees: DegreeText, } | { "kind": "independent", input: ConstraintText, output: ConstraintText, degrees: DegreeText, } | { "kind": "paired", constraints: ConstraintText, degrees: DegreeText, } | { "kind": "mapped", input: ConstraintText, output: ConstraintText, mapping: string, degrees: DegreeText, };

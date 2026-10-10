@@ -1,19 +1,27 @@
 //! Label identifiers and sets used by the problem model.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use ts_rs::TS;
 
 /// A label is just a number.
 /// Its text representation is stored somewhere else.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, TS)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct LabelId(pub u32);
+
+/// Two label IDs indexing separate input and output string tables.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct LabelPair {
+    pub input: LabelId,
+    pub output: LabelId,
+}
 
 /// A set of labels (or of L), stored in increasing order without duplicates.
 ///
 /// Set operations preserve this invariant. The storage is private so algorithms
 /// can use set semantics without depending on its representation.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct LabelSet<L = LabelId>(Vec<L>);
 
 impl<L> Default for LabelSet<L> {

@@ -1,4 +1,45 @@
 use super::*;
+use crate::labels::{LabelId, LabelPair};
+
+#[test]
+fn concrete_configurations_canonicalize_counts_and_preserve_pairs() {
+    let concrete = Configuration::new(vec![(2u8, 3), (1, 0), (0, 2), (2, 1)]).unwrap();
+    assert_eq!(concrete.multiplicities(), &[(0, 2), (2, 4)]);
+    assert_eq!(concrete.degree(), 6);
+    assert_eq!(
+        concrete.occurrences().collect::<Vec<_>>(),
+        [0, 0, 2, 2, 2, 2]
+    );
+    assert_eq!(
+        Configuration::from_occurrences([2, 0, 2, 0, 2, 2]).unwrap(),
+        concrete
+    );
+    assert_eq!(
+        Configuration::new(vec![(0u8, 0)]).unwrap(),
+        Configuration::default()
+    );
+
+    let pair = LabelPair {
+        input: LabelId(0),
+        output: LabelId(1),
+    };
+    let concrete = Configuration::new(vec![(pair, 2), (pair, 1)]).unwrap();
+    assert_eq!(concrete.multiplicities(), &[(pair, 3)]);
+    let json = serde_json::to_value(&concrete).unwrap();
+    assert_eq!(
+        serde_json::from_value::<Configuration<LabelPair>>(json).unwrap(),
+        concrete
+    );
+}
+
+#[test]
+fn concrete_configurations_check_overflow_without_expanding_counts() {
+    let largest = Configuration::new(vec![(0u8, u32::MAX)]).unwrap();
+    assert_eq!(largest.degree(), u32::MAX);
+    assert_eq!(largest.multiplicities(), &[(0, u32::MAX)]);
+    assert!(Configuration::new(vec![(0u8, u32::MAX), (0, 1)]).is_err());
+    assert!(Configuration::new(vec![(0u8, u32::MAX), (1, 1)]).is_err());
+}
 
 fn singleton(id: u32, count: u32) -> Part {
     Part::new(LabelSet::new(vec![LabelId(id)]), count).unwrap()
@@ -238,4 +279,19 @@ fn input_output_constraint_pairs_check_both_tables_and_sides() {
     .unwrap();
     assert_eq!(constraints.input_labels(), ["A"]);
     assert_eq!(constraints.output_labels(), ["A"]);
+}
+#[test]
+fn serialized_problems_round_trip_without_changing_ids_or_graph_classes() {
+    for text in [
+        serde_json::json!({"kind":"plain", "constraints":{"active":"AB^0..2", "passive":"A^2"}, "degrees":{"active":"0 2 3"}}),
+        serde_json::json!({"kind":"independent", "input":{"active":"ab^2", "passive":"a b"}, "output":{"active":"B A", "passive":"AB^2"}}),
+        serde_json::json!({"kind":"mapped", "input":{"active":"a b", "passive":"ab^2"}, "output":{"active":"A B", "passive":"AB^2"}, "mapping":"a -> AB\nb -> B"}),
+        serde_json::json!({"kind":"paired", "constraints":{"active":"(a,A)(a,B)^2", "passive":"(a,A) (b,B)"}, "degrees":{"passive":"0 2 4"}}),
+    ] {
+        let original = crate::parser::parse_problem(serde_json::from_value(text).unwrap()).unwrap();
+        let json = serde_json::to_value(&original).unwrap();
+        let decoded: Problem = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(decoded, original);
+        assert_eq!(serde_json::to_value(decoded).unwrap(), json);
+    }
 }

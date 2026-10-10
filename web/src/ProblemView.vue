@@ -59,5 +59,6 @@ function pairFormatter(paired: InputOutputConstraintPair) {
         </tbody>
       </table>
     </section>
+    <slot />
   </section>
 </template>

@@ -1,9 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// Possible degrees on each side, independently of which outputs are allowed.
 /// Resolved defaults are stored here, so changing constraints cannot change the class.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct GraphClass {
     active: Vec<u32>,
     passive: Vec<u32>,

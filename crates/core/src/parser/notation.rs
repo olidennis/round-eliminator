@@ -1,9 +1,10 @@
 //! The shared row/repetition grammar, with separate readers for labels and pairs.
 
-use super::{Field, Location, ParseError};
+use super::{Field, Location, ParseError, check_cancellation};
+use crate::computation::Cancellation;
 use crate::{
-    labels::{LabelId, LabelSet},
-    problem::{CondensedConfiguration, Constraint, LabelPair, Part},
+    labels::{LabelId, LabelPair, LabelSet},
+    problem::{CondensedConfiguration, Constraint, Part},
 };
 use std::{collections::HashMap, ops::RangeInclusive};
 
@@ -32,9 +33,11 @@ pub(super) fn parse_constraint<L: Copy + Ord>(
     text: &str,
     field: Field,
     choices: &mut impl FnMut(&str, Location) -> Result<LabelSet<L>, ParseError>,
+    cancellation: &Cancellation,
 ) -> Result<Constraint<L>, ParseError> {
     let mut configurations = Vec::new();
     for (index, line) in text.lines().enumerate() {
+        check_cancellation(cancellation)?;
         let line = line.trim();
         if line.is_empty() {
             continue;
@@ -72,6 +75,7 @@ pub(super) fn parse_constraint<L: Copy + Ord>(
         // no product of range widths (which could overflow, especially on wasm).
         let mut counts: Vec<u32> = parts.iter().map(|(_, range)| *range.start()).collect();
         loop {
+            check_cancellation(cancellation)?;
             let mut expanded = Vec::with_capacity(parts.len());
             for ((labels, _), &count) in parts.iter().zip(&counts) {
                 // Zero occurrences contribute no part; stored parts stay positive.

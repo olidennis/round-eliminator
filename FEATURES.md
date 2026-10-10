@@ -16,7 +16,15 @@ maps with separate input/output constraints. Optional active/passive degree list
 define the graph class for all variants, including pairs; omitted lists use input degrees (output degrees for plain
 problems). Pair problems derive their promise from the input projection. Checked
 model construction, empty constraints, and degree-zero configurations are supported.
-These are definitions only; the solvability analyses below are still unimplemented.
+Zero-round solvability is implemented for all four variants, with a local-rule
+witness. It uses RustSAT with CaDiCaL for native builds and BatSat for wasm,
+and exact passive checks without maximization.
+The check lives inside the parsed problem, with streamed phase progress, cancellation,
+and retry on both server and wasm.
+Start parses once; analysis requests reuse the structured problem through direct
+Serde deserialization of trusted client snapshots.
+Concrete configurations store label multiplicities. Enumeration keeps them
+counted, and membership uses capacity-based library flow on native and wasm.
 
 Inclusive exponent ranges (`^5..8`) are expanded during parsing, including zero
 occurrences, for all problem variants, without a fixed expansion limit.
@@ -33,7 +41,10 @@ explicitly deferred at the user's request.
 | Normalize condensed configurations | Merge identical parts and sort parts. Equality currently compares stored structure; this normalization will not decide all semantic equivalences. |
 | Benchmark label-set storage | Compare the current sorted-vector storage with bitsets on representative algorithm workloads before optimizing it. |
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
-| Support long computations | Before expensive algorithms, design bounded native CPU execution, wasm worker reuse, progress reporting, and cancellation. |
+| Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
+| Optimize zero-round search | Benchmark the shared SAT search and counterexample checker on large instances before adding specialized paths or stronger refinements. |
+| Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
+| Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |
 | Preserve input promises in transformations | For pair problems, preserve the original input promise when changing output validity; deriving it again from modified pairs can silently narrow the problem domain. |
 
 ## Problem entry, history, and sharing
@@ -130,7 +141,6 @@ explicitly deferred at the user's request.
 | Automatic Lower Bound | Search through problem transformations for a lower bound or fixed point. |
 | Automatic Upper Bound | Search for an upper-bound sequence of transformations. |
 | Bound search options | Set coloring assumptions, maximum labels, branching, and maximum steps. |
-| Check (Zero-Round Solvability with Input) | Decide zero-round solvability when a typed input problem is provided. |
 | Reverse Check | Run the zero-round input check in the reverse direction. |
 | Input-check options | Choose SAT solving and smallest obstructing subinput search. |
 | Dual | Compute a dual relative to a typed fixed-point problem. |
@@ -147,7 +157,6 @@ explicitly deferred at the user's request.
 
 | Feature | Short description |
 | --- | --- |
-| Zero-round solvability | Report solvable or unsolvable and show witnessing label sets when available. |
 | Coloring solvability | Report whether a suitable given coloring gives a zero-round solution and show color sets. |
 | Edge-coloring solvability | Report maximal/unbounded feasible palettes and output sets for input colors. |
 | Orientation zero-round solvability | Report solvability under a given orientation and show witness pairs. |
@@ -156,7 +165,6 @@ explicitly deferred at the user's request.
 | Logstar reversible relaxations | Display reversible label groups and labels that must be removed. |
 | Fixed-point procedure status | Report whether a nontrivial fixed-point relaxation was obtained. |
 | Marks technique status | Report whether Marks' technique gives a lower bound. |
-| Zero-round solvability with input | Report the result and show a witnessing input-to-output mapping. |
 | Tracked expressions | Display expressions recorded during fixed-point construction. |
 | Renaming table | Show each current label and its source-label set. |
 | Label mapping table | Show each original label's result labels or removal. |
@@ -166,4 +174,3 @@ explicitly deferred at the user's request.
 | Reversible-edge report | Show search statistics, verified alternatives, recipes, and mappings. |
 | Action and sequence history | Display each transformation and nested automatic-search sequence. |
 | Computation warnings | Display diagnostics beyond the parse errors already supported. |
-| Progress and stop | Show computation status or a progress bar and offer cancellation. |

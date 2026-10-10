@@ -2,6 +2,7 @@
 
 mod notation;
 
+use crate::computation::Cancellation;
 use crate::{
     labels::LabelSet,
     problem::{
@@ -14,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt};
 use ts_rs::TS;
 
-
 /// The UI sends us 2 strings for the 2 constraints
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
 #[serde(deny_unknown_fields)]
@@ -23,7 +23,7 @@ pub struct ConstraintText {
     pub passive: String,
 }
 
-/// To specify the degrees of the graph class, 
+/// To specify the degrees of the graph class,
 /// the UI sends 2 strings.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, TS)]
 #[serde(deny_unknown_fields)]
@@ -34,7 +34,7 @@ pub struct DegreeText {
     pub passive: String,
 }
 
-/// For each possible problem type, 
+/// For each possible problem type,
 /// we receive different text fields.
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -120,15 +120,24 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
-
 /// depending on the problem type, we have different strings to parse
 pub fn parse_problem(text: ProblemText) -> Result<Problem, ParseError> {
+    parse_problem_with_cancellation(text, &Cancellation::default())
+}
+
+/// Parsing exponent ranges can be substantial CPU work. Check cancellation
+/// while expanding, using the same flag as subsequent algorithms.
+pub fn parse_problem_with_cancellation(
+    text: ProblemText,
+    cancellation: &Cancellation,
+) -> Result<Problem, ParseError> {
+    check_cancellation(cancellation)?;
     match text {
         ProblemText::Plain {
             constraints,
             degrees,
         } => {
-            let output = parse_constraint_pair(&constraints, false)?;
+            let output = parse_constraint_pair(&constraints, false, cancellation)?;
             let graph_class = resolve_degrees(&degrees, output.inferred_graph_class())?;
             Ok(Problem::Plain(PlainProblem::new(graph_class, output)))
         }
@@ -137,8 +146,8 @@ pub fn parse_problem(text: ProblemText) -> Result<Problem, ParseError> {
             output,
             degrees,
         } => {
-            let input = parse_constraint_pair(&input, true)?;
-            let output = parse_constraint_pair(&output, false)?;
+            let input = parse_constraint_pair(&input, true, cancellation)?;
+            let output = parse_constraint_pair(&output, false, cancellation)?;
             let graph_class = resolve_degrees(&degrees, input.inferred_graph_class())?;
             Ok(Problem::Independent(IndependentProblem::new(
                 graph_class,
@@ -154,8 +163,14 @@ pub fn parse_problem(text: ProblemText) -> Result<Problem, ParseError> {
             let mut outputs = Alphabet::default();
             let mut pairs =
                 |token: &str, location| parse_pairs(token, &mut inputs, &mut outputs, location);
-            let active = parse_constraint(&constraints.active, Field::Active, &mut pairs)?;
-            let passive = parse_constraint(&constraints.passive, Field::Passive, &mut pairs)?;
+            let active =
+                parse_constraint(&constraints.active, Field::Active, &mut pairs, cancellation)?;
+            let passive = parse_constraint(
+                &constraints.passive,
+                Field::Passive,
+                &mut pairs,
+                cancellation,
+            )?;
             let constraints =
                 InputOutputConstraintPair::new(inputs.names, outputs.names, active, passive)?;
             let graph_class = resolve_degrees(&degrees, constraints.inferred_graph_class())?;
@@ -172,8 +187,10 @@ pub fn parse_problem(text: ProblemText) -> Result<Problem, ParseError> {
         } => {
             let mut inputs = Alphabet::default();
             let mut outputs = Alphabet::default();
-            let (input_active, input_passive) = parse_sides(&input, true, &mut inputs)?;
-            let (output_active, output_passive) = parse_sides(&output, false, &mut outputs)?;
+            let (input_active, input_passive) =
+                parse_sides(&input, true, &mut inputs, cancellation)?;
+            let (output_active, output_passive) =
+                parse_sides(&output, false, &mut outputs, cancellation)?;
             // Mapping entries may name labels that have no allowed configurations.
             let allowed_outputs = parse_mapping(&mapping, &mut inputs, &mut outputs)?;
             let input = ConstraintPair::new(inputs.names, input_active, input_passive)?;
@@ -189,9 +206,13 @@ pub fn parse_problem(text: ProblemText) -> Result<Problem, ParseError> {
     }
 }
 
-fn parse_constraint_pair(text: &ConstraintText, input: bool) -> Result<ConstraintPair, ParseError> {
+fn parse_constraint_pair(
+    text: &ConstraintText,
+    input: bool,
+    cancellation: &Cancellation,
+) -> Result<ConstraintPair, ParseError> {
     let mut alphabet = Alphabet::default();
-    let (active, passive) = parse_sides(text, input, &mut alphabet)?;
+    let (active, passive) = parse_sides(text, input, &mut alphabet, cancellation)?;
     Ok(ConstraintPair::new(alphabet.names, active, passive)?)
 }
 
@@ -199,6 +220,7 @@ fn parse_sides(
     text: &ConstraintText,
     input: bool,
     alphabet: &mut Alphabet,
+    cancellation: &Cancellation,
 ) -> Result<(crate::problem::Constraint, crate::problem::Constraint), ParseError> {
     let fields = if input {
         (Field::InputActive, Field::InputPassive)
@@ -207,9 +229,16 @@ fn parse_sides(
     };
     let mut labels = |token: &str, location| parse_labels(token, alphabet, location);
     Ok((
-        parse_constraint(&text.active, fields.0, &mut labels)?,
-        parse_constraint(&text.passive, fields.1, &mut labels)?,
+        parse_constraint(&text.active, fields.0, &mut labels, cancellation)?,
+        parse_constraint(&text.passive, fields.1, &mut labels, cancellation)?,
     ))
+}
+
+fn check_cancellation(cancellation: &Cancellation) -> Result<(), ParseError> {
+    cancellation.check().map_err(|error| ParseError {
+        message: error.to_string(),
+        location: None,
+    })
 }
 
 fn resolve_degrees(text: &DegreeText, inferred: GraphClass) -> Result<GraphClass, ParseError> {

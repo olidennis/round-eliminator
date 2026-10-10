@@ -2,6 +2,6 @@
 import type { LabelId } from "./LabelId";
 
 /**
- * A pair of Labels. `input` and `output` will index separate string tables.
+ * Two label IDs indexing separate input and output string tables.
  */
 export type LabelPair = { input: LabelId, output: LabelId, };

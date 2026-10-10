@@ -1,5 +1,7 @@
 //! Core problem definition, parser, and transport-neutral request handler.
 
+pub mod algorithms;
+pub mod computation;
 pub mod labels;
 pub mod parser;
 pub mod problem;

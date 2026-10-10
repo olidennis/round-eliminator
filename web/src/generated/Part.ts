@@ -4,7 +4,6 @@ import type { LabelSet } from "./LabelSet";
 
 /**
  * A part is a set with an exponent.
- * The set must be nonempty. Zero exponents are allowed; configuration
- * construction discards those parts.
+ * The set must be nonempty.
  */
 export type Part<L = LabelId> = { labels: LabelSet<L>, multiplicity: number, };

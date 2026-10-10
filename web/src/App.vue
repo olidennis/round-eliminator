@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref, shallowRef } from 'vue'
 import { send, type Backend } from './api'
 import type { ConstraintText } from './generated/ConstraintText'
 import type { DegreeText } from './generated/DegreeText'
@@ -8,6 +8,7 @@ import type { Problem } from './generated/Problem'
 import type { ProblemText } from './generated/ProblemText'
 import ConstraintEditor from './ConstraintEditor.vue'
 import ProblemView from './ProblemView.vue'
+import ZeroRoundAnalysis from './ZeroRoundAnalysis.vue'
 
 const kind = ref<ProblemText['kind']>('plain')
 const output = ref<ConstraintText>({ active: 'M U^9\nP^10', passive: 'M UP^9\nU^10' })
@@ -19,7 +20,9 @@ const backend = ref<Backend>(
   new URLSearchParams(location.search).get('backend') === 'wasm' ? 'wasm' : 'server',
 )
 const pending = ref(false)
-const problem = ref<Problem | null>(null)
+const parsed = shallowRef<Problem | null>(null)
+let parsing: AbortController | null = null
+onBeforeUnmount(() => parsing?.abort())
 const error = ref('')
 
 const fieldNames: Record<Field, string> = {
@@ -38,14 +41,16 @@ function definition(): ProblemText {
 }
 
 async function start() {
+  if (pending.value) return
   pending.value = true
   error.value = ''
-  problem.value = null
+  parsed.value = null
+  parsing = new AbortController()
   try {
-    const response = await send({ type: 'parse_problem', data: definition() }, backend.value)
+    const response = await send({ type: 'parse_problem', data: definition() }, backend.value, { signal: parsing.signal })
     if (response.type === 'problem') {
-      problem.value = response.data
-    } else {
+      parsed.value = response.data
+    } else if (response.type === 'error') {
       const location = response.data.location
       const where = location
         ? `${fieldNames[location.field]}${location.line === null ? '' : `, line ${location.line}`}: `
@@ -56,6 +61,7 @@ async function start() {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     pending.value = false
+    parsing = null
   }
 }
 </script>
@@ -126,6 +132,8 @@ async function start() {
     </form>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <ProblemView v-if="problem" :problem="problem" />
+    <ProblemView v-if="parsed" :problem="parsed">
+      <ZeroRoundAnalysis :problem="parsed" :backend="backend" />
+    </ProblemView>
   </main>
 </template>

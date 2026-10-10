@@ -2,18 +2,18 @@
 
 use std::collections::HashSet;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    CondensedConfiguration, Constraint, DegreeGroup, GraphClass, LabelPair, Part, ValidationError,
+    CondensedConfiguration, Constraint, DegreeGroup, GraphClass, Part, ValidationError,
 };
-use crate::labels::LabelSet;
+use crate::labels::{LabelPair, LabelSet};
 
 /// ConstraintPair is a pair of constraints, active and passive.
 /// We also store the names of the labels.
 /// label i has name labels[i]
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct ConstraintPair {
     labels: Vec<String>,
     active: Constraint,
@@ -65,7 +65,7 @@ impl ConstraintPair {
 /// we have an explicit type,
 /// where we store input and output label names separately.
 /// Though, we reuse the Constraint struct, using a pair as an element
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct InputOutputConstraintPair {
     input_labels: Vec<String>,
     output_labels: Vec<String>,
