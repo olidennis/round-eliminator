@@ -307,7 +307,7 @@ fn distance_two_handles_missing_outputs_isolated_nodes_and_cancellation() {
 }
 
 #[test]
-fn distance_two_maximum_streams_bounds_and_shrinks_the_incremental_palette() {
+fn distance_two_maximum_streams_bounds_for_consecutive_palettes() {
     let p = plain("O I", "O I");
     let mut updates = Vec::new();
     let mut progress = |_| {};
@@ -326,7 +326,7 @@ fn distance_two_maximum_streams_bounds_and_shrinks_the_incremental_palette() {
             .iter()
             .filter_map(|bounds| bounds.testing)
             .collect::<Vec<_>>(),
-        vec![3, 6, 4]
+        vec![3, 4]
     );
     for bounds in updates {
         if let Some(witness) = bounds.witness {

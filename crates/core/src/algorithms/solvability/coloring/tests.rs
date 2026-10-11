@@ -193,7 +193,7 @@ fn original_inputs_and_colors_are_both_available_and_mapping_is_preserved() {
 }
 
 #[test]
-fn maximum_search_streams_proved_bounds_and_reuses_larger_palette_constraints() {
+fn maximum_search_streams_proved_bounds_for_consecutive_palettes() {
     let p = plain("A^3\nB^3\nC^3", "A BC\nB C");
     let mut updates = Vec::new();
     let mut progress = |_| {};
@@ -212,18 +212,94 @@ fn maximum_search_streams_proved_bounds_and_reuses_larger_palette_constraints() 
             .iter()
             .filter_map(|bounds| bounds.testing)
             .collect::<Vec<_>>(),
-        vec![2, 4, 3]
+        vec![2, 3, 4]
     );
     assert!(
         updates
             .iter()
-            .any(|bounds| bounds.lower == Some(2) && bounds.upper == Some(3))
+            .any(|bounds| bounds.lower == Some(3) && bounds.upper == Some(3))
     );
     for bounds in updates {
         if let Some(witness) = bounds.witness {
             assert!(verify_witness(&p, ColoringKind::Vertex, &witness, false));
         }
     }
+}
+
+#[test]
+fn maximum_search_stops_at_the_first_unsolvable_palette() {
+    let mut updates = Vec::new();
+    let mut queries = Vec::new();
+    let mut progress = |_| {};
+    // A decision oracle isolates the search policy from SAT heuristics. This
+    // models the reported 10/11 boundary and catches accidental doubling.
+    let result = search_maximum(
+        3,
+        &mut Computation::new(Cancellation::default(), &mut progress),
+        &mut |bounds| updates.push(bounds),
+        &mut |colors, _| {
+            queries.push(colors);
+            Ok((colors <= 10).then(|| ColoringWitness::LocalColors {
+                behaviors: vec![
+                    ColorBehavior {
+                        outputs_by_input: vec![]
+                    };
+                    colors as usize
+                ],
+            }))
+        },
+    )
+    .unwrap();
+    assert_eq!(queries, (3..=11).collect::<Vec<_>>());
+    let ColoringResult::Maximum { colors, witness } = result else {
+        panic!("expected finite maximum");
+    };
+    assert_eq!(colors, 10);
+    let ColoringWitness::LocalColors { behaviors } = witness else {
+        panic!("expected the last solvable witness");
+    };
+    assert_eq!(behaviors.len(), 10);
+    let last = updates.last().unwrap();
+    assert_eq!(
+        (last.lower, last.upper, last.testing),
+        (Some(10), Some(10), None)
+    );
+}
+
+#[test]
+fn bipartite_maximal_matching_incidence_maximum() {
+    // The degree-ten version has the reported 10/11 boundary; the preset's
+    // degree-three version instead has maximum three.
+    let p = plain("M U^9\nP^10", "M UP^9\nU^10");
+    let mut queries = Vec::new();
+    let mut progress = |_| {};
+    let started = std::time::Instant::now();
+    let result = check_with(
+        &p,
+        ColoringKind::IncidenceEdges,
+        PaletteSearch::Maximum,
+        PassiveMode::General,
+        &mut Computation::new(Cancellation::default(), &mut progress),
+        &mut |bounds| {
+            if let Some(colors) = bounds.testing {
+                queries.push(colors);
+                eprintln!("Checking {colors} colors after {:?}.", started.elapsed());
+            }
+        },
+    )
+    .unwrap();
+    assert_eq!(queries, vec![10, 11]);
+    let ColoringResult::Maximum { colors, witness } = result else {
+        panic!("expected finite matching maximum");
+    };
+    assert_eq!(colors, 10);
+    assert!(verify_witness(
+        &p,
+        ColoringKind::IncidenceEdges,
+        &witness,
+        false
+    ));
+    eprintln!("Proved maximum 10 in {:?}.", started.elapsed());
 }
 
 #[test]

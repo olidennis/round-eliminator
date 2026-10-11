@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { send, type Backend } from './api'
 import type { Problem } from './generated/Problem'
 import type { Progress } from './generated/Progress'
 import type { ZeroRoundResult } from './generated/ZeroRoundResult'
 import ZeroRoundView from './ZeroRoundView.vue'
 import ComputationProgress from './ComputationProgress.vue'
+import CollapsibleSection from './CollapsibleSection.vue'
 
-const props = defineProps<{ problem: Problem; backend: Backend }>()
-const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>('idle')
+const props = defineProps<{ problem: Problem; backend: Backend; saved: ZeroRoundResult | null; collapsed?: boolean }>()
+const emit = defineEmits<{ update: [result: ZeroRoundResult | null]; collapse: [collapsed: boolean] }>()
+const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(props.saved ? 'done' : 'idle')
 const progress = ref<Progress | null>(null)
-const result = ref<ZeroRoundResult | null>(null)
+const result = ref<ZeroRoundResult | null>(props.saved)
+watch(result, value => emit('update', value), { flush: 'sync' })
 const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => {
@@ -61,8 +64,8 @@ async function run() {
 </script>
 
 <template>
-  <section class="analysis" aria-label="Zero-round solvability" :aria-busy="state === 'running'">
-    <h3>Zero-round solvability</h3>
+  <CollapsibleSection class="analysis" title="Zero-round solvability" :aria-busy="state === 'running'"
+    :collapsed="collapsed" @update:collapsed="emit('collapse', $event)">
     <ComputationProgress v-if="state === 'running'" :progress="progress"
       label="Zero-round computation in progress" @cancel="cancel" />
     <ZeroRoundView v-else-if="state === 'done' && result" :problem="problem" :result="result" />
@@ -71,5 +74,5 @@ async function run() {
       <p v-if="state === 'error'" class="error" role="alert">{{ error }}</p>
       <button type="button" @click="run">{{ state === 'idle' ? 'Check zero-round solvability' : 'Retry zero-round check' }}</button>
     </template>
-  </section>
+  </CollapsibleSection>
 </template>

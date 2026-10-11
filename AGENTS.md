@@ -140,9 +140,19 @@ preparation, and passive checking with zero-round. Support general and maximized
 passive modes; the GUI uses general until maximization exists.
 
 Maximum search first checks for a repeatable color-independent zero-round
-strategy, which certifies unbounded solvability. Otherwise double palette sizes
-until UNSAT, then binary-search the gap. Reuse one incremental solver with color
+strategy, which certifies unbounded solvability. The user replaced doubling and
+binary search with linear search for every coloring kind, including distance-two:
+try consecutive palettes from the local minimum and stop at the first UNSAT.
+Large jumps caused impractically expensive queries (bipartite maximal matching
+with incidence colors: SAT at 10 led to a query at 20 instead of 11). Reuse one
+incremental solver with color
 activation assumptions, gating active obligations when colors are disabled.
+The degree-ten bipartite matching regression (`M U^9 / P^10`,
+`M UP^9 / U^10`) must query 10 then 11 and return maximum 10. The degree-three
+preset has maximum three. Candidate counts measure proposed SAT models examined
+by refinement, not time or internal solver work; native CaDiCaL and wasm BatSat
+can produce very different counts. Compare elapsed times with native release
+builds before drawing backend performance conclusions.
 Finite behavior vectors and bounded degrees ensure an unbounded palette would
 give a repeatable behavior, so no heuristic palette cutoff is necessary.
 Also support fixed-palette decisions and independent witness verification.
@@ -205,6 +215,12 @@ larger `coloring/distance_two_tests.rs` covers neighbor colors and order
 certificates; keep these adjacent files rather than making a test-only folder.
 
 ## Zero-round solvability decisions
+
+The user explicitly deferred changing the native solver for parallel SAT solving.
+Keep CaDiCaL for now. A future evaluation may benchmark CryptoMiniSat or another
+parallel backend, with incremental assumptions and working cancellation required.
+Reuse RustSAT encodings and retain the separate wasm backend; do not integrate
+a new solver before the user requests that work. Track this in FEATURES.md.
 
 The user approved a shared SAT approach for all four variants, then RustSAT
 so the backend can be replaced without rewriting the encoding. Use RustSAT's
@@ -330,8 +346,36 @@ runs outside the async executor with concurrency bounded by available CPUs.
 Start only parses; the zero-round button belongs below the constraints inside
 the parsed problem. It transforms into phase progress and Cancel while running,
 then displays the result below. Analyze the displayed structured problem,
-independent of subsequent editor changes. Replacing the parsed problem
-cancels its running analysis. Cancellation leaves a retry button.
+independent of subsequent editor changes. Closing a problem or importing a
+session cancels the removed problems' running analyses. Start appends rather
+than replacing any existing problem. Cancellation leaves a retry button.
+
+## UI history and sessions
+
+The user requested multiple independently closable problems, whole-card collapse,
+per-section collapse, and bulk Collapse all / Expand all / Collapse all except
+current controls. Current is the most recently created or interacted-with card,
+visibly marked; after import it is the last card. Keep stable runtime keys so
+adding/removing cards preserves other cards' settings and analyses. Collapsing
+uses visibility rather than unmounting and must not cancel computations; closing
+unmounts the card and aborts its analyses. Close all removes every open card and
+cancels its analyses, while retaining the editor. Start errors keep previous problems.
+
+`web/src/session.ts` owns browser persistence using generated Rust types for
+problems, results and bounds; do not create parallel problem schemas. Version 1
+files have `{ format: 'round-eliminator-3', version: 1, session: { editor, problems } }`.
+Save the current editor, canonical problem snapshots, whole-card and section
+collapse flags, coloring settings, completed analysis results and proved bounds.
+Do not persist workers, controllers, progress or running state. Clear bounds'
+`testing` on export without mutating live data. Imported partial bounds offer a
+retry, and imports replace the session and cancel its old work. Old GUI files
+and links are not compatible. `SessionControls.vue` handles import/export and
+clipboard status; links use browser gzip streams and base64url in `#re3=...` and
+are decoded locally on load/hash changes. Provide a manual selectable link if
+clipboard permission is unavailable. `ProblemCard.vue` connects analysis snapshots
+and close/collapse actions; `CollapsibleSection.vue` supplies accessible shared
+section headers with visibility-based bodies. `npm run test:session` checks codec
+round trips, Unicode, versions and saved proof behavior.
 
 Progress and cancellation use shared Rust-defined computation events. The native
 UI uses an SSE POST stream; dropping it sets a persistent cancellation flag,

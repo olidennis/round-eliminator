@@ -221,6 +221,9 @@ pub fn check_with(
 
 /// Solvability is downward closed: restrict a strategy to a smaller palette.
 /// Call only after ruling out unbounded solvability with a complete certificate.
+/// Try consecutive palettes: larger jumps reduce the query count but can make
+/// color-placement enumeration and SAT search much more expensive. The first
+/// UNSAT query proves that the preceding SAT palette is the maximum.
 fn search_maximum(
     minimum: u32,
     computation: &mut Computation<'_>,
@@ -247,22 +250,18 @@ fn search_maximum(
         }
         bounds.testing = None;
         publish(&bounds, computation, on_bounds)?;
-        match (bounds.lower, bounds.upper) {
-            (None, Some(_)) => return Ok(ColoringResult::NoPalette),
-            (Some(lower), Some(upper)) if lower == upper => {
-                return Ok(ColoringResult::Maximum {
-                    colors: lower,
+        if bounds.upper.is_some() {
+            return Ok(match bounds.lower {
+                Some(colors) => ColoringResult::Maximum {
+                    colors,
                     witness: bounds.witness.expect("proved lower bound"),
-                });
-            }
-            (Some(lower), Some(upper)) => colors = lower + (upper - lower).div_ceil(2),
-            (Some(lower), None) => {
-                colors = lower.checked_mul(2).ok_or_else(|| {
-                    anyhow::anyhow!("Palette size exceeds the u32 representation.")
-                })?
-            }
-            (None, None) => unreachable!("a completed decision sets a bound"),
+                },
+                None => ColoringResult::NoPalette,
+            });
         }
+        colors = colors
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("Palette size exceeds the u32 representation."))?;
     }
 }
 

@@ -6,6 +6,38 @@ It supports plain problems and all three input variants described below.
 Zero-round and coloring checks support all four variants and return strategy witnesses.
 Other operations remain listed in [FEATURES.md](FEATURES.md).
 
+## Problems and saved sessions
+
+Each successful **Start** appends a new problem below the editor. Problems keep
+independent analysis settings and results. Editing the form or starting another
+problem leaves previous problems intact; a parse error also preserves them.
+**Close** removes a problem and cancels its running analyses.
+**Close all** does this for every open problem, keeping the editor contents.
+
+**Collapse / Expand** hides or shows a whole problem. Individual sections,
+including each constraint side and each analysis, have their own controls.
+Collapsed computations keep running. **Collapse all**, **Expand all**, and
+**Collapse all except current** manage the list; “Current” marks the most recently
+created or interacted-with problem. The last imported problem starts as current.
+
+**Export** downloads a versioned `round-eliminator-3.re3.json` session containing
+the editor, open problem definitions, collapse state, analysis settings, completed
+results, and proved coloring bounds. **Import** replaces the current session and
+cancels its computations. Imported analyses start with their saved results or
+retained bounds; no computation resumes automatically.
+**Copy link** carries the same session as compressed UTF-8 data in the URL fragment,
+without uploading it. Opening the link restores the session with either backend.
+If clipboard access is unavailable, the UI offers a selectable link for manual
+copying. Large sessions can produce links too long for the destination; use a
+file export in that case. Files and links from the old GUI are not compatible.
+
+Browser persistence is in `web/src/session.ts`; it reuses generated Rust types
+for the problems, results and bounds. `SessionControls.vue` handles file/link
+actions, `ProblemCard.vue` connects each problem to its independent analyses,
+and `CollapsibleSection.vue` provides consistent section controls. Runtime keys,
+workers, controllers and progress events are not part of the saved data.
+Run `npm run test:session` in `web` for file/link round-trip checks.
+
 The root is a virtual Cargo workspace. `crates/core` contains the portable
 problem model, parser, and request handler; `crates/server` and `crates/wasm`
 are thin delivery adapters. `web` contains the Vue interface.
@@ -288,7 +320,8 @@ a description of the current phase, and a **Cancel** button. Completed SAT
 candidate counts are shown when available; no percentage or completion time is
 estimated. Results appear below the constraints. Cancellation preserves the
 parsed problem and offers a retry. Editing the form does not change an existing
-parsed problem or its analysis; pressing Start replaces it and cancels its work.
+parsed problem or its analysis; pressing Start appends a separate problem.
+Closing a problem or importing a session cancels the removed problems' work.
 
 Native requests run in a blocking pool with concurrency bounded by available
 CPUs. The UI uses `POST /api/stream`, which streams Rust-defined
@@ -363,7 +396,7 @@ rank in this subset. Its constant directional tables therefore supply an order
 certificate. Conversely, an order certificate works for every feasible palette.
 Under the existing local/tree semantics, failing this check proves that the
 numerical maximum is finite; the implementation does not calculate a Ramsey bound.
-It then uses the same doubling/binary-search and streamed bounds as the other
+It then uses the same consecutive-palette search and streamed bounds as the other
 coloring kinds, retaining one incremental SAT solver and gating each active
 obligation by all colors in that neighborhood. Smaller queries disable memberships
 involving colors outside their palette. Exact checks and cancellation apply
@@ -372,8 +405,10 @@ throughout, and the order witness has its own non-SAT verifier.
 For the three color kinds without neighbor information, a maximum search first
 checks for a color-independent zero-round strategy. If
 one exists, every locally feasible palette works, and the witness gives a single
-repeatable behavior. Otherwise it doubles palette sizes until UNSAT, then uses
-binary search to find the maximum. Each query reuses the same incremental SAT
+repeatable behavior. Otherwise it tries consecutive palettes from the local
+minimum until the first UNSAT query proves the maximum. This applies to all four
+coloring kinds: large jumps can make a single query far more expensive despite
+reducing the number of queries. Each query reuses the same incremental SAT
 solver; activation assumptions allow subsequent smaller queries. With finite
 labels and bounded degrees, an unbounded palette would contain enough identical
 output behaviors to give a color-independent strategy, so this search terminates

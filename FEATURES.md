@@ -49,7 +49,20 @@ with each node knowing its own and its neighbors' colors. The check combines
 these with all original inputs, keeps passive inputs condensed, and supports
 fixed and maximum palettes, order-based unbounded certificates, and both
 verification modes on native and wasm. Numerical queries share streamed bounds
-and reuse an incremental SAT solver across increasing and decreasing palettes.
+and reuse an incremental SAT solver while extending the palette.
+Maximum search for all four coloring kinds tries consecutive palettes after its
+unbounded certificate check, stopping at the first UNSAT. This avoids costly
+overshoots such as querying 20 directly after proving 10 colors solvable.
+
+Problem history and sharing are implemented: Start appends independent, closable
+problems; Close all clears the problem list. Closing cancels their analyses.
+Whole problems, individual sections,
+and constraint sides can collapse without stopping computations. Bulk controls
+collapse/expand all or keep only the current problem open. File import/export and
+compressed fragment links preserve the editor, problems, collapse states,
+analysis settings/results, and proved bounds. Import replaces the session;
+running computations are not resumed. The versioned RE3 format differs from the
+old GUI's `.re` format.
 
 ## Things to think about in the future
 
@@ -66,6 +79,7 @@ explicitly deferred at the user's request.
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
 | Optimize zero-round search | Benchmark the shared SAT search and counterexample checker on large instances before adding specialized paths or stronger refinements. |
 | Optimize coloring search | Benchmark lazy color-placement checks and incremental SAT refinements before adding symmetry breaking or alternate encodings. |
+| Evaluate parallel native SAT solvers | Deferred by the user. Benchmark a candidate such as CryptoMiniSat against CaDiCaL before integrating it; require incremental assumptions and cancellation, retaining RustSAT encodings and the wasm backend. |
 | Greedy distance-two coloring | Characterize compatible local views under the Grundy promise before choosing an exact strategy representation. |
 | Expose maximized verification in the UI | Both verification modes are implemented and benchmarked. Once maximization exists, offer direct checking versus maximizing first, including that preparation cost. |
 | Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
@@ -77,15 +91,10 @@ explicitly deferred at the user's request.
 | Feature | Short description |
 | --- | --- |
 | Starred configuration notation (deferred) | Allow `*` in a configuration to cover a range of degrees. |
-| Clear | Clear the displayed result history. |
 | Edit | Copy a displayed problem back into the input editors. |
-| Expand/collapse cards | Open or close sections of a displayed problem. |
-| Close result, warning, or error | Remove an item from the displayed history. |
+| Close warning or error | Remove diagnostics from the displayed history once history diagnostics exist. |
 | New / Old / Both | Switch between current labels, source labels, or both in constraints. |
 | All / Gen | Switch passive constraint display between all label sets and generators. |
-| Export Link To Clipboard | Encode the current input and history in a shareable URL fragment. |
-| Save | Download the current input and history as a `.re` file. |
-| Load | Restore input and history from a `.re` file. |
 
 ## Operations and analyses
 

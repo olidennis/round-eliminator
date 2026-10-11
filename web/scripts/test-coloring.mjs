@@ -30,6 +30,9 @@ function checkEvents(events, response, kind) {
   if (response.data.status === 'maximum') {
     assert.equal(lower, response.data.colors)
     assert.equal(upper, lower)
+    const queries = events.filter(event => event.type === 'partial_result')
+      .map(event => event.data.data.testing).filter(colors => colors !== null)
+    assert.deepEqual(queries, Array.from({ length: lower - queries[0] + 2 }, (_, index) => queries[0] + index))
   }
 }
 
@@ -103,7 +106,7 @@ async function check(definition, kind, search, expected, mode = 'general') {
 const coloring = plain('A^3\nB^3\nC^3', 'A BC\nB C')
 const events = await check(coloring, 'vertex', { kind: 'maximum' }, { status: 'maximum', colors: 3 })
 assert.deepEqual(events.filter(event => event.type === 'partial_result')
-  .map(event => event.data.data.testing).filter(colors => colors !== null), [2, 4, 3])
+  .map(event => event.data.data.testing).filter(colors => colors !== null), [2, 3, 4])
 for (const [colors, status] of [[2, 'solvable'], [3, 'solvable'], [4, 'unsolvable']]) {
   await check(coloring, 'vertex', { kind: 'fixed', colors }, { status, colors })
 }
@@ -111,6 +114,10 @@ await check(plain('A B\nA C\nB C', 'A A\nB B\nC C'), 'graph_edges', { kind: 'max
   { status: 'maximum', colors: 3 })
 await check(plain('A\nB\nC', 'A B C'), 'incidence_edges', { kind: 'maximum' },
   { status: 'maximum', colors: 3 })
+const matchingEvents = await check(plain('M U^9\nP^10', 'M UP^9\nU^10'), 'incidence_edges',
+  { kind: 'maximum' }, { status: 'maximum', colors: 10 })
+assert.deepEqual(matchingEvents.filter(event => event.type === 'partial_result')
+  .map(event => event.data.data.testing).filter(colors => colors !== null), [10, 11])
 
 // Both the original inputs and colors are necessary: a and b have disjoint
 // output lists, while an arbitrary proper coloring still has to be reduced.
@@ -127,8 +134,10 @@ await check(plain('()\nA\nA^3', '()\nA^2'), 'incidence_edges', { kind: 'maximum'
 
 // These passive constraints are manually maximized. No maximization is run.
 for (const mode of ['general', 'maximized']) {
-  await check(plain('O I', 'O I'), 'distance_two', { kind: 'maximum' },
+  const distanceTwoEvents = await check(plain('O I', 'O I'), 'distance_two', { kind: 'maximum' },
     { status: 'maximum', colors: 3 }, mode)
+  assert.deepEqual(distanceTwoEvents.filter(event => event.type === 'partial_result')
+    .map(event => event.data.data.testing).filter(colors => colors !== null), [3, 4])
   await check(plain('OI^2', 'O I'), 'distance_two', { kind: 'maximum' },
     { status: 'unbounded' }, mode)
   await check(plain('O I', 'O I'), 'distance_two', { kind: 'fixed', colors: 3 },

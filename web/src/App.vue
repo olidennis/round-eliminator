@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { send, type Backend } from './api'
 import type { ConstraintText } from './generated/ConstraintText'
 import type { DegreeText } from './generated/DegreeText'
 import type { Field } from './generated/Field'
-import type { Problem } from './generated/Problem'
 import type { ProblemText } from './generated/ProblemText'
 import ConstraintEditor from './ConstraintEditor.vue'
-import ProblemView from './ProblemView.vue'
-import ZeroRoundAnalysis from './ZeroRoundAnalysis.vue'
-import ColoringAnalysis from './ColoringAnalysis.vue'
+import ProblemCard from './ProblemCard.vue'
+import SessionControls from './SessionControls.vue'
+import { newSavedProblem, type SavedProblem, type Session } from './session'
 import { problemPresets, type ProblemPreset } from './presets'
 
 const kind = ref<ProblemText['kind']>('plain')
@@ -22,7 +21,11 @@ const backend = ref<Backend>(
   new URLSearchParams(location.search).get('backend') === 'wasm' ? 'wasm' : 'server',
 )
 const pending = ref(false)
-const parsed = shallowRef<Problem | null>(null)
+// Stable keys give every problem its own analysis state and cancellation scope.
+type OpenProblem = SavedProblem & { id: number }
+const problems = ref<OpenProblem[]>([])
+const currentProblemId = ref<number | null>(null)
+let nextProblemId = 0
 let parsing: AbortController | null = null
 onBeforeUnmount(() => parsing?.abort())
 const error = ref('')
@@ -30,20 +33,58 @@ const selectedPreset = shallowRef<ProblemPreset | null>(null)
 
 function loadPreset(preset: ProblemPreset) {
   // Copy the definition: editing a loaded preset must not change its next load.
-  const definition = structuredClone(preset.definition)
-  kind.value = definition.kind
-  degrees.value = definition.degrees
-  if (definition.kind === 'paired') {
-    pairs.value = definition.constraints
-  } else if (definition.kind === 'plain') {
-    output.value = definition.constraints
-  } else {
-    input.value = definition.input
-    output.value = definition.output
-    if (definition.kind === 'mapped') mapping.value = definition.mapping
-  }
+  loadDefinition(structuredClone(preset.definition))
   selectedPreset.value = preset
   error.value = ''
+}
+
+function loadDefinition(text: ProblemText) {
+  kind.value = text.kind
+  degrees.value = text.degrees
+  if (text.kind === 'paired') {
+    pairs.value = text.constraints
+  } else if (text.kind === 'plain') {
+    output.value = text.constraints
+  } else {
+    input.value = text.input
+    output.value = text.output
+    if (text.kind === 'mapped') mapping.value = text.mapping
+  }
+}
+
+const session = computed<Session>(() => ({
+  editor: definition(),
+  problems: problems.value.map(({ id: _id, ...saved }) => saved),
+}))
+
+function importSession(saved: Session) {
+  parsing?.abort()
+  parsing = null
+  pending.value = false
+  loadDefinition(saved.editor)
+  problems.value = saved.problems.map(problem => ({ ...problem,
+    collapsed: problem.collapsed ?? false, collapsedSections: problem.collapsedSections ?? {}, id: nextProblemId++,
+  }))
+  currentProblemId.value = problems.value.at(-1)?.id ?? null
+  selectedPreset.value = null
+  error.value = ''
+}
+
+function closeProblem(id: number) {
+  // Unmounting the card aborts its analyses without affecting other problems.
+  problems.value = problems.value.filter(problem => problem.id !== id)
+  if (currentProblemId.value === id) currentProblemId.value = problems.value.at(-1)?.id ?? null
+}
+
+function closeAllProblems() {
+  problems.value = []
+  currentProblemId.value = null
+}
+
+function collapseProblems(mode: 'all' | 'others' | 'none') {
+  for (const entry of problems.value) {
+    entry.collapsed = mode === 'all' || (mode === 'others' && entry.id !== currentProblemId.value)
+  }
 }
 
 const fieldNames: Record<Field, string> = {
@@ -65,12 +106,15 @@ async function start() {
   if (pending.value) return
   pending.value = true
   error.value = ''
-  parsed.value = null
-  parsing = new AbortController()
+  const current = new AbortController()
+  parsing = current
   try {
-    const response = await send({ type: 'parse_problem', data: definition() }, backend.value, { signal: parsing.signal })
+    const response = await send({ type: 'parse_problem', data: definition() }, backend.value, { signal: current.signal })
+    if (parsing !== current) return
     if (response.type === 'problem') {
-      parsed.value = response.data
+      const id = nextProblemId++
+      problems.value.push({ ...newSavedProblem(response.data), id })
+      currentProblemId.value = id
     } else if (response.type === 'error') {
       const location = response.data.location
       const where = location
@@ -79,10 +123,12 @@ async function start() {
       error.value = where + response.data.message
     }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    if (parsing === current) error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    pending.value = false
-    parsing = null
+    if (parsing === current) {
+      pending.value = false
+      parsing = null
+    }
   }
 }
 </script>
@@ -93,6 +139,8 @@ async function start() {
       <h1>Round Eliminator 3</h1>
       <p>Enter allowed configurations for the active and passive sides.</p>
     </header>
+
+    <SessionControls :session="session" @import="importSession" />
 
     <form @submit.prevent="start">
       <fieldset :disabled="pending" class="form-fields">
@@ -164,9 +212,19 @@ async function start() {
     </form>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <ProblemView v-if="parsed" :problem="parsed">
-      <ZeroRoundAnalysis :problem="parsed" :backend="backend" />
-      <ColoringAnalysis :problem="parsed" :backend="backend" />
-    </ProblemView>
+    <section v-if="problems.length" aria-label="Problems">
+      <div class="actions problem-list-actions">
+        <button type="button" class="secondary-button" @click="collapseProblems('all')">Collapse all</button>
+        <button type="button" class="secondary-button" @click="collapseProblems('others')">Collapse all except current</button>
+        <button type="button" class="secondary-button" @click="collapseProblems('none')">Expand all</button>
+        <button type="button" class="secondary-button" @click="closeAllProblems">Close all</button>
+      </div>
+      <ProblemCard v-for="entry in problems" :key="entry.id" :saved="entry" :backend="backend"
+        :current="entry.id === currentProblemId" @activate="currentProblemId = entry.id"
+        @collapse="entry.collapsed = $event"
+        @section="(section, collapsed) => entry.collapsedSections[section] = collapsed"
+        @close="closeProblem(entry.id)" @zero-round="entry.zeroRound = $event"
+        @coloring="entry.coloring = $event" />
+    </section>
   </main>
 </template>

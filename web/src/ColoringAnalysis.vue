@@ -6,17 +6,22 @@ import type { Progress } from './generated/Progress'
 import type { ColoringKind } from './generated/ColoringKind'
 import type { ColoringBounds } from './generated/ColoringBounds'
 import type { ColoringResult } from './generated/ColoringResult'
+import type { SavedColoring } from './session'
 import ComputationProgress from './ComputationProgress.vue'
 import ColoringView from './ColoringView.vue'
+import CollapsibleSection from './CollapsibleSection.vue'
 
-const props = defineProps<{ problem: Problem; backend: Backend }>()
-const kind = ref<ColoringKind>('vertex')
-const search = ref<'maximum' | 'fixed'>('maximum')
-const colors = ref(3)
-const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>('idle')
+const props = defineProps<{ problem: Problem; backend: Backend; saved: SavedColoring; collapsed?: boolean }>()
+const emit = defineEmits<{ update: [analysis: SavedColoring]; collapse: [collapsed: boolean] }>()
+const kind = ref<ColoringKind>(props.saved.kind)
+const search = ref<'maximum' | 'fixed'>(props.saved.search)
+const colors = ref(props.saved.colors)
+const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(
+  props.saved.result ? 'done' : props.saved.bounds ? 'cancelled' : 'idle',
+)
 const progress = shallowRef<Progress | null>(null)
-const bounds = shallowRef<ColoringBounds | null>(null)
-const result = shallowRef<ColoringResult | null>(null)
+const bounds = shallowRef<ColoringBounds | null>(props.saved.bounds ? { ...props.saved.bounds, testing: null } : null)
+const result = shallowRef<ColoringResult | null>(props.saved.result)
 const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => { controller?.abort(); controller = null })
@@ -48,6 +53,13 @@ watch([kind, search, colors], () => {
     error.value = ''
   }
 })
+
+// Only stable settings and mathematical results belong in a saved session.
+// Progress, workers, controllers and running state remain local to this card.
+watch([kind, search, colors, bounds, result], () => emit('update', {
+  kind: kind.value, search: search.value, colors: colors.value,
+  bounds: bounds.value, result: result.value,
+}))
 
 function cancel() {
   controller?.abort()
@@ -98,8 +110,8 @@ async function run() {
 </script>
 
 <template>
-  <section class="analysis" aria-label="Coloring solvability" :aria-busy="state === 'running'">
-    <h3>Coloring solvability</h3>
+  <CollapsibleSection class="analysis" title="Coloring solvability" :aria-busy="state === 'running'"
+    :collapsed="collapsed" @update:collapsed="emit('collapse', $event)">
     <fieldset class="form-fields analysis-options" :disabled="state === 'running'">
       <label>Given coloring
         <select v-model="kind">
@@ -149,5 +161,5 @@ async function run() {
     <button v-if="state !== 'running' && state !== 'done'" type="button" class="analysis-button" @click="run">
       {{ state === 'idle' ? 'Check coloring solvability' : 'Retry coloring check' }}
     </button>
-  </section>
+  </CollapsibleSection>
 </template>

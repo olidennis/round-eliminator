@@ -2,14 +2,17 @@
 import type { CondensedConfiguration } from './generated/CondensedConfiguration'
 import type { Constraint } from './generated/Constraint'
 import type { GraphClass } from './generated/GraphClass'
+import CollapsibleSection from './CollapsibleSection.vue'
 
 const props = defineProps<{
-  title: string
   active: Constraint<L>
   passive: Constraint<L>
   graphClass: GraphClass
   formatLabel: (label: L) => string
+  activeCollapsed?: boolean
+  passiveCollapsed?: boolean
 }>()
+const emit = defineEmits<{ collapse: [side: 'active' | 'passive', collapsed: boolean] }>()
 
 function configurationText(configuration: CondensedConfiguration<L>): string {
   if (configuration.parts.length === 0) return '()'
@@ -29,11 +32,10 @@ function rows(side: 'active' | 'passive') {
 </script>
 
 <template>
-  <section class="constraint-section">
-    <h3>{{ title }}</h3>
-    <div class="constraints">
-      <section v-for="side in (['active', 'passive'] as const)" :key="side">
-        <h4>{{ side === 'active' ? 'Active' : 'Passive' }}</h4>
+  <div class="constraints">
+      <CollapsibleSection v-for="side in (['active', 'passive'] as const)" :key="side" :level="4"
+        :title="side === 'active' ? 'Active' : 'Passive'" :collapsed="side === 'active' ? activeCollapsed : passiveCollapsed"
+        @update:collapsed="emit('collapse', side, $event)">
         <table>
           <thead><tr><th>Degree</th><th>Allowed configurations</th></tr></thead>
           <tbody>
@@ -50,7 +52,6 @@ function rows(side: 'active' | 'passive') {
             <tr v-if="rows(side).length === 0"><td colspan="2">No possible degrees</td></tr>
           </tbody>
         </table>
-      </section>
-    </div>
-  </section>
+      </CollapsibleSection>
+  </div>
 </template>
