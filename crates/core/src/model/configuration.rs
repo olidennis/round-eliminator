@@ -69,7 +69,7 @@ impl<L: Copy + Ord> Configuration<L> {
 /// For example, `AB^2` denotes the multisets `AA`, `AB`, and `BB`.
 /// Zero-count parts are discarded. Otherwise, equality compares stored parts;
 /// it does not perform semantic normalization.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct CondensedConfiguration<L = LabelId> {
     parts: Vec<Part<L>>,
 }
@@ -97,7 +97,7 @@ impl<L> CondensedConfiguration<L> {
 
 /// A part is a set with an exponent.
 /// The set must be nonempty.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct Part<L = LabelId> {
     labels: LabelSet<L>,
     multiplicity: u32,

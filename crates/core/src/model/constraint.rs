@@ -1,6 +1,6 @@
 //! Collections of allowed configurations, grouped by degree.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -15,9 +15,15 @@ pub struct Constraint<L = LabelId> {
 }
 
 impl<L: Copy + Ord> Constraint<L> {
+    /// Group by degree and discard structurally identical configurations,
+    /// preserving the first occurrence within each degree. Parts are not normalized.
     pub fn new(configurations: Vec<CondensedConfiguration<L>>) -> Self {
         let mut degrees: BTreeMap<u32, Vec<CondensedConfiguration<L>>> = BTreeMap::new();
+        let mut seen = BTreeSet::new();
         for configuration in configurations {
+            if !seen.insert(configuration.clone()) {
+                continue;
+            }
             degrees
                 .entry(configuration.degree())
                 .or_default()

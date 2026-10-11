@@ -5,5 +5,7 @@ import type { LabelId } from "./LabelId";
  * A `LocalRule` specifies, for a node of a certain `degree` and a certain `input`, to give a specific `output`.
  * We use many of these rules to describe a zero round algorithm (one rule for each degree/input).
  * For problems with no input, `input` is `None`.
+ * The input configuration is stored explicitly (not with multiplicities),
+ * because we may need to map the same label to different labels.
  */
 export type LocalRule = { degree: number, input: Array<LabelId> | null, output: Array<LabelId>, };

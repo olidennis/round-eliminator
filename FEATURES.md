@@ -33,6 +33,8 @@ counted, and membership uses capacity-based library flow on native and wasm.
 
 Inclusive exponent ranges (`^5..8`) are expanded during parsing, including zero
 occurrences, for all problem variants, without a fixed expansion limit.
+The GUI includes editable classical-problem presets for all four entry forms.
+Preset degree fields are blank; graph classes are inferred from the constraints.
 
 ## Things to think about in the future
 

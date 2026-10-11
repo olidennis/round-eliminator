@@ -9,6 +9,7 @@ import type { ProblemText } from './generated/ProblemText'
 import ConstraintEditor from './ConstraintEditor.vue'
 import ProblemView from './ProblemView.vue'
 import ZeroRoundAnalysis from './ZeroRoundAnalysis.vue'
+import { problemPresets, type ProblemPreset } from './presets'
 
 const kind = ref<ProblemText['kind']>('plain')
 const output = ref<ConstraintText>({ active: 'M U^9\nP^10', passive: 'M UP^9\nU^10' })
@@ -24,6 +25,25 @@ const parsed = shallowRef<Problem | null>(null)
 let parsing: AbortController | null = null
 onBeforeUnmount(() => parsing?.abort())
 const error = ref('')
+const selectedPreset = shallowRef<ProblemPreset | null>(null)
+
+function loadPreset(preset: ProblemPreset) {
+  // Copy the definition: editing a loaded preset must not change its next load.
+  const definition = structuredClone(preset.definition)
+  kind.value = definition.kind
+  degrees.value = definition.degrees
+  if (definition.kind === 'paired') {
+    pairs.value = definition.constraints
+  } else if (definition.kind === 'plain') {
+    output.value = definition.constraints
+  } else {
+    input.value = definition.input
+    output.value = definition.output
+    if (definition.kind === 'mapped') mapping.value = definition.mapping
+  }
+  selectedPreset.value = preset
+  error.value = ''
+}
 
 const fieldNames: Record<Field, string> = {
   active: 'Active constraint', passive: 'Passive constraint',
@@ -75,6 +95,17 @@ async function start() {
 
     <form @submit.prevent="start">
       <fieldset :disabled="pending" class="form-fields">
+        <section class="presets" aria-labelledby="presets-title">
+          <h2 id="presets-title">Examples</h2>
+          <div class="preset-buttons">
+            <button v-for="preset in problemPresets" :key="preset.name" type="button"
+              :title="preset.description" @click="loadPreset(preset)">
+              {{ preset.name }}
+            </button>
+          </div>
+          <p class="hint">Load an example, edit it if needed, then press Start.</p>
+          <p v-if="selectedPreset" class="hint">{{ selectedPreset.description }}</p>
+        </section>
         <label>Problem type
           <select v-model="kind">
             <option value="plain">No input</option>

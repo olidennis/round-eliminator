@@ -6,7 +6,8 @@
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
     "build": "npm run typecheck && vite build",
-    "test:wasm": "node scripts/test-wasm.mjs"
+    "test:wasm": "node scripts/test-wasm.mjs",
+    "test:presets": "node scripts/test-presets.mjs"
   },
   "dependencies": {
     "vue": "^3.5.43"

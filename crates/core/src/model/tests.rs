@@ -41,6 +41,26 @@ fn singleton(id: u32, count: u32) -> Part {
 }
 
 #[test]
+fn constraints_discard_exact_duplicates_preserving_first_occurrence() {
+    let a = CondensedConfiguration::new(vec![singleton(0, 3)]).unwrap();
+    let b = CondensedConfiguration::new(vec![singleton(1, 3)]).unwrap();
+    let split_a = CondensedConfiguration::new(vec![singleton(0, 1), singleton(0, 2)]).unwrap();
+    let empty = CondensedConfiguration::new(vec![]).unwrap();
+    let constraint = Constraint::new(vec![
+        b.clone(),
+        a.clone(),
+        b.clone(),
+        empty.clone(),
+        split_a.clone(),
+        a.clone(),
+        empty.clone(),
+    ]);
+    assert_eq!(constraint.configurations_at_degree(0), &[empty]);
+    // The split form remains distinct until configuration normalization exists.
+    assert_eq!(constraint.configurations_at_degree(3), &[b, a, split_a]);
+}
+
+#[test]
 fn construction_enforces_multiplicities_degrees_and_references() {
     assert!(Part::<LabelId>::new(LabelSet::default(), 1).is_err());
     assert!(CondensedConfiguration::new(vec![singleton(0, u32::MAX), singleton(0, 1)]).is_err());

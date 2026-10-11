@@ -77,6 +77,10 @@ the user's Mac. Git worktree repairs may rewrite this pointer; restore it to
 - `LabelSet` has private sorted-vector storage and set operations. Use it as the
   default abstraction and benchmark realistic workloads before changing storage.
   Its JSON shape is an array. CondensedConfiguration normalization remains deferred.
+  `Constraint::new` discards structurally identical configurations, preserving
+  the first occurrence within each degree. Paired input projection can create
+  duplicates even when the original output configurations differ; deduplicate
+  in the common constraint constructor rather than hiding repeated rows in the UI.
 - `Configuration<L>` represents one concrete multiset as sorted, unique
   `(label, multiplicity)` entries. Merge duplicate labels and discard zero counts
   in construction. Enumeration and membership use this counted type; occurrence
@@ -106,6 +110,13 @@ tradeoffs with the user, wait for their choice, then implement the selected
 feature with tests and comments. Do not import old algorithms wholesale or
 implement further features ahead of that choice. Treat the source tree as
 reference, not as code to preserve for its own sake.
+
+GUI presets in `web/src/presets.ts` fill the editors and leave Start as the
+explicit parsing action. Leave both preset degree fields blank so the graph
+class is inferred. Include classical graph problems, input promises, and
+equivalent mapped/paired list-coloring examples; check both transports using
+`web/scripts/test-presets.mjs`. Loading an example copies its text definition,
+so editor changes never mutate the preset.
 
 ## Zero-round solvability decisions
 

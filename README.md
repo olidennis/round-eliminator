@@ -150,7 +150,9 @@ Paired entry is converted once during parsing. Each distinct pair becomes a
 separate ordinary output label: `(a,X)` and `(b,X)` remain different labels even
 though their original output components agree. The input promise is the original
 input projection. The mapping permits input `a` to emit only labels originating
-from pairs whose input component was `a`. Parts and exponents are preserved;
+from pairs whose input component was `a`. Exact duplicate configurations are
+discarded during constraint construction, including duplicates created by the
+input projection. Parts and exponents are preserved;
 conversion never enumerates their concrete configurations. Output names such as
 `a,X` are displayed as `(a,X)` in ordinary constraints. They are ordinary names,
 without pair semantics after conversion. The UI displays the converted mapped
@@ -173,6 +175,20 @@ represents `AA`, `AB`, and `BB`, rather than one concrete configuration.
 `A^2 B` has two entries, not three occurrences. Construction merges repeated
 labels, sorts entries, discards zero counts, and checks degree overflow. Its generic container also supports temporary parser elements. Algorithms expand occurrences
 only where port positions matter, such as local-rule witnesses.
+
+## Example problems
+
+The **Examples** buttons load editable definitions for MIS, maximal matching,
+bipartite maximal matching, vertex coloring, and edge grabbing, including
+orientation and edge-coloring input promises. Ordinary graph examples use
+degree-three vertices and degree-two edges; bipartite maximal matching uses
+degree three on both sides. Degree fields stay blank so Start infers the graph
+class from the constraints.
+
+The mapped and paired list-coloring presets describe the same problem: every
+vertex has a two-color list, and neighboring vertices must choose different
+colors. Presets fill the editors; press **Start** to parse them through either
+backend. Their definitions live in `web/src/presets.ts`.
 
 ## Zero-round solvability
 
@@ -294,5 +310,8 @@ selecting WebAssembly.
 
 To compare parsed definitions and solvability decisions for all variants, run the server, then run
 `npm run test:wasm -- http://127.0.0.1:8080/api` from `web`.
+`npm run test:presets -- http://127.0.0.1:8080/api` checks every GUI preset
+and the equivalence of the mapped/paired examples. Omit the URL for wasm only.
+The preset script imports TypeScript directly and requires Node 22.18 or newer.
 Build wasm before building the frontend so that `web/dist` contains the latest
 wasm artifacts.

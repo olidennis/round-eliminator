@@ -15,7 +15,7 @@ pub struct LabelId(pub u32);
 ///
 /// Set operations preserve this invariant. The storage is private so algorithms
 /// can use set semantics without depending on its representation.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct LabelSet<L = LabelId>(Vec<L>);
 
 impl<L> Default for LabelSet<L> {
