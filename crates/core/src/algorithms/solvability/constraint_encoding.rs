@@ -1,4 +1,4 @@
-//! SAT encoding of zero-round active validity for canonical output constraints.
+//! Shared SAT matching of output choices for solvability searches.
 
 use crate::algorithms::sat::Formula;
 use rustsat::{solvers::Solve, types::Lit};
@@ -6,19 +6,24 @@ use rustsat::{solvers::Solve, types::Lit};
 use crate::model::{Constraint, LabelId};
 
 #[derive(Clone, Copy)]
-pub(super) struct Choice {
+pub(crate) struct Choice {
     pub label: LabelId,
     pub literal: Lit,
 }
 
-/// positions[i] gives the choices for the ith port.
-/// if positions[i][j].literal is true, then we use positions[i][j].label on port i.
-/// This function encodes the requirement to pick a valid output configuration.
-pub(super) fn encode_active<S: Solve>(
+/// positions[i] gives the choices for the ith position.
+/// A true literal makes its label available at that position. Multiple labels
+/// may be available: matching only requires one valid choice per position.
+/// Require a valid output when every activation literal in `enabled` is true.
+/// An empty activation list makes the requirement unconditional.
+/// The positions must contain exactly `degree` entries. This encoding applies
+/// to any constraint, independently of its active or passive role in a problem.
+pub(crate) fn encode_constraint<S: Solve>(
     solver: &mut Formula<S>,
     constraint: &Constraint,
     degree: u32,
     positions: &[Vec<Choice>],
+    enabled: &[Lit],
 ) -> anyhow::Result<()> {
     let mut selectors = Vec::new();
     for configuration in constraint.configurations_at_degree(degree) {
@@ -55,6 +60,8 @@ pub(super) fn encode_active<S: Solve>(
             solver.at_most(&assignments, part.multiplicity() as usize)?;
         }
     }
-    // If no configuration has this degree, the empty clause makes it UNSAT.
+    // When all gates are enabled, at least one configuration must match.
+    // No configurations at this degree makes that obligation unsatisfiable.
+    selectors.extend(enabled.iter().map(|literal| !*literal));
     solver.add_clause(&selectors)
 }

@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use petgraph::{Graph, algo::dinics};
 
 use crate::computation::{Cancellation, Cancelled};
-use crate::model::{CondensedConfiguration, Configuration, Constraint};
+use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
 
 /// Checks whether a constraint allows a configuration
 pub fn accepts<L: Copy + Ord>(constraint: &Constraint<L>, concrete: &Configuration<L>) -> bool {
@@ -103,15 +103,56 @@ fn matches<L: Copy + Ord>(
     Ok(flow == concrete.degree())
 }
 
-/// Prove containment by assigning each family occurrence to a target part whose
-/// label set includes the whole family set. Capacities preserve multiplicities.
-///
-/// This is a sufficient test for semantic containment. Failure does not prove
-/// that a concrete output is forbidden: several targets can cover a family
-/// jointly. Scanning all targets is complete when the constraint is maximized.
+/// checks whether the condensed configuration target dominates the condensed configuration family
 pub(crate) fn contains_condensed_with<L: Copy + Ord>(
     target: &CondensedConfiguration<L>,
     family: &CondensedConfiguration<L>,
+    cancellation: &Cancellation,
+) -> Result<bool, Cancelled> {
+    match_parts_with(
+        target,
+        family,
+        |offered, allowed| offered.is_subset_of(allowed),
+        cancellation,
+    )
+}
+
+/// checks whether there exists a choice from `positions` that is allowed by `constraint`
+pub(crate) fn allows_positions_with<L: Copy + Ord>(
+    constraint: &Constraint<L>,
+    positions: &[LabelSet<L>],
+    cancellation: &Cancellation,
+) -> Result<bool, Cancelled> {
+    cancellation.check()?;
+    if positions.iter().any(LabelSet::is_empty) {
+        return Ok(false);
+    }
+    let family = CondensedConfiguration::new(
+        positions
+            .iter()
+            .cloned()
+            .map(|labels| Part::new(labels, 1).expect("nonempty choices"))
+            .collect(),
+    )
+    .expect("degree fits u32");
+    for target in constraint.configurations_at_degree(family.degree()) {
+        if match_parts_with(
+            target,
+            &family,
+            |offered, allowed| !offered.intersection(allowed).is_empty(),
+            cancellation,
+        )? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// like contains_condensed_with, but with a custum compatibility relation
+fn match_parts_with<L: Copy + Ord>(
+    target: &CondensedConfiguration<L>,
+    family: &CondensedConfiguration<L>,
+    compatible: impl Fn(&LabelSet<L>, &LabelSet<L>) -> bool,
     cancellation: &Cancellation,
 ) -> Result<bool, Cancelled> {
     cancellation.check()?;
@@ -121,7 +162,7 @@ pub(crate) fn contains_condensed_with<L: Copy + Ord>(
     if let [part] = target.parts() {
         for query in family.parts() {
             cancellation.check()?;
-            if !query.labels().is_subset_of(part.labels()) {
+            if !compatible(query.labels(), part.labels()) {
                 return Ok(false);
             }
         }
@@ -130,7 +171,7 @@ pub(crate) fn contains_condensed_with<L: Copy + Ord>(
     if let [part] = family.parts() {
         for query in target.parts() {
             cancellation.check()?;
-            if !part.labels().is_subset_of(query.labels()) {
+            if !compatible(part.labels(), query.labels()) {
                 return Ok(false);
             }
         }
@@ -153,9 +194,13 @@ pub(crate) fn contains_condensed_with<L: Copy + Ord>(
         let mut available = 0;
         for (target, &destination) in target.parts().iter().zip(&destinations) {
             cancellation.check()?;
-            if part.labels().is_subset_of(target.labels()) {
+            if compatible(part.labels(), target.labels()) {
                 available += target.multiplicity();
-                network.add_edge(node, destination, part.multiplicity().min(target.multiplicity()));
+                network.add_edge(
+                    node,
+                    destination,
+                    part.multiplicity().min(target.multiplicity()),
+                );
             }
         }
         if available < part.multiplicity() {
@@ -202,16 +247,9 @@ pub(crate) fn concrete_multisets_with<L: Copy + Ord>(
                         next.insert(
                             Configuration::new(entries).expect("expanded degree was checked"),
                         );
-                        let Some(position) = counts[..counts.len() - 1]
-                            .iter()
-                            .rposition(|&count| count != 0)
-                        else {
+                        if !advance_counts(&mut counts) {
                             break;
-                        };
-                        counts[position] -= 1;
-                        let remainder = counts[position + 1..].iter().sum::<u32>() + 1;
-                        counts[position + 1..].fill(0);
-                        counts[position + 1] = remainder;
+                        }
                     }
                 }
                 prefixes = next;
@@ -222,5 +260,192 @@ pub(crate) fn concrete_multisets_with<L: Copy + Ord>(
     Ok(result.into_iter().collect())
 }
 
+/// Advance a nonempty count vector to the next distribution with the same total.
+/// Used by concrete multiset enumeration and searches over output families.
+pub(crate) fn advance_counts(counts: &mut [u32]) -> bool {
+    let Some(position) = counts[..counts.len() - 1]
+        .iter()
+        .rposition(|&count| count != 0)
+    else {
+        return false;
+    };
+    counts[position] -= 1;
+    let remainder = counts[position + 1..].iter().sum::<u32>() + 1;
+    counts[position + 1..].fill(0);
+    counts[position + 1] = remainder;
+    true
+}
+
 #[cfg(test)]
-mod tests;
+mod tests {
+    use super::*;
+    use crate::model::LabelSet;
+    use crate::model::Part;
+
+    #[test]
+    fn condensed_containment_uses_set_inclusion_and_counted_capacities() {
+        let configuration = |parts: Vec<(Vec<u8>, u32)>| {
+            CondensedConfiguration::new(
+                parts
+                    .into_iter()
+                    .map(|(labels, count)| Part::new(LabelSet::new(labels), count).unwrap())
+                    .collect(),
+            )
+            .unwrap()
+        };
+        let target = configuration(vec![(vec![0, 1], 2), (vec![2], 2)]);
+        let matching = configuration(vec![(vec![0], 1), (vec![1], 1), (vec![2], 2)]);
+        let competing = configuration(vec![(vec![0], 2), (vec![1], 1), (vec![2], 1)]);
+        let cancellation = Cancellation::default();
+        assert!(contains_condensed_with(&target, &matching, &cancellation).unwrap());
+        assert!(!contains_condensed_with(&target, &competing, &cancellation).unwrap());
+        assert!(
+            !contains_condensed_with(&target, &configuration(vec![(vec![0], 3)]), &cancellation)
+                .unwrap()
+        );
+        assert!(
+            !contains_condensed_with(
+                &target,
+                &configuration(vec![(vec![0, 1, 2], 4)]),
+                &cancellation
+            )
+            .unwrap()
+        );
+        let empty = CondensedConfiguration::<u8>::new(vec![]).unwrap();
+        assert!(contains_condensed_with(&empty, &empty, &cancellation).unwrap());
+
+        let target = configuration(vec![(vec![0, 1], 1_000_000), (vec![1, 2], 1_000_000)]);
+        let family = configuration(vec![(vec![0], 1_000_000), (vec![2], 1_000_000)]);
+        assert!(contains_condensed_with(&target, &family, &cancellation).unwrap());
+        cancellation.cancel();
+        assert!(contains_condensed_with(&target, &family, &cancellation).is_err());
+    }
+
+    #[test]
+    fn large_multiplicities_stay_counted_in_membership_and_enumeration() {
+        let part = |labels: Vec<u8>, count| Part::new(LabelSet::new(labels), count).unwrap();
+        let constraint = Constraint::new(vec![
+            CondensedConfiguration::new(vec![part(vec![0, 1], u32::MAX - 1), part(vec![0], 1)])
+                .unwrap(),
+        ]);
+        let concrete = Configuration::new(vec![(0, 1), (1, u32::MAX - 1)]).unwrap();
+        assert!(accepts(&constraint, &concrete));
+        let rejected = Constraint::new(vec![
+            CondensedConfiguration::new(vec![part(vec![0], u32::MAX - 1), part(vec![1], 1)])
+                .unwrap(),
+        ]);
+        assert!(!accepts(&rejected, &concrete));
+
+        let singleton = Constraint::new(vec![
+            CondensedConfiguration::new(vec![part(vec![0], u32::MAX)]).unwrap(),
+        ]);
+        assert_eq!(
+            concrete_multisets(&singleton, &[u32::MAX]),
+            vec![Configuration::new(vec![(0, u32::MAX)]).unwrap(),]
+        );
+        assert!(accepts(
+            &singleton,
+            &Configuration::new(vec![(0, u32::MAX)]).unwrap()
+        ));
+    }
+
+    #[test]
+    fn membership_and_enumeration_respect_cancellation() {
+        let cancellation = Cancellation::default();
+        cancellation.cancel();
+        let constraint = Constraint::<u8>::new(vec![]);
+        assert!(accepts_with(&constraint, &Configuration::default(), &cancellation).is_err());
+        assert!(concrete_multisets_with(&constraint, &[0], &cancellation).is_err());
+    }
+
+    #[test]
+    fn membership_agrees_with_explicit_expansion() {
+        // Exercise overlapping parts, repeated counts, and the augmenting paths
+        // needed when a greedy occurrence-to-part assignment gets stuck.
+        for first in 1u8..8 {
+            for second in 1u8..8 {
+                for first_count in 1..=2 {
+                    for second_count in 1..=2 {
+                        let set = |mask| {
+                            LabelSet::new(
+                                (0u8..3).filter(|label| mask & (1 << label) != 0).collect(),
+                            )
+                        };
+                        let configuration = CondensedConfiguration::new(vec![
+                            Part::new(set(first), first_count).unwrap(),
+                            Part::new(set(second), second_count).unwrap(),
+                        ])
+                        .unwrap();
+                        let constraint = Constraint::new(vec![configuration]);
+                        let degree = first_count + second_count;
+                        let mut expanded = BTreeSet::new();
+                        for mut code in 0usize..3usize.pow(degree) {
+                            let mut tuple = Vec::new();
+                            let mut allowed = true;
+                            for position in 0..degree {
+                                let label = (code % 3) as u8;
+                                code /= 3;
+                                let mask = if position < first_count {
+                                    first
+                                } else {
+                                    second
+                                };
+                                allowed &= mask & (1 << label) != 0;
+                                tuple.push(label);
+                            }
+                            if allowed {
+                                tuple.sort_unstable();
+                                expanded.insert(tuple);
+                            }
+                        }
+                        assert_eq!(
+                            concrete_multisets(&constraint, &[degree]),
+                            expanded
+                                .iter()
+                                .map(|occurrences| Configuration::from_occurrences(
+                                    occurrences.iter().copied()
+                                )
+                                .unwrap())
+                                .collect::<BTreeSet<_>>()
+                                .into_iter()
+                                .collect::<Vec<_>>()
+                        );
+                        for mut code in 0usize..3usize.pow(degree) {
+                            let mut tuple = Vec::new();
+                            for _ in 0..degree {
+                                tuple.push((code % 3) as u8);
+                                code /= 3;
+                            }
+                            let actual = accepts(
+                                &constraint,
+                                &Configuration::from_occurrences(tuple.iter().copied()).unwrap(),
+                            );
+                            tuple.sort_unstable();
+                            assert_eq!(actual, expanded.contains(&tuple));
+                        }
+                        assert!(!accepts(
+                            &constraint,
+                            &Configuration::new(vec![(0, degree + 1)]).unwrap()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn zero_degree_and_duplicate_configurations() {
+        let empty = CondensedConfiguration::<u8>::new(vec![]).unwrap();
+        let constraint = Constraint::new(vec![empty.clone(), empty]);
+        assert!(accepts(&constraint, &Configuration::default()));
+        assert_eq!(
+            concrete_multisets(&constraint, &[0]),
+            vec![Configuration::<u8>::default()]
+        );
+        assert!(concrete_multisets(&constraint, &[1]).is_empty());
+        assert!(!accepts(
+            &Constraint::<u8>::new(vec![]),
+            &Configuration::default()
+        ));
+    }
+}

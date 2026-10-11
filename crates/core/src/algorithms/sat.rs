@@ -2,7 +2,7 @@
 //! Problem encodings depend on `Solve`, never on backend-specific types.
 
 use rustsat::{
-    encodings::{am1, card, CollectClauses},
+    encodings::{CollectClauses, am1, card},
     instances::{BasicVarManager, ManageVars},
     solvers::Solve,
     types::{Clause, Lit},
@@ -245,11 +245,7 @@ mod tests {
         let literals: Vec<_> = (0..7)
             .map(|index| {
                 let literal = formula.new_lit();
-                if index % 2 == 0 {
-                    literal
-                } else {
-                    !literal
-                }
+                if index % 2 == 0 { literal } else { !literal }
             })
             .collect();
         formula.at_most(&literals[..3], 1).unwrap();

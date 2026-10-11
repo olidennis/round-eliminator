@@ -118,6 +118,48 @@ equivalent mapped/paired list-coloring examples; check both transports using
 `web/scripts/test-presets.mjs`. Loading an example copies its text definition,
 so editor changes never mutate the preset.
 
+Coloring solvability must let strategies use both the given coloring
+and all original local inputs, retaining the input promise and output mapping.
+Orientation is an ordinary input promise, combined with other inputs when
+present; dedicated orientation search algorithms are unnecessary. The user
+authorized the SAT coloring implementation and streamed partial palette results.
+Include orientation-input coloring GUI presets:
+3-coloring/outdegree 1/degree 3 and 5-coloring/outdegree 2/degree 5, with inferred
+graph classes.
+
+## Coloring solvability decisions
+
+The user approved membership SAT for vertex/strong hypergraph coloring, graph
+edge coloring (degree-two passive nodes, matching colors across an edge), and
+incidence edge coloring (distinct at both sides). Strategy choices may depend
+on the entire active input/color configuration and port order. A witness stores
+available output sets per original `(color, input)`; existential active matching
+and universal passive validity certify these sets. Preserve all four entry
+forms through the same canonical model. Share active matching, original input
+preparation, and passive checking with zero-round. Support general and maximized
+passive modes; the GUI uses general until maximization exists.
+
+Maximum search first checks for a repeatable color-independent zero-round
+strategy, which certifies unbounded solvability. Otherwise double palette sizes
+until UNSAT, then binary-search the gap. Reuse one incremental solver with color
+activation assumptions, gating active obligations when colors are disabled.
+Finite behavior vectors and bounded degrees ensure an unbounded palette would
+give a repeatable behavior, so no heuristic palette cutoff is necessary.
+Also support fixed-palette decisions and independent witness verification.
+
+The user requested partial results while searching: publish proved lower bounds
+with witnesses, inclusive upper bounds, and the current palette through generic
+`ComputationEvent::PartialResult` events on both transports. `Progress` remains
+generic phase information, separate from these mathematical results. The GUI
+displays partial proofs and retains them on cancellation; interruption is never
+an UNSAT decision. Analysis reuses the parsed structured problem and returns no
+problem echo. Keep browser strategies in `ColoringView.vue` and query/progress
+state in `ColoringAnalysis.vue`; both analyses use `ComputationProgress.vue`.
+Tests compare small compact encodings with independently constructed explicit
+colored input problems, verify witnesses, and check both transports using
+`web/scripts/test-coloring.mjs`. No performance superiority is claimed without
+benchmarks; further coloring optimizations are listed in FEATURES.md.
+
 ## Zero-round solvability decisions
 
 The user approved a shared SAT approach for all four variants, then RustSAT
@@ -155,14 +197,26 @@ flag to `Problem` ahead of transformation semantics.
 
 The user approved removing the zero-round `View` struct. General borrowed
 accessors (`graph_class`, `input`, `output`, `mapping`) and incidence restrictions
-(`output_allowed`) live on `Problem`. Algorithm-specific context/domain preparation
-and absent-input conventions remain in `algorithms/zero_round/prepare.rs`.
+(`output_allowed`) live on `Problem`. Algorithm-specific rule/domain preparation
+remains in `algorithms/solvability/zero_round/prepare.rs`; shared original input preparation
+and absent-input conventions live in `algorithms/solvability/inputs.rs`.
 The former `Validity` selector is removed: search and verification use the shared
 ordinary output constraints directly. The model must not depend on zero-round
 witness types or SAT preparation.
 
 Module placement after the organization review:
 
+- Group zero-round, coloring, and their strategy-specific shared helpers in
+  `algorithms/solvability/`: `zero_round`, `coloring`, `inputs`, and `passive`.
+  The user corrected the broader grouping: generic operations must live outside
+  solvability. Keep `configurations` and `sat` directly
+  in `algorithms`. These modules must not depend on solvability types or policy.
+  Use the operation's purpose to choose placement, rather than its current
+  callers or whether its Rust signature has type parameters. Future unrelated
+  algorithms can be siblings of `solvability`; keep tests beside their modules.
+- Prefer inline `#[cfg(test)] mod tests` for manageable test suites in standalone
+  source files. Avoid creating a directory solely for one small test module.
+  Larger algorithm folders can keep neighboring `tests.rs` modules.
 - The user selected `model` as the domain module name. `model.rs` only declares
   private implementation modules and reexports their public types. The problem,
   input/mapping enums, and construction error live in `model/problem.rs`; sibling
@@ -174,7 +228,9 @@ Module placement after the organization review:
   `Part`, including their multiplicity validation.
 - `model/constraint.rs` owns `Constraint` and `DegreeGroup`: grouping and lookup,
   including `Constraint::configurations_at_degree`. Matching and concrete
-  enumeration remain algorithms in `algorithms/configurations.rs`.
+  enumeration remain algorithms in `algorithms/configurations.rs`. Generic
+  count-distribution stepping (`advance_counts`) is shared there by multiset
+  enumeration and passive counterexample checking, rather than duplicated.
 - Generic SAT cardinality operations (`Formula::exactly_one`, `Formula::at_most`)
   and their tests belong in `algorithms/sat.rs`, alongside backend setup. Use
   RustSAT Ladder for at-most-one and Totalizer for larger bounds. Complete native
@@ -184,14 +240,25 @@ Module placement after the organization review:
   RustSAT CollectClauses exposes only an out-of-memory error: the private adapter
   stores the actual cancellation/solver error, aborts generation through that
   channel, then restores the original error before returning to callers.
-  The zero-round matching encoding belongs in `zero_round/encoding.rs`.
-- Zero-round `mod.rs` holds the public types, entry points, and search loop;
-  `prepare.rs` prepares rules, condensed passive inputs and output domains;
-  `passive.rs` owns emission families, passive checks and blocking clauses;
+  Generic matching against a constraint is encoded by `encode_constraint` in
+  `algorithms/solvability/constraint_encoding.rs`. The user requested that this
+  shared solvability encoding live with its searches. It supports activation gates, used by
+  palette queries, and applies to either side of a problem. Both solvability
+  checks call it for active validity.
+- Original input preparation lives in `algorithms/solvability/inputs.rs`, with concrete
+  active inputs and condensed passive inputs, without algorithm witness types.
+  `algorithms/solvability/passive.rs` owns shared verification modes, emission families,
+  containment, exact checks and blocking clauses; input keys can include colors.
+- Zero-round `mod.rs` holds local-rule/result types, entry points, and search;
+  `prepare.rs` prepares initially empty rules and output domains;
   `verify.rs` verifies complete witnesses using general mode. Generic counted
   containment belongs in `algorithms/configurations.rs`, alongside membership.
   `zero_round/tests.rs` holds search tests and independent exhaustive helpers;
   `zero_round/tests/passive.rs` groups passive-family and blocking-clause tests.
+- `algorithms/solvability/coloring/` owns palette types/search (`mod.rs`), color placement
+  (`prepare.rs`), incremental membership SAT (`encoding.rs`), independent witness
+  checks (`verify.rs`), and tests. Color placement is implicit; do not materialize
+  a colored input ConstraintPair. Original inputs and mapping remain intact.
 - `parser/paired.rs` owns the private `LabelPair`/`InputOutputConstraintPair`
   entry types, input projection, and conversion to the shared model.
 - `api/mod.rs` owns shared dispatch and JSON entry points; `api/protocol.rs`

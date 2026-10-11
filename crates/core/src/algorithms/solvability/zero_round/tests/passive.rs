@@ -142,9 +142,10 @@ fn condensed_passive_check_matches_concrete_inputs_and_preserves_counterexamples
 
 #[test]
 fn both_modes_agree_on_manually_maximized_fixtures() {
-    let fixtures: Vec<serde_json::Value> = serde_json::from_str(include_str!(
-        "../../../../benches/support/zero_round_maximized_cases.json"
-    ))
+    let fixtures: Vec<serde_json::Value> = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/benches/support/zero_round_maximized_cases.json"
+    )))
     .unwrap();
     for fixture in fixtures {
         let problem = parse(fixture["definition"].clone());

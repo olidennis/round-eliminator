@@ -3,7 +3,6 @@ import type { Progress } from "./Progress";
 import type { Response } from "./Response";
 
 /**
- * Computation could just proceed, and we send the Progress status,
- * or it ends, and we send the result as Response.
+ * Progress and proved partial results precede a final response.
  */
-export type ComputationEvent = { "type": "progress", "data": Progress } | { "type": "response", "data": Response };
+export type ComputationEvent = { "type": "progress", "data": Progress } | { "type": "partial_result", "data": Response } | { "type": "response", "data": Response };

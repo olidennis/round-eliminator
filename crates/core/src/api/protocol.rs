@@ -4,7 +4,11 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::{
-    algorithms::zero_round::{PassiveMode, ZeroRoundResult},
+    algorithms::solvability::{
+        coloring::{ColoringBounds, ColoringKind, ColoringResult, PaletteSearch},
+        passive::PassiveMode,
+        zero_round::ZeroRoundResult,
+    },
     computation::Progress,
     model::Problem,
     parser::{Location, ParseError, ProblemText},
@@ -22,6 +26,13 @@ pub enum Request {
         #[serde(default)]
         passive_mode: PassiveMode,
     },
+    CheckColoring {
+        problem: Problem,
+        kind: ColoringKind,
+        search: PaletteSearch,
+        #[serde(default)]
+        passive_mode: PassiveMode,
+    },
 }
 
 /// These are the possible answers that we can send to the UI
@@ -31,17 +42,20 @@ pub enum Request {
 pub enum Response {
     Problem(Problem),
     ZeroRound(ZeroRoundResult),
+    Coloring(ColoringResult),
+    ColoringBounds(ColoringBounds),
     Error(ApiError),
     Cancelled,
 }
 
-/// Computation could just proceed, and we send the Progress status,
-/// or it ends, and we send the result as Response.
+/// Progress and proved partial results precede a final response.
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 #[ts(export)]
 pub enum ComputationEvent {
     Progress(Progress),
+    /// A proved intermediate result; computation continues afterward.
+    PartialResult(Box<Response>),
     Response(Box<Response>),
 }
 

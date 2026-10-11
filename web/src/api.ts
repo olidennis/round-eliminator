@@ -4,7 +4,7 @@ import type { ComputationEvent } from './generated/ComputationEvent'
 import type { Progress } from './generated/Progress'
 
 export type Backend = 'server' | 'wasm'
-type Options = { signal?: AbortSignal; onProgress?: (progress: Progress) => void }
+type Options = { signal?: AbortSignal; onProgress?: (progress: Progress) => void; onPartialResult?: (response: Response) => void }
 
 /** The same Rust-defined events arrive through HTTP streaming or a worker. */
 export async function send(request: Request, backend: Backend, options: Options = {}): Promise<Response> {
@@ -26,6 +26,8 @@ export async function send(request: Request, backend: Backend, options: Options 
     worker.onmessage = (event: MessageEvent<ComputationEvent>) => {
       if (event.data.type === 'progress') {
         options.onProgress?.(event.data.data)
+      } else if (event.data.type === 'partial_result') {
+        options.onPartialResult?.(event.data.data)
       } else {
         cleanup()
         resolve(event.data.data)
@@ -68,7 +70,8 @@ async function sendToServer(json: string, options: Options): Promise<Response> {
         options.signal?.throwIfAborted()
         const event = JSON.parse(data) as ComputationEvent
         if (event.type === 'response') return event.data
-        options.onProgress?.(event.data)
+        if (event.type === 'partial_result') options.onPartialResult?.(event.data)
+        else options.onProgress?.(event.data)
       }
     }
   } finally {

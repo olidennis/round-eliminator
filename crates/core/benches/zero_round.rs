@@ -1,7 +1,8 @@
 //! Complete structured requests; notation is parsed once outside the timing.
 
 use round_eliminator_3::{
-    Request, Response, algorithms::zero_round, execute_json, parse_problem, parser::ProblemText,
+    Request, Response, algorithms::solvability::zero_round, execute_json, parse_problem,
+    parser::ProblemText,
 };
 use serde::Deserialize;
 use std::{

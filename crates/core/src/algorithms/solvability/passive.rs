@@ -4,26 +4,40 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::computation::{Cancellation, Cancelled};
 use rustsat::types::Lit;
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-use super::PassiveMode;
-use crate::algorithms::configurations::{accepts_with, contains_condensed_with};
+/// How to verify passive output families for a candidate strategy.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum PassiveMode {
+    /// Exact for arbitrary constraints, including unions of condensed configurations.
+    #[default]
+    General,
+    /// Requires every maximal passive configuration to be listed, up to permutation.
+    /// The caller guarantees this; choosing this mode does not perform maximization.
+    Maximized,
+}
+
+use crate::algorithms::configurations::{accepts_with, advance_counts, contains_condensed_with};
 use crate::model::LabelId;
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
 
 // The search attaches a SAT literal as provenance. Independent witness
 // verification uses (), sharing the exact check without constructing literals.
 #[derive(Clone, Copy)]
-pub(super) struct Emission<T = Lit> {
-    pub input: Option<LabelId>,
+pub(crate) struct Emission<T = Lit, I = Option<LabelId>> {
+    pub input: I,
     pub output: LabelId,
     pub source: T,
 }
 
-/// We check if the found zero round algorithm is valid.
-pub(super) fn forbidden_combination<T: Copy + Ord>(
+/// Return emission origins whose simultaneous availability permits a forbidden
+/// passive output. Keeping all these origins enabled would preserve the violation.
+pub(crate) fn forbidden_combination<T: Copy + Ord, I: Copy + Ord>(
     constraint: &Constraint,
-    inputs: &[CondensedConfiguration<Option<LabelId>>],
-    emissions: &[Emission<T>],
+    inputs: &[CondensedConfiguration<I>],
+    emissions: &[Emission<T, I>],
     mode: PassiveMode,
     cancellation: &Cancellation,
 ) -> Result<Option<Vec<T>>, Cancelled> {
@@ -86,12 +100,11 @@ pub(super) fn forbidden_combination<T: Copy + Ord>(
     Ok(None)
 }
 
-
 /// This function is used to encode the passive constraint in the case of degree <=2
-pub(super) fn visit_forbidden(
+pub(crate) fn visit_forbidden<I: Copy + Ord>(
     constraint: &Constraint,
-    input: &CondensedConfiguration<Option<LabelId>>,
-    emissions: &[Emission],
+    input: &CondensedConfiguration<I>,
+    emissions: &[Emission<Lit, I>],
     cancellation: &Cancellation,
     mut visitor: impl FnMut(Vec<Lit>) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
@@ -156,18 +169,18 @@ pub(super) fn visit_forbidden(
 
 /// One transformed input part. Outputs are unique and ordered; a representative
 /// emission per output suffices to justify one counterexample for a fixed candidate.
-struct OutputPart<'a, T> {
-    choices: Vec<&'a Emission<T>>,
+struct OutputPart<'a, T, I> {
+    choices: Vec<&'a Emission<T, I>>,
     counts: Vec<u32>,
 }
 
 /// One origin per output suffices for a fixed SAT candidate. Keep ALL origins
 /// separately in visit_forbidden: eager clauses must cover every future candidate.
-fn output_parts<'a, T: Copy + Ord>(
-    input: &CondensedConfiguration<Option<LabelId>>,
-    emissions: &'a [Emission<T>],
+fn output_parts<'a, T: Copy + Ord, I: Copy + Ord>(
+    input: &CondensedConfiguration<I>,
+    emissions: &'a [Emission<T, I>],
     cancellation: &Cancellation,
-) -> Result<Option<Vec<OutputPart<'a, T>>>, Cancelled> {
+) -> Result<Option<Vec<OutputPart<'a, T, I>>>, Cancelled> {
     let mut grouped = BTreeMap::new();
     for part in input.parts() {
         cancellation.check()?;
@@ -189,7 +202,9 @@ fn output_parts<'a, T: Copy + Ord>(
             .collect();
         grouped
             .entry(key)
-            .and_modify(|(_, count): &mut (Vec<&Emission<T>>, u32)| *count += part.multiplicity())
+            .and_modify(|(_, count): &mut (Vec<&Emission<T, I>>, u32)| {
+                *count += part.multiplicity()
+            })
             .or_insert((choices, part.multiplicity()));
     }
     // Merge identical temporary output parts, including their source choices.
@@ -208,9 +223,9 @@ fn output_parts<'a, T: Copy + Ord>(
 
 /// Enumerate output count distributions lazily; retain the first bad multiset's
 /// emission origins so the caller can add a sound SAT blocking clause.
-fn forbidden_output<T: Copy + Ord>(
+fn forbidden_output<T: Copy + Ord, I: Copy + Ord>(
     constraint: &Constraint,
-    parts: &mut [OutputPart<'_, T>],
+    parts: &mut [OutputPart<'_, T, I>],
     cancellation: &Cancellation,
 ) -> Result<Option<Vec<T>>, Cancelled> {
     // Different distributions between overlapping parts can yield the same
@@ -258,19 +273,4 @@ fn forbidden_output<T: Copy + Ord>(
         }
     }
     Ok(None)
-}
-
-/// Advance to the next count distribution, preserving its total multiplicity.
-fn advance_counts(counts: &mut [u32]) -> bool {
-    let Some(position) = counts[..counts.len() - 1]
-        .iter()
-        .rposition(|&count| count != 0)
-    else {
-        return false;
-    };
-    counts[position] -= 1;
-    let remainder = counts[position + 1..].iter().sum::<u32>() + 1;
-    counts[position + 1..].fill(0);
-    counts[position + 1] = remainder;
-    true
 }

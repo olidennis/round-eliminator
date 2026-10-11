@@ -3,8 +3,8 @@
 //! Rules may distinguish occurrences of the same input label. Passive validity
 //! must hold for every compatible combination of outputs from active nodes.
 
-mod encoding;
-mod passive;
+use super::constraint_encoding as encoding;
+use super::passive;
 mod prepare;
 mod verify;
 
@@ -19,7 +19,7 @@ use rustsat::{
     solvers::{SolveIncremental, SolverResult},
     types::{Lit, TernaryVal},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use ts_rs::TS;
 
 use crate::model::LabelId;
@@ -27,17 +27,7 @@ use crate::model::Problem;
 use encoding::Choice;
 use passive::{Emission, forbidden_combination};
 
-/// How to verify passive output families during zero-round search.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize, TS)]
-#[serde(rename_all = "snake_case")]
-pub enum PassiveMode {
-    /// Exact for arbitrary constraints, including unions of condensed configurations.
-    #[default]
-    General,
-    /// Requires every maximal passive configuration to be listed, up to permutation.
-    /// The caller guarantees this; choosing this mode does not perform maximization.
-    Maximized,
-}
+pub use super::passive::PassiveMode;
 
 /// A `LocalRule` specifies, for a node of a certain `degree` and a certain `input`, to give a specific `output`.
 /// We use many of these rules to describe a zero round algorithm (one rule for each degree/input).
@@ -50,7 +40,6 @@ pub struct LocalRule {
     pub input: Option<Vec<LabelId>>,
     pub output: Vec<LabelId>,
 }
-
 
 /// A zero round algorithm is just a vector of local rules
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
@@ -174,7 +163,7 @@ fn search<S: SolveIncremental>(
             local.push(choices);
         }
         // then, we require the output configuration to be valid
-        encoding::encode_active(&mut solver, active, rule.degree, &local)?;
+        encoding::encode_constraint(&mut solver, active, rule.degree, &local, &[])?;
         positions.push(local);
     }
 

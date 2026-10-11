@@ -3,9 +3,9 @@ import { onBeforeUnmount, ref } from 'vue'
 import { send, type Backend } from './api'
 import type { Problem } from './generated/Problem'
 import type { Progress } from './generated/Progress'
-import type { Phase } from './generated/Phase'
 import type { ZeroRoundResult } from './generated/ZeroRoundResult'
 import ZeroRoundView from './ZeroRoundView.vue'
+import ComputationProgress from './ComputationProgress.vue'
 
 const props = defineProps<{ problem: Problem; backend: Backend }>()
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>('idle')
@@ -17,12 +17,6 @@ onBeforeUnmount(() => {
   controller?.abort()
   controller = null
 })
-
-const phases: Record<Phase, string> = {
-  queued: 'Waiting to start…', parsing: 'Reading the problem…',
-  enumerating: 'Enumerating input configurations…', encoding: 'Building the SAT constraints…',
-  solving: 'Searching for a strategy…', verifying: 'Checking passive configurations…',
-}
 
 function cancel() {
   controller?.abort()
@@ -69,15 +63,8 @@ async function run() {
 <template>
   <section class="analysis" aria-label="Zero-round solvability" :aria-busy="state === 'running'">
     <h3>Zero-round solvability</h3>
-    <div v-if="state === 'running'" class="computation-progress">
-      <progress aria-label="Zero-round computation in progress" />
-      <div role="status">
-        {{ progress ? phases[progress.phase] : 'Starting…' }}
-        <small v-if="progress && progress.iterations > 0">{{ progress.iterations }} candidate
-          {{ progress.iterations === 1 ? 'strategy examined' : 'strategies examined' }}.</small>
-      </div>
-      <button type="button" @click="cancel">Cancel</button>
-    </div>
+    <ComputationProgress v-if="state === 'running'" :progress="progress"
+      label="Zero-round computation in progress" @cancel="cancel" />
     <ZeroRoundView v-else-if="state === 'done' && result" :problem="problem" :result="result" />
     <template v-else>
       <p v-if="state === 'cancelled'" role="status">Computation cancelled.</p>

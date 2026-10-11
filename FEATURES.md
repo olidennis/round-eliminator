@@ -36,6 +36,15 @@ occurrences, for all problem variants, without a fixed expansion limit.
 The GUI includes editable classical-problem presets for all four entry forms.
 Preset degree fields are blank; graph classes are inferred from the constraints.
 
+Coloring solvability is implemented for vertex/strong hypergraph colorings,
+graph edge colorings, and incidence edge colorings, using both colors and
+original inputs. Fixed palettes, maximum palettes, and unbounded certificates
+are supported. Both passive verification modes share zero-round's matching and
+passive checks; the GUI uses general mode. Progress and proved palette bounds
+stream through both transports, with witnesses retained after cancellation.
+Orientation zero-round and orientation coloring solvability are covered by
+ordinary orientation input promises, without separate specialized algorithms.
+
 ## Things to think about in the future
 
 The current representation supports the implemented parsing and display features.
@@ -50,6 +59,7 @@ explicitly deferred at the user's request.
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
 | Optimize zero-round search | Benchmark the shared SAT search and counterexample checker on large instances before adding specialized paths or stronger refinements. |
+| Optimize coloring search | Benchmark lazy color-placement checks and incremental SAT refinements before adding symmetry breaking or alternate encodings. |
 | Expose maximized verification in the UI | Both verification modes are implemented and benchmarked. Once maximization exists, offer direct checking versus maximizing first, including that preparation cost. |
 | Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
 | Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |
@@ -88,8 +98,6 @@ explicitly deferred at the user's request.
 | Rename | Apply names entered in the renaming table. |
 | Remove `< >` | Strip generator brackets from proposed label names. |
 | Fix Outdegree | Add an orientation of the specified outdegree and recompute related analyses. |
-| Coloring | Compute zero-round solvability with a strong coloring, including hypergraphs. |
-| Edge Coloring Solvability | Compute the feasible edge-color palettes and corresponding output label sets. |
 | Apply Marks | Test whether Marks' technique yields a lower bound. |
 | Logstar Reversible Relaxations | Find relaxations reversible in O(log* n) rounds. |
 | Logstar Reversible Relaxations (old) | Run the earlier reversible-relaxation search. |
@@ -165,10 +173,6 @@ explicitly deferred at the user's request.
 
 | Feature | Short description |
 | --- | --- |
-| Coloring solvability | Report whether a suitable given coloring gives a zero-round solution and show color sets. |
-| Edge-coloring solvability | Report maximal/unbounded feasible palettes and output sets for input colors. |
-| Orientation zero-round solvability | Report solvability under a given orientation and show witness pairs. |
-| Orientation coloring solvability | Report coloring solvability under a given orientation and show witness pairs. |
 | Mergeable labels | List groups of labels that can be merged. |
 | Logstar reversible relaxations | Display reversible label groups and labels that must be removed. |
 | Fixed-point procedure status | Report whether a nontrivial fixed-point relaxation was obtained. |

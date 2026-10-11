@@ -31,7 +31,8 @@ for (const preset of problemPresets) {
   const response = await execute({ type: 'parse_problem', data: preset.definition })
   assert.equal(response.type, 'problem', `${preset.name}: ${JSON.stringify(response)}`)
   assert.deepEqual(response.data.graph_class, {
-    active: [3], passive: [preset.name === 'Bipartite maximal matching' ? 3 : 2],
+    active: [preset.name === '5-coloring with outdegree 2 (degree 5)' ? 5 : 3],
+    passive: [preset.name === 'Bipartite maximal matching' ? 3 : 2],
   }, preset.name)
   parsed.set(preset.name, response.data)
   const result = await execute({ type: 'check_zero_round', data: { problem: response.data } })

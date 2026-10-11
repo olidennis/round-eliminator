@@ -24,3 +24,19 @@ pub fn execute_with_progress(request: &str, on_progress: &js_sys::Function) -> S
     );
     serde_json::to_string(&response).expect("response must serialize")
 }
+
+/// Deliver the same generic event envelope used by the native SSE transport,
+/// including proved partial results while the search continues.
+#[wasm_bindgen]
+pub fn execute_with_events(request: &str, on_event: &js_sys::Function) -> String {
+    let mut report = |event| {
+        let json = serde_json::to_string(&event).expect("event must serialize");
+        let _ = on_event.call1(&wasm_bindgen::JsValue::NULL, &json.into());
+    };
+    let response = round_eliminator_3::api::execute_text_with_events(
+        request,
+        round_eliminator_3::computation::Cancellation::default(),
+        &mut report,
+    );
+    serde_json::to_string(&response).expect("response must serialize")
+}

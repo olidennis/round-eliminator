@@ -139,3 +139,101 @@ fn json_protocol_returns_problem_and_structured_error() {
     assert_eq!(result["type"], "error");
     assert!(result["data"]["location"].is_null());
 }
+
+fn coloring_request(search: serde_json::Value) -> String {
+    let mut request = analysis_request("A^3\nB^3\nC^3", "A BC\nB C");
+    request["type"] = "check_coloring".into();
+    request["data"]["kind"] = "vertex".into();
+    request["data"]["search"] = search;
+    request.to_string()
+}
+
+#[test]
+fn coloring_protocol_streams_bounds_without_parsing_or_echoing_the_problem() {
+    let mut events = Vec::new();
+    let response = execute_text_with_events(
+        &coloring_request(serde_json::json!({"kind":"maximum"})),
+        Cancellation::default(),
+        &mut |event| events.push(event),
+    );
+    let response = serde_json::to_value(response).unwrap();
+    assert_eq!(response["type"], "coloring");
+    assert_eq!(response["data"]["status"], "maximum");
+    assert_eq!(response["data"]["colors"], 3);
+    assert!(response["data"].get("problem").is_none());
+    let mut saw_lower = false;
+    let mut saw_upper = false;
+    for event in events {
+        match event {
+            ComputationEvent::Progress(progress) => assert_ne!(progress.phase, Phase::Parsing),
+            ComputationEvent::PartialResult(response) => {
+                let Response::ColoringBounds(bounds) = *response else {
+                    panic!("unexpected partial result")
+                };
+                saw_lower |= bounds.lower.is_some();
+                saw_upper |= bounds.upper.is_some();
+                assert_eq!(bounds.witness.is_some(), bounds.lower.is_some());
+            }
+            ComputationEvent::Response(_) => panic!("the final response is returned separately"),
+        }
+    }
+    assert!(saw_lower && saw_upper);
+    for (colors, status) in [(3, "solvable"), (4, "unsolvable")] {
+        let response: serde_json::Value = serde_json::from_str(&execute_json(&coloring_request(
+            serde_json::json!({"kind":"fixed", "colors":colors}),
+        )))
+        .unwrap();
+        assert_eq!(response["data"]["status"], status);
+        assert_eq!(response["data"]["colors"], colors);
+    }
+}
+
+#[test]
+fn coloring_cancellation_keeps_partial_proofs_and_never_implies_unsatisfiability() {
+    let cancellation = Cancellation::default();
+    let mut lower = None;
+    let response = execute_text_with_events(
+        &coloring_request(serde_json::json!({"kind":"maximum"})),
+        cancellation.clone(),
+        &mut |event| {
+            if let ComputationEvent::PartialResult(response) = event
+                && let Response::ColoringBounds(bounds) = *response
+                && bounds.lower.is_some()
+            {
+                lower = bounds.lower;
+                cancellation.cancel();
+            }
+        },
+    );
+    assert!(matches!(response, Response::Cancelled));
+    assert_eq!(lower, Some(2));
+
+    // This passive constraint is already maximized, so both modes are valid.
+    for mode in ["general", "maximized"] {
+        for phase in [
+            Phase::Enumerating,
+            Phase::Encoding,
+            Phase::Solving,
+            Phase::Verifying,
+        ] {
+            let mut request = analysis_request("A B", "AB^3");
+            request["type"] = "check_coloring".into();
+            request["data"]["kind"] = "incidence_edges".into();
+            request["data"]["search"] = serde_json::json!({"kind":"fixed", "colors":3});
+            request["data"]["passive_mode"] = mode.into();
+            let cancellation = Cancellation::default();
+            let response = execute_text_with_events(
+                &request.to_string(),
+                cancellation.clone(),
+                &mut |event| {
+                    if let ComputationEvent::Progress(progress) = event
+                        && progress.phase == phase
+                    {
+                        cancellation.cancel();
+                    }
+                },
+            );
+            assert!(matches!(response, Response::Cancelled), "{mode}: {phase:?}");
+        }
+    }
+}

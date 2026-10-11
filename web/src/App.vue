@@ -9,6 +9,7 @@ import type { ProblemText } from './generated/ProblemText'
 import ConstraintEditor from './ConstraintEditor.vue'
 import ProblemView from './ProblemView.vue'
 import ZeroRoundAnalysis from './ZeroRoundAnalysis.vue'
+import ColoringAnalysis from './ColoringAnalysis.vue'
 import { problemPresets, type ProblemPreset } from './presets'
 
 const kind = ref<ProblemText['kind']>('plain')
@@ -165,6 +166,7 @@ async function start() {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <ProblemView v-if="parsed" :problem="parsed">
       <ZeroRoundAnalysis :problem="parsed" :backend="backend" />
+      <ColoringAnalysis :problem="parsed" :backend="backend" />
     </ProblemView>
   </main>
 </template>

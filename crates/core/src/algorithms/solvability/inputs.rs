@@ -1,43 +1,38 @@
-//! Prepare active rules and condensed passive input families for zero-round computation.
-
-use super::LocalRule;
+//! Shared preparation of original inputs, without auxiliary coloring constraints.
 use crate::algorithms::configurations::concrete_multisets_with;
 use crate::computation::{Cancellation, Cancelled};
-use crate::model::LabelId;
-use crate::model::{CondensedConfiguration, Input, LabelSet, Part, Problem};
+use crate::model::{CondensedConfiguration, Input, LabelId, LabelSet, Part, Problem};
 
-/// Prepare one local rule for each concrete active input configuration at an allowed degree.
-/// The output is initialized as an empty vector.
-/// Note: condensed configurations get expanded into normal configurations, 
-/// because the algorithm could output different configurations in each case.
-pub(super) fn prepare_local_rules(
+pub(crate) struct LocalInput {
+    pub degree: u32,
+    pub labels: Option<Vec<LabelId>>,
+}
+
+/// Canonical sorted multisets suffice because constraints are invariant under
+/// port permutations. A strategy may still distinguish repeated occurrences
+/// using local port order, and may depend on the entire multiset.
+pub(crate) fn active_inputs(
     problem: &Problem,
     cancellation: &Cancellation,
-) -> Result<Vec<LocalRule>, Cancelled> {
+) -> Result<Vec<LocalInput>, Cancelled> {
     cancellation.check()?;
-    // Constraints are invariant under port permutations. Restricting a
-    // strategy to one canonical ordering of each input multiset preserves
-    // active validity and can only reduce the possible passive emissions.
-    // Thus sorted inputs suffice for existence, even for repeated labels.
-    let graph = problem.graph_class();
     Ok(match problem.input() {
         Input::Explicit(input) => {
-            concrete_multisets_with(input.active(), graph.active(), cancellation)?
+            concrete_multisets_with(input.active(), problem.graph_class().active(), cancellation)?
                 .into_iter()
-                .map(|input| LocalRule {
+                .map(|input| LocalInput {
                     degree: input.degree(),
-                    input: Some(input.occurrences().collect()),
-                    output: Vec::new(),
+                    labels: Some(input.occurrences().collect()),
                 })
                 .collect()
         }
-        Input::Trivial => graph
+        Input::Trivial => problem
+            .graph_class()
             .active()
             .iter()
-            .map(|&degree| LocalRule {
+            .map(|&degree| LocalInput {
                 degree,
-                input: None,
-                output: Vec::new(),
+                labels: None,
             })
             .collect(),
     })
@@ -46,9 +41,9 @@ pub(super) fn prepare_local_rules(
 /// Extract the possible input configurations from the passive constraint.
 /// Configurations are kept condensed.
 /// We will use these condensed input configurations to construct the possible
-/// output configurations that the zero round algorithm could create on the passive side,
+/// output configurations that a candidate strategy could create on the passive side,
 /// by replacing each input label with all possible output labels mapped to it.
-pub(super) fn prepare_passive_inputs(
+pub(crate) fn prepare_passive_inputs(
     problem: &Problem,
     cancellation: &Cancellation,
 ) -> Result<Vec<CondensedConfiguration<Option<LabelId>>>, Cancelled> {
@@ -92,22 +87,4 @@ pub(super) fn prepare_passive_inputs(
         }
     }
     Ok(configurations)
-}
-
-/// Candidate output labels at this degree, filtered by the mapping restriction.
-pub(super) fn output_domain(
-    problem: &Problem,
-    degree: u32,
-    input: Option<LabelId>,
-) -> Vec<LabelId> {
-    let labels: std::collections::BTreeSet<_> = problem
-        .output()
-        .active()
-        .configurations_at_degree(degree)
-        .iter()
-        .flat_map(|configuration| configuration.parts())
-        .flat_map(|part| part.labels().iter())
-        .filter(|&output| problem.output_allowed(input, output))
-        .collect();
-    labels.into_iter().collect()
 }

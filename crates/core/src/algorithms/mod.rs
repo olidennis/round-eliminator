@@ -2,4 +2,4 @@
 
 pub mod configurations;
 pub(crate) mod sat;
-pub mod zero_round;
+pub mod solvability;

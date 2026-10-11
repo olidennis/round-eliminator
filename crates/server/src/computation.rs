@@ -15,8 +15,8 @@ use axum::{
     },
 };
 use round_eliminator_3::{
-    api::{ApiError, ComputationEvent, Response, execute_text},
-    computation::{Cancellation, Computation, Phase, Progress},
+    api::{ApiError, ComputationEvent, Response, execute_text_with_events},
+    computation::{Cancellation, Phase, Progress},
 };
 use tokio::sync::{Semaphore, mpsc};
 use tokio_stream::{Stream, wrappers::ReceiverStream};
@@ -58,18 +58,12 @@ fn start(workers: Arc<Semaphore>, body: String) -> ComputationStream {
         let task = tokio::task::spawn_blocking(move || {
             // Retain the CPU permit until work actually exits after cancellation.
             let _permit = permit;
-            let mut report = |progress| {
-                if sender
-                    .blocking_send(event(ComputationEvent::Progress(progress)))
-                    .is_err()
-                {
+            let mut report = |update| {
+                if sender.blocking_send(event(update)).is_err() {
                     cancel_work.cancel();
                 }
             };
-            let response = execute_text(
-                &body,
-                &mut Computation::new(cancel_work.clone(), &mut report),
-            );
+            let response = execute_text_with_events(&body, cancel_work.clone(), &mut report);
             let _ = sender.blocking_send(event(ComputationEvent::Response(Box::new(response))));
         });
         if let Err(error) = task.await {

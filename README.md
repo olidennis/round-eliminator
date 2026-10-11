@@ -3,7 +3,7 @@
 This is a new implementation on the `re3` branch. Start parses and validates
 active/passive problem definitions, and the GUI displays the returned definition.
 It supports plain problems and all three input variants described below.
-The zero-round check supports all four variants and returns a local-rule witness.
+Zero-round and coloring checks support all four variants and return strategy witnesses.
 Other operations remain listed in [FEATURES.md](FEATURES.md).
 
 The root is a virtual Cargo workspace. `crates/core` contains the portable
@@ -89,7 +89,16 @@ crates/core/src/
 │   ├── graph.rs
 │   └── tests.rs
 ├── parser/                # text entry, notation, and paired conversion
-├── algorithms/            # matching, SAT support, and problem algorithms
+├── algorithms/
+│   ├── configurations.rs # generic enumeration, membership, and matching
+│   ├── sat.rs            # solver setup and generic formula operations
+│   └── solvability/       # analyses and strategy-specific shared helpers
+│       ├── mod.rs
+│       ├── zero_round/
+│       ├── coloring/
+│       ├── constraint_encoding.rs # shared SAT matching for solvability
+│       ├── inputs.rs
+│       └── passive.rs
 └── api/
     ├── mod.rs             # shared dispatch and JSON execution
     ├── protocol.rs        # request/response/event schema
@@ -116,14 +125,23 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/api/protocol.rs` | Request, response, progress-event, and API error schema; generated TypeScript types. |
 | `crates/core/src/computation.rs` | Transport-independent cancellation flag and computation phases. |
 | `crates/core/src/algorithms/sat.rs` | RustSAT formula builder, generic cardinality encodings, and target-specific backend setup. |
-| `crates/core/src/algorithms/configurations.rs` | Concrete input multiset enumeration and exact membership in condensed constraints. |
-| `crates/core/src/algorithms/zero_round/mod.rs` | Public verification mode/result types and shared SAT search with counterexample refinement. |
-| `crates/core/src/algorithms/zero_round/prepare.rs` | Prepare active rules and retain condensed passive input families. |
-| `crates/core/src/algorithms/zero_round/encoding.rs` | Encode active configuration matching for the zero-round search. |
-| `crates/core/src/algorithms/zero_round/passive.rs` | Shared passive emission families, containment, exact output checks, and blocking clauses. |
-| `crates/core/src/algorithms/zero_round/verify.rs` | Complete witness verification using the general passive checker. |
+| `crates/core/src/algorithms/configurations.rs` | Concrete multiset enumeration, count-distribution stepping, condensed containment, and flow matching of offered labels to allowed configurations. |
+| `crates/core/src/algorithms/solvability/inputs.rs` | Original active input multisets and condensed passive input families, shared by both analyses. |
+| `crates/core/src/algorithms/solvability/constraint_encoding.rs` | Shared SAT matching for solvability, with optional activation gates. |
+| `crates/core/src/algorithms/solvability/passive.rs` | Shared verification modes, emission families, containment, exact output checks, and blocking clauses. |
+| `crates/core/src/algorithms/solvability/zero_round/mod.rs` | Local-rule types and SAT search with counterexample refinement. |
+| `crates/core/src/algorithms/solvability/zero_round/prepare.rs` | Prepare initially empty active rules and their output domains. |
+| `crates/core/src/algorithms/solvability/zero_round/verify.rs` | Complete witness verification using the general passive checker. |
+| `crates/core/src/algorithms/solvability/coloring/mod.rs` | Coloring types, fixed/maximum palette search, unbounded certificates, and streamed bounds. |
+| `crates/core/src/algorithms/solvability/coloring/encoding.rs` | Incremental SAT on color/input output sets; active and passive counterexample refinement. |
+| `crates/core/src/algorithms/solvability/coloring/prepare.rs` | Visit color placements while preserving condensed original passive input choices. |
+| `crates/core/src/algorithms/solvability/coloring/verify.rs` | Verify finite and repeatable coloring witnesses independently of SAT. |
 
 The model, parser, and API each keep their tests in a neighboring `tests.rs` module.
+`algorithms::solvability` groups zero-round and coloring checks with their shared
+local input preparation and strategy verification. General constraint operations,
+constraint SAT encoding, and solver support live directly in `algorithms`, so
+other analyses and transformations can use them independently of solvability.
 Short modules keep small test suites inline; larger algorithm suites use neighboring
 test modules. Matching benchmarks and their shared native/wasm fixtures live in
 `crates/core/benches`.
@@ -181,7 +199,7 @@ only where port positions matter, such as local-rule witnesses.
 The **Examples** buttons load editable definitions for MIS, maximal matching,
 bipartite maximal matching, vertex coloring, and edge grabbing, including
 orientation and edge-coloring input promises. Ordinary graph examples use
-degree-three vertices and degree-two edges; bipartite maximal matching uses
+degree-three or degree-five vertices and degree-two edges; bipartite maximal matching uses
 degree three on both sides. Degree fields stay blank so Start infers the graph
 class from the constraints.
 
@@ -259,7 +277,7 @@ decide which input configurations have global graph realizations. A passive
 input with no compatible active neighbors creates no obligation. Degree-zero
 configurations are checked separately, including on the passive side.
 
-`algorithms::zero_round::verify_strategy` checks witness coverage, active validity,
+`algorithms::solvability::zero_round::verify_strategy` checks witness coverage, active validity,
 mapping restrictions, and universal passive validity without a SAT solver.
 Tests compare search results against exhaustive strategies on small instances.
 The search has no imposed configuration or iteration limit; active input
@@ -283,6 +301,57 @@ SAT solving, and passive checking. Cancellation is cooperative at these checks.
 Wasm runs each request in a dedicated worker and reports the same progress events
 through messages. Cancellation terminates that worker, including its synchronous
 wasm execution. Both transports use the same Rust request dispatch.
+
+## Coloring solvability
+
+The parsed problem has a separate **Check coloring solvability** button. Choose
+a fixed palette or search for the maximum palette. The strategy can use both
+the given colors and all original incident inputs; it retains their promise,
+mapping restrictions, and graph class. Orientation is represented by ordinary
+input constraints and needs no separate orientation algorithm.
+
+| Given coloring | Promise |
+| --- | --- |
+| Vertex | One color at each active node; colors around each passive node are distinct. This is proper graph coloring and strong hypergraph coloring. |
+| Graph edge | Colors differ at active nodes and agree across each degree-two passive edge. Other passive degrees are unsupported for this kind. |
+| Incidence edge | Colors differ around both active and passive nodes. Supports arbitrary allowed degree sets. |
+
+Only locally feasible palettes are queried: at least the maximum passive degree
+for vertex coloring, maximum active degree for graph edge coloring, and maximum
+degree on either side for incidence edge coloring, with at least one color.
+As with the zero-round check, listed input configurations are local obligations;
+global realizability of the input promise is not decided.
+
+SAT variables describe output-set membership for each `(color, original input)`.
+For every full active input/color configuration, some allowed active output must
+be obtainable from those sets. Passive validity must hold for every possible
+combination. This still permits output choices to depend on the full active
+input configuration and local ports, rather than fixing one output per label.
+Active matching and passive containment/exact checks are shared with zero-round.
+The general and maximized modes have the same preconditions described above;
+the GUI uses general mode. Original passive input alternatives stay condensed.
+Color placements are visited lazily; no explicit colored input problem is built.
+
+A maximum search first checks for a color-independent zero-round strategy. If
+one exists, every locally feasible palette works, and the witness gives a single
+repeatable behavior. Otherwise it doubles palette sizes until UNSAT, then uses
+binary search to find the maximum. Each query reuses the same incremental SAT
+solver; activation assumptions allow subsequent smaller queries. With finite
+labels and bounded degrees, an unbounded palette would contain enough identical
+output behaviors to give a color-independent strategy, so this search terminates
+without an arbitrary palette cutoff. Large instances can still be expensive.
+
+After each decision, both transports send a `partial_result` event containing
+`coloring_bounds`: a proved solvable lower bound with its witness, an inclusive
+upper bound when known, and the palette being tested. The UI displays these
+during the next query and preserves them after cancellation. Cancellation never
+counts as UNSAT. Completed results report a maximum, unbounded solvability, no
+feasible palette, or the answer to a fixed-palette check. Witness IDs refer to
+the existing problem tables; the response does not echo or reparse the problem.
+
+`algorithms::solvability::coloring::verify_witness` checks the strategy with flow matching and
+general passive verification, without SAT. Tests also compare the compact
+encoding with independently constructed explicit colored input problems.
 
 ## Run
 
@@ -312,6 +381,9 @@ To compare parsed definitions and solvability decisions for all variants, run th
 `npm run test:wasm -- http://127.0.0.1:8080/api` from `web`.
 `npm run test:presets -- http://127.0.0.1:8080/api` checks every GUI preset
 and the equivalence of the mapped/paired examples. Omit the URL for wasm only.
+`npm run test:coloring -- http://127.0.0.1:8080/api` checks all coloring kinds,
+original input restrictions, both passive modes on maximized fixtures, and
+streamed bounds through both transports.
 The preset script imports TypeScript directly and requires Node 22.18 or newer.
 Build wasm before building the frontend so that `web/dist` contains the latest
 wasm artifacts.

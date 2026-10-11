@@ -45,6 +45,26 @@ export const problemPresets: ProblemPreset[] = [
     definition: { kind: 'plain', degrees: inferredDegrees, constraints: coloring },
   },
   {
+    name: '3-coloring with outdegree 1',
+    description: 'Proper vertex 3-coloring on a 3-regular graph, given an orientation with exactly one outgoing (O) and two incoming (I) edges at every vertex.',
+    definition: {
+      kind: 'independent', degrees: inferredDegrees, output: coloring,
+      input: { active: 'O I^2', passive: 'I O' },
+    },
+  },
+  {
+    name: '5-coloring with outdegree 2 (degree 5)',
+    description: 'Proper vertex 5-coloring on a 5-regular graph, given an orientation with exactly two outgoing (O) and three incoming (I) edges at every vertex.',
+    definition: {
+      kind: 'independent', degrees: inferredDegrees,
+      input: { active: 'O^2 I^3', passive: 'I O' },
+      output: {
+        active: 'A^5\nB^5\nC^5\nD^5\nE^5',
+        passive: 'A BCDE\nB CDE\nC DE\nD E',
+      },
+    },
+  },
+  {
     name: 'Edge grabbing',
     description: 'On a 3-regular graph, each vertex grabs exactly one incident edge (G). An edge cannot be grabbed from both ends; N means not grabbed.',
     definition: { kind: 'plain', degrees: inferredDegrees, constraints: edgeGrabbing },
