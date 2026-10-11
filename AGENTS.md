@@ -100,6 +100,9 @@ the user's Mac. Git worktree repairs may rewrite this pointer; restore it to
 ## Workflow
 
 `FEATURES.md` inventories existing GUI behavior and tracks unimplemented work.
+After implementing a feature, update its status and any related controls or
+displayed results there. Keep old button names alongside renamed equivalents;
+audit against the actual UI and API rather than relying on the summary prose.
 Start now accepts all four problem variants, sends their text to Rust,
 and displays the returned definition. The user selected a typed Rust protocol
 with generated TypeScript types, thin server/wasm adapters, a degree-indexed
