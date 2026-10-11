@@ -26,9 +26,9 @@ function labelFormatter(labels: string[]) {
 </script>
 
 <template>
-  <section class="result" aria-label="Parsed problem">
+  <section class="result" aria-label="Problem">
     <div class="problem-header">
-      <div class="problem-title"><h2>Parsed problem</h2><span v-if="current" class="current-problem">Current</span></div>
+      <div class="problem-title"><span v-if="current" class="current-problem">Current</span></div>
       <div class="problem-actions">
         <button type="button" class="secondary-button" :aria-expanded="!collapsed" :aria-controls="bodyId"
           @click="emit('toggle')">{{ collapsed ? 'Expand' : 'Collapse' }}</button>

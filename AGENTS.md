@@ -355,6 +355,9 @@ than replacing any existing problem. Cancellation leaves a retry button.
 
 ## UI history and sessions
 
+The native server serves `web/dist`. After frontend edits, run `npm run build`
+in `web` so the served UI includes them; typechecking alone does not rebuild it.
+
 The user requested multiple independently closable problems, whole-card collapse,
 per-section collapse, and bulk Collapse all / Expand all / Collapse all except
 current controls. Current is the most recently created or interacted-with card,

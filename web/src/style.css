@@ -30,7 +30,6 @@ select { margin-left: .4rem; border: 1px solid #aab4c0; background: white; }
 .session-controls { margin-bottom: 1.5rem; }
 .session-controls input[hidden] { display: none; }
 .problem-header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.problem-header h2 { margin-bottom: 0; }
 .problem-title, .problem-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .current-problem { font-size: .8rem; color: #175fbd; background: #edf3fb; padding: .2rem .4rem; border-radius: .25rem; }
 .problem-list-actions { flex-wrap: wrap; }

@@ -69,7 +69,7 @@ overshoots such as querying 20 directly after proving 10 colors solvable.
 | Input-to-output mapping | Enter input/output constraints and the allowed output labels for each input label. |
 | Graph class | Specify possible degrees on each side, or infer them when the fields are blank. |
 | Run on: Server / WebAssembly | Choose either backend for parsing and analyses through the same API. |
-| Parsed constraints and label counts | Show input/output constraints by degree, label counts, and degrees excluded by the graph class. |
+| Constraints and label counts | Show input/output constraints by degree, label counts, and excluded degrees, without a repeated problem-card title. |
 | Allowed outputs for each input | Display the problem's restricted mapping; this differs from a transformation's source-to-result label mapping. |
 | Parse errors | Report the affected editor field and line when available, preserving existing problems. |
 
