@@ -7,15 +7,15 @@ use crate::{
     parser::parse_problem,
 };
 
-fn problem(value: serde_json::Value) -> Problem {
+pub(super) fn problem(value: serde_json::Value) -> Problem {
     parse_problem(serde_json::from_value(value).unwrap()).unwrap()
 }
 
-fn plain(active: &str, passive: &str) -> Problem {
+pub(super) fn plain(active: &str, passive: &str) -> Problem {
     problem(serde_json::json!({"kind":"plain", "constraints":{"active":active,"passive":passive}}))
 }
 
-fn fixed(problem: &Problem, kind: ColoringKind, colors: u32) -> bool {
+pub(super) fn fixed(problem: &Problem, kind: ColoringKind, colors: u32) -> bool {
     match check(
         problem,
         kind,
@@ -316,7 +316,10 @@ fn unbounded_certificates_use_original_inputs_and_cover_nonregular_and_zero_degr
             };
             assert!(verify_witness(&p, kind, &witness, true));
             let mut broken = witness;
-            for behavior in &mut broken.behaviors {
+            let ColoringWitness::LocalColors { behaviors } = &mut broken else {
+                panic!("expected local-color witness");
+            };
+            for behavior in behaviors {
                 behavior.outputs_by_input.fill(LabelSet::default());
             }
             assert!(!verify_witness(&p, kind, &broken, true));

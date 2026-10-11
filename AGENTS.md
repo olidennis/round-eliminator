@@ -160,6 +160,50 @@ colored input problems, verify witnesses, and check both transports using
 `web/scripts/test-coloring.mjs`. No performance superiority is claimed without
 benchmarks; further coloring optimizations are listed in FEATURES.md.
 
+## Distance-two coloring decisions
+
+Standard distance-two coloring decision: the user corrected the initial
+information model: an active node knows its own color and all neighbors' colors.
+Implement this for degree-two passive nodes only, without a greedy coloring
+promise. The initial fixed-palette version is now extended to maximum search.
+Do not reuse the color-independent unbounded certificate, which applies to the
+three color kinds without neighbor information. Keep original inputs and output
+mapping available to strategies.
+Distance-two membership keys are `(own color, neighbor color, original input)`;
+active matching handles the whole configuration with pairwise distinct neighbor
+colors excluding the center. Passive endpoints reverse the two color indices.
+On trees, remaining endpoint contexts combine independently, so the compressed
+representation is exact under our existing local-input semantics. Original
+passive input alternatives stay condensed. `coloring/distance_two.rs` owns this
+incremental numerical search and its independent non-SAT witness checks; it reuses shared
+constraint encoding, color-placement helpers and passive verification. Both
+passive modes work. `ColoringWitness` distinguishes local-color and neighbor-color
+certificates; its matrices index actual colors, with empty diagonal entries.
+The UI uses the existing request, shows own and neighbor colors, and explains
+that output choices are made as whole active configurations. Test against
+independently materialized tiny colored input problems, including all four
+entry forms, nonregular degrees, mapping, cancellation and both transports.
+
+The user approved the order-based unbounded check: a node uses only each
+neighbor's smaller/larger comparison with its own color, plus all original
+inputs, to choose a whole valid active output. `coloring/order.rs` reduces this
+to the existing zero-round solver using two temporary input labels per original
+input, preserving condensed constraints and reversing comparisons at each edge.
+Returned `ColoringWitness::ColorOrder` stores the smaller/larger output tables;
+the UI shows `Any / Smaller` and `Any / Larger`. Check this certificate without
+SAT by testing all comparison patterns and opposite-endpoint emissions.
+Completeness under local/tree semantics uses finite Ramsey: classify palette
+pairs by both directional output tables over all inputs; a homogeneous subset
+of size max(active_degree + 1, 2) covers every comparison pattern. Thus failure
+proves a finite numerical maximum. Do not compute a huge Ramsey bound or add a
+heuristic palette cutoff. Both numerical searches share `search_maximum` in
+`coloring/mod.rs`. Distance-two queries retain memberships, active encodings and
+learned clauses in one solver; gate active obligations by all their colors and
+disable out-of-palette memberships when shrinking. Retain streamed proofs on
+cancellation. `coloring/tests.rs` covers the original three kinds, while the
+larger `coloring/distance_two_tests.rs` covers neighbor colors and order
+certificates; keep these adjacent files rather than making a test-only folder.
+
 ## Zero-round solvability decisions
 
 The user approved a shared SAT approach for all four variants, then RustSAT

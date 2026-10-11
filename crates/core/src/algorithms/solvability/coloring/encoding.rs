@@ -100,7 +100,7 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
             }
             behaviors.push(ColorBehavior { outputs_by_input });
         }
-        Ok(ColoringWitness { behaviors })
+        Ok(ColoringWitness::LocalColors { behaviors })
     }
 
     pub fn solve(
@@ -135,6 +135,9 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
             self.iterations = self.iterations.saturating_add(1);
             computation.report(Phase::Verifying, self.iterations)?;
             let witness = self.witness(colors)?;
+            let ColoringWitness::LocalColors { behaviors } = &witness else {
+                unreachable!("local-color search produces local-color witnesses");
+            };
             let mut failed = None;
             for (context, input) in self.active_inputs.iter().enumerate() {
                 let inputs = port_inputs(input);
@@ -148,9 +151,8 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                             .iter()
                             .zip(palette)
                             .map(|(&input, &color)| {
-                                witness.behaviors[color as usize].outputs_by_input
-                                    [input_index(input)]
-                                .clone()
+                                behaviors[color as usize].outputs_by_input[input_index(input)]
+                                    .clone()
                             })
                             .collect();
                         if !allows_positions_with(

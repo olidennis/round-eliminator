@@ -9,7 +9,7 @@ const constraints = (active, passive) => ({ active, passive })
 const plain = (active, passive) => ({ kind: 'plain', constraints: constraints(active, passive) })
 let checks = 0
 
-function checkEvents(events, response) {
+function checkEvents(events, response, kind) {
   assert.ok(events.some(event => event.type === 'progress'))
   assert.ok(events.every(event => event.type !== 'progress' || event.data.phase !== 'parsing'))
   let lower = 0
@@ -20,6 +20,7 @@ function checkEvents(events, response) {
     const bounds = event.data.data
     if (bounds.lower !== null) {
       assert.ok(bounds.lower >= lower)
+      assert.equal(bounds.witness.kind, kind === 'distance_two' ? 'neighbor_colors' : 'local_colors')
       assert.equal(bounds.witness.behaviors.length, bounds.lower)
       lower = bounds.lower
     } else assert.equal(bounds.witness, null)
@@ -71,13 +72,29 @@ async function check(definition, kind, search, expected, mode = 'general') {
   assert.equal(response.data.status, expected.status)
   if ('colors' in expected) assert.equal(response.data.colors, expected.colors)
   assert.equal('problem' in response.data, false)
-  checkEvents(events, response)
+  if (response.data.status === 'solvable') {
+    const witness = response.data.witness
+    assert.equal(witness.kind, kind === 'distance_two' ? 'neighbor_colors' : 'local_colors')
+    assert.equal(witness.behaviors.length, search.colors)
+    if (kind === 'distance_two') {
+      for (const [own, behavior] of witness.behaviors.entries()) {
+        assert.equal(behavior.outputs_by_neighbor.length, search.colors)
+        assert.ok(behavior.outputs_by_neighbor[own].outputs_by_input.every(outputs => outputs.length === 0))
+      }
+    }
+  }
+  if (kind === 'distance_two' && response.data.status === 'unbounded') {
+    assert.equal(response.data.witness.kind, 'color_order')
+    assert.ok(response.data.witness.smaller.outputs_by_input)
+    assert.ok(response.data.witness.larger.outputs_by_input)
+  }
+  checkEvents(events, response, kind)
   if (serverUrl) {
     const native = await nativeEvents(body)
     assert.equal(native.response.type, response.type)
     assert.equal(native.response.data.status, response.data.status)
     assert.equal(native.response.data.colors, response.data.colors)
-    checkEvents(native.events, native.response)
+    checkEvents(native.events, native.response, kind)
   }
   checks++
   return events
@@ -110,10 +127,59 @@ await check(plain('()\nA\nA^3', '()\nA^2'), 'incidence_edges', { kind: 'maximum'
 
 // These passive constraints are manually maximized. No maximization is run.
 for (const mode of ['general', 'maximized']) {
+  await check(plain('O I', 'O I'), 'distance_two', { kind: 'maximum' },
+    { status: 'maximum', colors: 3 }, mode)
+  await check(plain('OI^2', 'O I'), 'distance_two', { kind: 'maximum' },
+    { status: 'unbounded' }, mode)
+  await check(plain('O I', 'O I'), 'distance_two', { kind: 'fixed', colors: 3 },
+    { status: 'solvable', colors: 3 }, mode)
+  await check(plain('O I', 'O I'), 'distance_two', { kind: 'fixed', colors: 4 },
+    { status: 'unsolvable', colors: 4 }, mode)
   await check(plain('A^2\nB^2', 'A B'), 'vertex', { kind: 'maximum' }, { status: 'maximum', colors: 2 }, mode)
   await check(plain('A B', 'AB^2'), 'incidence_edges', { kind: 'maximum' }, { status: 'unbounded' }, mode)
   await check(plain('A B\nA C\nB C', 'A A\nB B\nC C'), 'graph_edges', { kind: 'maximum' },
     { status: 'maximum', colors: 3 }, mode)
+}
+
+await check(plain('A B C', 'A A\nB B\nC C'), 'distance_two', { kind: 'fixed', colors: 4 },
+  { status: 'solvable', colors: 4 })
+await check(plain('A B C', 'A A\nB B\nC C'), 'distance_two', { kind: 'fixed', colors: 5 },
+  { status: 'unsolvable', colors: 5 })
+await check({ kind: 'mapped', input: constraints('a b', 'a b'),
+  output: constraints('O I', 'O I'), mapping: 'a -> O\nb -> I' },
+  'distance_two', { kind: 'fixed', colors: 3 }, { status: 'solvable', colors: 3 })
+await check({ kind: 'paired', constraints: constraints('(a,O) (b,I)', '(a,O) (b,I)') },
+  'distance_two', { kind: 'fixed', colors: 3 }, { status: 'solvable', colors: 3 })
+await check(plain('()\nA\nA B', 'AB^2'), 'distance_two', { kind: 'fixed', colors: 3 },
+  { status: 'solvable', colors: 3 })
+await check(plain('()', 'O I'), 'distance_two', { kind: 'fixed', colors: 1 },
+  { status: 'solvable', colors: 1 })
+await check(plain('()\nOI\nOI^3', 'O I'), 'distance_two', { kind: 'maximum' },
+  { status: 'unbounded' })
+await check({ kind: 'mapped', input: constraints('a^2\nb^2', 'ab^2'),
+  output: constraints('AB^2\nCD^2', 'AC BD'), mapping: 'a -> AB\nb -> CD' },
+  'distance_two', { kind: 'maximum' }, { status: 'unbounded' })
+await check({ kind: 'paired', constraints: constraints('(a,O)(a,I)^2\n(b,O)(b,I)^2', '(a,O)(b,O) (a,I)(b,I)') },
+  'distance_two', { kind: 'maximum' }, { status: 'unbounded' })
+await check({ kind: 'plain', constraints: constraints('A^2', ''), degrees: { active: '2', passive: '2' } },
+  'distance_two', { kind: 'maximum' }, { status: 'no_palette' })
+
+for (const [definition, search] of [
+  [plain('O I', 'O I'), { kind: 'fixed', colors: 2 }],
+  [plain('A', 'A^3'), { kind: 'fixed', colors: 3 }],
+]) {
+  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
+  const body = JSON.stringify({ type: 'check_coloring', data: {
+    problem: parsed.data, kind: 'distance_two', search,
+  } })
+  const response = JSON.parse(execute_json(body))
+  assert.equal(response.type, 'error')
+  if (serverUrl) {
+    const native = await nativeEvents(body)
+    assert.equal(native.response.type, 'error')
+    assert.equal(native.response.data.message, response.data.message)
+  }
+  checks++
 }
 
 console.log(`${checks} coloring checks passed ${serverUrl ? 'wasm/server' : 'wasm'} checks, including streamed bounds.`)

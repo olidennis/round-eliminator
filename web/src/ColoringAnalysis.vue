@@ -21,11 +21,19 @@ const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => { controller?.abort(); controller = null })
 
-const minimum = computed(() => Math.max(1, ...(
+const minimum = computed(() => kind.value === 'distance_two'
+  ? Math.max(0, ...props.problem.graph_class.active) + 1
+  : Math.max(1, ...(
   kind.value === 'vertex' ? props.problem.graph_class.passive :
   kind.value === 'graph_edges' ? props.problem.graph_class.active :
   [...props.problem.graph_class.active, ...props.problem.graph_class.passive]
 )))
+const ordinaryGraph = computed(() => props.problem.graph_class.passive.every(degree => degree === 2))
+watch(kind, value => {
+  if (value === 'distance_two') {
+    colors.value = Math.max(colors.value, minimum.value)
+  }
+})
 const witness = computed(() => {
   const r = result.value
   return r && 'witness' in r ? r.witness : bounds.value?.witness
@@ -96,6 +104,7 @@ async function run() {
       <label>Given coloring
         <select v-model="kind">
           <option value="vertex">Vertex coloring (strong on hypergraphs)</option>
+          <option value="distance_two" :disabled="!ordinaryGraph">Distance-two vertex coloring</option>
           <option value="graph_edges">Graph edge coloring</option>
           <option value="incidence_edges">Incidence edge coloring</option>
         </select>
@@ -110,7 +119,11 @@ async function run() {
         <input v-model.number="colors" type="number" :min="minimum" step="1" />
       </label>
     </fieldset>
-    <p class="hint">The strategy can use the given colors and all original inputs.
+    <p v-if="kind === 'distance_two'" class="hint">Each node knows its own color, all neighboring
+      colors, and all original local inputs. Colors in each closed neighborhood are distinct.
+      This check requires graphs with passive degree 2.
+      At least {{ minimum }} colors are required locally.</p>
+    <p v-else class="hint">The strategy can use the given colors and all original inputs.
       Vertex colors differ around each passive node; graph edge colors agree across
       a degree-two passive edge and differ at active nodes; incidence edge colors
       differ at both sides. At least {{ minimum }} colors are required locally.</p>

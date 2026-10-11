@@ -315,10 +315,12 @@ input constraints and needs no separate orientation algorithm.
 | Vertex | One color at each active node; colors around each passive node are distinct. This is proper graph coloring and strong hypergraph coloring. |
 | Graph edge | Colors differ at active nodes and agree across each degree-two passive edge. Other passive degrees are unsupported for this kind. |
 | Incidence edge | Colors differ around both active and passive nodes. Supports arbitrary allowed degree sets. |
+| Distance-two vertex | A node knows its own and all neighboring colors. Colors in each closed neighborhood are distinct. Requires passive degree 2. Supports fixed and maximum palettes. |
 
 Only locally feasible palettes are queried: at least the maximum passive degree
 for vertex coloring, maximum active degree for graph edge coloring, and maximum
 degree on either side for incidence edge coloring, with at least one color.
+Distance-two coloring requires at least maximum active degree plus one colors.
 As with the zero-round check, listed input configurations are local obligations;
 global realizability of the input promise is not decided.
 
@@ -332,7 +334,43 @@ The general and maximized modes have the same preconditions described above;
 the GUI uses general mode. Original passive input alternatives stay condensed.
 Color placements are visited lazily; no explicit colored input problem is built.
 
-A maximum search first checks for a color-independent zero-round strategy. If
+Distance-two witnesses instead index sets by `(own color, neighbor color,
+original input)`. At an active node, neighbor colors are distinct and exclude
+its own color. Across an edge, the endpoint indices reverse. On trees, the
+remaining endpoint contexts can be combined independently, so this compressed
+witness retains full local configuration-dependent strategies. Original passive
+input choices remain condensed, and both verification modes are supported.
+The UI shows both endpoint colors and explains that outputs must be chosen as
+a whole valid active configuration, rather than independently at each port.
+The implementation is in `coloring/distance_two.rs`, sharing SAT matching and
+passive verification with the other checks. It does not support greedy coloring.
+
+For distance-two maximum search, `coloring/order.rs` first checks a strategy using
+only whether each neighbor's color is smaller or larger than the node's own.
+It retains all original inputs and whole-configuration output choices. This
+reduces to an ordinary zero-round problem with two temporary input labels per
+original label, condensed active choices and opposite comparisons across each
+passive edge. No numerical palette is constructed for this check. The UI displays
+the resulting two tables as `Any / Smaller` and `Any / Larger`.
+
+The completeness argument applies the [finite Ramsey theorem](https://math.mit.edu/~fox/MAT307-lecture05.pdf)
+to the compact numeric witness. Classify each unordered color pair by both
+directional output-set tables, including every original input. There are finitely
+many such classifications. A sufficiently large palette contains a homogeneous
+subset of size at least maximum active degree plus one (and two for an edge).
+Every smaller/larger neighborhood pattern is realized by choosing the center's
+rank in this subset. Its constant directional tables therefore supply an order
+certificate. Conversely, an order certificate works for every feasible palette.
+Under the existing local/tree semantics, failing this check proves that the
+numerical maximum is finite; the implementation does not calculate a Ramsey bound.
+It then uses the same doubling/binary-search and streamed bounds as the other
+coloring kinds, retaining one incremental SAT solver and gating each active
+obligation by all colors in that neighborhood. Smaller queries disable memberships
+involving colors outside their palette. Exact checks and cancellation apply
+throughout, and the order witness has its own non-SAT verifier.
+
+For the three color kinds without neighbor information, a maximum search first
+checks for a color-independent zero-round strategy. If
 one exists, every locally feasible palette works, and the witness gives a single
 repeatable behavior. Otherwise it doubles palette sizes until UNSAT, then uses
 binary search to find the maximum. Each query reuses the same incremental SAT

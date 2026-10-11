@@ -1,7 +1,7 @@
 //! Witness verification using flow and exact passive checks, without SAT.
 
 use super::{
-    ColoringKind, ColoringWitness,
+    ColoringKind, ColoringWitness, distance_two, order,
     prepare::{self, input_index, port_inputs},
 };
 use crate::{
@@ -16,8 +16,8 @@ use crate::{
     model::Problem,
 };
 
-/// `repeat` certifies an unbounded result by using the first behavior for every
-/// color. Checking enough copies to cover all degrees establishes repeatability.
+/// `repeat` checks an unbounded certificate: a repeated local behavior or the
+/// distance-two smaller/larger strategy. Otherwise check a fixed numeric palette.
 pub fn verify_witness(
     problem: &Problem,
     kind: ColoringKind,
@@ -34,9 +34,19 @@ fn verify_with(
     repeat: bool,
     cancellation: &Cancellation,
 ) -> anyhow::Result<bool> {
+    if kind == ColoringKind::DistanceTwo {
+        return if repeat {
+            order::verify_with(problem, witness, cancellation)
+        } else {
+            distance_two::verify_with(problem, witness, cancellation)
+        };
+    }
+    let ColoringWitness::LocalColors { behaviors } = witness else {
+        return Ok(false);
+    };
     let minimum = prepare::minimum(problem, kind)?;
     let colors = if repeat {
-        if witness.behaviors.len() != 1 {
+        if behaviors.len() != 1 {
             return Ok(false);
         }
         problem
@@ -49,13 +59,13 @@ fn verify_with(
             .unwrap_or(1)
             .max(1)
     } else {
-        u32::try_from(witness.behaviors.len())?
+        u32::try_from(behaviors.len())?
     };
     if colors < minimum {
         return Ok(false);
     }
     let inputs = prepare::input_labels(problem);
-    for behavior in &witness.behaviors {
+    for behavior in behaviors {
         if behavior.outputs_by_input.len() != inputs.len() {
             return Ok(false);
         }
@@ -70,7 +80,7 @@ fn verify_with(
             }
         }
     }
-    let behavior = |color: u32| &witness.behaviors[if repeat { 0 } else { color as usize }];
+    let behavior = |color: u32| &behaviors[if repeat { 0 } else { color as usize }];
     for input in active_inputs(problem, cancellation)? {
         let inputs = port_inputs(&input);
         if !prepare::active_colors(&inputs, kind, colors, cancellation, &mut |palette| {

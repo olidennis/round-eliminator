@@ -44,6 +44,12 @@ passive checks; the GUI uses general mode. Progress and proved palette bounds
 stream through both transports, with witnesses retained after cancellation.
 Orientation zero-round and orientation coloring solvability are covered by
 ordinary orientation input promises, without separate specialized algorithms.
+Standard distance-two vertex coloring is supported for passive degree 2,
+with each node knowing its own and its neighbors' colors. The check combines
+these with all original inputs, keeps passive inputs condensed, and supports
+fixed and maximum palettes, order-based unbounded certificates, and both
+verification modes on native and wasm. Numerical queries share streamed bounds
+and reuse an incremental SAT solver across increasing and decreasing palettes.
 
 ## Things to think about in the future
 
@@ -60,6 +66,7 @@ explicitly deferred at the user's request.
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
 | Optimize zero-round search | Benchmark the shared SAT search and counterexample checker on large instances before adding specialized paths or stronger refinements. |
 | Optimize coloring search | Benchmark lazy color-placement checks and incremental SAT refinements before adding symmetry breaking or alternate encodings. |
+| Greedy distance-two coloring | Characterize compatible local views under the Grundy promise before choosing an exact strategy representation. |
 | Expose maximized verification in the UI | Both verification modes are implemented and benchmarked. Once maximization exists, offer direct checking versus maximizing first, including that preparation cost. |
 | Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
 | Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |

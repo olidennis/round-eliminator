@@ -33,7 +33,12 @@ pub(super) fn minimum(problem: &Problem, kind: ColoringKind) -> anyhow::Result<u
     let graph = problem.graph_class();
     let active = graph.active().iter().copied().max().unwrap_or(0);
     let passive = graph.passive().iter().copied().max().unwrap_or(0);
-    if kind == ColoringKind::GraphEdges && graph.passive().iter().any(|&degree| degree != 2) {
+    if matches!(kind, ColoringKind::GraphEdges | ColoringKind::DistanceTwo)
+        && graph.passive().iter().any(|&degree| degree != 2)
+    {
+        if kind == ColoringKind::DistanceTwo {
+            anyhow::bail!("Distance-two coloring requires degree-two passive nodes.");
+        }
         anyhow::bail!(
             "Graph edge coloring requires degree-two passive nodes; use incidence edge coloring for other graph classes."
         );
@@ -42,6 +47,9 @@ pub(super) fn minimum(problem: &Problem, kind: ColoringKind) -> anyhow::Result<u
         ColoringKind::Vertex => passive,
         ColoringKind::GraphEdges => active,
         ColoringKind::IncidenceEdges => active.max(passive),
+        ColoringKind::DistanceTwo => active
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("Distance-two palette size exceeds u32."))?,
     }
     .max(1))
 }
@@ -55,9 +63,21 @@ pub(super) fn distinct_colors<I: Eq>(
     cancellation: &Cancellation,
     visitor: &mut impl FnMut(&[u32]) -> anyhow::Result<bool>,
 ) -> anyhow::Result<bool> {
+    distinct_colors_except(inputs, colors, None, cancellation, visitor)
+}
+
+/// As above, excluding the center color for a distance-two colored neighborhood.
+pub(super) fn distinct_colors_except<I: Eq>(
+    inputs: &[I],
+    colors: u32,
+    excluded: Option<u32>,
+    cancellation: &Cancellation,
+    visitor: &mut impl FnMut(&[u32]) -> anyhow::Result<bool>,
+) -> anyhow::Result<bool> {
     fn visit<I: Eq>(
         inputs: &[I],
         colors: u32,
+        excluded: Option<u32>,
         prefix: &mut Vec<u32>,
         cancellation: &Cancellation,
         visitor: &mut impl FnMut(&[u32]) -> anyhow::Result<bool>,
@@ -74,11 +94,11 @@ pub(super) fn distinct_colors<I: Eq>(
         };
         for color in first..colors {
             cancellation.check()?;
-            if prefix.contains(&color) {
+            if Some(color) == excluded || prefix.contains(&color) {
                 continue;
             }
             prefix.push(color);
-            let keep_going = visit(inputs, colors, prefix, cancellation, visitor)?;
+            let keep_going = visit(inputs, colors, excluded, prefix, cancellation, visitor)?;
             prefix.pop();
             if !keep_going {
                 return Ok(false);
@@ -86,7 +106,14 @@ pub(super) fn distinct_colors<I: Eq>(
         }
         Ok(true)
     }
-    visit(inputs, colors, &mut Vec::new(), cancellation, visitor)
+    visit(
+        inputs,
+        colors,
+        excluded,
+        &mut Vec::new(),
+        cancellation,
+        visitor,
+    )
 }
 
 pub(super) fn active_colors(
