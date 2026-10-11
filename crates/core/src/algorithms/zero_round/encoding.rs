@@ -1,9 +1,9 @@
-//! SAT encoding of zero-round active validity for ordinary and pair constraints.
+//! SAT encoding of zero-round active validity for canonical output constraints.
 
 use crate::algorithms::sat::Formula;
 use rustsat::{solvers::Solve, types::Lit};
 
-use crate::{labels::LabelId, problem::Constraint};
+use crate::model::{Constraint, LabelId};
 
 #[derive(Clone, Copy)]
 pub(super) struct Choice {
@@ -11,15 +11,14 @@ pub(super) struct Choice {
     pub literal: Lit,
 }
 
-/// Select an allowed condensed configuration and match output occurrences to
-/// its parts. Part capacities sum to the degree, so upper bounds plus one
-/// matched part per occurrence enforce the exact multiplicities.
-pub(super) fn encode_active<L: Copy + Ord, S: Solve>(
+/// positions[i] gives the choices for the ith port.
+/// if positions[i][j].literal is true, then we use positions[i][j].label on port i.
+/// This function encodes the requirement to pick a valid output configuration.
+pub(super) fn encode_active<S: Solve>(
     solver: &mut Formula<S>,
-    constraint: &Constraint<L>,
+    constraint: &Constraint,
     degree: u32,
     positions: &[Vec<Choice>],
-    element: impl Fn(usize, LabelId) -> L,
 ) -> anyhow::Result<()> {
     let mut selectors = Vec::new();
     for configuration in constraint.configurations_at_degree(degree) {
@@ -27,18 +26,14 @@ pub(super) fn encode_active<L: Copy + Ord, S: Solve>(
         let selector = solver.new_lit();
         selectors.push(selector);
         let mut assigned_to_part = vec![Vec::new(); configuration.parts().len()];
-        for (position, choices) in positions.iter().enumerate() {
+        for choices in positions {
             solver.check()?;
             let mut assignments = vec![!selector];
             let mut matching_literals = Vec::new();
             for (part, specification) in configuration.parts().iter().enumerate() {
                 let compatible: Vec<_> = choices
                     .iter()
-                    .filter(|choice| {
-                        specification
-                            .labels()
-                            .contains(element(position, choice.label))
-                    })
+                    .filter(|choice| specification.labels().contains(choice.label))
                     .map(|choice| choice.literal)
                     .collect();
                 if compatible.is_empty() {

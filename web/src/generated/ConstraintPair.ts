@@ -5,6 +5,6 @@ import type { LabelId } from "./LabelId";
 /**
  * ConstraintPair is a pair of constraints, active and passive.
  * We also store the names of the labels.
- * label i has name labels[i]
+ * label `i`` has name `labels[i]``
  */
 export type ConstraintPair = { labels: Array<string>, active: Constraint<LabelId>, passive: Constraint<LabelId>, };

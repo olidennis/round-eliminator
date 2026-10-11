@@ -6,12 +6,7 @@ import type { ZeroRoundResult } from './generated/ZeroRoundResult'
 const props = defineProps<{ problem: Problem; result: ZeroRoundResult }>()
 const labels = computed(() => {
   const p = props.problem
-  switch (p.kind) {
-    case 'plain': return { input: null, output: p.data.output.labels }
-    case 'independent':
-    case 'mapped': return { input: p.data.input.labels, output: p.data.output.labels }
-    case 'paired': return { input: p.data.constraints.input_labels, output: p.data.constraints.output_labels }
-  }
+  return { input: p.input.kind === 'explicit' ? p.input.data.labels : null, output: p.output.labels }
 })
 function names(ids: number[], table: string[]): string {
   return ids.length ? ids.map(id => table[id]).join(' ') : '()'

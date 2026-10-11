@@ -14,7 +14,7 @@ use ts_rs::TS;
 
 
 
-/// In order to allow the caller to interrupt work, we use Computation, which represent some computation being done.
+/// In order to allow the caller to interrupt work, we use Computation, which represents some computation being done.
 /// Cancellation holds a boolean denoting whether the computation has been interrupted.
 /// Cancellation is also held by the caller, and can call the cancel function.
 /// We store a handler where we send the status (Progress) that has been done.
@@ -48,7 +48,7 @@ pub struct Progress {
 }
 
 
-/// There are all the possible things we could be doing
+/// These are all the possible things we could be doing
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum Phase {

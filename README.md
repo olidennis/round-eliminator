@@ -67,42 +67,111 @@ no nodes on that side. Degree zero is explicitly supported using `()`.
 
 ## Core layout
 
+The core has four areas: `model` defines the domain types, `parser` reads notation,
+`algorithms` analyzes and transforms problems, and `api` exposes that work to
+callers. `computation.rs` is the shared execution context used by parsing,
+algorithms, and API dispatch. It stays one file because progress and cancellation
+form a small, cohesive module. In Rust, `computation.rs` and a directory such as
+`api/mod.rs` are both modules; a directory groups a module's related files.
+The model uses the equivalent `model.rs` entry file with its children in `model/`.
+
+```text
+crates/core/src/
+├── lib.rs                 # module declarations and convenient public exports
+├── computation.rs         # shared progress and cooperative cancellation
+├── model.rs               # model module declarations and public exports
+├── model/
+│   ├── problem.rs         # Problem, Input, OutputMapping, and ValidationError
+│   ├── labels.rs
+│   ├── constraint.rs
+│   ├── constraint_pair.rs
+│   ├── configuration.rs
+│   ├── graph.rs
+│   └── tests.rs
+├── parser/                # text entry, notation, and paired conversion
+├── algorithms/            # matching, SAT support, and problem algorithms
+└── api/
+    ├── mod.rs             # shared dispatch and JSON execution
+    ├── protocol.rs        # request/response/event schema
+    └── tests.rs           # API behavior and cancellation tests
+```
+
+Use `model::{Problem, LabelId, LabelSet, ...}` for model types and `api::{Request,
+Response, ...}` for API types and execution. The server and wasm adapters depend
+on this same API; folder organization does not change the JSON schema.
+
 | File | Responsibility |
 | --- | --- |
-| `crates/core/src/labels.rs` | Numeric IDs and sorted sets of IDs or direct pairs. |
-| `crates/core/src/problem/mod.rs` | Problem variants, shared graph/input/mapping accessors, and mapping validation. |
-| `crates/core/src/problem/configuration.rs` | Concrete multisets stored as sorted label/multiplicity entries. |
-| `crates/core/src/problem/constraint.rs` | Generic checked parts and condensed configurations; grouping by computed degree. |
-| `crates/core/src/problem/constraint_pair.rs` | Ordinary and input/output constraint pairs, their label tables and reference validation, and input projection. |
-| `crates/core/src/problem/graph.rs` | Resolved active/passive degree sets. |
-| `crates/core/src/parser/mod.rs` | Text request types, variant assembly, degree and mapping parsing, and parse errors. |
+| `crates/core/src/model/labels.rs` | Numeric label IDs, sorted label sets, and shared label-name validation. |
+| `crates/core/src/model.rs` | Model module declarations and public exports. |
+| `crates/core/src/model/problem.rs` | Shared mapped problem, compact input/mapping enums, accessors, and construction errors. |
+| `crates/core/src/model/configuration.rs` | Concrete multisets, condensed configurations, and their parts; multiplicity validation. |
+| `crates/core/src/model/constraint.rs` | Collections of allowed configurations; grouping and lookup by degree. |
+| `crates/core/src/model/constraint_pair.rs` | Ordinary active/passive constraint pairs, their label tables and reference validation. |
+| `crates/core/src/model/graph.rs` | Resolved active/passive degree sets. |
+| `crates/core/src/parser/mod.rs` | Four text entry forms, shared model assembly, degree and mapping parsing, and parse errors. |
+| `crates/core/src/parser/paired.rs` | Private temporary pair types, validation, input projection, and conversion to ordinary output labels. |
 | `crates/core/src/parser/notation.rs` | Shared row/repetition grammar and the label/pair readers. |
-| `crates/core/src/protocol.rs` | Shared request dispatch, generated response/progress types, and conversion of errors into API responses. |
+| `crates/core/src/api/mod.rs` | Shared request dispatch and JSON entry points used by both adapters. |
+| `crates/core/src/api/protocol.rs` | Request, response, progress-event, and API error schema; generated TypeScript types. |
 | `crates/core/src/computation.rs` | Transport-independent cancellation flag and computation phases. |
-| `crates/core/src/algorithms/sat.rs` | RustSAT formula builder and target-specific backend setup. |
+| `crates/core/src/algorithms/sat.rs` | RustSAT formula builder, generic cardinality encodings, and target-specific backend setup. |
 | `crates/core/src/algorithms/configurations.rs` | Concrete input multiset enumeration and exact membership in condensed constraints. |
-| `crates/core/src/algorithms/zero_round/mod.rs` | Public result types and shared SAT search with counterexample refinement. |
-| `crates/core/src/algorithms/zero_round/prepare.rs` | Zero-round input preparation and shared validity operations on ordinary or pair constraints. |
-| `crates/core/src/algorithms/zero_round/sat.rs` | Cardinality and active configuration matching encodings. |
-| `crates/core/src/algorithms/zero_round/verify.rs` | Exact passive checks and independent witness verification. |
+| `crates/core/src/algorithms/zero_round/mod.rs` | Public verification mode/result types and shared SAT search with counterexample refinement. |
+| `crates/core/src/algorithms/zero_round/prepare.rs` | Prepare active rules and retain condensed passive input families. |
+| `crates/core/src/algorithms/zero_round/encoding.rs` | Encode active configuration matching for the zero-round search. |
+| `crates/core/src/algorithms/zero_round/passive.rs` | Shared passive emission families, containment, exact output checks, and blocking clauses. |
+| `crates/core/src/algorithms/zero_round/verify.rs` | Complete witness verification using the general passive checker. |
 
-The model and parser each keep their tests in a neighboring `tests.rs` module.
-The constraint containers are generic over two actual element types: `LabelId`
-and `LabelPair`. A pair contains two IDs indexing separate input/output tables.
-Two concrete types own label names and validate references: `ConstraintPair`
-has one label table and ordinary active/passive constraints;
-`InputOutputConstraintPair` has separate input/output tables and constraints on
-pairs. Problem variants compose these validated types. `PairedProblem` keeps
-its input projection as an ordinary `ConstraintPair`, including a copy of the
-input names with the same IDs, alongside its `InputOutputConstraintPair`.
+The model, parser, and API each keep their tests in a neighboring `tests.rs` module.
+Short modules keep small test suites inline; larger algorithm suites use neighboring
+test modules. Matching benchmarks and their shared native/wasm fixtures live in
+`crates/core/benches`.
+All four text-entry forms produce a single `Problem`:
+
+```rust
+struct Problem {
+    graph_class: GraphClass,
+    input: Input,
+    output: ConstraintPair,
+    mapping: OutputMapping,
+}
+```
+
+`Input` is `Trivial` or `Explicit(ConstraintPair)`. Trivial input permits a single
+input configuration at every degree in the graph class, without allocating a
+dummy label table or storing those configurations. `OutputMapping` is
+`Unrestricted` or `Restricted(Vec<LabelSet>)`; restricted entries are indexed by
+input ID (one implicit entry for trivial input). Plain entry uses trivial input
+and an unrestricted mapping. Independent entry uses explicit input and an
+unrestricted mapping. Mapped entry supplies both explicitly.
+
+Paired entry is converted once during parsing. Each distinct pair becomes a
+separate ordinary output label: `(a,X)` and `(b,X)` remain different labels even
+though their original output components agree. The input promise is the original
+input projection. The mapping permits input `a` to emit only labels originating
+from pairs whose input component was `a`. Parts and exponents are preserved;
+conversion never enumerates their concrete configurations. Output names such as
+`a,X` are displayed as `(a,X)` in ordinary constraints. They are ordinary names,
+without pair semantics after conversion. The UI displays the converted mapped
+problem and witnesses directly. No original-entry metadata is retained; future
+transformations can change the same problem that users see.
+
+The constraint containers remain generic so the parser can reuse them with its
+private `LabelPair` type. `LabelPair` and `InputOutputConstraintPair` live inside
+`parser/paired.rs`, with separate temporary name tables for input and output.
+They are discarded after projection and conversion, have no Serde or TypeScript
+derives, and are absent from the public model and protocol. Pair-specific tests
+live beside them in `parser/paired/tests.rs`. Algorithms on `Problem` use ordinary
+output IDs. `ConstraintPair` owns one label table and ordinary active/passive
+constraints.
 Model fields are private; construction checks invariants. Equality is structural,
 and configuration normalization is still deferred.
 `CondensedConfiguration` denotes a family of multisets: for example, `AB^2`
 represents `AA`, `AB`, and `BB`, rather than one concrete configuration.
 `Configuration<L>` stores a single multiset as `(label, multiplicity)` entries;
 `A^2 B` has two entries, not three occurrences. Construction merges repeated
-labels, sorts entries, discards zero counts, and checks degree overflow. It works
-with ordinary labels and direct input/output pairs. Algorithms expand occurrences
+labels, sorts entries, discards zero counts, and checks degree overflow. Its generic container also supports temporary parser elements. Algorithms expand occurrences
 only where port positions matter, such as local-rule witnesses.
 
 ## Zero-round solvability
@@ -121,6 +190,13 @@ zero-round requests carry that displayed structured problem through either
 transport. Serde deserializes the model directly; the client is trusted to send
 the valid snapshot returned by Rust. Constructors validate newly built models.
 Editor changes do not affect an already displayed problem.
+The shared analysis request has `data: { problem, passive_mode }`, where
+`passive_mode` is `"general"` or `"maximized"`. Rust defaults an omitted mode to
+`"general"`; the typed UI sends it explicitly. Both transports accept the same
+request. The GUI currently uses general mode. Maximized mode is available to
+callers that can guarantee the passive constraint is maximized; it does not
+perform maximization or store a maximization flag on the problem. A UI choice
+can be added when maximization is implemented.
 The zero-round response contains only the solvability result and any witness;
 witness label IDs refer to the submitted problem's label tables.
 
@@ -129,15 +205,30 @@ BatSat for wasm. Target-specific dependencies keep CaDiCaL out of wasm builds.
 Solvers may produce different valid witnesses and require different numbers of
 refinement iterations. The encoding
 uses RustSAT literal types and generic solver interfaces; backend construction
-and cancellation setup live in `algorithms/sat.rs`. A different incremental
+and cancellation setup live in `algorithms/sat.rs`. Cardinality bounds use
+RustSAT's Ladder (at most one) and Totalizer (larger bounds), sharing a variable
+manager and streaming clauses with cancellation checks. Complete native and wasm
+measurements are in the [benchmark notes](crates/core/benches/README.md#zero-round-cardinality-encodings). A different incremental
 backend can run the same encoding and refinement loop. It selects outputs
 and matches them to active configuration parts using capacities, without
 enumerating output permutations. Passive degrees up to two are encoded eagerly.
-For higher degrees, an exact checker searches for a forbidden combination of
-outputs and adds a clause excluding it; solving and checking repeat until a
-valid strategy is found or SAT proves unsolvability. Membership is tested against
-the union of all allowed configurations, so passive maximization is unnecessary.
-Repeated equal inputs are checked using output multisets, avoiding permutations.
+For higher degrees, both modes retain passive input configurations in condensed
+form and transform each part into the union of outputs its input choices can
+receive. They first try containment in a listed passive configuration, using
+label-set inclusion and capacity matching between parts.
+
+In **general mode**, failed containment triggers lazy enumeration of output
+multisets and exact membership checks against the whole passive constraint. A
+union of listed configurations can cover a family even when no single target
+contains it. In **maximized mode**, failed containment proves a violation and
+blocks the selected emissions immediately. This requires all maximal passive
+configurations to be listed, up to permutation; an incorrect caller guarantee
+can give an incorrect decision. Both modes share the SAT search, preparation,
+progress, and cancellation. Neither expands passive input families into concrete
+input multisets. Active input contexts are still enumerated to define local rules.
+Temporary output parts with the same choices and origins are combined; model
+configuration normalization remains deferred.
+
 Concrete membership uses petgraph's Dinic maximum flow: distinct labels and
 condensed parts are vertices, and multiplicities are capacities. Large exponents
 do not expand into flow vertices. Single-label and single-part cases are checked
@@ -155,8 +246,8 @@ configurations are checked separately, including on the passive side.
 `algorithms::zero_round::verify_strategy` checks witness coverage, active validity,
 mapping restrictions, and universal passive validity without a SAT solver.
 Tests compare search results against exhaustive strategies on small instances.
-The search has no imposed configuration or iteration limit; concrete input
-enumeration and passive checking can still be exponential.
+The search has no imposed configuration or iteration limit; active input
+enumeration and general passive output checking can still be exponential.
 
 While running, the check button becomes an indeterminate progress indicator,
 a description of the current phase, and a **Cancel** button. Completed SAT

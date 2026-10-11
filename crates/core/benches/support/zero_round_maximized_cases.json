@@ -1,0 +1,367 @@
+[
+  {
+    "name": "broad inputs 4 labels degree 8 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "abcd",
+        "passive": "abcd^8"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^8"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "broad inputs 8 labels degree 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^10"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^10"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "broad inputs 8 labels degree 12 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^12"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^12"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "broad inputs fixed outputs degree 10 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^10"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^10"
+      },
+      "mapping": "a -> X\nb -> Y\nc -> X\nd -> Y\ne -> X\nf -> Y\ng -> X\nh -> Y"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "broad inputs forced mixed degree 6 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "a^2\nb^2\nc^2\nd^2",
+        "passive": "abcd^6"
+      },
+      "output": {
+        "active": "X Y",
+        "passive": "XY^6"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "overlapping passive inputs SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "ab^3 bc^3\nac^6"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^6"
+      },
+      "mapping": "a -> X\nb -> XY\nc -> Y"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "overlapping passive inputs UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "ab^3 bc^3"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "X^6\nY^6"
+      },
+      "mapping": "a -> X\nb -> XY\nc -> Y"
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "distinct input outputs 8 labels degree 6 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^6"
+      },
+      "output": {
+        "active": "ABCDEFGH",
+        "passive": "ABCDEFGH^6"
+      },
+      "mapping": "a -> A\nb -> B\nc -> C\nd -> D\ne -> E\nf -> F\ng -> G\nh -> H"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "three forced outputs condensed degree 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "a^3\nb^3",
+        "passive": "ab^10"
+      },
+      "output": {
+        "active": "A B C",
+        "passive": "ABC^10"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "three forced outputs repeated parts degree 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "a^3\nb^3",
+        "passive": "ab ab ab ab ab ab ab ab ab ab"
+      },
+      "output": {
+        "active": "A B C",
+        "passive": "ABC^10"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized monochrome plain SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "XY^3",
+        "passive": "X^6\nY^6"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized monochrome plain UNSAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "X Y",
+        "passive": "X^6\nY^6"
+      }
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized monochrome mapped UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "ab",
+        "passive": "ab^6"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "X^6\nY^6"
+      },
+      "mapping": "a -> X\nb -> Y"
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized at most one X SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "ab",
+        "passive": "a b^5"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY Y^5"
+      },
+      "mapping": "a -> X\nb -> Y"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized at most one X UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "ab",
+        "passive": "a^2 b^4"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY Y^5"
+      },
+      "mapping": "a -> X\nb -> Y"
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized exact counts SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "ab",
+        "passive": "a^3 b^3"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "X^3 Y^3"
+      },
+      "mapping": "a -> X\nb -> Y"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized exact counts UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "ab",
+        "passive": "ab^6"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "X^3 Y^3"
+      },
+      "mapping": "a -> X\nb -> Y"
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized nonregular zero SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "()\nXY^2..3",
+        "passive": "()\nXY^2..4"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized paired degree 6 SAT",
+    "definition": {
+      "kind": "paired",
+      "constraints": {
+        "active": "(a,X)(a,Y)(b,X)(b,Y)^2",
+        "passive": "(a,X)(a,Y)(b,X)(b,Y)^6"
+      }
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized three labels degree 3 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "a b c^1"
+      },
+      "output": {
+        "active": "ABC",
+        "passive": "AB AC BC ABC^0\nA BC ABC^1\nB AC ABC^1\nC AB ABC^1"
+      },
+      "mapping": "a -> A\nb -> B\nc -> C"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized three labels degree 3 UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "abc^3"
+      },
+      "output": {
+        "active": "ABC",
+        "passive": "AB AC BC ABC^0\nA BC ABC^1\nB AC ABC^1\nC AB ABC^1"
+      },
+      "mapping": "a -> A\nb -> B\nc -> C"
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized three labels degree 6 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "a b c^4"
+      },
+      "output": {
+        "active": "ABC",
+        "passive": "AB AC BC ABC^3\nA BC ABC^4\nB AC ABC^4\nC AB ABC^4"
+      },
+      "mapping": "a -> A\nb -> B\nc -> C"
+    },
+    "expected": "solvable",
+    "passive_maximized": true
+  },
+  {
+    "name": "maximized three labels degree 6 UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "abc^6"
+      },
+      "output": {
+        "active": "ABC",
+        "passive": "AB AC BC ABC^3\nA BC ABC^4\nB AC ABC^4\nC AB ABC^4"
+      },
+      "mapping": "a -> A\nb -> B\nc -> C"
+    },
+    "expected": "unsolvable",
+    "passive_maximized": true
+  }
+]

@@ -1,0 +1,151 @@
+suite,target,case,implementation,median_ms_per_request
+general,native,plain small SAT,general,0.034720
+general,native,plain small UNSAT,general,0.035970
+general,native,plain balanced 8 SAT,general,0.076047
+general,native,plain balanced 8 UNSAT,general,0.075964
+general,native,plain overlapping 16 SAT,general,0.167866
+general,native,plain overlapping 16 UNSAT,general,0.167116
+general,native,plain large capacity 64 SAT,general,1.011440
+general,native,plain dense 12 SAT,general,0.325738
+general,native,plain dense 24 SAT,general,1.131921
+general,native,plain dense 48 SAT,general,4.171691
+general,native,plain union SAT,general,0.139568
+general,native,plain refinement degree 8 SAT,general,0.044307
+general,native,plain refinement degree 8 UNSAT,general,0.036589
+general,native,independent 6 SAT,general,0.264039
+general,native,independent 10 SAT,general,0.750624
+general,native,mapped 6 SAT,general,1.002449
+general,native,mapped 6 UNSAT,general,0.079542
+general,native,paired 6 SAT,general,0.127510
+general,native,nonregular SAT,general,0.050257
+general,native,broad inputs 4 labels degree 8 SAT,general,0.040562
+general,native,broad inputs 8 labels degree 10 SAT,general,0.055594
+general,native,broad inputs 8 labels degree 12 SAT,general,0.055568
+general,native,broad inputs fixed outputs degree 10 SAT,general,0.042238
+general,native,broad inputs forced mixed degree 6 SAT,general,0.065486
+general,native,overlapping passive inputs SAT,general,0.033916
+general,native,overlapping passive inputs UNSAT,general,0.035811
+general,native,distinct input outputs 8 labels degree 6 SAT,general,0.042893
+general,native,three forced outputs condensed degree 10 SAT,general,0.072456
+general,native,three forced outputs repeated parts degree 10 SAT,general,0.074591
+general,wasm,plain small SAT,general,0.012677
+general,wasm,plain small UNSAT,general,0.013490
+general,wasm,plain balanced 8 SAT,general,0.048333
+general,wasm,plain balanced 8 UNSAT,general,0.042922
+general,wasm,plain overlapping 16 SAT,general,0.114710
+general,wasm,plain overlapping 16 UNSAT,general,0.106970
+general,wasm,plain large capacity 64 SAT,general,0.766111
+general,wasm,plain dense 12 SAT,general,0.642883
+general,wasm,plain dense 24 SAT,general,3.508124
+general,wasm,plain dense 48 SAT,general,16.152506
+general,wasm,plain union SAT,general,0.087506
+general,wasm,plain refinement degree 8 SAT,general,0.023949
+general,wasm,plain refinement degree 8 UNSAT,general,0.015743
+general,wasm,independent 6 SAT,general,0.209614
+general,wasm,independent 10 SAT,general,0.632044
+general,wasm,mapped 6 SAT,general,0.877277
+general,wasm,mapped 6 UNSAT,general,0.066574
+general,wasm,paired 6 SAT,general,0.082422
+general,wasm,nonregular SAT,general,0.024522
+general,wasm,broad inputs 4 labels degree 8 SAT,general,0.019419
+general,wasm,broad inputs 8 labels degree 10 SAT,general,0.032460
+general,wasm,broad inputs 8 labels degree 12 SAT,general,0.032488
+general,wasm,broad inputs fixed outputs degree 10 SAT,general,0.021819
+general,wasm,broad inputs forced mixed degree 6 SAT,general,0.038611
+general,wasm,overlapping passive inputs SAT,general,0.014641
+general,wasm,overlapping passive inputs UNSAT,general,0.015311
+general,wasm,distinct input outputs 8 labels degree 6 SAT,general,0.022654
+general,wasm,three forced outputs condensed degree 10 SAT,general,0.043427
+general,wasm,three forced outputs repeated parts degree 10 SAT,general,0.046975
+maximized,native,broad inputs 4 labels degree 8 SAT,general,0.040451
+maximized,native,broad inputs 8 labels degree 10 SAT,general,0.055060
+maximized,native,broad inputs 8 labels degree 12 SAT,general,0.055141
+maximized,native,broad inputs fixed outputs degree 10 SAT,general,0.042485
+maximized,native,broad inputs forced mixed degree 6 SAT,general,0.064934
+maximized,native,overlapping passive inputs SAT,general,0.033408
+maximized,native,overlapping passive inputs UNSAT,general,0.034846
+maximized,native,distinct input outputs 8 labels degree 6 SAT,general,0.042256
+maximized,native,three forced outputs condensed degree 10 SAT,general,0.071963
+maximized,native,three forced outputs repeated parts degree 10 SAT,general,0.074114
+maximized,native,maximized monochrome plain SAT,general,0.032406
+maximized,native,maximized monochrome plain UNSAT,general,0.035758
+maximized,native,maximized monochrome mapped UNSAT,general,0.029738
+maximized,native,maximized at most one X SAT,general,0.030244
+maximized,native,maximized at most one X UNSAT,general,0.030038
+maximized,native,maximized exact counts SAT,general,0.030332
+maximized,native,maximized exact counts UNSAT,general,0.029580
+maximized,native,maximized nonregular zero SAT,general,0.039542
+maximized,native,maximized paired degree 6 SAT,general,0.042196
+maximized,native,maximized three labels degree 3 SAT,general,0.033964
+maximized,native,maximized three labels degree 3 UNSAT,general,0.032467
+maximized,native,maximized three labels degree 6 SAT,general,0.034276
+maximized,native,maximized three labels degree 6 UNSAT,general,0.032488
+maximized,native,broad inputs 4 labels degree 8 SAT,maximized,0.040498
+maximized,native,broad inputs 8 labels degree 10 SAT,maximized,0.055233
+maximized,native,broad inputs 8 labels degree 12 SAT,maximized,0.055670
+maximized,native,broad inputs fixed outputs degree 10 SAT,maximized,0.041707
+maximized,native,broad inputs forced mixed degree 6 SAT,maximized,0.064862
+maximized,native,overlapping passive inputs SAT,maximized,0.033478
+maximized,native,overlapping passive inputs UNSAT,maximized,0.034599
+maximized,native,distinct input outputs 8 labels degree 6 SAT,maximized,0.042235
+maximized,native,three forced outputs condensed degree 10 SAT,maximized,0.072012
+maximized,native,three forced outputs repeated parts degree 10 SAT,maximized,0.074035
+maximized,native,maximized monochrome plain SAT,maximized,0.032292
+maximized,native,maximized monochrome plain UNSAT,maximized,0.035314
+maximized,native,maximized monochrome mapped UNSAT,maximized,0.029586
+maximized,native,maximized at most one X SAT,maximized,0.030315
+maximized,native,maximized at most one X UNSAT,maximized,0.029905
+maximized,native,maximized exact counts SAT,maximized,0.030270
+maximized,native,maximized exact counts UNSAT,maximized,0.029692
+maximized,native,maximized nonregular zero SAT,maximized,0.039615
+maximized,native,maximized paired degree 6 SAT,maximized,0.042403
+maximized,native,maximized three labels degree 3 SAT,maximized,0.034028
+maximized,native,maximized three labels degree 3 UNSAT,maximized,0.032337
+maximized,native,maximized three labels degree 6 SAT,maximized,0.034380
+maximized,native,maximized three labels degree 6 UNSAT,maximized,0.032741
+maximized,wasm,broad inputs 4 labels degree 8 SAT,general,0.019725
+maximized,wasm,broad inputs 4 labels degree 8 SAT,maximized,0.019572
+maximized,wasm,broad inputs 8 labels degree 10 SAT,general,0.032561
+maximized,wasm,broad inputs 8 labels degree 10 SAT,maximized,0.032366
+maximized,wasm,broad inputs 8 labels degree 12 SAT,general,0.032366
+maximized,wasm,broad inputs 8 labels degree 12 SAT,maximized,0.032197
+maximized,wasm,broad inputs fixed outputs degree 10 SAT,general,0.021360
+maximized,wasm,broad inputs fixed outputs degree 10 SAT,maximized,0.021429
+maximized,wasm,broad inputs forced mixed degree 6 SAT,general,0.037996
+maximized,wasm,broad inputs forced mixed degree 6 SAT,maximized,0.037980
+maximized,wasm,overlapping passive inputs SAT,general,0.014176
+maximized,wasm,overlapping passive inputs SAT,maximized,0.014138
+maximized,wasm,overlapping passive inputs UNSAT,general,0.015112
+maximized,wasm,overlapping passive inputs UNSAT,maximized,0.014607
+maximized,wasm,distinct input outputs 8 labels degree 6 SAT,general,0.022217
+maximized,wasm,distinct input outputs 8 labels degree 6 SAT,maximized,0.022282
+maximized,wasm,three forced outputs condensed degree 10 SAT,general,0.043607
+maximized,wasm,three forced outputs condensed degree 10 SAT,maximized,0.043582
+maximized,wasm,three forced outputs repeated parts degree 10 SAT,general,0.046497
+maximized,wasm,three forced outputs repeated parts degree 10 SAT,maximized,0.046516
+maximized,wasm,maximized monochrome plain SAT,general,0.011026
+maximized,wasm,maximized monochrome plain SAT,maximized,0.011022
+maximized,wasm,maximized monochrome plain UNSAT,general,0.013707
+maximized,wasm,maximized monochrome plain UNSAT,maximized,0.013231
+maximized,wasm,maximized monochrome mapped UNSAT,general,0.010017
+maximized,wasm,maximized monochrome mapped UNSAT,maximized,0.009697
+maximized,wasm,maximized at most one X SAT,general,0.010804
+maximized,wasm,maximized at most one X SAT,maximized,0.010778
+maximized,wasm,maximized at most one X UNSAT,general,0.010370
+maximized,wasm,maximized at most one X UNSAT,maximized,0.010010
+maximized,wasm,maximized exact counts SAT,general,0.010736
+maximized,wasm,maximized exact counts SAT,maximized,0.010720
+maximized,wasm,maximized exact counts UNSAT,general,0.009781
+maximized,wasm,maximized exact counts UNSAT,maximized,0.009605
+maximized,wasm,maximized nonregular zero SAT,general,0.018284
+maximized,wasm,maximized nonregular zero SAT,maximized,0.018163
+maximized,wasm,maximized paired degree 6 SAT,general,0.020141
+maximized,wasm,maximized paired degree 6 SAT,maximized,0.020139
+maximized,wasm,maximized three labels degree 3 SAT,general,0.015775
+maximized,wasm,maximized three labels degree 3 SAT,maximized,0.015788
+maximized,wasm,maximized three labels degree 3 UNSAT,general,0.013996
+maximized,wasm,maximized three labels degree 3 UNSAT,maximized,0.013777
+maximized,wasm,maximized three labels degree 6 SAT,general,0.016139
+maximized,wasm,maximized three labels degree 6 SAT,maximized,0.016155
+maximized,wasm,maximized three labels degree 6 UNSAT,general,0.014142
+maximized,wasm,maximized three labels degree 6 UNSAT,maximized,0.013965

@@ -1,6 +1,45 @@
 use super::*;
-use crate::labels::LabelSet;
-use crate::problem::Part;
+use crate::model::LabelSet;
+use crate::model::Part;
+
+#[test]
+fn condensed_containment_uses_set_inclusion_and_counted_capacities() {
+    let configuration = |parts: Vec<(Vec<u8>, u32)>| {
+        CondensedConfiguration::new(
+            parts
+                .into_iter()
+                .map(|(labels, count)| Part::new(LabelSet::new(labels), count).unwrap())
+                .collect(),
+        )
+        .unwrap()
+    };
+    let target = configuration(vec![(vec![0, 1], 2), (vec![2], 2)]);
+    let matching = configuration(vec![(vec![0], 1), (vec![1], 1), (vec![2], 2)]);
+    let competing = configuration(vec![(vec![0], 2), (vec![1], 1), (vec![2], 1)]);
+    let cancellation = Cancellation::default();
+    assert!(contains_condensed_with(&target, &matching, &cancellation).unwrap());
+    assert!(!contains_condensed_with(&target, &competing, &cancellation).unwrap());
+    assert!(
+        !contains_condensed_with(&target, &configuration(vec![(vec![0], 3)]), &cancellation)
+            .unwrap()
+    );
+    assert!(
+        !contains_condensed_with(
+            &target,
+            &configuration(vec![(vec![0, 1, 2], 4)]),
+            &cancellation
+        )
+        .unwrap()
+    );
+    let empty = CondensedConfiguration::<u8>::new(vec![]).unwrap();
+    assert!(contains_condensed_with(&empty, &empty, &cancellation).unwrap());
+
+    let target = configuration(vec![(vec![0, 1], 1_000_000), (vec![1, 2], 1_000_000)]);
+    let family = configuration(vec![(vec![0], 1_000_000), (vec![2], 1_000_000)]);
+    assert!(contains_condensed_with(&target, &family, &cancellation).unwrap());
+    cancellation.cancel();
+    assert!(contains_condensed_with(&target, &family, &cancellation).is_err());
+}
 
 #[test]
 fn large_multiplicities_stay_counted_in_membership_and_enumeration() {

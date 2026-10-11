@@ -11,8 +11,8 @@ pub fn execute_json(request: &str) -> String {
 #[wasm_bindgen]
 pub fn execute_with_progress(request: &str, on_progress: &js_sys::Function) -> String {
     use round_eliminator_3::{
+        api::execute_text,
         computation::{Cancellation, Computation},
-        protocol::execute_text,
     };
     let mut report = |progress| {
         let json = serde_json::to_string(&progress).expect("progress must serialize");

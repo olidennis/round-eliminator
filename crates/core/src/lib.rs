@@ -1,11 +1,10 @@
 //! Core problem definition, parser, and transport-neutral request handler.
 
 pub mod algorithms;
+pub mod api;
 pub mod computation;
-pub mod labels;
+pub mod model;
 pub mod parser;
-pub mod problem;
-pub mod protocol;
 
+pub use api::{Request, Response, execute, execute_json};
 pub use parser::parse_problem;
-pub use protocol::{Request, Response, execute, execute_json};

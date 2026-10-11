@@ -1,16 +1,14 @@
 //! Text entry for all problem variants. Parsing errors are independent of the API.
 
 mod notation;
+mod paired;
 
 use crate::computation::Cancellation;
-use crate::{
-    labels::LabelSet,
-    problem::{
-        ConstraintPair, GraphClass, IndependentProblem, InputOutputConstraintPair, MappedProblem,
-        PairedProblem, PlainProblem, Problem, ValidationError,
-    },
+use crate::model::{
+    ConstraintPair, GraphClass, Input, LabelSet, OutputMapping, Problem, ValidationError,
 };
 use notation::{Alphabet, parse_constraint, parse_labels, parse_pairs};
+use paired::InputOutputConstraintPair;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt};
 use ts_rs::TS;
@@ -139,7 +137,12 @@ pub fn parse_problem_with_cancellation(
         } => {
             let output = parse_constraint_pair(&constraints, false, cancellation)?;
             let graph_class = resolve_degrees(&degrees, output.inferred_graph_class())?;
-            Ok(Problem::Plain(PlainProblem::new(graph_class, output)))
+            Ok(Problem::new(
+                graph_class,
+                Input::Trivial,
+                output,
+                OutputMapping::Unrestricted,
+            )?)
         }
         ProblemText::Independent {
             input,
@@ -149,11 +152,12 @@ pub fn parse_problem_with_cancellation(
             let input = parse_constraint_pair(&input, true, cancellation)?;
             let output = parse_constraint_pair(&output, false, cancellation)?;
             let graph_class = resolve_degrees(&degrees, input.inferred_graph_class())?;
-            Ok(Problem::Independent(IndependentProblem::new(
+            Ok(Problem::new(
                 graph_class,
-                input,
+                Input::Explicit(input),
                 output,
-            )))
+                OutputMapping::Unrestricted,
+            )?)
         }
         ProblemText::Paired {
             constraints,
@@ -174,10 +178,7 @@ pub fn parse_problem_with_cancellation(
             let constraints =
                 InputOutputConstraintPair::new(inputs.names, outputs.names, active, passive)?;
             let graph_class = resolve_degrees(&degrees, constraints.inferred_graph_class())?;
-            Ok(Problem::Paired(PairedProblem::new(
-                graph_class,
-                constraints,
-            )?))
+            paired::convert(graph_class, constraints, cancellation)
         }
         ProblemText::Mapped {
             input,
@@ -196,12 +197,12 @@ pub fn parse_problem_with_cancellation(
             let input = ConstraintPair::new(inputs.names, input_active, input_passive)?;
             let output = ConstraintPair::new(outputs.names, output_active, output_passive)?;
             let graph_class = resolve_degrees(&degrees, input.inferred_graph_class())?;
-            Ok(Problem::Mapped(MappedProblem::new(
+            Ok(Problem::new(
                 graph_class,
-                input,
+                Input::Explicit(input),
                 output,
-                allowed_outputs,
-            )?))
+                OutputMapping::Restricted(allowed_outputs),
+            )?)
         }
     }
 }
@@ -221,7 +222,7 @@ fn parse_sides(
     input: bool,
     alphabet: &mut Alphabet,
     cancellation: &Cancellation,
-) -> Result<(crate::problem::Constraint, crate::problem::Constraint), ParseError> {
+) -> Result<(crate::model::Constraint, crate::model::Constraint), ParseError> {
     let fields = if input {
         (Field::InputActive, Field::InputPassive)
     } else {
@@ -234,11 +235,17 @@ fn parse_sides(
     ))
 }
 
+impl From<crate::computation::Cancelled> for ParseError {
+    fn from(error: crate::computation::Cancelled) -> Self {
+        Self {
+            message: error.to_string(),
+            location: None,
+        }
+    }
+}
+
 fn check_cancellation(cancellation: &Cancellation) -> Result<(), ParseError> {
-    cancellation.check().map_err(|error| ParseError {
-        message: error.to_string(),
-        location: None,
-    })
+    Ok(cancellation.check()?)
 }
 
 fn resolve_degrees(text: &DegreeText, inferred: GraphClass) -> Result<GraphClass, ParseError> {
@@ -318,7 +325,7 @@ fn parse_mapping(
         .enumerate()
         .map(|(index, name)| {
             entries
-                .remove(&crate::labels::LabelId(index as u32))
+                .remove(&crate::model::LabelId(index as u32))
                 .ok_or_else(|| {
                     ParseError::at(
                         format!("No output mapping for input label '{name}'."),

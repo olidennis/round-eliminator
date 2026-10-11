@@ -1,11 +1,8 @@
 //! The shared row/repetition grammar, with separate readers for labels and pairs.
 
-use super::{Field, Location, ParseError, check_cancellation};
+use super::{Field, Location, ParseError, check_cancellation, paired::LabelPair};
 use crate::computation::Cancellation;
-use crate::{
-    labels::{LabelId, LabelPair, LabelSet},
-    problem::{CondensedConfiguration, Constraint, Part},
-};
+use crate::model::{CondensedConfiguration, Constraint, LabelId, LabelSet, Part};
 use std::{collections::HashMap, ops::RangeInclusive};
 
 #[derive(Default)]

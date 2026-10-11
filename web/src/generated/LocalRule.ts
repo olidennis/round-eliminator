@@ -2,8 +2,8 @@
 import type { LabelId } from "./LabelId";
 
 /**
- * Input occurrences are sorted by label ID, breaking ties by local port order.
- * Outputs use the same occurrence order. For plain problems, input is absent
- * and outputs are in local port order. IDs refer to the original label tables.
+ * A `LocalRule` specifies, for a node of a certain `degree` and a certain `input`, to give a specific `output`.
+ * We use many of these rules to describe a zero round algorithm (one rule for each degree/input).
+ * For problems with no input, `input` is `None`.
  */
 export type LocalRule = { degree: number, input: Array<LabelId> | null, output: Array<LabelId>, };

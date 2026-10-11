@@ -21,3 +21,7 @@ rustsat-batsat = "0.7.5"
 [[bench]]
 name = "configuration_matching"
 harness = false
+
+[[bench]]
+name = "zero_round"
+harness = false

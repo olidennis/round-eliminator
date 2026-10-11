@@ -38,7 +38,7 @@ async function run() {
   progress.value = null
   error.value = ''
   try {
-    const response = await send({ type: 'check_zero_round', data: props.problem }, props.backend, {
+    const response = await send({ type: 'check_zero_round', data: { problem: props.problem, passive_mode: 'general' } }, props.backend, {
       signal: current.signal,
       onProgress: update => { if (controller === current) progress.value = update },
     })

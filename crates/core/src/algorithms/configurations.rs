@@ -1,14 +1,13 @@
-//! Concrete multiset enumeration and membership in condensed constraints.
+//! Multiset enumeration, concrete membership, and condensed containment.
 
 use std::collections::BTreeSet;
 
 use petgraph::{Graph, algo::dinics};
 
 use crate::computation::{Cancellation, Cancelled};
-use crate::problem::{CondensedConfiguration, Configuration, Constraint};
+use crate::model::{CondensedConfiguration, Configuration, Constraint};
 
-/// Test a concrete multiset against the union of all configurations of its degree.
-/// Order does not matter. Matching respects both label alternatives and counts.
+/// Checks whether a constraint allows a configuration
 pub fn accepts<L: Copy + Ord>(constraint: &Constraint<L>, concrete: &Configuration<L>) -> bool {
     accepts_with(constraint, concrete, &Cancellation::default()).expect("not cancelled")
 }
@@ -20,6 +19,7 @@ pub(crate) fn accepts_with<L: Copy + Ord>(
     cancellation: &Cancellation,
 ) -> Result<bool, Cancelled> {
     cancellation.check()?;
+    // we go through all condensed configuration and check for each of them
     for configuration in constraint.configurations_at_degree(concrete.degree()) {
         cancellation.check()?;
         if matches(configuration, concrete, cancellation)? {
@@ -28,8 +28,6 @@ pub(crate) fn accepts_with<L: Copy + Ord>(
     }
     Ok(false)
 }
-
-/// Given a degree, extracts the condensed configuration of that degree from the given constraint
 
 /// We use a flow algorithm to check if a condensed configuration contains a given concrete configuration
 fn matches<L: Copy + Ord>(
@@ -94,7 +92,7 @@ fn matches<L: Copy + Ord>(
             }
         }
         // Even assigning every compatible slot cannot place this label.
-        // In a union, this often rules out a candidate without any flow search.
+        // This often rules out a candidate without any flow search.
         if available < count {
             return Ok(false);
         }
@@ -103,6 +101,71 @@ fn matches<L: Copy + Ord>(
     let (flow, _) = dinics(&network, source, sink);
     cancellation.check()?;
     Ok(flow == concrete.degree())
+}
+
+/// Prove containment by assigning each family occurrence to a target part whose
+/// label set includes the whole family set. Capacities preserve multiplicities.
+///
+/// This is a sufficient test for semantic containment. Failure does not prove
+/// that a concrete output is forbidden: several targets can cover a family
+/// jointly. Scanning all targets is complete when the constraint is maximized.
+pub(crate) fn contains_condensed_with<L: Copy + Ord>(
+    target: &CondensedConfiguration<L>,
+    family: &CondensedConfiguration<L>,
+    cancellation: &Cancellation,
+) -> Result<bool, Cancelled> {
+    cancellation.check()?;
+    if target.degree() != family.degree() {
+        return Ok(false);
+    }
+    if let [part] = target.parts() {
+        for query in family.parts() {
+            cancellation.check()?;
+            if !query.labels().is_subset_of(part.labels()) {
+                return Ok(false);
+            }
+        }
+        return Ok(true);
+    }
+    if let [part] = family.parts() {
+        for query in target.parts() {
+            cancellation.check()?;
+            if !part.labels().is_subset_of(query.labels()) {
+                return Ok(false);
+            }
+        }
+        return Ok(true);
+    }
+    let mut network = Graph::<(), u32>::new();
+    let source = network.add_node(());
+    let sink = network.add_node(());
+    let mut destinations = Vec::new();
+    for part in target.parts() {
+        cancellation.check()?;
+        let node = network.add_node(());
+        network.add_edge(node, sink, part.multiplicity());
+        destinations.push(node);
+    }
+    for part in family.parts() {
+        cancellation.check()?;
+        let node = network.add_node(());
+        network.add_edge(source, node, part.multiplicity());
+        let mut available = 0;
+        for (target, &destination) in target.parts().iter().zip(&destinations) {
+            cancellation.check()?;
+            if part.labels().is_subset_of(target.labels()) {
+                available += target.multiplicity();
+                network.add_edge(node, destination, part.multiplicity().min(target.multiplicity()));
+            }
+        }
+        if available < part.multiplicity() {
+            return Ok(false);
+        }
+    }
+    cancellation.check()?;
+    let flow = dinics(&network, source, sink).0;
+    cancellation.check()?;
+    Ok(flow == family.degree())
 }
 
 /// Extracts all uncondensed configurations of given degrees from a constraint

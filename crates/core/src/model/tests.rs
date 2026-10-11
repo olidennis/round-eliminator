@@ -1,8 +1,7 @@
 use super::*;
-use crate::labels::{LabelId, LabelPair};
 
 #[test]
-fn concrete_configurations_canonicalize_counts_and_preserve_pairs() {
+fn concrete_configurations_canonicalize_counts_and_round_trip_labels() {
     let concrete = Configuration::new(vec![(2u8, 3), (1, 0), (0, 2), (2, 1)]).unwrap();
     assert_eq!(concrete.multiplicities(), &[(0, 2), (2, 4)]);
     assert_eq!(concrete.degree(), 6);
@@ -19,15 +18,11 @@ fn concrete_configurations_canonicalize_counts_and_preserve_pairs() {
         Configuration::default()
     );
 
-    let pair = LabelPair {
-        input: LabelId(0),
-        output: LabelId(1),
-    };
-    let concrete = Configuration::new(vec![(pair, 2), (pair, 1)]).unwrap();
-    assert_eq!(concrete.multiplicities(), &[(pair, 3)]);
+    let concrete = Configuration::new(vec![(LabelId(1), 2), (LabelId(1), 1)]).unwrap();
+    assert_eq!(concrete.multiplicities(), &[(LabelId(1), 3)]);
     let json = serde_json::to_value(&concrete).unwrap();
     assert_eq!(
-        serde_json::from_value::<Configuration<LabelPair>>(json).unwrap(),
+        serde_json::from_value::<Configuration>(json).unwrap(),
         concrete
     );
 }
@@ -80,25 +75,19 @@ fn configuration_construction_discards_zero_count_parts() {
     let empty = CondensedConfiguration::new(vec![singleton(0, 0)]).unwrap();
     assert!(empty.parts().is_empty());
     assert_eq!(empty.degree(), 0);
-
-    let pair = LabelPair {
-        input: LabelId(0),
-        output: LabelId(0),
-    };
-    let zero = Part::new(LabelSet::new(vec![pair]), 0).unwrap();
-    assert!(
-        CondensedConfiguration::new(vec![zero])
-            .unwrap()
-            .parts()
-            .is_empty()
-    );
 }
 
 #[test]
 fn graph_class_can_require_degrees_with_no_output_configurations() {
     let output =
         ConstraintPair::new(vec![], Constraint::new(vec![]), Constraint::new(vec![])).unwrap();
-    let problem = PlainProblem::new(GraphClass::new(vec![3, 1, 3], vec![2]), output);
+    let problem = Problem::new(
+        GraphClass::new(vec![3, 1, 3], vec![2]),
+        Input::Trivial,
+        output,
+        OutputMapping::Unrestricted,
+    )
+    .unwrap();
     assert_eq!(problem.graph_class().active(), [1, 3]);
     assert!(problem.output().active().degrees().is_empty());
 }
@@ -110,82 +99,6 @@ fn empty_multiset_and_empty_constraint_have_different_meanings() {
     assert_ne!(empty, zero);
     assert_eq!(zero.degrees()[0].degree(), 0);
     assert_eq!(zero.degrees()[0].configurations().len(), 1);
-}
-
-#[test]
-fn pair_projection_keeps_correlations_in_the_original_constraints() {
-    let pairs = LabelSet::new(vec![
-        LabelPair {
-            input: LabelId(0),
-            output: LabelId(0),
-        },
-        LabelPair {
-            input: LabelId(0),
-            output: LabelId(1),
-        },
-        LabelPair {
-            input: LabelId(1),
-            output: LabelId(1),
-        },
-    ]);
-    let active = Constraint::new(vec![
-        CondensedConfiguration::new(vec![Part::new(pairs.clone(), 2).unwrap()]).unwrap(),
-    ]);
-    let constraints = InputOutputConstraintPair::new(
-        vec!["a".into(), "b".into()],
-        vec!["X".into(), "Y".into()],
-        active,
-        Constraint::new(vec![]),
-    )
-    .unwrap();
-    let graph_class = GraphClass::new(vec![1, 3], vec![2]);
-    let problem = PairedProblem::new(graph_class.clone(), constraints).unwrap();
-    assert_eq!(problem.graph_class(), &graph_class);
-    assert_eq!(
-        problem.input().labels(),
-        problem.constraints().input_labels()
-    );
-    let projected = &problem.input().active().degrees()[0].configurations()[0];
-    assert_eq!(projected.degree(), 2);
-    assert_eq!(
-        projected.parts()[0].labels().iter().collect::<Vec<_>>(),
-        [LabelId(0), LabelId(1)]
-    );
-    let original =
-        problem.constraints().active().degrees()[0].configurations()[0].parts()[0].labels();
-    assert_eq!(original, &pairs);
-    assert!(!original.contains(LabelPair {
-        input: LabelId(1),
-        output: LabelId(0)
-    }));
-}
-
-#[test]
-fn pair_ids_are_checked_against_their_respective_tables() {
-    for pair in [
-        LabelPair {
-            input: LabelId(1),
-            output: LabelId(0),
-        },
-        LabelPair {
-            input: LabelId(0),
-            output: LabelId(1),
-        },
-    ] {
-        let active = Constraint::new(vec![
-            CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![pair]), 1).unwrap()])
-                .unwrap(),
-        ]);
-        assert!(
-            InputOutputConstraintPair::new(
-                vec!["a".into()],
-                vec!["X".into()],
-                active,
-                Constraint::new(vec![]),
-            )
-            .is_err()
-        );
-    }
 }
 
 #[test]
@@ -204,9 +117,25 @@ fn mapping_must_be_total_but_may_disallow_every_output() {
     .unwrap();
     let graph = GraphClass::new(vec![1], vec![1]);
     for mapping in [vec![], vec![LabelSet::new(vec![LabelId(1)])]] {
-        assert!(MappedProblem::new(graph.clone(), input.clone(), output.clone(), mapping).is_err());
+        assert!(
+            Problem::new(
+                graph.clone(),
+                Input::Explicit(input.clone()),
+                output.clone(),
+                OutputMapping::Restricted(mapping)
+            )
+            .is_err()
+        );
     }
-    assert!(MappedProblem::new(graph, input, output, vec![LabelSet::default()]).is_ok());
+    assert!(
+        Problem::new(
+            graph,
+            Input::Explicit(input),
+            output,
+            OutputMapping::Restricted(vec![LabelSet::default()])
+        )
+        .is_ok()
+    );
 }
 
 #[test]
@@ -222,64 +151,20 @@ fn ordinary_constraint_pairs_validate_passive_references_and_keep_separate_table
     let input =
         ConstraintPair::new(vec!["A".into()], Constraint::new(vec![]), valid.clone()).unwrap();
     let output = ConstraintPair::new(vec!["A".into()], valid, Constraint::new(vec![])).unwrap();
-    let problem = IndependentProblem::new(GraphClass::new(vec![1], vec![1]), input, output);
-    assert_eq!(problem.input().labels(), ["A"]);
+    let problem = Problem::new(
+        GraphClass::new(vec![1], vec![1]),
+        Input::Explicit(input),
+        output,
+        OutputMapping::Unrestricted,
+    )
+    .unwrap();
+    let Input::Explicit(input) = problem.input() else {
+        panic!()
+    };
+    assert_eq!(input.labels(), ["A"]);
     assert_eq!(problem.output().labels(), ["A"]);
 }
 
-#[test]
-fn input_output_constraint_pairs_check_both_tables_and_sides() {
-    for (inputs, outputs) in [
-        (vec!["".into()], vec![]),
-        (vec!["a".into(), "a".into()], vec![]),
-        (vec![], vec!["".into()]),
-        (vec![], vec!["X".into(), "X".into()]),
-    ] {
-        assert!(
-            InputOutputConstraintPair::new(
-                inputs,
-                outputs,
-                Constraint::new(vec![]),
-                Constraint::new(vec![]),
-            )
-            .is_err()
-        );
-    }
-    for pair in [
-        LabelPair {
-            input: LabelId(1),
-            output: LabelId(0),
-        },
-        LabelPair {
-            input: LabelId(0),
-            output: LabelId(1),
-        },
-    ] {
-        let passive = Constraint::new(vec![
-            CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![pair]), 1).unwrap()])
-                .unwrap(),
-        ]);
-        assert!(
-            InputOutputConstraintPair::new(
-                vec!["a".into()],
-                vec!["X".into()],
-                Constraint::new(vec![]),
-                passive,
-            )
-            .is_err()
-        );
-    }
-    // Equal names in separate input and output domains remain valid.
-    let constraints = InputOutputConstraintPair::new(
-        vec!["A".into()],
-        vec!["A".into()],
-        Constraint::new(vec![]),
-        Constraint::new(vec![]),
-    )
-    .unwrap();
-    assert_eq!(constraints.input_labels(), ["A"]);
-    assert_eq!(constraints.output_labels(), ["A"]);
-}
 #[test]
 fn serialized_problems_round_trip_without_changing_ids_or_graph_classes() {
     for text in [
@@ -294,4 +179,32 @@ fn serialized_problems_round_trip_without_changing_ids_or_graph_classes() {
         assert_eq!(decoded, original);
         assert_eq!(serde_json::to_value(decoded).unwrap(), json);
     }
+}
+
+#[test]
+fn restricted_trivial_input_has_one_implicit_entry() {
+    let output = ConstraintPair::new(
+        vec!["A".into()],
+        Constraint::new(vec![]),
+        Constraint::new(vec![]),
+    )
+    .unwrap();
+    let graph = GraphClass::new(vec![1], vec![1]);
+    assert!(
+        Problem::new(
+            graph.clone(),
+            Input::Trivial,
+            output.clone(),
+            OutputMapping::Restricted(vec![])
+        )
+        .is_err()
+    );
+    let problem = Problem::new(
+        graph,
+        Input::Trivial,
+        output,
+        OutputMapping::Restricted(vec![LabelSet::default()]),
+    )
+    .unwrap();
+    assert!(!problem.output_allowed(None, LabelId(0)));
 }

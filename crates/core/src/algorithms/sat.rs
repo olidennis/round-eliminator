@@ -1,7 +1,12 @@
 //! Backend selection, formula construction, and generic SAT cardinality constraints.
 //! Problem encodings depend on `Solve`, never on backend-specific types.
 
-use rustsat::{solvers::Solve, types::Lit};
+use rustsat::{
+    encodings::{am1, card, CollectClauses},
+    instances::{BasicVarManager, ManageVars},
+    solvers::Solve,
+    types::{Clause, Lit},
+};
 
 use crate::computation::{Cancellation, Cancelled};
 
@@ -37,7 +42,7 @@ pub(crate) fn backend(cancellation: &Cancellation) -> rustsat_batsat::BasicSolve
 /// Some convenience wrapper around rustsat
 pub(crate) struct Formula<S> {
     pub solver: S,
-    next_variable: u32,
+    variables: BasicVarManager,
     cancellation: Cancellation,
 }
 
@@ -45,22 +50,13 @@ impl<S: Solve> Formula<S> {
     pub fn new(solver: S, cancellation: Cancellation) -> Self {
         Self {
             solver,
-            next_variable: 0,
+            variables: BasicVarManager::default(),
             cancellation,
         }
     }
 
     pub fn new_lit(&mut self) -> Lit {
-        let literal = Lit::positive(self.next_variable);
-        self.next_variable = self
-            .next_variable
-            .checked_add(1)
-            .expect("SAT variable index overflow");
-        literal
-    }
-
-    pub fn new_lit_iter(&mut self, count: usize) -> impl Iterator<Item = Lit> + '_ {
-        (0..count).map(|_| self.new_lit())
+        self.variables.new_lit()
     }
 
     pub fn add_clause(&mut self, literals: &[Lit]) -> anyhow::Result<()> {
@@ -74,10 +70,13 @@ impl<S: Solve> Formula<S> {
         self.at_most(literals, 1)
     }
 
-    /// A sequential counter encodes the upper bound without enumerating subsets.
-    /// Counter entries only need forward implications: the minimal counter values
-    /// satisfy the encoding precisely when the requested bound holds.
+    /// Require at most `capacity` literals to be true.
+    /// RustSAT's ladder handles at-most-one; a totalizer handles larger bounds.
     pub fn at_most(&mut self, literals: &[Lit], capacity: usize) -> anyhow::Result<()> {
+        use am1::Encode;
+        use card::BoundUpper;
+
+        self.check()?;
         if capacity >= literals.len() {
             return Ok(());
         }
@@ -87,28 +86,69 @@ impl<S: Solve> Formula<S> {
             }
             return Ok(());
         }
-        let mut previous: Vec<Lit> = Vec::new();
-        for &literal in literals {
-            if previous.len() == capacity {
-                self.add_clause(&[!literal, !previous[capacity - 1]])?;
-            }
-            let current: Vec<_> = self
-                .new_lit_iter((previous.len() + 1).min(capacity))
-                .collect();
-            self.add_clause(&[!literal, current[0]])?;
-            for (count, &counter) in previous.iter().enumerate() {
-                self.add_clause(&[!counter, current[count]])?;
-                if count + 1 < current.len() {
-                    self.add_clause(&[!literal, !counter, current[count + 1]])?;
+        let mut clauses = EncodingClauses {
+            solver: &mut self.solver,
+            cancellation: &self.cancellation,
+            count: 0,
+            error: None,
+        };
+        let encoded = (|| -> anyhow::Result<()> {
+            if capacity == 1 {
+                am1::Ladder::from(literals.to_vec()).encode(&mut clauses, &mut self.variables)?;
+            } else {
+                let mut encoder = card::Totalizer::from(literals.to_vec());
+                encoder.encode_ub(capacity..=capacity, &mut clauses, &mut self.variables)?;
+                for literal in encoder.enforce_ub(capacity)? {
+                    clauses.add_clause(rustsat::clause![literal])?;
                 }
             }
-            previous = current;
+            Ok(())
+        })();
+        // CollectClauses only exposes OutOfMemory. Restore the actual cause when
+        // our collector stopped clause generation for cancellation or a solver error.
+        match clauses.error {
+            Some(error) => Err(error),
+            None => encoded,
         }
-        Ok(())
     }
 
     pub fn check(&self) -> Result<(), Cancelled> {
         self.cancellation.check()
+    }
+}
+
+/// Stream library encodings to the solver, checking cancellation at each clause.
+struct EncodingClauses<'a, S> {
+    solver: &'a mut S,
+    cancellation: &'a Cancellation,
+    count: usize,
+    error: Option<anyhow::Error>,
+}
+
+impl<S: Solve> CollectClauses for EncodingClauses<'_, S> {
+    fn n_clauses(&self) -> usize {
+        self.count
+    }
+
+    fn extend_clauses<T>(&mut self, clauses: T) -> Result<(), rustsat::OutOfMemory>
+    where
+        T: IntoIterator<Item = Clause>,
+    {
+        for clause in clauses {
+            let added = self
+                .cancellation
+                .check()
+                .map_err(anyhow::Error::from)
+                .and_then(|()| self.solver.add_clause(clause));
+            if let Err(error) = added {
+                self.error = Some(error);
+                // This trait has no cancellation/error channel. The caller always
+                // translates this abort signal back to the original stored error.
+                return Err(rustsat::OutOfMemory::ExternalApi);
+            }
+            self.count += 1;
+        }
+        Ok(())
     }
 }
 
@@ -129,13 +169,13 @@ mod tests {
             let holes = 20;
             let pigeons = holes + 1;
             for pigeon in 0..pigeons {
-                solver
-                    .add_clause(
-                        (0..holes)
-                            .map(|hole| Lit::positive(pigeon * holes + hole))
-                            .collect(),
-                    )
-                    .unwrap();
+                Solve::add_clause(
+                    &mut solver,
+                    (0..holes)
+                        .map(|hole| Lit::positive(pigeon * holes + hole))
+                        .collect(),
+                )
+                .unwrap();
             }
             for hole in 0..holes {
                 for a in 0..pigeons {
@@ -170,13 +210,13 @@ mod tests {
     }
 
     #[test]
-    fn sequential_counter_accepts_exactly_the_assignments_within_the_bound() {
+    fn cardinality_encoding_accepts_exactly_the_assignments_within_the_bound() {
         for size in 0..=6 {
             for capacity in 0..=size {
                 let cancellation = crate::computation::Cancellation::default();
                 let mut solver =
                     Formula::new(crate::algorithms::sat::backend(&cancellation), cancellation);
-                let literals: Vec<_> = solver.new_lit_iter(size).collect();
+                let literals: Vec<_> = (0..size).map(|_| solver.new_lit()).collect();
                 solver.at_most(&literals, capacity).unwrap();
                 for mask in 0usize..(1 << size) {
                     let assumptions: Vec<_> = literals
@@ -196,5 +236,74 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn cardinality_encoders_share_variables_and_accept_negative_literals() {
+        let cancellation = Cancellation::default();
+        let mut formula = Formula::new(backend(&cancellation), cancellation);
+        let literals: Vec<_> = (0..7)
+            .map(|index| {
+                let literal = formula.new_lit();
+                if index % 2 == 0 {
+                    literal
+                } else {
+                    !literal
+                }
+            })
+            .collect();
+        formula.at_most(&literals[..3], 1).unwrap();
+        formula.at_most(&literals[3..], 2).unwrap();
+        let tail = formula.new_lit();
+        assert!(tail.var() > literals[6].var());
+        formula.add_clause(&[tail]).unwrap();
+        for mask in 0u32..128 {
+            let mut assumptions: Vec<_> = literals
+                .iter()
+                .enumerate()
+                .map(|(index, &literal)| {
+                    if mask & (1 << index) != 0 {
+                        literal
+                    } else {
+                        !literal
+                    }
+                })
+                .collect();
+            assumptions.push(tail);
+            let within_bounds = (mask & 7).count_ones() <= 1 && (mask >> 3).count_ones() <= 2;
+            assert_eq!(
+                rustsat::solvers::SolveIncremental::solve_assumps(
+                    &mut formula.solver,
+                    &assumptions
+                )
+                .unwrap()
+                    == SolverResult::Sat,
+                within_bounds,
+            );
+        }
+    }
+
+    #[test]
+    fn library_clause_collection_stops_and_preserves_cancellation() {
+        let cancellation = Cancellation::default();
+        let mut solver = backend(&cancellation);
+        let mut collector = EncodingClauses {
+            solver: &mut solver,
+            cancellation: &cancellation,
+            count: 0,
+            error: None,
+        };
+        let clauses = (0..10).map(|index| {
+            if index == 3 {
+                cancellation.cancel();
+            }
+            rustsat::clause![Lit::positive(index)]
+        });
+        assert!(collector.extend_clauses(clauses).is_err());
+        assert_eq!(collector.count, 3);
+        assert!(collector.error.unwrap().is::<Cancelled>());
+
+        let mut formula = Formula::new(solver, cancellation);
+        assert!(formula.at_most(&[], 0).unwrap_err().is::<Cancelled>());
     }
 }

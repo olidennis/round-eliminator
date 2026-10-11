@@ -1,4 +1,6 @@
-# Configuration membership benchmarks
+# Algorithm benchmarks
+
+## Configuration membership
 
 Run from the repository root:
 
@@ -23,7 +25,7 @@ also excludes conversion from counts. Wasm batches stay inside Rust to exclude
 JS call overhead. Reported values are medians of three samples; these are
 synthetic cases, not a general performance ranking.
 
-## Measurements and choice
+### Measurements and choice
 
 Measured on 2026-10-10 in the ARM64 development container, with Rust 1.89.0,
 release builds, petgraph 0.8.3, and Node v25.9.0 for wasm. Times below are
@@ -80,10 +82,286 @@ user's preference. The choice also avoids maintaining a custom matching
 algorithm and makes large multiplicities practical. It does not promise a
 speedup on every future workload; rerun and extend these fixtures as needed.
 
-## Cancellation
+### Cancellation
 
 Cancellation is checked during network construction and before and after each
 flow call. Petgraph provides no callback inside a flow call. A native cancellation
 therefore waits for that call to finish; the largest measured call was a few
 milliseconds including construction, but larger networks can take longer.
 Wasm worker termination can interrupt the call itself.
+
+## Zero-round cardinality encodings
+
+Run the complete-request benchmarks from the repository root:
+
+```sh
+cargo bench -p round-eliminator-3 --bench zero_round
+node crates/core/benches/zero_round_wasm.mjs
+```
+
+Build release wasm first using the command in the main README. Both runners use
+`support/zero_round_cases.json`: solvable and unsolvable examples covering all
+four entry forms, nonregular degrees, overlapping/dense parts, larger capacities,
+and passive counterexample refinement. The cardinality measurements below used
+the original 19 fixtures; ten passive-input fixtures were subsequently added.
+Notation is parsed once before timing.
+Each measured request includes model deserialization, formula construction, SAT
+solving, passive verification/refinement, and response serialization. It excludes
+HTTP, UI rendering, and notation parsing. Native checks independently validate
+solvable witnesses outside timing; both runners assert the expected decision.
+
+The wasm runner accepts multiple package directories, alternating sample order:
+
+```sh
+node crates/core/benches/zero_round_wasm.mjs /tmp/wasm-before /tmp/wasm-after
+```
+
+Save each version's wasm package before building the next. Native revisions can
+likewise be compared by saving the compiled benchmark executable from
+`target/release/deps/zero_round-*` before rebuilding, then alternating runs of the
+saved executables. Keep other builds/benchmarks idle while measuring.
+
+Measured on 2026-10-11 in the ARM64 Linux development container, Rust 1.89.0,
+RustSAT 0.7.5, CaDiCaL 2.2.1 native, BatSat wasm, Node v25.9.0, release builds
+(with wasm-opt for wasm). The reference is the former hand-written sequential
+counter. The library version uses Ladder for capacity one and Totalizer for
+larger bounds; zero capacity emits negative unit clauses and a capacity at least
+the number of literals requires no clauses. Both versions check cancellation.
+The rest of the problem model, matching algorithm, backend and search are the
+same. No solver tuning was performed.
+
+Times are milliseconds per complete request. Each run reports the median of
+five samples, with at least 100 ms per sample. Native columns are medians of two
+run medians per implementation, run in library/custom/custom/library order after
+initial exploratory measurements. Wasm columns are medians of five alternating
+samples after warm-up.
+
+| Complete check | Native custom | Native library | Wasm custom | Wasm library |
+| --- | ---: | ---: | ---: | ---: |
+| plain small SAT | 0.0357 | 0.0345 | 0.0139 | 0.0123 |
+| plain small UNSAT | 0.0364 | 0.0351 | 0.0143 | 0.0125 |
+| plain balanced 8 SAT | 0.0783 | 0.0758 | 0.0481 | 0.0473 |
+| plain balanced 8 UNSAT | 0.0785 | 0.0756 | 0.0416 | 0.0418 |
+| plain overlapping 16 SAT | 0.1958 | 0.1672 | 0.1397 | 0.1128 |
+| plain overlapping 16 UNSAT | 0.1947 | 0.1672 | 0.1149 | 0.1047 |
+| plain large capacity 64 SAT | 1.5959 | 1.0137 | 1.2600 | 0.7639 |
+| plain dense 12 SAT | 0.3352 | 0.3298 | 0.7997 | 0.6459 |
+| plain dense 24 SAT | 1.0473 | 1.1163 | 3.7040 | 3.5178 |
+| plain dense 48 SAT | 3.9330 | 4.2210 | 25.7139 | 16.1835 |
+| plain union SAT | 0.1487 | 0.1391 | 0.0919 | 0.0856 |
+| plain refinement degree 8 SAT | 0.0445 | 0.0437 | 0.0241 | 0.0222 |
+| plain refinement degree 8 UNSAT | 0.0373 | 0.0365 | 0.0165 | 0.0150 |
+| independent 6 SAT | 0.3056 | 0.2668 | 0.2715 | 0.2082 |
+| independent 10 SAT | 0.8202 | 0.7544 | 1.1859 | 0.6259 |
+| mapped 6 SAT | 1.1487 | 1.0074 | 5.3740 | 0.8719 |
+| mapped 6 UNSAT | 0.0731 | 0.0802 | 0.0644 | 0.0657 |
+| paired 6 SAT | 0.1403 | 0.1283 | 0.0919 | 0.0825 |
+| nonregular SAT | 0.0516 | 0.0494 | 0.0261 | 0.0238 |
+
+Choose the library implementation. Native results are mostly comparable or
+faster, with about 7% slowdowns on dense degree-24/48 cases and about 10% on the
+small unsolvable mapped example (an absolute difference of roughly 0.007 ms).
+Wasm is comparable or faster, including approximately 6.2x faster on the mapped
+solvable example, 1.9x on independent degree 10, and 1.6x on dense degree 48.
+Different CNFs can change the solver's search and witnesses; these synthetic
+fixtures do not establish a universal ranking. Add actual difficult problems to
+the same fixture file when revisiting the choice.
+
+The library clause collector checks cancellation before sending every generated
+clause. Its trait exposes only `OutOfMemory`; a private adapter retains the
+actual cancellation or solver error and restores it on return, so cancellation
+is never reported as an allocation failure or unsolvability. Setup/allocation
+before clause emission has no library cancellation hook. Wasm worker termination
+also interrupts that work.
+
+## Passive-input enumeration and maximized constraints
+
+Run the comparison from the repository root:
+
+```sh
+python3 crates/core/benches/passive_inputs/run.py --output /tmp/passive-input-results.csv
+```
+
+Use `--native-only` to omit wasm, or `--toolchain VERSION` to change the Rust
+compiler (default 1.89.0). Python and Cargo are required, plus Node and wasm-pack
+for wasm. `--wasm-package PATH` uses an already built current release package.
+Keep other builds and CPU-heavy work idle while measuring. The runner builds the
+current library once, then compares general and maximized requests through the
+same native executable and wasm package. It does not modify source files.
+
+General fixtures run only in general mode; hand-written maximized fixtures run in
+both modes. Native runners independently check witnesses and validate the
+maximized fixtures outside timing. To compare modes directly in an existing wasm
+package:
+
+```sh
+node crates/core/benches/zero_round_wasm.mjs --compare-modes \
+  --cases crates/core/benches/support/zero_round_maximized_cases.json
+```
+
+### Initial prototype experiment
+
+Before adoption, four implementations were compared:
+
+
+- **Expanded:** the current passive-input multiset enumeration and exact output
+  checker; no maximization requirement.
+- **Condensed:** retain passive input parts, union their compatible candidate
+  outputs, then enumerate concrete output multisets lazily. Stop at the first
+  violation. Preserve emission origins when producing a counterexample clause.
+  Equal temporary output parts with equal origins are combined to avoid redundant
+  traversal; this does not normalize the model. No maximization requirement.
+- **Maximized refinement:** transform candidate emissions to condensed output
+  parts and test containment in one passive configuration. Match parts using
+  subset edges and counted capacities with Dinic (simple cases use set inclusion).
+  A failed containment check blocks the selected emissions without enumerating
+  a concrete bad output. This rejection is sound only for a maximized constraint.
+- **Maximized direct:** encode that containment and capacity matching in SAT
+  upfront, with guards for input families that have no compatible emissions.
+  If all potential emissions already fit a target, omit that family's clauses.
+  No passive refinement during search. Requires a maximized constraint.
+
+Expanded, Condensed, and Maximized refinement retain the existing eager clauses
+for passive degrees at most two. Their refinement comparison concerns higher
+passive degrees. Maximized direct encodes containment at every passive degree.
+
+The initial general suite contained 29 fixtures: the original 19 plus ten cases with
+broad/overlapping input parts, fixed outputs, distinct output alphabets, and
+repeated parts. Only Expanded and Condensed ran on it. The maximized suite had
+23 hand-written fixtures and ran all four implementations. It includes:
+
+- Universal full-alphabet parts; monochromatic alternatives `X^d` / `Y^d`.
+- Exact counts `X^3 Y^3`, and at most one X, `XY Y^5`.
+- Three-label configurations excluding monochromatic outputs. At degree d=3 or
+  d=6, the complete maximal list is `AB AC BC ABC^(d-3)`, `A BC ABC^(d-2)`,
+  `B AC ABC^(d-2)`, `C AB ABC^(d-2)`.
+- Nonregular degrees including zero, and canonicalized paired entry.
+
+`support/maximized.rs` checks the supplied constraints outside timing. For two
+labels it tests every interval of possible label counts. For the non-universal
+three-label fixtures it enumerates all condensed families and compares concrete
+semantic coverage with containment using an independent exhaustive assignment
+oracle. Larger alphabets in these fixtures have a universal full-alphabet part.
+These checks assert completeness of the hand-written lists; they do not compute
+or implement maximization.
+
+Both suites assert expected SAT/UNSAT decisions. Native runs also check witnesses
+using the general checker, even for maximized variants. Before the initial measurement, the
+script ran all nine condensed-prototype zero-round tests, including exhaustive
+comparison of passive checks and counterexample origins over small emission
+subsets. The ordinary union-of-configurations tests remain valid without any
+maximization assumption.
+
+Measurements time complete structured requests after parsing notation once,
+using CaDiCaL 2.2.1 native and BatSat wasm. Each sample lasts at least 100 ms.
+Native results are medians of two run medians (five samples per run), with the
+second run reversing implementation order. Wasm results are medians of five
+samples alternating implementation order after warm-up. Builds and measurements
+run sequentially. HTTP, worker startup and rendering are excluded.
+
+### Initial results and selection
+
+Measured on 2026-10-11 in the ARM64 Linux development container, Rust 1.89.0,
+RustSAT 0.7.5, release builds, wasm-opt, Node v25.9.0. Full results for every
+fixture and implementation are in [passive_inputs/results.csv](passive_inputs/results.csv).
+These are synthetic workloads; timings do not establish a universal ranking.
+All decisions agreed with the expected results, all native witnesses passed the
+general verifier, and all hand-written maximized constraints passed the checks.
+
+Times below are milliseconds per complete request. The first table uses the
+**general** suite, which has no maximization assumption.
+
+| Case | Native expanded | Native condensed | Wasm expanded | Wasm condensed |
+| --- | ---: | ---: | ---: | ---: |
+| plain small SAT | 0.0372 | 0.0343 | 0.0128 | 0.0127 |
+| plain dense 48 SAT | 4.2493 | 4.4133 | 16.5547 | 17.1801 |
+| broad inputs 4 labels degree 8 SAT | 0.1400 | 0.0421 | 0.1178 | 0.0206 |
+| broad inputs 8 labels degree 10 SAT | 16.4433 | 0.0570 | 21.8861 | 0.0342 |
+| broad inputs 8 labels degree 12 SAT | 47.0194 | 0.0579 | 53.9350 | 0.0347 |
+| broad inputs fixed outputs degree 10 SAT | 16.7364 | 0.0433 | 19.6752 | 0.0232 |
+| distinct input outputs 8 labels degree 6 SAT | 1.2561 | 0.4555 | 1.3659 | 0.4904 |
+| three forced outputs repeated parts degree 10 SAT | 0.4421 | 0.0854 | 0.4741 | 0.0572 |
+| overlapping passive inputs UNSAT | 0.0401 | 0.0355 | 0.0184 | 0.0148 |
+
+The original 19 fixtures were comparable: native changes ranged from about 8%
+faster to 4% slower; wasm changes were within about 4%. Broad input families
+benefited much more, particularly when many inputs share few outputs. Degree 12
+with eight input labels improved approximately 812x native and 1553x wasm.
+Fixed outputs also benefit: expansion previously enumerated input multisets even
+though the mapping was already determined.
+
+The next table uses only **maximized** passive constraints. It compares the
+condensed general checker with the two assumption-based implementations.
+
+| Case | Native condensed | Native refinement | Native direct | Wasm condensed | Wasm refinement | Wasm direct |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| distinct input outputs 8 labels degree 6 SAT | 0.4558 | 0.0434 | 0.0434 | 0.4882 | 0.0219 | 0.0216 |
+| three forced outputs repeated parts degree 10 SAT | 0.0867 | 0.0751 | 0.0773 | 0.0557 | 0.0467 | 0.0463 |
+| maximized monochrome plain SAT | 0.0331 | 0.0336 | 0.0432 | 0.0107 | 0.0106 | 0.0171 |
+| maximized at most one X UNSAT | 0.0304 | 0.0315 | 0.0466 | 0.0099 | 0.0104 | 0.0225 |
+| maximized exact counts UNSAT | 0.0299 | 0.0301 | 0.0472 | 0.0095 | 0.0094 | 0.0249 |
+| maximized three labels degree 6 SAT | 0.0345 | 0.0346 | 0.0358 | 0.0157 | 0.0158 | 0.0156 |
+| maximized three labels degree 6 UNSAT | 0.0326 | 0.0331 | 0.3258 | 0.0140 | 0.0138 | 0.0978 |
+
+Recommend **Condensed** as the general replacement for passive-input expansion,
+and **Maximized refinement** when maximization is guaranteed. On the distinct
+output-alphabet example, containment refinement is about 10.5x faster than the
+condensed checker natively and 22.3x faster in wasm. It works on sets and
+multiplicities during refinement, avoiding concrete output enumeration there.
+
+Direct containment encoding was comparable or slightly faster on several small
+wasm solvable cases. Its formula construction cost hurt other cases: roughly
+9.9x slower native and 7.1x slower wasm on the three-label degree-six unsolvable
+fixture. These examples do not justify choosing it as the default. Refinement
+with a whole-emission blocking clause can require more candidates on harder
+instances; these measurements do not settle that tradeoff for every problem.
+
+Condensed inputs alone do not remove output combinatorics. The prototype keeps
+visited output multisets to suppress overlap duplicates, which can consume memory
+on broad valid output families; peak memory was not measured. A containment proof
+can safely accept a family even without maximization. A failed containment test
+on an unmaximized constraint still needs the exact general check: separate listed
+configurations may cover the family jointly. The adopted modes now share that safe acceptance shortcut. It was not part of
+the initial Condensed prototype measured above.
+
+Following the user's choice, the two selected modes are now implemented in
+production with shared containment preparation. The expanded-input and direct
+SAT prototypes and their temporary patching runner have been retired. The CSV
+above preserves their historical measurements; the current runner measures the
+two adopted modes and does not reproduce the retired prototypes.
+
+### Adopted implementation
+
+The adopted general mode first tries a containment proof, then enumerates outputs
+lazily only if that proof fails. The maximized mode uses the same proof and can
+reject immediately on failure. Both share preparation, eager clauses for passive
+degrees at most two, the SAT search, cancellation, and independent witness checking.
+The API mode is explicit; the GUI uses general mode until maximization exists.
+
+The current measurements are in
+[passive_inputs/adopted-results.csv](passive_inputs/adopted-results.csv), using the
+same environment, fixtures and sampling method as the initial experiment.
+All expected decisions, native witnesses and maximization checks passed.
+The frontend build and wasm/server parity checks also passed for both modes.
+
+Times are milliseconds per complete request on the maximized fixture suite:
+
+| Case | Native general | Native maximized | Wasm general | Wasm maximized |
+| --- | ---: | ---: | ---: | ---: |
+| broad inputs 8 labels degree 12 SAT | 0.0551 | 0.0557 | 0.0324 | 0.0322 |
+| distinct input outputs 8 labels degree 6 SAT | 0.0423 | 0.0422 | 0.0222 | 0.0223 |
+| three forced outputs repeated parts degree 10 SAT | 0.0741 | 0.0740 | 0.0465 | 0.0465 |
+| maximized monochrome plain UNSAT | 0.0358 | 0.0353 | 0.0137 | 0.0132 |
+| maximized three labels degree 6 UNSAT | 0.0325 | 0.0327 | 0.0141 | 0.0140 |
+
+Both modes now benefit from containment proofs on valid families. For example,
+the distinct-output general fixture improved from 0.456 to 0.043 ms native and
+0.490 to 0.023 ms wasm compared with the initial condensed-only prototype.
+The adopted general and maximized modes were comparable on the maximized suite;
+the difference is the work after failed containment. General mode must find a
+concrete violation; maximized mode can block the whole selected family directly.
+On the original 19 general fixtures, times stayed within about 6% of the initial
+condensed prototype, with comparisons taken in separate runs. These small
+changes do not indicate a universal ranking. Harder invalid families may show
+larger differences; maximize only when its total cost is justified or when a
+maximized constraint is already needed by another algorithm.

@@ -10,15 +10,20 @@ constraints and label count, reporting parse errors, and canonical label sets
 with union, intersection, difference, and subset operations. Starred configurations
 are deliberately deferred at the user's request.
 
-Also implemented: entry and display of independent input/output problems,
-direct input/output pair constraints with their input projection, and input-to-output
-maps with separate input/output constraints. Optional active/passive degree lists
+Also implemented: all four entry forms, converted to a shared mapped problem.
+Plain entry uses trivial input; independent entry uses an unrestricted mapping.
+Paired entry becomes ordinary output labels with a restricted mapping and an
+explicit input projection. The UI displays the converted definition directly,
+without original-entry metadata. Optional active/passive degree lists
 define the graph class for all variants, including pairs; omitted lists use input degrees (output degrees for plain
 problems). Pair problems derive their promise from the input projection. Checked
 model construction, empty constraints, and degree-zero configurations are supported.
 Zero-round solvability is implemented for all four variants, with a local-rule
 witness. It uses RustSAT with CaDiCaL for native builds and BatSat for wasm,
-and exact passive checks without maximization.
+and general passive checks without a maximization prerequisite. Passive inputs
+stay condensed; both modes share containment proofs. General mode checks outputs
+exactly after failed containment; an explicit maximized mode can reject immediately
+when the caller guarantees maximization. The GUI uses general mode.
 The check lives inside the parsed problem, with streamed phase progress, cancellation,
 and retry on both server and wasm.
 Start parses once; analysis requests reuse the structured problem through direct
@@ -43,9 +48,10 @@ explicitly deferred at the user's request.
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
 | Optimize zero-round search | Benchmark the shared SAT search and counterexample checker on large instances before adding specialized paths or stronger refinements. |
+| Expose maximized verification in the UI | Both verification modes are implemented and benchmarked. Once maximization exists, offer direct checking versus maximizing first, including that preparation cost. |
 | Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
 | Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |
-| Preserve input promises in transformations | For pair problems, preserve the original input promise when changing output validity; deriving it again from modified pairs can silently narrow the problem domain. |
+| Preserve input promises in transformations | Keep the graph class and explicit input promise independent of changes to outputs or the mapping; recomputing either can silently narrow the problem domain. |
 
 ## Problem entry, history, and sharing
 

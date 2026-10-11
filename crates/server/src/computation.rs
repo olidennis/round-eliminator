@@ -15,8 +15,8 @@ use axum::{
     },
 };
 use round_eliminator_3::{
+    api::{ApiError, ComputationEvent, Response, execute_text},
     computation::{Cancellation, Computation, Phase, Progress},
-    protocol::{ApiError, ComputationEvent, Response, execute_text},
 };
 use tokio::sync::{Semaphore, mpsc};
 use tokio_stream::{Stream, wrappers::ReceiverStream};
@@ -122,7 +122,7 @@ mod tests {
         }))
         .unwrap();
         let problem = round_eliminator_3::parser::parse_problem(text).unwrap();
-        serde_json::json!({"type":"check_zero_round", "data":problem}).to_string()
+        serde_json::json!({"type":"check_zero_round", "data":{"problem":problem}}).to_string()
     }
 
     #[tokio::test]

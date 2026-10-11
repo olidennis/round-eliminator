@@ -1,10 +1,9 @@
 use super::*;
-use crate::labels::LabelSet;
-use crate::parse_problem;
-use crate::problem::{
-    CondensedConfiguration, Constraint, ConstraintPair, GraphClass, IndependentProblem,
-    MappedProblem, Part, PlainProblem,
+use crate::model::LabelSet;
+use crate::model::{
+    CondensedConfiguration, Constraint, ConstraintPair, GraphClass, Input, OutputMapping, Part,
 };
+use crate::parse_problem;
 use std::collections::BTreeSet;
 
 fn parse(value: serde_json::Value) -> Problem {
@@ -18,7 +17,7 @@ fn plain(active: &str, passive: &str) -> Problem {
 }
 
 fn expect(problem: &Problem, solvable: bool) -> Vec<LocalRule> {
-    let result = check(problem).unwrap();
+    let result = check(problem, PassiveMode::General).unwrap();
     match result {
         ZeroRoundResult::Solvable { strategy } => {
             assert!(solvable, "unexpected witness: {strategy:?}");
@@ -186,53 +185,86 @@ fn brute_accepts<L: Copy + Ord>(constraint: &Constraint<L>, labels: &[L]) -> boo
     })
 }
 
-fn brute_validity(validity: Validity<'_>, input: &[LabelId], output: &[LabelId]) -> bool {
-    match validity {
-        Validity::Labels(constraint) => brute_accepts(constraint, output),
-        Validity::Pairs(constraint) => brute_accepts(
-            constraint,
-            &input
-                .iter()
-                .zip(output)
-                .map(|(&input, &output)| LabelPair { input, output })
-                .collect::<Vec<_>>(),
-        ),
+// Keep the oracle's concrete input enumeration independent of the condensed checker.
+fn concrete_passive_inputs(problem: &Problem) -> Vec<crate::model::Configuration<Option<LabelId>>> {
+    use crate::algorithms::configurations::concrete_multisets;
+    use crate::model::Configuration;
+    match problem.input() {
+        Input::Explicit(input) => {
+            concrete_multisets(input.passive(), problem.graph_class().passive())
+                .into_iter()
+                .map(|input| {
+                    Configuration::new(
+                        input
+                            .multiplicities()
+                            .iter()
+                            .map(|&(label, count)| (Some(label), count))
+                            .collect(),
+                    )
+                    .unwrap()
+                })
+                .collect()
+        }
+        Input::Trivial => problem
+            .graph_class()
+            .passive()
+            .iter()
+            .map(|&degree| Configuration::new(vec![(None, degree)]).unwrap())
+            .collect(),
     }
 }
 
 fn brute_solvable(problem: &Problem) -> bool {
+    brute_solvable_with(
+        problem,
+        problem.output().labels().len(),
+        |_, output| brute_accepts(problem.output().active(), output),
+        |_, output| brute_accepts(problem.output().passive(), output),
+    )
+}
+
+// Supply original paired validity as well as canonical validity, so conversion
+// is checked against the entry semantics independently of its own tag encoding.
+fn brute_solvable_with(
+    problem: &Problem,
+    alphabet: usize,
+    active: impl Fn(&[LabelId], &[LabelId]) -> bool,
+    passive: impl Fn(&[LabelId], &[LabelId]) -> bool,
+) -> bool {
     let cancellation = Cancellation::default();
-    let (active, passive) = Validity::for_problem(problem);
-    let mut rules = prepare::contexts(problem, &cancellation).unwrap();
+    let mut rules = prepare::prepare_local_rules(problem, &cancellation).unwrap();
     let count: usize = rules.iter().map(|rule| rule.degree as usize).sum();
     assert!(count < 16);
-    for mask in 0usize..(1 << count) {
-        let mut bit = 0;
+    for mut code in 0usize..alphabet.pow(count as u32) {
         let mut emitted = BTreeSet::new();
         let mut valid = true;
         for rule in &mut rules {
             rule.output = (0..rule.degree)
                 .map(|_| {
-                    let id = LabelId(((mask >> bit) & 1) as u32);
-                    bit += 1;
+                    let id = LabelId((code % alphabet) as u32);
+                    code /= alphabet;
                     id
                 })
                 .collect();
-            valid &= brute_validity(active, rule.input.as_deref().unwrap_or(&[]), &rule.output);
+            valid &= active(rule.input.as_deref().unwrap_or(&[]), &rule.output);
             for (position, &output) in rule.output.iter().enumerate() {
                 let input = rule.input.as_ref().map(|labels| labels[position]);
-                valid &= validity::mapped_output_allowed(problem, input, output);
+                valid &= problem.output_allowed(input, output);
                 emitted.insert((input, output));
             }
         }
         if !valid {
             continue;
         }
-        for input in prepare::passive_inputs(problem, &cancellation).unwrap() {
+        for input in concrete_passive_inputs(problem) {
             let input: Vec<_> = input.occurrences().collect();
-            for combination in 0usize..(1 << input.len()) {
+            for mut combination in 0usize..alphabet.pow(input.len() as u32) {
                 let output: Vec<_> = (0..input.len())
-                    .map(|position| LabelId(((combination >> position) & 1) as u32))
+                    .map(|_| {
+                        let label = LabelId((combination % alphabet) as u32);
+                        combination /= alphabet;
+                        label
+                    })
                     .collect();
                 if input
                     .iter()
@@ -240,8 +272,7 @@ fn brute_solvable(problem: &Problem) -> bool {
                     .zip(output.iter().copied())
                     .all(|pair| emitted.contains(&pair))
                 {
-                    valid &= brute_validity(
-                        passive,
+                    valid &= passive(
                         &input.iter().flatten().copied().collect::<Vec<_>>(),
                         &output,
                     );
@@ -265,17 +296,25 @@ fn sat_agrees_with_exhaustive_plain_and_input_search() {
                     relation(2, active_mask),
                     relation(passive_degree, passive_mask),
                 );
-                let problem = Problem::Plain(PlainProblem::new(graph.clone(), output.clone()));
+                let problem = Problem::new(
+                    graph.clone(),
+                    Input::Trivial,
+                    output.clone(),
+                    OutputMapping::Unrestricted,
+                )
+                .unwrap();
                 expect(&problem, brute_solvable(&problem));
                 let input = pair(
                     relation(2, 0b111),
                     relation(passive_degree, (1 << (passive_degree + 1)) - 1),
                 );
-                let problem = Problem::Independent(IndependentProblem::new(
+                let problem = Problem::new(
                     graph.clone(),
-                    input.clone(),
+                    Input::Explicit(input.clone()),
                     output.clone(),
-                ));
+                    OutputMapping::Unrestricted,
+                )
+                .unwrap();
                 expect(&problem, brute_solvable(&problem));
                 for first in 0..4 {
                     for second in 0..4 {
@@ -287,15 +326,13 @@ fn sat_agrees_with_exhaustive_plain_and_input_search() {
                                     .collect(),
                             )
                         });
-                        let problem = Problem::Mapped(
-                            MappedProblem::new(
-                                graph.clone(),
-                                input.clone(),
-                                output.clone(),
-                                allowed.to_vec(),
-                            )
-                            .unwrap(),
-                        );
+                        let problem = Problem::new(
+                            graph.clone(),
+                            Input::Explicit(input.clone()),
+                            output.clone(),
+                            OutputMapping::Restricted(allowed.to_vec()),
+                        )
+                        .unwrap();
                         expect(&problem, brute_solvable(&problem));
                     }
                 }
@@ -332,24 +369,11 @@ fn condensed_active_matching_agrees_with_exhaustive_search() {
 
 #[test]
 fn paired_sat_agrees_with_exhaustive_search() {
-    use crate::problem::{InputOutputConstraintPair, PairedProblem};
     let pairs = [
-        LabelPair {
-            input: LabelId(0),
-            output: LabelId(0),
-        },
-        LabelPair {
-            input: LabelId(0),
-            output: LabelId(1),
-        },
-        LabelPair {
-            input: LabelId(1),
-            output: LabelId(0),
-        },
-        LabelPair {
-            input: LabelId(1),
-            output: LabelId(1),
-        },
+        (LabelId(0), LabelId(0)),
+        (LabelId(0), LabelId(1)),
+        (LabelId(1), LabelId(0)),
+        (LabelId(1), LabelId(1)),
     ];
     let relation = |degree: u32, mask: usize| {
         let tuples: Vec<Vec<_>> = (0usize..4usize.pow(degree))
@@ -389,18 +413,103 @@ fn paired_sat_agrees_with_exhaustive_search() {
             } else {
                 (seed * 27961 + 7817) % (1 << 20)
             };
-            let constraints = InputOutputConstraintPair::new(
+            let active = relation(2, active);
+            let passive = relation(passive_degree, passive);
+            // The oracle projects tuples independently of the parser's pair
+            // types and conversion, keeping this equivalence test independent.
+            let project = |constraint: &Constraint<(LabelId, LabelId)>| {
+                Constraint::new(
+                    constraint
+                        .configurations()
+                        .map(|configuration| {
+                            CondensedConfiguration::new(
+                                configuration
+                                    .parts()
+                                    .iter()
+                                    .map(|part| {
+                                        Part::new(
+                                            LabelSet::new(
+                                                part.labels().iter().map(|pair| pair.0).collect(),
+                                            ),
+                                            part.multiplicity(),
+                                        )
+                                        .unwrap()
+                                    })
+                                    .collect(),
+                            )
+                            .unwrap()
+                        })
+                        .collect(),
+                )
+            };
+            let input = ConstraintPair::new(
                 vec!["a".into(), "b".into()],
-                vec!["A".into(), "B".into()],
-                relation(2, active),
-                relation(passive_degree, passive),
+                project(&active),
+                project(&passive),
             )
             .unwrap();
-            let problem = Problem::Paired(
-                PairedProblem::new(GraphClass::new(vec![2], vec![passive_degree]), constraints)
-                    .unwrap(),
+            let graph = GraphClass::new(vec![2], vec![passive_degree]);
+            let promise = Problem::new(
+                graph.clone(),
+                Input::Explicit(input),
+                pair(Constraint::new(vec![]), Constraint::new(vec![])),
+                OutputMapping::Unrestricted,
+            )
+            .unwrap();
+            let original_validity = |constraint: &Constraint<(LabelId, LabelId)>,
+                                     input: &[LabelId],
+                                     output: &[LabelId]| {
+                brute_accepts(
+                    constraint,
+                    &input
+                        .iter()
+                        .zip(output)
+                        .map(|(&input, &output)| (input, output))
+                        .collect::<Vec<_>>(),
+                )
+            };
+            let expected = brute_solvable_with(
+                &promise,
+                2,
+                |input, output| original_validity(&active, input, output),
+                |input, output| original_validity(&passive, input, output),
             );
-            expect(&problem, brute_solvable(&problem));
+            let entry = |constraint: &Constraint<(LabelId, LabelId)>| {
+                constraint
+                    .configurations()
+                    .map(|configuration| {
+                        if configuration.parts().is_empty() {
+                            return "()".to_owned();
+                        }
+                        configuration
+                            .parts()
+                            .iter()
+                            .map(|part| {
+                                let labels = part
+                                    .labels()
+                                    .iter()
+                                    .map(|pair| {
+                                        format!(
+                                            "({},{})",
+                                            ["a", "b"][pair.0.0 as usize],
+                                            ["A", "B"][pair.1.0 as usize]
+                                        )
+                                    })
+                                    .collect::<String>();
+                                format!("{labels}^{}", part.multiplicity())
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let problem = parse(serde_json::json!({"kind": "paired", "constraints": {
+                "active": entry(&active), "passive": entry(&passive)
+            }, "degrees": {"active": "2", "passive": passive_degree.to_string()}}));
+            expect(&problem, expected);
         }
     }
 }
+
+mod passive;

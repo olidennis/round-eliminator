@@ -8,8 +8,7 @@ use petgraph::{
 use round_eliminator_3::{
     algorithms::configurations::accepts,
     computation::Cancellation,
-    labels::LabelSet,
-    problem::{CondensedConfiguration, Configuration, Constraint, Part},
+    model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part},
 };
 
 pub struct Case {

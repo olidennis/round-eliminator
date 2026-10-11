@@ -1,0 +1,383 @@
+[
+  {
+    "name": "plain small SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "A B",
+        "passive": "AB^3"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain small UNSAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "A B",
+        "passive": "A^2 B\nA B^2"
+      }
+    },
+    "expected": "unsolvable"
+  },
+  {
+    "name": "plain balanced 8 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "A^4 B^4",
+        "passive": "AB^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain balanced 8 UNSAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "A^4 B^4",
+        "passive": "A B"
+      }
+    },
+    "expected": "unsolvable"
+  },
+  {
+    "name": "plain overlapping 16 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "AB^8 BC^8",
+        "passive": "ABC^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain overlapping 16 UNSAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "AB^8 BC^8",
+        "passive": "A B\nA C\nB C"
+      }
+    },
+    "expected": "unsolvable"
+  },
+  {
+    "name": "plain large capacity 64 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "AB^32 BC^32",
+        "passive": "ABC^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain dense 12 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD",
+        "passive": "ABCD^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain dense 24 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD",
+        "passive": "ABCD^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain dense 48 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD ABCD",
+        "passive": "ABCD^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain union SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "AB^4 BC^4\nA^4 C^4\nB^8",
+        "passive": "ABC^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain refinement degree 8 SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "A B",
+        "passive": "A^0 B^8\nA^1 B^7\nA^2 B^6\nA^3 B^5\nA^4 B^4\nA^5 B^3\nA^6 B^2\nA^7 B^1\nA^8 B^0"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "plain refinement degree 8 UNSAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "A B",
+        "passive": "A^1 B^7\nA^2 B^6\nA^3 B^5\nA^4 B^4\nA^5 B^3\nA^6 B^2\nA^7 B^1"
+      }
+    },
+    "expected": "unsolvable"
+  },
+  {
+    "name": "independent 6 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "ab^6",
+        "passive": "ab^2"
+      },
+      "output": {
+        "active": "A^3 B^3",
+        "passive": "AB^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "independent 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "ab^10",
+        "passive": "ab^2"
+      },
+      "output": {
+        "active": "A^5 B^5",
+        "passive": "AB^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "mapped 6 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc^6",
+        "passive": "abc^2"
+      },
+      "output": {
+        "active": "AB^3 BC^3",
+        "passive": "ABC^2"
+      },
+      "mapping": "a -> AB\nb -> ABC\nc -> BC"
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "mapped 6 UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "ab^6",
+        "passive": "ab^2"
+      },
+      "output": {
+        "active": "A^3 B^3",
+        "passive": "AB^2"
+      },
+      "mapping": "a -> A\nb -> B"
+    },
+    "expected": "unsolvable"
+  },
+  {
+    "name": "paired 6 SAT",
+    "definition": {
+      "kind": "paired",
+      "constraints": {
+        "active": "(a,A)(a,B)(b,A)(b,B)^6",
+        "passive": "(a,A)(a,B)(b,A)(b,B)^2"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "nonregular SAT",
+    "definition": {
+      "kind": "plain",
+      "constraints": {
+        "active": "AB^2..4",
+        "passive": "AB^2..3"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "broad inputs 4 labels degree 8 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "abcd",
+        "passive": "abcd^8"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^8"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "broad inputs 8 labels degree 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^10"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^10"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "broad inputs 8 labels degree 12 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^12"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^12"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "broad inputs fixed outputs degree 10 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^10"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^10"
+      },
+      "mapping": "a -> X\nb -> Y\nc -> X\nd -> Y\ne -> X\nf -> Y\ng -> X\nh -> Y"
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "broad inputs forced mixed degree 6 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "a^2\nb^2\nc^2\nd^2",
+        "passive": "abcd^6"
+      },
+      "output": {
+        "active": "X Y",
+        "passive": "XY^6"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "overlapping passive inputs SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "ab^3 bc^3\nac^6"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "XY^6"
+      },
+      "mapping": "a -> X\nb -> XY\nc -> Y"
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "overlapping passive inputs UNSAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abc",
+        "passive": "ab^3 bc^3"
+      },
+      "output": {
+        "active": "XY",
+        "passive": "X^6\nY^6"
+      },
+      "mapping": "a -> X\nb -> XY\nc -> Y"
+    },
+    "expected": "unsolvable"
+  },
+  {
+    "name": "distinct input outputs 8 labels degree 6 SAT",
+    "definition": {
+      "kind": "mapped",
+      "input": {
+        "active": "abcdefgh",
+        "passive": "abcdefgh^6"
+      },
+      "output": {
+        "active": "ABCDEFGH",
+        "passive": "ABCDEFGH^6"
+      },
+      "mapping": "a -> A\nb -> B\nc -> C\nd -> D\ne -> E\nf -> F\ng -> G\nh -> H"
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "three forced outputs condensed degree 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "a^3\nb^3",
+        "passive": "ab^10"
+      },
+      "output": {
+        "active": "A B C",
+        "passive": "ABC^10"
+      }
+    },
+    "expected": "solvable"
+  },
+  {
+    "name": "three forced outputs repeated parts degree 10 SAT",
+    "definition": {
+      "kind": "independent",
+      "input": {
+        "active": "a^3\nb^3",
+        "passive": "ab ab ab ab ab ab ab ab ab ab"
+      },
+      "output": {
+        "active": "A B C",
+        "passive": "ABC^10"
+      }
+    },
+    "expected": "solvable"
+  }
+]

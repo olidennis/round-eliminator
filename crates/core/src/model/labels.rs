@@ -1,21 +1,15 @@
 //! Label identifiers and sets used by the problem model.
 
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashSet};
+
+use super::ValidationError;
 use ts_rs::TS;
 
 /// A label is just a number.
 /// Its text representation is stored somewhere else.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct LabelId(pub u32);
-
-/// Two label IDs indexing separate input and output string tables.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
-#[serde(deny_unknown_fields)]
-pub struct LabelPair {
-    pub input: LabelId,
-    pub output: LabelId,
-}
 
 /// A set of labels (or of L), stored in increasing order without duplicates.
 ///
@@ -131,6 +125,19 @@ impl<L: Copy + Ord> LabelSet<L> {
         labels.extend_from_slice(&self.0[left..]);
         Self(labels)
     }
+}
+
+/// Check that all label names within one table are different and nonempty.
+pub(crate) fn validate_names(labels: &[String]) -> Result<(), ValidationError> {
+    let mut seen = HashSet::new();
+    for label in labels {
+        if label.is_empty() || !seen.insert(label) {
+            return Err(ValidationError::new(
+                "Label names must be nonempty and distinct within their table.",
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

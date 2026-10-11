@@ -41,19 +41,31 @@ the user's Mac. Git worktree repairs may rewrite this pointer; restore it to
   output constraints and a map `input label -> allowed output labels`.
   The latter is described in Section 6.1, Definition 6.1 of
   https://arxiv.org/pdf/2510.17639 (printed page 38).
-- The model has plain, independent-input, paired, and mapped variants. Input and
-  output label tables are separate. Store input/output pairs directly as two
-  numeric IDs; do not intern pairs through another table.
+- Keep all four text-entry forms, but convert them once to a single mapped
+  `Problem { graph_class, input, output, mapping }`. `Input` is `Trivial` or
+  `Explicit(ConstraintPair)`. Trivial input represents one configuration at each
+  graph-class degree without allocating dummy labels or constraints.
+  `OutputMapping` is `Unrestricted` or `Restricted(Vec<LabelSet>)`; restricted
+  entries index input IDs, with one implicit entry for trivial input.
+- Plain entry uses trivial input and unrestricted mapping. Independent entry
+  uses explicit input and unrestricted mapping. Mapped entry supplies both.
+  Paired entry projects the original input promise and interns each distinct pair
+  as an ordinary output ID, restricted to its originating input. Preserve condensed
+  parts and multiplicities. Readable tag names are `input,output`; these are just
+  names after conversion, not structured pairs for algorithms.
+- The user explicitly rejected preserving metadata for the original paired entry:
+  show the converted problem and witness directly. Future relaxations and other
+  transformations act on the same model users see. Do not add decoding tables or
+  original-entry presentation wrappers.
 - `Part<L>`, `CondensedConfiguration<L>`, `Constraint<L>`, and `LabelSet<L>` share
-  container code for two concrete element types: `LabelId` and `LabelPair`.
-- Use two concrete aggregate types in `problem/constraint_pair.rs`:
-  `ConstraintPair` owns one label table and ordinary active/passive constraints;
-  `InputOutputConstraintPair` owns separate input/output tables and constraints
-  on direct label pairs. Their constructors validate names and references.
-  Keep these types distinct rather than adding a generic aggregate or wrappers.
-- Problem variants compose these validated types. `PairedProblem` stores an
-  `InputOutputConstraintPair` and its projected input promise as an ordinary
-  `ConstraintPair`. The projection retains a copy of the input names and IDs.
+  container code for `LabelId` and `LabelPair`, but algorithms on `Problem` use
+  ordinary output IDs only. `ConstraintPair` owns one name table and ordinary
+  active/passive constraints. `LabelPair` and `InputOutputConstraintPair` are
+  private parser details in `parser/paired.rs`, used for paired-entry validation,
+  projection, and conversion. Their name tables are temporary. Do not export
+  either from the model or derive Serde/TS for them. Keep pair-specific validation
+  tests in `parser/paired/tests.rs`. Algorithm equivalence tests use tuple-based
+  original constraints as an independent oracle, without importing parser types.
 - Model fields are private and constructors check multiplicities, degree
   overflow, label references, and mapping completeness. Start parses text once.
   Analysis requests carry the structured problem returned by Start. The user
@@ -111,19 +123,83 @@ counterexample clause until a witness or UNSAT is obtained. No maximization
 precondition or arbitrary search limits. Keep an independent witness checker
 and tests comparing against exhaustive search on small instances.
 
+Passive verification decision (2026-10-11): the user approved adopting two
+modes after native/wasm benchmarks. Both keep passive inputs condensed and share
+emission preparation and the SAT loop. `PassiveMode::General` is the default;
+it tries counted containment first, then checks output multisets lazily against
+the whole constraint if containment fails. `PassiveMode::Maximized` uses the
+same containment check and can reject immediately on failure, blocking the
+selected emissions. Its caller must guarantee that every maximal passive
+configuration is listed, up to permutation. The user explicitly requested
+hand-written maximized fixtures and no maximization implementation yet.
+Do not keep the expanded-input or direct SAT containment implementations in
+production. Historical results are in `crates/core/benches/passive_inputs/results.csv`;
+the runner now compares the two adopted modes without source patching.
+Containment can safely accept a family without maximization, but failed
+containment cannot reject it unless maximization is guaranteed. Temporary merging
+of output parts with equal choices and origins is not model normalization.
+The GUI currently sends general mode. Add a user choice when maximization exists;
+its total cost includes maximizing the constraint. Do not add a stale maximization
+flag to `Problem` ahead of transformation semantics.
+
 The user approved removing the zero-round `View` struct. General borrowed
-accessors (`graph_class`, `input`, `allowed_outputs`) live on `Problem`.
-Algorithm-specific context preparation and absent-input conventions remain as
-functions in `algorithms/zero_round/prepare.rs`. Keep the private `Validity`
-selector for ordinary and pair constraints; the problem model must not depend
-on zero-round witness types or SAT preparation.
+accessors (`graph_class`, `input`, `output`, `mapping`) and incidence restrictions
+(`output_allowed`) live on `Problem`. Algorithm-specific context/domain preparation
+and absent-input conventions remain in `algorithms/zero_round/prepare.rs`.
+The former `Validity` selector is removed: search and verification use the shared
+ordinary output constraints directly. The model must not depend on zero-round
+witness types or SAT preparation.
+
+Module placement after the organization review:
+
+- The user selected `model` as the domain module name. `model.rs` only declares
+  private implementation modules and reexports their public types. The problem,
+  input/mapping enums, and construction error live in `model/problem.rs`; sibling
+  files own labels, constraints, configurations, and graph classes. No `mod.rs`
+  is needed for this module. Use `crate::model::{Problem, LabelId, ...}`.
+- `model/labels.rs` owns `LabelId` and `LabelSet`, reexported from `model`,
+  plus the shared internal label-name validator. Keep model types together.
+- `model/configuration.rs` owns `Configuration`, `CondensedConfiguration`, and
+  `Part`, including their multiplicity validation.
+- `model/constraint.rs` owns `Constraint` and `DegreeGroup`: grouping and lookup,
+  including `Constraint::configurations_at_degree`. Matching and concrete
+  enumeration remain algorithms in `algorithms/configurations.rs`.
+- Generic SAT cardinality operations (`Formula::exactly_one`, `Formula::at_most`)
+  and their tests belong in `algorithms/sat.rs`, alongside backend setup. Use
+  RustSAT Ladder for at-most-one and Totalizer for larger bounds. Complete native
+  and wasm checks on 19 fixtures favored the library over the former custom
+  sequential counter; see `crates/core/benches/README.md`. Keep a shared variable
+  manager and check cancellation while streaming generated clauses to the solver.
+  RustSAT CollectClauses exposes only an out-of-memory error: the private adapter
+  stores the actual cancellation/solver error, aborts generation through that
+  channel, then restores the original error before returning to callers.
+  The zero-round matching encoding belongs in `zero_round/encoding.rs`.
+- Zero-round `mod.rs` holds the public types, entry points, and search loop;
+  `prepare.rs` prepares rules, condensed passive inputs and output domains;
+  `passive.rs` owns emission families, passive checks and blocking clauses;
+  `verify.rs` verifies complete witnesses using general mode. Generic counted
+  containment belongs in `algorithms/configurations.rs`, alongside membership.
+  `zero_round/tests.rs` holds search tests and independent exhaustive helpers;
+  `zero_round/tests/passive.rs` groups passive-family and blocking-clause tests.
+- `parser/paired.rs` owns the private `LabelPair`/`InputOutputConstraintPair`
+  entry types, input projection, and conversion to the shared model.
+- `api/mod.rs` owns shared dispatch and JSON entry points; `api/protocol.rs`
+  owns request/response/event schema and API errors; `api/tests.rs` owns API tests.
+  Use the public `api` module in both adapters. Keep native stream lifetime
+  handling in the server crate, and JS/wasm boundary handling in the wasm adapter.
+- Core has four responsibility areas: `model`, `parser`, `algorithms`, `api`.
+  `computation.rs` stays a shared root module because parsing and algorithms both
+  use its progress/cancellation context. Do not place it inside either area or
+  create a directory just to contain this one small file. Rust file modules and
+  directory modules are peers; folders group several related implementation files.
+  Keep `lib.rs` focused on module declarations and convenient public exports.
 
 The current decision criterion requires every listed active input configuration
 at an allowed degree to have a rule, and all compatible passive combinations to
 be valid. It does not solve global realizability of the input promise. Returned
 rules sort input occurrences by label ID and break ties by local port order;
 outputs align with this order. Plain rules use local port order directly.
-The protocol request `CheckZeroRound(Problem)` takes the already parsed definition
+The protocol request `CheckZeroRound { problem, passive_mode }` takes the already parsed definition
 and returns only `ZeroRoundResult`; witness IDs refer to the submitted problem's
 label tables already displayed by the UI. Do not echo the problem in this response.
 It does not parse notation or expand exponent ranges again.
