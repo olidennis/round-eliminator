@@ -1,54 +1,124 @@
-:root { font-family: system-ui, sans-serif; color: #222; background: #f7f8fa; }
+:root {
+  font-family: system-ui, sans-serif; font-size: 16px; color: #222; background: white;
+  --card-background: #f8f9fa; --header-background: #f7f7f7; --border-color: #d3d6d9; --link-color: #007bff;
+}
 * { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
-h1 { margin-bottom: .25rem; }
-h2, h3 { margin-top: 0; }
-header p { color: #555; }
-.editors, .constraints { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.editors label { font-weight: 600; }
-textarea { display: block; width: 100%; margin-top: .5rem; padding: .75rem; resize: vertical; font: 1rem/1.45 ui-monospace, monospace; border: 1px solid #aab4c0; border-radius: .4rem; }
-input { display: block; width: 100%; margin-top: .5rem; padding: .6rem; font: inherit; border: 1px solid #aab4c0; border-radius: .4rem; }
+main { width: 100%; padding: 1rem; }
+h1 { margin: 0; font-size: 1.45rem; }
+h2, h3 { margin: 0; font-size: 1rem; }
+h4 { margin: 0; font-size: .93rem; }
+p { margin: .4rem 0; }
+.app-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: .75rem; }
+.app-toolbar { display: flex; align-items: flex-start; flex-wrap: wrap; gap: .4rem .75rem; min-width: 0; max-width: 100%; }
+label { min-width: 0; }
+textarea { display: block; width: 15rem; max-width: min(100%, calc(100vw - 4.5rem)); min-width: min(10rem, 100%); margin-top: .3rem; padding: .4rem .5rem; resize: both; font: .95rem/1.35 ui-monospace, monospace; border: 1px solid #aab4c0; border-radius: .25rem; }
+input { display: block; width: 100%; margin-top: .3rem; padding: .35rem .5rem; font: inherit; border: 1px solid #aab4c0; border-radius: .25rem; }
 .form-fields { padding: 0; margin: 0; border: 0; min-width: 0; }
-.presets { margin-bottom: 1.5rem; }
-.presets h2 { font-size: 1.15rem; margin-bottom: .75rem; }
-.preset-buttons { display: flex; flex-wrap: wrap; gap: .5rem; }
-.preset-buttons button { background: #edf3fb; color: #175fbd; border: 1px solid #b8cce6; text-align: left; }
-.preset-buttons button:hover { background: #dfeafa; }
-.editor-section, .constraint-section { margin-top: 1.5rem; }
-.editor-section h2 { font-size: 1.15rem; margin-bottom: .75rem; }
-.hint, small { color: #555; font-size: .9rem; }
-small { display: block; margin-top: .4rem; font-family: system-ui, sans-serif; }
-h4 { margin: 0 0 .5rem; }
-.excluded { background: #f3f4f6; color: #666; }
-.actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
-button, select { font: inherit; padding: .55rem .9rem; border-radius: .35rem; }
-button { background: #175fbd; color: white; border: 0; cursor: pointer; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+button, select { font: inherit; font-size: .93rem; padding: .3rem .55rem; border-radius: .25rem; }
+button { background: #0069d9; color: white; border: 1px solid transparent; cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
-select { margin-left: .4rem; border: 1px solid #aab4c0; background: white; }
-.result { margin-top: 1.5rem; padding: 1.25rem; border: 1px solid #d3dae2; border-radius: .5rem; background: white; }
-.session-controls { margin-bottom: 1.5rem; }
-.session-controls input[hidden] { display: none; }
-.problem-header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.problem-title, .problem-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
-.current-problem { font-size: .8rem; color: #175fbd; background: #edf3fb; padding: .2rem .4rem; border-radius: .25rem; }
-.problem-list-actions { flex-wrap: wrap; }
-.section-header { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
-.section-header h3, .section-header h4 { margin: 0; }
-.section-toggle { padding: .2rem .4rem; font-size: .85rem; color: #175fbd; background: #edf3fb; }
-.secondary-button { background: #edf3fb; color: #175fbd; border: 1px solid #b8cce6; }
-.analysis { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #d3dae2; }
-.computation-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
-.computation-progress progress { width: 9rem; }
-.analysis-options { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; }
-.analysis-options input { max-width: 8rem; }
-.analysis-button { margin-top: .75rem; }
-.diagram-canvas { width: 100%; height: 380px; border: 1px solid #d3dae2; border-radius: .4rem; background: #fbfcfe; }
-.diagram-actions { flex-wrap: wrap; gap: .5rem; }
+select { min-width: 0; max-width: 100%; margin-left: .3rem; border: 1px solid #aab4c0; background: white; }
+button:focus-visible, summary:focus-visible { outline: 2px solid #0069d9; outline-offset: 2px; }
+.secondary-button { background: white; color: #0069d9; border-color: #aebdcc; }
+
+/* Headers are the disclosure controls. Only their title is a native button;
+   adjacent actions remain separate, so controls never nest inside a button. */
+.section-panel { width: fit-content; max-width: 100%; min-width: 0; border: 1px solid var(--border-color); border-radius: .25rem; background: white; }
+.section-header { display: flex; align-items: center; flex-wrap: wrap; background: var(--header-background); border-bottom: 1px solid var(--border-color); border-radius: .2rem .2rem 0 0; cursor: pointer; }
+.section-heading { flex: 1 0 auto; min-width: 0; }
+.section-title { display: flex; align-items: center; gap: .35rem; width: 100%; padding: .4rem .55rem; text-align: left; font-size: inherit; font-weight: 500; line-height: 1.3; color: var(--link-color); background: transparent; border: 0; border-radius: .2rem; }
+.section-title:hover { color: #0056b3; background: #eceeef; }
+.disclosure-arrow { width: .75em; flex: 0 0 .75em; font-size: .9em; }
+.section-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .6rem; min-width: 0; max-width: 100%; padding: .25rem .5rem; }
+.section-summary { flex: 1 1 auto; min-width: 0; max-width: 100%; padding: .25rem .55rem; font-size: .87rem; color: #555; }
+.result > .section-header > .section-heading { flex: 0 0 auto; }
+.header-graph-class { display: flex; flex-wrap: wrap; gap: .2rem .75rem; }
+.header-graph-class span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.section-body { padding: .55rem; }
+.label-count { color: #666; font-size: .8rem; }
+.current-problem { font-size: .8rem; color: #0069d9; background: #e7f1ff; padding: .15rem .35rem; border-radius: .2rem; }
+.close-problem { padding: 0 .25rem; font-size: 1.45rem; line-height: 1; color: #666; background: transparent; border: 0; }
+.close-problem:hover { color: #222; }
+
+/* Content-sized, wrapping panels: no columns reserve unused space. */
+.result, .problem-editor { width: 100%; background: var(--card-background); }
+.result { margin-top: .65rem; }
+.result > .section-body, .problem-editor > .section-body { padding: .65rem; }
+.problem-content, .constraints, .editor-grid, .editors {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: .65rem;
+  width: fit-content; max-width: 100%; min-width: 0;
+}
+/* Wrap against the available card width. Shrink-wrapping this container lets
+   hidden bodies change its intrinsic width and push unchanged panels down. */
+.problem-layout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .65rem; }
+.problem-content { width: 100%; flex: 1 1 32rem; }
+.collapsed-sections { display: flex; flex-direction: column; gap: .4rem; max-width: 100%; flex: 0 0 auto; }
+.collapsed-sections > .section-panel { width: 100%; }
+/* Keep component responsibilities separate while their panels share one row
+   flow. Group wrappers must not force analyses below the constraints. */
+.problem-definition, .problem-analyses { display: contents; }
+.problem-definition > *, .problem-analyses > *, .constraints > *, .editor-grid > * { flex: 0 1 auto; }
+.editors label { width: min-content; max-width: 100%; font-weight: 600; }
+.mapping-editor { width: min-content; }
+.mapping-editor textarea { width: 18rem; }
+.problem-editor > .section-header > .section-actions { flex: 1; justify-content: flex-end; }
+.problem-editor > .section-header label { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem; font-size: .9rem; }
+.problem-editor > .section-header select { margin-left: 0; }
+.editor-details { display: flex; align-items: flex-start; flex-wrap: wrap; gap: .4rem 1.25rem; margin-top: .6rem; }
+.degree-editor[open] { flex-basis: 100%; }
+.degree-editor .editors label { width: 18rem; max-width: 100%; }
+.presets { margin-bottom: .5rem; }
+.preset-description { max-width: 80ch; margin-bottom: .6rem; }
+.preset-buttons { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+.preset-buttons button { background: white; color: #0069d9; border-color: #b8cce6; text-align: left; }
+.preset-buttons button:hover { background: #e7f1ff; }
+.problem-list-actions { margin-top: 0; }
+
+.analysis-options { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem .75rem; max-width: 34rem; }
+.analysis-options label { display: grid; gap: .2rem; max-width: 100%; font-size: .87rem; }
+.analysis-options select, .analysis-options input { margin: 0; }
+.analysis-options input { max-width: 7rem; }
+.analysis-help { margin: .4rem 0; }
+.computation-progress { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .5rem; }
+.computation-progress progress { width: 8rem; }
+/* The explicit canvas width determines this panel's width, including when the
+   user resizes it. Controls wrap to that width instead of holding it open. */
+.problem-analyses > .coloring-analysis { width: min(21.5rem, 100%); }
+.problem-analyses > .diagram-analysis {
+  --diagram-width: clamp(16rem, 19vw, 20rem);
+  width: min(var(--diagram-width), 100%); flex-shrink: 0;
+}
+.problem-analyses > .diagram-analysis.has-diagram { width: min-content; }
+.diagram-analysis .analysis-options { max-width: 100%; }
+.diagram-canvas { width: var(--diagram-width); max-width: min(100%, calc(100vw - 4.5rem)); min-width: min(16rem, 100%); height: 280px; min-height: 180px; resize: both; overflow: hidden; border: 1px solid var(--border-color); border-radius: .25rem; background: white; }
 .diagram-text { white-space: pre-wrap; overflow-wrap: anywhere; }
-details summary { cursor: pointer; margin: .75rem 0; }
-table { border-collapse: collapse; width: 100%; }
-th, td { padding: .5rem; border-bottom: 1px solid #e3e7ed; text-align: left; vertical-align: top; }
-td { font-family: ui-monospace, monospace; }
-.error { padding: .75rem; color: #812018; background: #fff0ed; border: 1px solid #eeafa5; border-radius: .35rem; }
-@media (max-width: 650px) { .editors, .constraints { grid-template-columns: 1fr; } .actions { flex-wrap: wrap; } select { max-width: 100%; margin-left: 0; } }
+
+.session-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .75rem; }
+.session-controls .actions { margin-top: 0; }
+.session-controls input[hidden] { display: none; }
+.session-controls > label { flex-basis: 100%; }
+.session-controls textarea { width: 40rem; }
+.hint, small { color: #555; font-size: .87rem; }
+small { display: block; margin-top: .25rem; font-family: system-ui, sans-serif; }
+.excluded { background: #f3f4f6; color: #666; }
+details { min-width: 0; }
+details summary { cursor: pointer; margin: .4rem 0; font-size: .9rem; color: var(--link-color); }
+.help-details > summary { font-size: .85rem; }
+.help-details p { max-width: 80ch; }
+table { border-collapse: collapse; width: auto; max-width: 100%; }
+th, td { padding: .25rem .35rem; border-bottom: 1px solid #e3e7ed; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { font-size: .85rem; font-weight: 600; }
+td { font-family: ui-monospace, monospace; font-size: .95rem; }
+.error { padding: .5rem; color: #812018; background: #fff0ed; border: 1px solid #eeafa5; border-radius: .3rem; }
+@media (max-width: 650px) {
+  main { padding: .65rem; }
+  .problem-content { flex-basis: 100%; }
+  .problem-editor > .section-header > .section-actions { flex-basis: 100%; justify-content: flex-start; }
+  .problem-editor > .section-header label { width: 100%; }
+  .problem-editor > .section-header { align-items: flex-start; }
+  .result > .section-header > .section-summary { order: 1; flex-basis: 100%; }
+  .result > .section-header > .section-actions { margin-left: auto; }
+  select { margin-left: 0; }
+}

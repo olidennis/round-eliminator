@@ -37,7 +37,7 @@ function rows(side: 'active' | 'passive') {
         :title="side === 'active' ? 'Active' : 'Passive'" :collapsed="side === 'active' ? activeCollapsed : passiveCollapsed"
         @update:collapsed="emit('collapse', side, $event)">
         <table>
-          <thead><tr><th>Degree</th><th>Allowed configurations</th></tr></thead>
+          <thead><tr><th scope="col" title="Degree" aria-label="Degree">Deg.</th><th>Configurations</th></tr></thead>
           <tbody>
             <tr v-for="row in rows(side)" :key="row.degree" :class="{ excluded: !row.allowed }">
               <td>{{ row.degree }}</td>

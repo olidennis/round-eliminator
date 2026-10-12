@@ -8,6 +8,7 @@ import type { DiagramLayout } from './session'
 import type { DiagramKind } from './generated/DiagramKind'
 import { diagramNodeName, diagramText } from './diagram'
 import { downloadFile } from './files'
+import { createDiagramPhysics, type PhysicsNode } from './diagramPhysics'
 
 cytoscape.use(dagre)
 const props = defineProps<{ problem: Problem; diagram: Diagram; layout: DiagramLayout; kind: DiagramKind }>()
@@ -20,6 +21,7 @@ const names = computed(() => props.diagram.components.map(members =>
   members.map(index => diagramNodeName(props.problem, props.diagram.nodes[index]))))
 let graph: Core | null = null
 let activeLayout: Layouts | null = null
+let activePhysics: ReturnType<typeof createDiagramPhysics> | null = null
 let observer: ResizeObserver | null = null
 let pendingLayout = false
 const fontSize = 18
@@ -52,23 +54,69 @@ function nodeData(members: string[], index: number) {
     width: Math.ceil(Math.min(labelWidth, width)), height: Math.ceil(wrappedLines * fontSize * lineHeight) }
 }
 
-function arrange() {
+function stopLayout() {
+  activePhysics?.stop()
+  activePhysics = null
+  const previous = activeLayout
+  activeLayout = null
+  previous?.stop()
+  graph?.elements().stop()
+}
+
+function arrange(reset = false, refit = true) {
   if (!graph || !container.value?.clientWidth || !container.value.clientHeight) { pendingLayout = true; return }
   graph.resize()
-  activeLayout?.stop()
-  graph.elements().stop()
-  const hierarchical: dagre.DagreLayoutOptions = { name: 'dagre', rankDir: 'TB', rankSep: 50, nodeSep: 24, fit: false, animate: false }
-  activeLayout = graph.layout(props.layout === 'hierarchical'
-    ? hierarchical
-    : { name: 'cose', fit: false, animate: false })
-  activeLayout.run()
-  fit()
+  stopLayout()
   pendingLayout = false
+  if (reset && props.layout !== 'hierarchical') resetPositions()
+  if (props.layout === 'free') {
+    if (refit) fit()
+    return
+  }
+  if (props.layout === 'physics') {
+    const cy = graph
+    const nodes: PhysicsNode[] = graph.nodes().map(node => ({
+      id: node.id(), ...node.position(),
+      // Circumscribed circles keep rectangular SCC labels from overlapping.
+      radius: Math.hypot(node.outerWidth(), node.outerHeight()) / 2 + 8,
+    }))
+    const byId = new Map(nodes.map(node => [node.id, node]))
+    const links = graph.edges().map(edge => ({
+      source: byId.get(edge.source().id())!, target: byId.get(edge.target().id())!,
+    }))
+    const current = createDiagramPhysics(nodes, links)
+    activePhysics = current
+    current.on('tick', () => {
+      if (activePhysics !== current || graph !== cy) return
+      cy.batch(() => {
+        for (const node of nodes) cy.getElementById(node.id).position({ x: node.x, y: node.y })
+      })
+    }).on('end', () => {
+      if (activePhysics === current) { activePhysics = null; if (refit) fit() }
+    })
+    if (refit) fit()
+    return
+  }
+  const hierarchical: dagre.DagreLayoutOptions = { name: 'dagre', rankDir: 'TB', rankSep: 50, nodeSep: 24, fit: false, animate: false }
+  activeLayout = graph.layout(hierarchical)
+  const current = activeLayout
+  current.one('layoutstop', () => { if (activeLayout === current) { activeLayout = null; if (refit) fit() } })
+  current.run()
+}
+
+function resetPositions() {
+  if (!graph) return
+  // Distinct initial positions for Physics and Free. Switching modes preserves
+  // the current positions; Reset layout restores this compact starting grid.
+  const nodes = graph.nodes()
+  const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)))
+  const width = nodes.reduce((maximum, node) => Math.max(maximum, node.outerWidth()), 0) + 35
+  const height = nodes.reduce((maximum, node) => Math.max(maximum, node.outerHeight()), 0) + 35
+  nodes.positions((_node, index) => ({ x: (index % columns) * width, y: Math.floor(index / columns) * height }))
 }
 
 function render() {
-  activeLayout?.stop()
-  activeLayout = null
+  stopLayout()
   graph?.destroy()
   graph = null
   selected.value = status.value = error.value = manualText.value = ''
@@ -84,21 +132,24 @@ function render() {
       ? (element.data('members') as string[]).join(' ≡ ')
       : `${graph?.getElementById(element.data('source')).data('label')} → ${graph?.getElementById(element.data('target')).data('label')}`).join('; ') ?? ''
   })
-  arrange()
+  // Let dragging control the pointer position; physics settles after release.
+  graph.on('grab', 'node', stopLayout)
+  graph.on('dragfree', 'node', () => { if (props.layout === 'physics') arrange(false, false) })
+  arrange(true)
 }
 
 onMounted(() => {
   observer = new ResizeObserver(() => {
     if (!container.value?.clientWidth || !container.value.clientHeight) return
     if (!graph) render()
-    else { graph.resize(); if (pendingLayout) arrange() }
+    else { graph.resize(); if (pendingLayout) arrange(); else fit() }
   })
   if (container.value) observer.observe(container.value)
   render()
 })
-onBeforeUnmount(() => { observer?.disconnect(); activeLayout?.stop(); graph?.destroy(); graph = null })
+onBeforeUnmount(() => { observer?.disconnect(); stopLayout(); graph?.destroy(); graph = null })
 watch(() => props.diagram, render)
-watch(() => props.layout, arrange)
+watch(() => props.layout, () => arrange())
 
 async function copy() {
   error.value = status.value = manualText.value = ''
@@ -128,12 +179,18 @@ async function exportImage() {
     <p role="status">{{ diagram.complete ? 'Complete diagram.' : 'Partial diagram: missing arrows are unknown.' }}
       {{ diagram.nodes.length }} labels in {{ diagram.components.length }} equivalence groups;
       {{ diagram.edges.length }} displayed arrows.</p>
-    <p class="hint">Equivalent labels are grouped together. Transitive arrows and self-loops are hidden.
-      Drag nodes, pan, zoom, or select nodes and arrows.</p>
+    <details class="help-details">
+      <summary>Reading the diagram</summary>
+      <p class="hint">Equivalent labels are grouped together. Transitive arrows and self-loops are hidden.
+        Drag nodes, pan, zoom, or select nodes and arrows. Drag the bottom-right corner of the diagram
+        to resize it horizontally or vertically. Physics separates nearby nodes and pulls linked
+        nodes together, while distant unconnected nodes stay where you place them. Free keeps
+        every node where you place it.</p>
+    </details>
     <div ref="container" class="diagram-canvas" role="img" aria-label="Directed graph of passive label strength" />
     <div class="actions diagram-actions">
       <button type="button" class="secondary-button" @click="fit">Fit</button>
-      <button type="button" class="secondary-button" @click="arrange">Reset layout</button>
+      <button type="button" class="secondary-button" @click="arrange(true)">Reset layout</button>
       <button type="button" @click="copy">Export to Clipboard</button>
       <button type="button" @click="exportText">Download text</button>
       <button type="button" :disabled="!diagram.components.length" @click="exportImage">Download PNG</button>

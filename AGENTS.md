@@ -99,6 +99,8 @@ the user's Mac. Git worktree repairs may rewrite this pointer; restore it to
   benchmarks in `crates/core/benches` when revisiting this choice.
 - Consider GPU execution only when a concrete algorithm and benchmark justify it.
 - The GUI should be able to use both wasm and a server through one coherent API.
+  The initial backend is Server on localhost or 127.0.0.1 and WebAssembly
+  elsewhere; an explicit ?backend=server or ?backend=wasm overrides this default.
   Avoid adding an independent manual request mapping in both JavaScript and Rust.
 - Framework choices, including Vue, are open.
 
@@ -176,7 +178,9 @@ generic phase information, separate from these mathematical results. The GUI
 displays partial proofs and retains them on cancellation; interruption is never
 an UNSAT decision. Analysis reuses the parsed structured problem and returns no
 problem echo. Keep browser strategies in `ColoringView.vue` and query/progress
-state in `ColoringAnalysis.vue`; both analyses use `ComputationProgress.vue`.
+state in `ColoringAnalysis.vue`. The coloring strategy explanation belongs in a
+"Reading the strategy" help tip collapsed by default, independently of Show strategy.
+Both analyses use `ComputationProgress.vue`.
 Tests compare small compact encodings with independently constructed explicit
 colored input problems, verify witnesses, and check both transports using
 `web/scripts/test-coloring.mjs`. No performance superiority is claimed without
@@ -227,6 +231,10 @@ larger `coloring/distance_two_tests.rs` covers neighbor colors and order
 certificates; keep these adjacent files rather than making a test-only folder.
 
 ## Zero-round solvability decisions
+
+Zero-round results read "NOT solvable in 0 rounds" or "The problem IS solvable
+in 0 rounds". Keep the strategy table visible, with its explanation under a
+"Reading the strategy" help tip collapsed by default.
 
 The user explicitly deferred changing the native solver for parallel SAT solving.
 Keep CaDiCaL for now. A future evaluation may benchmark CryptoMiniSat or another
@@ -362,6 +370,18 @@ independent of subsequent editor changes. Closing a problem or importing a
 session cancels the removed problems' running analyses. Start appends rather
 than replacing any existing problem. Cancellation leaves a retry button.
 
+Progress transport policy: native CPU callbacks write to latest-value watch slots
+and never wait for the UI or serialize progress. The async stream samples every
+100 ms; its final response uses a separate oneshot and immediately flushes the
+latest progress and proof snapshot. Wasm throttles using performance.now before
+JSON serialization, callbacks, and worker messages, then flushes on completion.
+PartialResult is a cumulative, self-contained snapshot (currently ColoringBounds),
+so superseded updates can be dropped without losing the best proof. Do not use
+this channel for additive deltas without revisiting its delivery policy.
+Cancellation checks must stay independent of transport throttling. Keep tests
+that leave a 100,000-update stream unread and verify work finishes, CPU permits
+are released, and the latest bounds and final response survive.
+
 ## Diagram decisions
 
 The user selected **Output-only**, **Input-output pairs**, and **Input-aware outputs**.
@@ -411,8 +431,18 @@ The user requested using more threads for diagrams, not changing SAT backends.
 The user explicitly requested SCC grouping, a visualization library, and diagram
 export buttons. Retain full relations plus SCC members and reduced component
 edges. `DiagramAnalysis.vue` controls methods, cancellation and saved state;
-`DiagramView.vue` lazily loads Cytoscape/Dagre for the selected diagram, two
-layouts, selection and text/PNG exports. The user requires choosing the diagram
+`DiagramView.vue` lazily loads Cytoscape/Dagre for the selected diagram, three
+layouts, selection and text/PNG exports. Physics is the default for new diagrams;
+preserve explicit saved layout choices. D3-force in diagramPhysics.ts provides
+local repulsion, collision avoidance, and edge springs. Do not add gravity or
+component packing: distant unconnected nodes must stay where they are dragged.
+Cytoscape handles rendering; Dagre handles hierarchy. Stop physics while dragging
+and settle after release without recentering or changing zoom. Free stops
+automatic layout and
+preserves current positions; fresh free diagrams and its Reset layout use a
+compact initial grid. Stop animations before dragging, changing modes, or
+destroying the view. Persist Free like the other layout choices.
+The user requires choosing the diagram
 type before computing, with an explicit button for new choices. Compute and
 return only that relation: output requests skip inputs; exact input-output
 requests skip output-only comparisons; cheap input-output requests need output-only
@@ -426,6 +456,53 @@ state. Partial results must describe missing arrows as unknown. Diagrams concern
 passive validity, not full active/passive equivalence for transformations.
 
 ## UI history and sessions
+
+Cache completed coloring results per problem, coloring kind, and fixed palette
+size or maximum search. Maximum keys ignore the hidden fixed size. Reuse cached
+choices immediately and persist all entries in files/links; migrate older singular
+results. Cancelled and failed checks remain retryable. Put bulk collapse/close
+controls in the top toolbar immediately before Import. Degree table headings
+read "Deg." with full-name tooltips and accessible names.
+
+The user prefers a compact, fluid layout like the old GUI, with a 16px base font.
+Keep the page white,
+New problem and numbered problem cards gray and full width, and their sections
+white. Use pale gray headers and blue clickable titles, with disclosure arrows;
+no separate per-card/per-section Collapse or Expand buttons. The native title
+button supports Enter/Space; clicking the rest of a header also folds it, except
+for independent controls (Start, selectors, Close, etc.). Retain bulk collapse
+buttons. Reuse CollapsibleSection for problem cards, sections and editor groups.
+Number problems for identification when folded; the corner × closes a card.
+Show active/passive degree sets as compact problem-header metadata, visible even
+when folded. Graph class must not occupy its own panel in the wrapping flow.
+Its former collapse flag belongs only in session migration, where it is discarded.
+White sections hug their contents and share one wrapping flow, without growing
+to fill grid columns or matching another section's height. Constraints and analyses
+must share rows when space allows; do not put each component group on its own row.
+Within each problem, expanded sections share the available width beside a compact
+vertical stack of collapsed section headers on the right. On narrow screens the
+stack follows below. Expanding restores the section's original position. Use
+CollapsibleSection's optional Teleport target to move existing DOM without
+unmounting bodies, analyses, or diagrams; preserve keyboard focus when moving.
+Nested Active/Passive folds remain inside their constraint section. Hide the
+expanded flow when all sections are collapsed. Keep the wrapping problem-content
+container at the full width available to it, with individual panels content-sized;
+shrink-wrapping it makes collapsing sections incorrectly push other panels down.
+The diagram starts compact: clamp(16rem, 19vw, 20rem), about 256–320 px at
+normal font size, to fit typical laptop layouts. Coloring uses a 21.5rem
+preferred width so its title and longest selector remain readable; do not use
+min-content width for that panel. Diagrams do not shrink to fit beside a panel; they wrap
+when needed and clamp on narrow screens. Degree override fields need their own
+18rem preferred label width; do not inherit the min-content textarea label width.
+Textareas and diagrams resize in both
+axes, and their white panels follow their width; gray outer cards stay full width.
+Clamp resized content to the screen width, and automatically refit diagram graphs.
+Controls inside the diagram wrap when narrowed. Keep editor actions visible when
+its body is folded; Start must still append. Examples, graph-class controls,
+notation/sharing help, and analysis explanations remain expandable. Label counts
+belong in section headers. Editor/help folding is local UI state; existing
+problem/section collapse and analysis persistence use the session model.
+Folding must retain editor contents, cached results, and running computations.
 
 The native server serves `web/dist`. After frontend edits, run `npm run build`
 in `web` so the served UI includes them; typechecking alone does not rebuild it.

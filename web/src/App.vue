@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
-import { send, type Backend } from './api'
+import { defaultBackend, send, type Backend } from './api'
 import type { ConstraintText } from './generated/ConstraintText'
 import type { DegreeText } from './generated/DegreeText'
 import type { Field } from './generated/Field'
 import type { ProblemText } from './generated/ProblemText'
 import ConstraintEditor from './ConstraintEditor.vue'
+import CollapsibleSection from './CollapsibleSection.vue'
 import ProblemCard from './ProblemCard.vue'
 import SessionControls from './SessionControls.vue'
 import { newSavedProblem, type SavedProblem, type Session } from './session'
@@ -17,10 +18,10 @@ const input = ref<ConstraintText>({ active: 'a b^9\nb^10', passive: 'a ab^9' })
 const pairs = ref<ConstraintText>({ active: '(a,A)(b,B)^2', passive: '(a,A) (b,B)' })
 const mapping = ref('a -> M\nb -> UP')
 const degrees = ref<DegreeText>({ active: '', passive: '' })
-const backend = ref<Backend>(
-  new URLSearchParams(location.search).get('backend') === 'wasm' ? 'wasm' : 'server',
-)
+const backend = ref<Backend>(defaultBackend(new URL(location.href)))
 const pending = ref(false)
+const editorCollapsed = ref(false)
+const mappingEditorCollapsed = ref(false)
 // Stable keys give every problem its own analysis state and cancellation scope.
 type OpenProblem = SavedProblem & { id: number }
 const problems = ref<OpenProblem[]>([])
@@ -135,91 +136,98 @@ async function start() {
 
 <template>
   <main>
-    <header>
+    <header class="app-header">
       <h1>Round Eliminator 3</h1>
-      <p>Enter allowed configurations for the active and passive sides.</p>
+      <div class="app-toolbar">
+        <div v-if="problems.length" class="actions problem-list-actions">
+          <button type="button" class="secondary-button" @click="collapseProblems('all')">Collapse all</button>
+          <button type="button" class="secondary-button" @click="collapseProblems('others')">Collapse all except current</button>
+          <button type="button" class="secondary-button" @click="collapseProblems('none')">Expand all</button>
+          <button type="button" class="secondary-button" @click="closeAllProblems">Close all</button>
+        </div>
+        <SessionControls :session="session" @import="importSession" />
+      </div>
     </header>
-
-    <SessionControls :session="session" @import="importSession" />
 
     <form @submit.prevent="start">
       <fieldset :disabled="pending" class="form-fields">
-        <section class="presets" aria-labelledby="presets-title">
-          <h2 id="presets-title">Examples</h2>
-          <div class="preset-buttons">
-            <button v-for="preset in problemPresets" :key="preset.name" type="button"
-              :title="preset.description" @click="loadPreset(preset)">
-              {{ preset.name }}
-            </button>
+        <CollapsibleSection class="problem-editor" title="New problem" :level="2"
+          :collapsed="editorCollapsed" @update:collapsed="editorCollapsed = $event">
+          <template #actions>
+            <label>Problem type
+              <select v-model="kind">
+                <option value="plain">No input</option>
+                <option value="independent">Input with independent output validity</option>
+                <option value="paired">Input/output pairs</option>
+                <option value="mapped">Input-to-output mapping</option>
+              </select>
+            </label>
+            <label>Run on
+              <select v-model="backend">
+                <option value="server">Server</option>
+                <option value="wasm">WebAssembly</option>
+              </select>
+            </label>
+            <button type="submit">{{ pending ? 'Working…' : 'Start' }}</button>
+          </template>
+          <details class="presets">
+            <summary>Examples</summary>
+            <div class="preset-buttons">
+              <button v-for="preset in problemPresets" :key="preset.name" type="button"
+                :title="preset.description" @click="loadPreset(preset)">
+                {{ preset.name }}
+              </button>
+            </div>
+            <p class="hint">Load an example, edit it if needed, then press Start.</p>
+          </details>
+          <p v-if="selectedPreset" class="hint preset-description">{{ selectedPreset.description }}</p>
+          <div class="editor-grid">
+            <ConstraintEditor v-if="kind === 'paired'" v-model="pairs" title="Pair constraints" />
+            <template v-else>
+              <ConstraintEditor v-if="kind !== 'plain'" v-model="input" title="Input constraints" />
+              <ConstraintEditor v-model="output" title="Output constraints" />
+              <CollapsibleSection v-if="kind === 'mapped'" class="editor-section mapping-editor"
+                title="Allowed outputs for each input" :level="2" v-model:collapsed="mappingEditorCollapsed">
+                <label>Input/output mapping
+                  <textarea v-model="mapping" rows="4" spellcheck="false" />
+                </label>
+              </CollapsibleSection>
+            </template>
           </div>
-          <p class="hint">Load an example, edit it if needed, then press Start.</p>
-          <p v-if="selectedPreset" class="hint">{{ selectedPreset.description }}</p>
-        </section>
-        <label>Problem type
-          <select v-model="kind">
-            <option value="plain">No input</option>
-            <option value="independent">Input with independent output validity</option>
-            <option value="paired">Input/output pairs</option>
-            <option value="mapped">Input-to-output mapping</option>
-          </select>
-        </label>
-
-        <template v-if="kind === 'paired'">
-          <p>Write pairs as <code>(input,output)</code>. Adjacent pairs are alternatives;
-            <code>(a,A)(b,B)^2</code> chooses either pair at each of two occurrences.</p>
-          <ConstraintEditor v-model="pairs" title="Pair constraints" />
-          <p class="hint">The input is promised to solve the input projection of these constraints.</p>
-        </template>
-        <template v-else>
-          <p class="hint">Use <code>AB</code> for label choices, <code>(name)</code> for a longer label,
-            and <code>^n</code> for repetition.</p>
-          <ConstraintEditor v-if="kind !== 'plain'" v-model="input" title="Input constraints" />
-          <ConstraintEditor v-model="output" title="Output constraints" />
-          <section v-if="kind === 'mapped'" class="editor-section">
-            <h2>Allowed outputs for each input</h2>
-            <label>Input/output mapping
-              <textarea v-model="mapping" rows="4" spellcheck="false" />
-            </label>
-            <p class="hint">One entry per input label, for example <code>a -> AB</code> or
-              <code>(red) -> A(blue)</code>. An empty right side allows no outputs.</p>
-          </section>
-        </template>
-        <section class="editor-section">
-          <h2>Graph class</h2>
-          <div class="editors">
-            <label>Possible active degrees
-              <input v-model="degrees.active" placeholder="Inferred if blank" />
-            </label>
-            <label>Possible passive degrees
-              <input v-model="degrees.passive" placeholder="Inferred if blank" />
-            </label>
+          <div class="editor-details">
+            <details class="degree-editor">
+              <summary>Graph class: {{ degrees.active || degrees.passive ? 'custom degrees' : 'inferred' }}</summary>
+              <div class="editors">
+                <label>Possible active degrees
+                  <input v-model="degrees.active" placeholder="Inferred if blank" />
+                </label>
+                <label>Possible passive degrees
+                  <input v-model="degrees.passive" placeholder="Inferred if blank" />
+                </label>
+              </div>
+              <p class="hint">List degrees separated by commas or spaces. Blank fields use degrees from
+                {{ kind === 'plain' ? 'the output constraints' : kind === 'paired' ? 'the input projection' : 'the input constraints only' }}.</p>
+            </details>
+            <details class="help-details">
+              <summary>Notation help</summary>
+              <p v-if="kind === 'paired'" class="hint">Write pairs as <code>(input,output)</code>.
+                Adjacent pairs are alternatives; <code>(a,A)(b,B)^2</code> chooses either pair at each
+                of two occurrences. The input is promised to solve the input projection.</p>
+              <p v-else class="hint">Use <code>AB</code> for label choices, <code>(name)</code> for a
+                longer label, and <code>^n</code> for repetition.</p>
+              <p v-if="kind === 'mapped'" class="hint">Write one mapping entry per input label, such as
+                <code>a -> AB</code> or <code>(red) -> A(blue)</code>. An empty right side allows no outputs.</p>
+              <p class="hint">A line containing <code>()</code> allows the degree-zero configuration.
+                A blank constraint allows no configurations. Starred configurations are unsupported.</p>
+            </details>
           </div>
-          <p class="hint">List degrees separated by commas or spaces. Blank fields use degrees from
-            {{ kind === 'plain' ? 'the output constraints' : kind === 'paired' ? 'the input projection' : 'the input constraints only' }}.</p>
-        </section>
-        <p class="hint">A line containing <code>()</code> allows the degree-zero configuration.
-          A blank constraint allows no configurations. Starred configurations are unsupported.</p>
-        <div class="actions">
-          <button type="submit">{{ pending ? 'Working…' : 'Start' }}</button>
-          <label>Run on
-            <select v-model="backend">
-              <option value="server">Server</option>
-              <option value="wasm">WebAssembly</option>
-            </select>
-          </label>
-        </div>
+        </CollapsibleSection>
       </fieldset>
     </form>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <section v-if="problems.length" aria-label="Problems">
-      <div class="actions problem-list-actions">
-        <button type="button" class="secondary-button" @click="collapseProblems('all')">Collapse all</button>
-        <button type="button" class="secondary-button" @click="collapseProblems('others')">Collapse all except current</button>
-        <button type="button" class="secondary-button" @click="collapseProblems('none')">Expand all</button>
-        <button type="button" class="secondary-button" @click="closeAllProblems">Close all</button>
-      </div>
-      <ProblemCard v-for="entry in problems" :key="entry.id" :saved="entry" :backend="backend"
+      <ProblemCard v-for="(entry, index) in problems" :key="entry.id" :saved="entry" :number="index + 1" :backend="backend"
         :current="entry.id === currentProblemId" @activate="currentProblemId = entry.id"
         @collapse="entry.collapsed = $event"
         @section="(section, collapsed) => entry.collapsedSections[section] = collapsed"

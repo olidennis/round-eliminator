@@ -6,7 +6,7 @@ import ZeroRoundAnalysis from './ZeroRoundAnalysis.vue'
 import ColoringAnalysis from './ColoringAnalysis.vue'
 import DiagramAnalysis from './DiagramAnalysis.vue'
 
-defineProps<{ saved: SavedProblem; backend: Backend; current: boolean }>()
+defineProps<{ saved: SavedProblem; number: number; backend: Backend; current: boolean }>()
 const emit = defineEmits<{
   close: []
   activate: []
@@ -19,20 +19,25 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <ProblemView :problem="saved.problem" :collapsed="saved.collapsed" :current="current"
+  <ProblemView :problem="saved.problem" :number="number" :collapsed="saved.collapsed" :current="current"
     :sections="saved.collapsedSections" @section="(section, collapsed) => emit('section', section, collapsed)"
     @click="emit('activate')" @focusin="emit('activate')" @toggle="emit('collapse', !saved.collapsed)">
     <template #actions>
-      <button type="button" class="secondary-button" aria-label="Close problem" @click.stop="emit('close')">Close</button>
+      <button type="button" class="close-problem" aria-label="Close problem" title="Close problem"
+        @click.stop="emit('close')"><span aria-hidden="true">×</span></button>
     </template>
-    <ZeroRoundAnalysis :problem="saved.problem" :backend="backend" :saved="saved.zeroRound"
-      :collapsed="saved.collapsedSections.zeroRound" @collapse="emit('section', 'zeroRound', $event)"
-      @update="emit('zeroRound', $event)" />
-    <ColoringAnalysis :problem="saved.problem" :backend="backend" :saved="saved.coloring"
-      :collapsed="saved.collapsedSections.coloring" @collapse="emit('section', 'coloring', $event)"
-      @update="emit('coloring', $event)" />
-    <DiagramAnalysis :problem="saved.problem" :backend="backend" :saved="saved.diagram"
-      :collapsed="saved.collapsedSections.diagram" @collapse="emit('section', 'diagram', $event)"
-      @update="emit('diagram', $event)" />
+    <template #default="{ collapsedTarget }">
+      <div class="problem-analyses">
+        <ZeroRoundAnalysis :problem="saved.problem" :backend="backend" :saved="saved.zeroRound"
+          :collapsed="saved.collapsedSections.zeroRound" :collapsed-target="collapsedTarget" @collapse="emit('section', 'zeroRound', $event)"
+          @update="emit('zeroRound', $event)" />
+        <ColoringAnalysis :problem="saved.problem" :backend="backend" :saved="saved.coloring"
+          :collapsed="saved.collapsedSections.coloring" :collapsed-target="collapsedTarget" @collapse="emit('section', 'coloring', $event)"
+          @update="emit('coloring', $event)" />
+        <DiagramAnalysis :problem="saved.problem" :backend="backend" :saved="saved.diagram"
+          :collapsed="saved.collapsedSections.diagram" :collapsed-target="collapsedTarget" @collapse="emit('section', 'diagram', $event)"
+          @update="emit('diagram', $event)" />
+      </div>
+    </template>
   </ProblemView>
 </template>

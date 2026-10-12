@@ -6,7 +6,7 @@ import ts from 'typescript'
 // its type-only imports so the checks don't require a TypeScript runtime loader.
 const source = await readFile(new URL('../src/session.ts', import.meta.url), 'utf8')
 const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } })
-const { newSavedProblem, serializeSession, deserializeSession, sessionLink, sessionFromHash } =
+const { newSavedProblem, serializeSession, deserializeSession, sessionLink, sessionFromHash, coloringQuery, coloringKey } =
   await import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'))
 
 const problem = {
@@ -17,11 +17,18 @@ const problem = {
   },
 }
 const saved = newSavedProblem(problem)
+assert.equal(saved.diagram.layout, 'physics')
+assert.equal(saved.coloring.results.length, 0)
+assert.equal(coloringKey(coloringQuery(saved.coloring)), coloringKey(coloringQuery({ ...saved.coloring, colors: 10 })))
+assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 3 } }),
+  coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 4 } }))
+assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'maximum' } }),
+  coloringKey({ kind: 'distance_two', search: { kind: 'maximum' } }))
 saved.collapsed = true
 saved.collapsedSections = { output: true, outputPassive: true, coloring: true }
 saved.zeroRound = { status: 'unsolvable' }
 saved.diagram.options = { kind: 'input_output', output: 'partial', input_output: 'exact' }
-saved.diagram.layout = 'physics'
+saved.diagram.layout = 'hierarchical'
 const diagram = { nodes: [{ input: 0, output: 1 }], successors: [[0]], components: [[0]], edges: [], complete: true }
 saved.diagram.results = [{ options: saved.diagram.options, diagram }]
 saved.collapsedSections.diagram = true
@@ -32,10 +39,30 @@ saved.coloring.bounds = { minimum: 1, lower: 3, upper: null, testing: 6,
 const session = { editor: { kind: 'plain', constraints: { active: '()', passive: '(α) (blue 💙)' }, degrees: { active: '', passive: '' } },
   problems: [saved, newSavedProblem(problem)],
 }
+saved.coloring.results = [
+  { kind: 'vertex', search: { kind: 'maximum' }, result: { status: 'maximum', colors: 3,
+      witness: { kind: 'local_colors', behaviors: [] } } },
+  { kind: 'distance_two', search: { kind: 'fixed', colors: 4 }, result: { status: 'unsolvable', colors: 4 } },
+]
 const expected = structuredClone(session)
 expected.problems[0].coloring.bounds.testing = null
 assert.deepEqual(deserializeSession(serializeSession(session)), expected)
+const freeSession = structuredClone(expected)
+freeSession.problems[0].diagram.layout = 'free'
+assert.deepEqual(deserializeSession(serializeSession(freeSession)), freeSession)
+const graphSectionSession = JSON.parse(serializeSession(session))
+graphSectionSession.session.problems[0].collapsedSections.graph = true
+assert.deepEqual(deserializeSession(JSON.stringify(graphSectionSession)), expected,
+  'Legacy graph-class folding must not hide header metadata or remain in saved state.')
 assert.equal(saved.coloring.bounds.testing, 6, 'Saving must not mutate a live query.')
+const oldColoring = JSON.parse(serializeSession(session))
+const current = oldColoring.session.problems[0].coloring
+current.result = current.results[1].result
+current.kind = 'distance_two'; current.search = 'fixed'; current.colors = 4
+current.results = undefined
+const migrated = deserializeSession(JSON.stringify(oldColoring)).problems[0].coloring
+assert.deepEqual(migrated.results, [{ kind: 'distance_two', search: { kind: 'fixed', colors: 4 }, result: current.result }])
+assert.equal('result' in migrated, false)
 const legacy = JSON.parse(serializeSession(session))
 delete legacy.session.problems[0].diagram
 assert.deepEqual(deserializeSession(JSON.stringify(legacy)).problems[0].diagram.results, [])

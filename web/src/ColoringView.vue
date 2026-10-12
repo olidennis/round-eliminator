@@ -32,16 +32,19 @@ const rows = computed(() => {
 <template>
   <details>
     <summary>Show strategy</summary>
-    <p class="hint">For each full local input and color configuration, choose a whole allowed active
-      output configuration using these sets. Outputs must be chosen together to satisfy the active
-      constraint. Every such choice satisfies the passive constraint.
-      Empty sets may occur for unused inputs.</p>
-    <p v-if="colorOrder" class="hint">Use whether each neighbor’s color is smaller or larger
-      than the node’s own color, together with the original input. This strategy works
-      for every locally feasible palette.</p>
-    <p v-else-if="neighborColors" class="hint">At each port, look up both the node’s own color
-      and that neighbor’s color, together with the original input label.</p>
-    <p v-if="repeating && !colorOrder" class="hint">The same behavior works for every color.</p>
+    <details class="help-details">
+      <summary>Reading the strategy</summary>
+      <p class="hint">For each full local input and color configuration, choose a whole allowed active
+        output configuration using these sets. Outputs must be chosen together to satisfy the active
+        constraint. Every such choice satisfies the passive constraint.
+        Empty sets may occur for unused inputs.</p>
+      <p v-if="colorOrder" class="hint">Use whether each neighbor’s color is smaller or larger
+        than the node’s own color, together with the original input. This strategy works
+        for every locally feasible palette.</p>
+      <p v-else-if="neighborColors" class="hint">At each port, look up both the node’s own color
+        and that neighbor’s color, together with the original input label.</p>
+      <p v-if="repeating && !colorOrder" class="hint">The same behavior works for every color.</p>
+    </details>
     <table>
       <thead><tr><th>{{ neighborColors ? 'Own color' : 'Color' }}</th><th v-if="neighborColors">Neighbor color</th><th v-if="inputLabels">Input</th><th>Possible outputs</th></tr></thead>
       <tbody>

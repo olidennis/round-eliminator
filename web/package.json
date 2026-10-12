@@ -10,14 +10,17 @@
     "test:presets": "node scripts/test-presets.mjs",
     "test:coloring": "node scripts/test-coloring.mjs",
     "test:session": "node scripts/test-session.mjs",
-    "test:diagram": "node scripts/test-diagram.mjs"
+    "test:diagram": "node scripts/test-diagram.mjs",
+    "test:physics": "node scripts/test-physics.mjs"
   },
   "dependencies": {
     "cytoscape": "^3.34.3",
     "cytoscape-dagre": "^4.0.1",
+    "d3-force": "^3.0.0",
     "vue": "^3.5.43"
   },
   "devDependencies": {
+    "@types/d3-force": "^3.0.10",
     "@vitejs/plugin-vue": "^6.0.9",
     "typescript": "~5.9.3",
     "vite": "^8.3.1",

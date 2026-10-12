@@ -3,6 +3,7 @@ import type { Progress } from "./Progress";
 import type { Response } from "./Response";
 
 /**
- * Progress and proved partial results precede a final response.
+ * Latest progress and cumulative proof snapshots precede a final response.
+ * Transports may coalesce superseded updates; the final response is retained.
  */
 export type ComputationEvent = { "type": "progress", "data": Progress } | { "type": "partial_result", "data": Response } | { "type": "response", "data": Response };

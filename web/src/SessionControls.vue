@@ -76,8 +76,11 @@ onBeforeUnmount(() => { hashRequest++; window.removeEventListener('hashchange', 
       <button type="button" :disabled="busy" @click="copyLink">Copy link</button>
       <input ref="fileInput" type="file" accept=".json,.re3,application/json" hidden @change="importFile" />
     </div>
-    <p class="hint">Save or share the editor, open problems, analysis results, and proved bounds.
-      Import replaces the current session; running computations are not resumed.</p>
+    <details class="help-details">
+      <summary>Sharing help</summary>
+      <p class="hint">Save or share the editor, open problems, analysis results, and proved bounds.
+        Import replaces the current session; running computations are not resumed.</p>
+    </details>
     <p v-if="status" role="status">{{ status }}</p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <label v-if="manualLink">Session link

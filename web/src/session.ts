@@ -1,6 +1,7 @@
 import type { ColoringBounds } from './generated/ColoringBounds'
 import type { ColoringKind } from './generated/ColoringKind'
 import type { ColoringResult } from './generated/ColoringResult'
+import type { PaletteSearch } from './generated/PaletteSearch'
 import type { Problem } from './generated/Problem'
 import type { ProblemText } from './generated/ProblemText'
 import type { ZeroRoundResult } from './generated/ZeroRoundResult'
@@ -9,7 +10,7 @@ import type { DiagramResult } from './generated/DiagramResult'
 import type { Diagram } from './generated/Diagram'
 import type { DiagramKind } from './generated/DiagramKind'
 
-export type DiagramLayout = 'hierarchical' | 'physics'
+export type DiagramLayout = 'hierarchical' | 'physics' | 'free'
 export type SavedDiagram = {
   options: DiagramOptions
   layout: DiagramLayout
@@ -17,7 +18,7 @@ export type SavedDiagram = {
 }
 
 export function newSavedDiagram(): SavedDiagram {
-  return { options: { kind: 'output_only', output: 'exact', input_output: 'cheap' }, layout: 'hierarchical', results: [] }
+  return { options: { kind: 'output_only', output: 'exact', input_output: 'cheap' }, layout: 'physics', results: [] }
 }
 
 type LegacyDiagramKind = 'output' | 'input_specific' | 'uniform'
@@ -48,21 +49,40 @@ function restoreDiagram(saved?: SavedDiagram): SavedDiagram {
         options: { ...previous.options, kind: restoreDiagramKind(kind) }, diagram: previous[kind]!,
       }))
   }
-  return { options, layout: saved.layout, results: results.map(result => ({
+  return { options, layout: saved.layout ?? 'physics', results: results.map(result => ({
     ...result, options: { ...result.options, kind: restoreDiagramKind(result.options.kind) },
   })) }
 }
 
 /** Browser state only; problems and analysis results use the Rust protocol types. */
+export type ColoringQuery = { kind: ColoringKind; search: PaletteSearch }
+export type CachedColoring = ColoringQuery & { result: ColoringResult }
 export type SavedColoring = {
   kind: ColoringKind
   search: 'maximum' | 'fixed'
   colors: number
   bounds: ColoringBounds | null
-  result: ColoringResult | null
+  results: CachedColoring[]
 }
 
-export type ProblemSection = 'graph' | 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring' | 'diagram'
+export function coloringQuery(selection: Pick<SavedColoring, 'kind' | 'search' | 'colors'>): ColoringQuery {
+  return { kind: selection.kind, search: selection.search === 'fixed'
+    ? { kind: 'fixed', colors: selection.colors } : { kind: 'maximum' } }
+}
+
+export function coloringKey(query: ColoringQuery): string {
+  return query.search.kind === 'fixed' ? `${query.kind}:fixed:${query.search.colors}` : `${query.kind}:maximum`
+}
+
+function restoreColoring(saved: SavedColoring): SavedColoring {
+  // Earlier version-one files stored only the selected result. Retain it as
+  // the first cache entry, without leaving the obsolete field in new exports.
+  const older = saved as SavedColoring & { result?: ColoringResult | null }
+  const results = saved.results ?? (older.result ? [{ ...coloringQuery(saved), result: older.result }] : [])
+  return { kind: saved.kind, search: saved.search, colors: saved.colors, bounds: saved.bounds, results }
+}
+
+export type ProblemSection = 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring' | 'diagram'
   | 'inputActive' | 'inputPassive' | 'outputActive' | 'outputPassive'
 export type CollapsedSections = Partial<Record<ProblemSection, boolean>>
 
@@ -81,7 +101,7 @@ type SessionFile = { format: 'round-eliminator-3'; version: 1; session: Session 
 export function newSavedProblem(problem: Problem): SavedProblem {
   return {
     problem, collapsed: false, collapsedSections: {}, zeroRound: null,
-    coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null, result: null },
+    coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null, results: [] },
     diagram: newSavedDiagram(),
   }
 }
@@ -115,7 +135,11 @@ export function deserializeSession(text: string): Session {
   // As with analysis requests, snapshots from this version are trusted. Do not
   // reparse problem notation or repeat Rust's semantic construction checks.
   // Version-one sessions written before diagram support have no diagram state.
-  return { ...session, problems: session.problems.map(entry => ({ ...entry, diagram: restoreDiagram(entry.diagram) })) }
+  return { ...session, problems: session.problems.map(entry => {
+    // Graph class is now always-visible header metadata; discard its old fold flag.
+    const { graph: _graph, ...collapsedSections } = (entry.collapsedSections ?? {}) as CollapsedSections & { graph?: boolean }
+    return { ...entry, collapsedSections, coloring: restoreColoring(entry.coloring), diagram: restoreDiagram(entry.diagram) }
+  }) }
 }
 
 /** Compressed UTF-8 in the fragment keeps shared sessions out of HTTP requests. */

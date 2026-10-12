@@ -6,8 +6,8 @@ use crate::{
     model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part},
 };
 
-/// Remove one occurrence of `label` from every family permitting it.
-/// The result denotes precisely the contexts in which that label is allowed.
+/// given a `constraint` and a `label`, takes all configurations containing `label`
+/// and constructs all configurations with 1 less occurrence of `label`.
 pub(crate) fn contexts_with<L: Copy + Ord>(
     constraint: &Constraint<L>,
     label: L,
@@ -39,9 +39,7 @@ pub(crate) fn contexts_with<L: Copy + Ord>(
     Ok(Constraint::new(contexts))
 }
 
-/// Exact universal coverage. One listed target can prove coverage cheaply, but
-/// absence of such a target cannot reject: several rows may cover the family.
-/// At degree one, coverage is simply inclusion in the union of allowed labels.
+/// check whether all configurations from `family` are allowed by `constraint`
 pub(crate) fn covers_with<L: Copy + Ord>(
     constraint: &Constraint<L>,
     family: &CondensedConfiguration<L>,

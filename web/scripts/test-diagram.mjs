@@ -20,7 +20,8 @@ async function check(definition, options, verify = () => {}) {
   const events = []
   const response = JSON.parse(execute_with_events(body, raw => events.push(JSON.parse(raw))))
   assert.equal(response.type, 'diagram')
-  assert.ok(events.some(event => event.type === 'progress' && event.data.phase === 'comparing'))
+  assert.ok(events.some(event => event.type === 'progress'))
+  assert.equal(events.at(-1).data.phase, 'reducing')
   assert.ok(events.every(event => event.type !== 'progress' || event.data.phase !== 'parsing'))
   assert.equal(response.data.problem, undefined)
   assert.deepEqual(Object.keys(response.data).sort(), ['diagram', 'options'])

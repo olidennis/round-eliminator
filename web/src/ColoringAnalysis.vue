@@ -5,25 +5,27 @@ import type { Problem } from './generated/Problem'
 import type { Progress } from './generated/Progress'
 import type { ColoringKind } from './generated/ColoringKind'
 import type { ColoringBounds } from './generated/ColoringBounds'
-import type { ColoringResult } from './generated/ColoringResult'
-import type { SavedColoring } from './session'
+import { coloringKey, coloringQuery, type CachedColoring, type SavedColoring } from './session'
 import ComputationProgress from './ComputationProgress.vue'
 import ColoringView from './ColoringView.vue'
 import CollapsibleSection from './CollapsibleSection.vue'
 
-const props = defineProps<{ problem: Problem; backend: Backend; saved: SavedColoring; collapsed?: boolean }>()
+const props = defineProps<{ problem: Problem; backend: Backend; saved: SavedColoring; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
 const emit = defineEmits<{ update: [analysis: SavedColoring]; collapse: [collapsed: boolean] }>()
 const ordinaryGraph = computed(() => props.problem.graph_class.passive.every(degree => degree === 2))
 const savedKindSupported = ordinaryGraph.value || !['graph_edges', 'distance_two'].includes(props.saved.kind)
 const kind = ref<ColoringKind>(savedKindSupported ? props.saved.kind : 'vertex')
 const search = ref<'maximum' | 'fixed'>(props.saved.search)
 const colors = ref(props.saved.colors)
+const query = computed(() => coloringQuery({ kind: kind.value, search: search.value, colors: colors.value }))
+const results = shallowRef<CachedColoring[]>(props.saved.results.filter(entry => ordinaryGraph.value
+  || !['graph_edges', 'distance_two'].includes(entry.kind)))
+const result = computed(() => results.value.find(entry => coloringKey(entry) === coloringKey(query.value))?.result ?? null)
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(
-  savedKindSupported && props.saved.result ? 'done' : savedKindSupported && props.saved.bounds ? 'cancelled' : 'idle',
+  result.value ? 'done' : savedKindSupported && props.saved.bounds ? 'cancelled' : 'idle',
 )
 const progress = shallowRef<Progress | null>(null)
 const bounds = shallowRef<ColoringBounds | null>(savedKindSupported && props.saved.bounds ? { ...props.saved.bounds, testing: null } : null)
-const result = shallowRef<ColoringResult | null>(savedKindSupported ? props.saved.result : null)
 const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => { controller?.abort(); controller = null })
@@ -48,8 +50,7 @@ const witness = computed(() => {
 // Bounds certify one particular query; do not display them for changed settings.
 watch([kind, search, colors], () => {
   if (state.value !== 'running') {
-    state.value = 'idle'
-    result.value = null
+    state.value = result.value ? 'done' : 'idle'
     bounds.value = null
     error.value = ''
   }
@@ -57,9 +58,9 @@ watch([kind, search, colors], () => {
 
 // Only stable settings and mathematical results belong in a saved session.
 // Progress, workers, controllers and running state remain local to this card.
-watch([kind, search, colors, bounds, result], () => emit('update', {
+watch([kind, search, colors, bounds, results], () => emit('update', {
   kind: kind.value, search: search.value, colors: colors.value,
-  bounds: bounds.value, result: result.value,
+  bounds: bounds.value, results: results.value,
 }), { immediate: true })
 
 function cancel() {
@@ -69,18 +70,17 @@ function cancel() {
 }
 
 async function run() {
-  if (state.value === 'running') return
+  if (state.value === 'running' || result.value) return
+  const requested = query.value
   const current = new AbortController()
   controller = current
   state.value = 'running'
   progress.value = null
   bounds.value = null
-  result.value = null
   error.value = ''
   try {
     const response = await send({ type: 'check_coloring', data: {
-      problem: props.problem, kind: kind.value, passive_mode: 'general',
-      search: search.value === 'fixed' ? { kind: 'fixed', colors: colors.value } : { kind: 'maximum' },
+      problem: props.problem, ...requested, passive_mode: 'general',
     } }, props.backend, {
       signal: current.signal,
       onProgress: update => { if (controller === current) progress.value = update },
@@ -90,7 +90,9 @@ async function run() {
     })
     if (controller !== current) return
     if (response.type === 'coloring') {
-      result.value = response.data
+      results.value = [...results.value.filter(entry => coloringKey(entry) !== coloringKey(requested)),
+        { ...requested, result: response.data }]
+      bounds.value = null
       state.value = 'done'
     } else if (response.type === 'cancelled') {
       state.value = 'cancelled'
@@ -111,8 +113,8 @@ async function run() {
 </script>
 
 <template>
-  <CollapsibleSection class="analysis" title="Coloring solvability" :aria-busy="state === 'running'"
-    :collapsed="collapsed" @update:collapsed="emit('collapse', $event)">
+  <CollapsibleSection class="analysis coloring-analysis" title="Coloring solvability" :aria-busy="state === 'running'"
+    :collapsed="collapsed" :collapsed-target="collapsedTarget" @update:collapsed="emit('collapse', $event)">
     <fieldset class="form-fields analysis-options" :disabled="state === 'running'">
       <label>Given coloring
         <select v-model="kind">
@@ -131,7 +133,12 @@ async function run() {
       <label v-if="search === 'fixed'">Number of colors
         <input v-model.number="colors" type="number" :min="minimum" step="1" />
       </label>
+      <button v-if="state !== 'running' && state !== 'done'" type="button" @click="run">
+        {{ state === 'idle' ? 'Check coloring solvability' : 'Retry coloring check' }}
+      </button>
     </fieldset>
+    <details class="help-details analysis-help">
+    <summary>Coloring assumptions</summary>
     <p v-if="kind === 'distance_two'" class="hint">Each node knows its own color, all neighboring
       colors, and all original local inputs. Colors in each closed neighborhood are distinct.
       This check requires graphs with passive degree 2.
@@ -140,6 +147,7 @@ async function run() {
       Vertex colors differ around each passive node; graph edge colors agree across
       a degree-two passive edge and differ at active nodes; incidence edge colors
       differ at both sides. At least {{ minimum }} colors are required locally.</p>
+    </details>
     <ComputationProgress v-if="state === 'running'" :progress="progress"
       label="Coloring computation in progress" @cancel="cancel" />
     <div aria-live="polite" aria-label="Coloring result">
@@ -159,8 +167,5 @@ async function run() {
       <p v-if="state === 'error'" class="error" role="alert">{{ error }}</p>
     </div>
     <ColoringView v-if="witness" :problem="problem" :witness="witness" :repeating="result?.status === 'unbounded'" />
-    <button v-if="state !== 'running' && state !== 'done'" type="button" class="analysis-button" @click="run">
-      {{ state === 'idle' ? 'Check coloring solvability' : 'Retry coloring check' }}
-    </button>
   </CollapsibleSection>
 </template>

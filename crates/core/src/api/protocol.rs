@@ -55,13 +55,15 @@ pub enum Response {
     Cancelled,
 }
 
-/// Progress and proved partial results precede a final response.
+/// Latest progress and cumulative proof snapshots precede a final response.
+/// Transports may coalesce superseded updates; the final response is retained.
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 #[ts(export)]
 pub enum ComputationEvent {
     Progress(Progress),
-    /// A proved intermediate result; computation continues afterward.
+    /// A self-contained proof snapshot, including earlier bounds and witnesses.
+    /// Computation continues afterward; a later snapshot supersedes this one.
     PartialResult(Box<Response>),
     Response(Box<Response>),
 }

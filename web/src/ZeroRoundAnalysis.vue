@@ -8,7 +8,7 @@ import ZeroRoundView from './ZeroRoundView.vue'
 import ComputationProgress from './ComputationProgress.vue'
 import CollapsibleSection from './CollapsibleSection.vue'
 
-const props = defineProps<{ problem: Problem; backend: Backend; saved: ZeroRoundResult | null; collapsed?: boolean }>()
+const props = defineProps<{ problem: Problem; backend: Backend; saved: ZeroRoundResult | null; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
 const emit = defineEmits<{ update: [result: ZeroRoundResult | null]; collapse: [collapsed: boolean] }>()
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(props.saved ? 'done' : 'idle')
 const progress = ref<Progress | null>(null)
@@ -65,7 +65,7 @@ async function run() {
 
 <template>
   <CollapsibleSection class="analysis" title="Zero-round solvability" :aria-busy="state === 'running'"
-    :collapsed="collapsed" @update:collapsed="emit('collapse', $event)">
+    :collapsed="collapsed" :collapsed-target="collapsedTarget" @update:collapsed="emit('collapse', $event)">
     <ComputationProgress v-if="state === 'running'" :progress="progress"
       label="Zero-round computation in progress" @cancel="cancel" />
     <ZeroRoundView v-else-if="state === 'done' && result" :problem="problem" :result="result" />

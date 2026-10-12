@@ -4,6 +4,12 @@ import type { ComputationEvent } from './generated/ComputationEvent'
 import type { Progress } from './generated/Progress'
 
 export type Backend = 'server' | 'wasm'
+
+export function defaultBackend(url: URL): Backend {
+  const requested = url.searchParams.get('backend')
+  if (requested === 'server' || requested === 'wasm') return requested
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1' ? 'server' : 'wasm'
+}
 type Options = { signal?: AbortSignal; onProgress?: (progress: Progress) => void; onPartialResult?: (response: Response) => void }
 
 /** The same Rust-defined events arrive through HTTP streaming or a worker. */

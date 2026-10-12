@@ -12,14 +12,22 @@ Other operations remain listed in [FEATURES.md](FEATURES.md).
 Each successful **Start** appends a new problem below the editor. Problems keep
 independent analysis settings and results. Editing the form or starting another
 problem leaves previous problems intact; a parse error also preserves them.
-**Close** removes a problem and cancels its running analyses.
+The **×** control closes a problem and cancels its running analyses.
+The initial backend is Server on `localhost` and `127.0.0.1`, and WebAssembly on
+other hosts; `?backend=server` or `?backend=wasm` overrides this default.
 **Close all** does this for every open problem, keeping the editor contents.
 
-**Collapse / Expand** hides or shows a whole problem. Individual sections,
-including each constraint side and each analysis, have their own controls.
+Click a numbered problem header to collapse or expand it. Click section headers
+to fold individual constraint sides, editors, or analyses. Headers also support
+Enter and Space, with disclosure arrows indicating their state.
+Collapsed sections within each problem collect in a compact vertical stack on
+the right, or below the expanded sections on narrow screens. Expanding a header
+returns its section to its original position without restarting computations.
 Collapsed computations keep running. **Collapse all**, **Expand all**, and
 **Collapse all except current** manage the list; “Current” marks the most recently
 created or interacted-with problem. The last imported problem starts as current.
+Bulk collapse and close controls are in the top toolbar, before **Import**.
+Degree columns use **Deg.**, with the full name available as a tooltip.
 
 **Export** downloads a versioned `round-eliminator-3.re3.json` session containing
 the editor, open problem definitions, collapse state, analysis settings, completed
@@ -42,6 +50,29 @@ Run `npm run test:session` in `web` for file/link round-trip checks.
 The root is a virtual Cargo workspace. `crates/core` contains the portable
 problem model, parser, and request handler; `crates/server` and `crates/wasm`
 are thin delivery adapters. `web` contains the Vue interface.
+
+The page background is white, the editor and numbered problem cards are gray,
+and their sections are white. Pale gray headers with blue clickable titles match
+the old GUI. The gray cards stay full width; their white sections hug their contents
+and share one wrapping flow: constraints and analyses sit beside each other
+when space permits, without stretched columns or equal-height panels. Editors and
+diagram canvases resize horizontally and vertically; their white sections follow
+the new width. The diagram graph automatically refits. Widths are bounded by the
+screen, and controls wrap when a diagram is narrowed. Diagrams start with a
+compact 256–320 px canvas, depending on the screen width. The default base font
+is 16px. Coloring uses about 344 px so its title and selector stay readable while ordinary problems fit
+across laptop screens.
+Sections wrap when more space is needed. Expanded degree override fields retain
+a readable width independent of resizable text areas.
+Each problem header shows its active and passive degree sets, including when
+the problem is collapsed. Graph class does not occupy a separate section in the
+wrapping layout.
+Click **New problem** to hide its body while keeping **Start**, problem type, and
+backend controls available. Header controls act independently of folding.
+**Examples**, graph-class overrides, and notation/sharing help are expandable;
+analysis explanations live under **Coloring assumptions** and **Diagram assumptions**.
+Editor text and running computations survive folding; only problem and analysis
+collapse state belongs in saved sessions, while editor folding remains local.
 
 ## Constraint text
 
@@ -331,8 +362,9 @@ enumeration and general passive output checking can still be exponential.
 While running, the check button becomes an indeterminate progress indicator,
 a description of the current phase, and a **Cancel** button. Completed SAT
 candidate counts are shown when available; no percentage or completion time is
-estimated. Results appear below the constraints. Cancellation preserves the
-parsed problem and offers a retry. Editing the form does not change an existing
+estimated. Results appear below the constraints. The zero-round strategy explanation
+is a collapsed **Reading the strategy** tip, with the table visible. Cancellation
+preserves the parsed problem and offers a retry. Editing the form does not change an existing
 parsed problem or its analysis; pressing Start appends a separate problem.
 Closing a problem or importing a session cancels the removed problems' work.
 
@@ -348,6 +380,17 @@ Wasm runs each request in a dedicated worker and reports the same progress event
 through messages. Cancellation terminates that worker, including its synchronous
 wasm execution. Both transports use the same Rust request dispatch.
 
+Both transports coalesce progress and cumulative coloring-proof snapshots to at
+most ten update batches per second, with an immediate final flush. Native work
+publishes to latest-value slots without waiting for the stream consumer; a slow
+browser cannot fill a progress queue and block the CPU thread. Serialization and
+network delivery happen on the async side. Wasm throttles before serialization,
+JS callbacks, and worker messages. Short phases and superseded snapshots may be
+skipped; the latest counter, best proved bounds and witness, and final response
+are preserved. Cancellation checks remain independent of this delivery rate.
+Retain this snapshot contract for future partial-result types; additive events
+would need a separate delivery policy.
+
 ## Coloring solvability
 
 The parsed problem has a separate **Check coloring solvability** button. Choose
@@ -355,6 +398,13 @@ a fixed palette or search for the maximum palette. The strategy can use both
 the given colors and all original incident inputs; it retains their promise,
 mapping restrictions, and graph class. Orientation is represented by ordinary
 input constraints and needs no separate orientation algorithm.
+
+Completed checks are cached per problem, coloring kind, and palette choice.
+Returning to a computed choice displays its result immediately; fixed palettes
+with different sizes have separate entries. Files and links preserve the cache,
+including results migrated from older sessions. Cancelled or failed checks remain
+retryable. Under **Show strategy**, the table is visible while the **Reading the
+strategy** explanation stays collapsed until opened.
 
 | Given coloring | Promise |
 | --- | --- |
@@ -499,7 +549,15 @@ browser worker. SAT solver threading is unchanged.
 Every result contains the full reflexive relation and SCC membership. The display
 groups SCCs and removes transitive arrows between groups using petgraph. A
 **Partial** label means missing arrows are unknown. Cytoscape.js provides selection,
-dragging, panning, zooming, and force layout; Dagre provides hierarchical layout.
+dragging, panning and zooming; Dagre provides hierarchical layout.
+**Physics** is the default for new diagrams. D3-force supplies local repulsion,
+collision avoidance and edge springs. There is no gravity or component packing,
+so distant disconnected nodes stay where they are dragged. Nearby nodes from
+different components still repel. Settling after dragging preserves the viewport.
+**Free** stops automatic positioning and keeps nodes where they are placed.
+Switching to Free preserves the current positions; fresh free diagrams start
+on a compact grid, and **Reset layout** restores that grid. Layout changes
+never recompute the diagram relation.
 The visualization library is loaded only when a diagram is displayed.
 **Export to Clipboard**, **Download text**, and **Download PNG** export the selected
 view's groups and reduced arrows. The full relations remain in exported sessions.
@@ -509,7 +567,8 @@ Sessions from before diagram support initialize an empty analysis; earlier
 three-diagram results are restored as three cached choices.
 
 `DiagramAnalysis.vue` owns request state; `DiagramView.vue` owns visualization,
-selection, layouts and exports. `diagram.ts` formats canonical labels and graph
+selection, layouts and exports; `diagramPhysics.ts` owns the force setup, tested
+with `npm run test:physics`. `diagram.ts` formats canonical labels and graph
 text; `files.ts` supplies the download helper also used by session export.
 `npm run test:diagram -- http://127.0.0.1:8080/api` checks the same diagram fixtures
 through wasm and the server; omit the URL for wasm-only checks.

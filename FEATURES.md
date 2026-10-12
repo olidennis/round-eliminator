@@ -73,13 +73,18 @@ shared Rayon pool; wasm remains serial in its cancellable request worker.
 
 | Feature | Short description |
 | --- | --- |
+| Fluid compact layout | White page, full-width gray cards, content-sized white sections, and a 16px base font; constraints and analyses share one wrapping flow. |
+| Collapse / Expand New problem | Click its gray header with a blue title to hide the editor body while retaining Start, type, and backend controls. |
+| Resize editors and diagrams | Drag their bottom-right handles in either direction; white sections follow the resized content. Diagrams start compact (256–320 px), wrap without squeezing, and fit narrow screens. |
+| Examples / Notation help | Expand example buttons and notation explanations when needed. |
+| Graph class: inferred / custom degrees | Expand readable degree override fields; the collapsed summary indicates inferred or explicit degrees. |
 | No input | Enter an ordinary output problem with trivial input. |
 | Input with independent output validity | Enter separate input and output constraints with an unrestricted mapping. |
 | Input/output pairs | Enter condensed sets of pairs and convert them to the canonical mapped representation. |
 | Input-to-output mapping | Enter input/output constraints and the allowed output labels for each input label. |
-| Graph class | Specify possible degrees on each side, or infer them when the fields are blank. |
-| Run on: Server / WebAssembly | Choose either backend for parsing and analyses through the same API. |
-| Constraints and label counts | Show input/output constraints by degree, label counts, and excluded degrees, without a repeated problem-card title. |
+| Graph class | Specify or infer possible degrees on each side; display the resolved degree sets in the problem header, including when collapsed. |
+| Run on: Server / WebAssembly | Choose either backend; default to Server on localhost/127.0.0.1 and WebAssembly elsewhere, with explicit URL overrides. |
+| Constraints and label counts | Show constraints by degree, label counts, and excluded degrees in numbered problem cards. |
 | Allowed outputs for each input | Display the problem's restricted mapping; this differs from a transformation's source-to-result label mapping. |
 | Parse errors | Report the affected editor field and line when available, preserving existing problems. |
 
@@ -109,7 +114,8 @@ are inferred rather than explicitly specified.
 
 | Feature | Short description |
 | --- | --- |
-| Check zero-round solvability | Decide deterministic active-side zero-round solvability, with or without original inputs. |
+| Check zero-round solvability | Decide deterministic active-side zero-round solvability; show a short result and table, with strategy help collapsed by default. |
+| Coloring assumptions / Diagram assumptions | Expand detailed explanations while keeping analysis controls compact. |
 | Coloring (vertex / strong hypergraph) | Check strategies using the given vertex color and original inputs; colors differ around each passive node. |
 | Edge Coloring Solvability (graph edges) | Check strategies given matching endpoint colors on degree-two passive edges, distinct at active nodes. |
 | Edge Coloring Solvability (incidence edges) | Check strategies given incidence colors distinct at both active and passive nodes. |
@@ -119,10 +125,11 @@ are inferred rather than explicitly specified.
 | Check a given palette | Decide solvability for a user-specified number of colors. |
 | Find the maximum palette | Find the largest solvable palette, or certify unbounded solvability or that no feasible palette works. |
 | Zero-round result and strategy | Display solvable/unsolvable status and outputs for each active input configuration in occurrence order. |
-| Coloring result / Show strategy | Display the result and output-set certificate, using whole active configurations to choose outputs. |
+| Coloring result / Show strategy | Display the result and output-set certificate; its "Reading the strategy" explanation is collapsed by default. |
+| Cached coloring checks | Reuse completed checks by coloring kind and palette choice; preserve all entries in files and links. |
 | Unbounded coloring certificates | Show repeatable behavior, or smaller/larger neighbor-color behavior for distance-two coloring. |
 | Partial coloring results | Stream the current palette and proved bounds, retaining the latest witness and bounds on cancellation. |
-| Computation progress | Display the phase and number of candidate strategies examined, with an indeterminate progress indicator. |
+| Computation progress | Display the phase and candidate count; both backends coalesce updates to ten batches per second without blocking CPU work on UI consumption. Final results and the latest cumulative proof snapshot are retained. |
 | Cancel / Retry | Interrupt an analysis and allow a fresh attempt on the same parsed problem, on either backend. |
 | Analysis errors | Display failures inside the relevant problem's analysis section. |
 
@@ -141,8 +148,9 @@ are inferred rather than explicitly specified.
 | Applicable diagram choices | Hide redundant diagrams for independent validity; retain distinctions due to input-specific degrees or excluded degrees. |
 | SCC grouping | Group mutually reachable labels into one displayed node; retain full membership and relation in the result. |
 | Strength diagram | Display the reduced directed relation with node/edge selection, dragging, zooming, and panning. |
-| Physics / Hierarchical | Choose Cytoscape's force layout or Dagre's hierarchical layout. |
+| Physics / Hierarchical / Free | Default to Physics with local repulsion and edge springs; distant disconnected nodes remain freely placed. Also offer Dagre hierarchy and Free movement. |
 | Fit / Reset layout | Fit the graph to its viewport or recompute the selected layout. |
+| Resize diagram / Reading the diagram | Resize the diagram in both directions within the page width; automatically refit it and expand guidance about grouped labels and arrows. |
 | Export to Clipboard (diagram) | Copy the current view's equivalence groups and reduced arrows, with a manual-copy fallback. |
 | Download text / Download PNG | Export the current diagram as readable graph text or a full-graph image. |
 | Nodes and arrows as text | Expand an accessible text representation of the displayed diagram. |
@@ -158,11 +166,13 @@ to make their correspondence with the new UI explicit.
 | --- | --- |
 | Start / multiple problems | Append each parsed problem without replacing existing problems. |
 | Close / Clear (now Close all) | Remove one or all displayed problems and cancel their analyses, retaining the editor. |
-| Collapse / Expand | Collapse whole problems, individual sections, or constraint sides without stopping computations. |
-| Bulk collapse controls | Collapse all, expand all, or keep only the current problem open. |
+| Collapse / Expand | Click problem/section headers (or use Enter/Space); disclosure arrows show their state, and folding preserves computations. |
+| Grouped collapsed sections | Collect a problem's collapsed sections in a vertical stack on the right, moving below expanded sections on narrow screens. |
+| Bulk collapse controls | Collapse all, expand all, or keep only the current problem open; controls and Close all precede Import in the top toolbar. |
 | Current problem | Mark the most recently created or interacted-with problem for bulk collapse controls. |
 | Save (now Export) | Download the editor, open problems, collapse states, analysis settings/results, and proved bounds as a session file. |
 | Load (now Import) | Restore a session file, replacing the current session and cancelling its computations. |
+| Sharing help | Expand the explanation of saved sessions, imports, and shared links. |
 | Export Link To Clipboard (now Copy link) | Copy a compressed session link, with manual copying available if clipboard access fails; opening it restores the shared session. |
 
 Running computations are not resumed on import. The versioned RE3 files and
