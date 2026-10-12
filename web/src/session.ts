@@ -4,6 +4,54 @@ import type { ColoringResult } from './generated/ColoringResult'
 import type { Problem } from './generated/Problem'
 import type { ProblemText } from './generated/ProblemText'
 import type { ZeroRoundResult } from './generated/ZeroRoundResult'
+import type { DiagramOptions } from './generated/DiagramOptions'
+import type { DiagramResult } from './generated/DiagramResult'
+import type { Diagram } from './generated/Diagram'
+import type { DiagramKind } from './generated/DiagramKind'
+
+export type DiagramLayout = 'hierarchical' | 'physics'
+export type SavedDiagram = {
+  options: DiagramOptions
+  layout: DiagramLayout
+  results: DiagramResult[]
+}
+
+export function newSavedDiagram(): SavedDiagram {
+  return { options: { kind: 'output_only', output: 'exact', input_output: 'cheap' }, layout: 'hierarchical', results: [] }
+}
+
+type LegacyDiagramKind = 'output' | 'input_specific' | 'uniform'
+
+/** Version-one files and links may predate the consistent diagram names. */
+function restoreDiagramKind(kind?: DiagramKind | LegacyDiagramKind): DiagramKind {
+  switch (kind) {
+    case undefined:
+    case 'output': return 'output_only'
+    case 'input_specific': return 'input_output'
+    case 'uniform': return 'input_aware'
+    default: return kind
+  }
+}
+
+function restoreDiagram(saved?: SavedDiagram): SavedDiagram {
+  if (!saved) return newSavedDiagram()
+  // Earlier version-one sessions stored a view selector and one three-diagram
+  // result. Keep those already-computed relations in the per-choice cache.
+  const older = saved as SavedDiagram & { view?: DiagramKind | LegacyDiagramKind; result?: DiagramResult & Partial<Record<LegacyDiagramKind, Diagram>> }
+  const kind = restoreDiagramKind(saved.options.kind ?? older.view)
+  const options = { ...saved.options, kind }
+  let results = saved.results
+  if (!results) {
+    const previous = older.result
+    results = !previous ? [] : previous.diagram ? [previous]
+      : (['output', 'input_specific', 'uniform'] as const).map(kind => ({
+        options: { ...previous.options, kind: restoreDiagramKind(kind) }, diagram: previous[kind]!,
+      }))
+  }
+  return { options, layout: saved.layout, results: results.map(result => ({
+    ...result, options: { ...result.options, kind: restoreDiagramKind(result.options.kind) },
+  })) }
+}
 
 /** Browser state only; problems and analysis results use the Rust protocol types. */
 export type SavedColoring = {
@@ -14,7 +62,7 @@ export type SavedColoring = {
   result: ColoringResult | null
 }
 
-export type ProblemSection = 'graph' | 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring'
+export type ProblemSection = 'graph' | 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring' | 'diagram'
   | 'inputActive' | 'inputPassive' | 'outputActive' | 'outputPassive'
 export type CollapsedSections = Partial<Record<ProblemSection, boolean>>
 
@@ -24,6 +72,7 @@ export type SavedProblem = {
   collapsedSections: CollapsedSections
   zeroRound: ZeroRoundResult | null
   coloring: SavedColoring
+  diagram: SavedDiagram
 }
 
 export type Session = { editor: ProblemText; problems: SavedProblem[] }
@@ -33,6 +82,7 @@ export function newSavedProblem(problem: Problem): SavedProblem {
   return {
     problem, collapsed: false, collapsedSections: {}, zeroRound: null,
     coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null, result: null },
+    diagram: newSavedDiagram(),
   }
 }
 
@@ -64,7 +114,8 @@ export function deserializeSession(text: string): Session {
   }
   // As with analysis requests, snapshots from this version are trusted. Do not
   // reparse problem notation or repeat Rust's semantic construction checks.
-  return session
+  // Version-one sessions written before diagram support have no diagram state.
+  return { ...session, problems: session.problems.map(entry => ({ ...entry, diagram: restoreDiagram(entry.diagram) })) }
 }
 
 /** Compressed UTF-8 in the fragment keeps shared sessions out of HTTP requests. */

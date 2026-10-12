@@ -37,7 +37,8 @@ for (const preset of problemPresets) {
   parsed.set(preset.name, response.data)
   const result = await execute({ type: 'check_zero_round', data: { problem: response.data } })
   assert.equal(result.type, 'zero_round', preset.name)
-  const expected = preset.name.startsWith('Edge grabbing from sinkless') ? 'solvable' : 'unsolvable'
+  const expected = preset.name.startsWith('Edge grabbing from sinkless')
+    || preset.name === 'Input-aware label replacement (mapped)' ? 'solvable' : 'unsolvable'
   assert.equal(result.data.status, expected, preset.name)
 }
 

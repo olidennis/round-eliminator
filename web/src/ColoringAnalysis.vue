@@ -13,15 +13,17 @@ import CollapsibleSection from './CollapsibleSection.vue'
 
 const props = defineProps<{ problem: Problem; backend: Backend; saved: SavedColoring; collapsed?: boolean }>()
 const emit = defineEmits<{ update: [analysis: SavedColoring]; collapse: [collapsed: boolean] }>()
-const kind = ref<ColoringKind>(props.saved.kind)
+const ordinaryGraph = computed(() => props.problem.graph_class.passive.every(degree => degree === 2))
+const savedKindSupported = ordinaryGraph.value || !['graph_edges', 'distance_two'].includes(props.saved.kind)
+const kind = ref<ColoringKind>(savedKindSupported ? props.saved.kind : 'vertex')
 const search = ref<'maximum' | 'fixed'>(props.saved.search)
 const colors = ref(props.saved.colors)
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(
-  props.saved.result ? 'done' : props.saved.bounds ? 'cancelled' : 'idle',
+  savedKindSupported && props.saved.result ? 'done' : savedKindSupported && props.saved.bounds ? 'cancelled' : 'idle',
 )
 const progress = shallowRef<Progress | null>(null)
-const bounds = shallowRef<ColoringBounds | null>(props.saved.bounds ? { ...props.saved.bounds, testing: null } : null)
-const result = shallowRef<ColoringResult | null>(props.saved.result)
+const bounds = shallowRef<ColoringBounds | null>(savedKindSupported && props.saved.bounds ? { ...props.saved.bounds, testing: null } : null)
+const result = shallowRef<ColoringResult | null>(savedKindSupported ? props.saved.result : null)
 const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => { controller?.abort(); controller = null })
@@ -33,7 +35,6 @@ const minimum = computed(() => kind.value === 'distance_two'
   kind.value === 'graph_edges' ? props.problem.graph_class.active :
   [...props.problem.graph_class.active, ...props.problem.graph_class.passive]
 )))
-const ordinaryGraph = computed(() => props.problem.graph_class.passive.every(degree => degree === 2))
 watch(kind, value => {
   if (value === 'distance_two') {
     colors.value = Math.max(colors.value, minimum.value)
@@ -59,7 +60,7 @@ watch([kind, search, colors], () => {
 watch([kind, search, colors, bounds, result], () => emit('update', {
   kind: kind.value, search: search.value, colors: colors.value,
   bounds: bounds.value, result: result.value,
-}))
+}), { immediate: true })
 
 function cancel() {
   controller?.abort()
@@ -116,8 +117,8 @@ async function run() {
       <label>Given coloring
         <select v-model="kind">
           <option value="vertex">Vertex coloring (strong on hypergraphs)</option>
-          <option value="distance_two" :disabled="!ordinaryGraph">Distance-two vertex coloring</option>
-          <option value="graph_edges">Graph edge coloring</option>
+          <option v-if="ordinaryGraph" value="distance_two">Distance-two vertex coloring</option>
+          <option v-if="ordinaryGraph" value="graph_edges">Graph edge coloring</option>
           <option value="incidence_edges">Incidence edge coloring</option>
         </select>
       </label>

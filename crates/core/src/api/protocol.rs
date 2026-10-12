@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::{
+    algorithms::diagram::{DiagramOptions, DiagramResult},
     algorithms::solvability::{
         coloring::{ColoringBounds, ColoringKind, ColoringResult, PaletteSearch},
         passive::PassiveMode,
@@ -20,6 +21,11 @@ use crate::{
 #[ts(export)]
 pub enum Request {
     ParseProblem(ProblemText),
+    ComputeDiagram {
+        problem: Problem,
+        #[serde(default)]
+        options: DiagramOptions,
+    },
     CheckZeroRound {
         problem: Problem,
         // Default to general mode when callers omit the field.
@@ -41,6 +47,7 @@ pub enum Request {
 #[ts(export)]
 pub enum Response {
     Problem(Problem),
+    Diagram(DiagramResult),
     ZeroRound(ZeroRoundResult),
     Coloring(ColoringResult),
     ColoringBounds(ColoringBounds),

@@ -1,4 +1,40 @@
 use super::*;
+
+#[test]
+fn diagram_protocol_reuses_the_problem_and_supports_cancellation_in_every_phase() {
+    let parsed = crate::parse_problem(
+        serde_json::from_value(serde_json::json!({
+            "kind":"plain", "constraints":{"active":"A B", "passive":"A^3\nA^2 B\nA B^2\nB^3"}
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let body = serde_json::json!({"type":"compute_diagram","data":{"problem":parsed,
+        "options":{"kind":"output_only","output":"exact","input_output":"exact"}}})
+    .to_string();
+    let response: serde_json::Value = serde_json::from_str(&execute_json(&body)).unwrap();
+    assert_eq!(response["type"], "diagram");
+    assert!(response["data"].get("problem").is_none());
+    for unrequested in ["output_only", "input_output", "input_aware"] {
+        assert!(response["data"].get(unrequested).is_none());
+    }
+    assert_eq!(
+        response["data"]["diagram"]["components"],
+        serde_json::json!([[0, 1]])
+    );
+    for phase in [Phase::Preparing, Phase::Comparing, Phase::Reducing] {
+        let cancellation = Cancellation::default();
+        let result = execute_text_with_events(&body, cancellation.clone(), &mut |event| {
+            if let ComputationEvent::Progress(progress) = event {
+                assert_ne!(progress.phase, Phase::Parsing);
+                if progress.phase == phase {
+                    cancellation.cancel()
+                }
+            }
+        });
+        assert!(matches!(result, Response::Cancelled));
+    }
+}
 use crate::computation::Progress;
 
 fn analysis_request(active: &str, passive: &str) -> serde_json::Value {

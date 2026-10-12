@@ -102,6 +102,19 @@ export const problemPresets: ProblemPreset[] = [
     },
   },
   {
+    name: 'Input-aware label replacement (mapped)',
+    description: 'Two inputs: i permits A or B, and j permits C. Output-only strength is A → B → C. Both input-related diagrams retain A → B, but forbid B → C because input i does not permit C. Cheap and Exact both show one arrow.',
+    definition: {
+      kind: 'mapped', degrees: inferredDegrees,
+      input: { active: 'i^3\nj^3', passive: 'ij^2' },
+      output: {
+        active: 'A^3\nB^3\nC^3',
+        passive: 'A C\nBC^2',
+      },
+      mapping: 'i -> AB\nj -> C',
+    },
+  },
+  {
     name: 'List coloring (mapped)',
     description: 'Proper 3-coloring on a 3-regular graph with a two-color list at each vertex: input r forbids A, g forbids B, and b forbids C. The paired preset describes the same problem.',
     definition: {

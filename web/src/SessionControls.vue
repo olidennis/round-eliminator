@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { deserializeSession, serializeSession, sessionFromHash, sessionLink, type Session } from './session'
+import { downloadFile } from './files'
 
 const props = defineProps<{ session: Session }>()
 const emit = defineEmits<{ import: [session: Session] }>()
@@ -17,13 +18,7 @@ function reportError(cause: unknown) {
 
 function exportSession() {
   error.value = ''
-  const url = URL.createObjectURL(new Blob([serializeSession(props.session)], { type: 'application/json' }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = 'round-eliminator-3.re3.json'
-  anchor.click()
-  // Let the browser start the download before releasing its contents.
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  downloadFile(new Blob([serializeSession(props.session)], { type: 'application/json' }), 'round-eliminator-3.re3.json')
 }
 
 async function importFile(event: Event) {

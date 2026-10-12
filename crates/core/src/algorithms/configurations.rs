@@ -7,6 +7,11 @@ use petgraph::{Graph, algo::dinics};
 use crate::computation::{Cancellation, Cancelled};
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
 
+mod coverage;
+mod product;
+pub(crate) use coverage::{contexts_with, covers_with};
+pub(crate) use product::product_with;
+
 /// Checks whether a constraint allows a configuration
 pub fn accepts<L: Copy + Ord>(constraint: &Constraint<L>, concrete: &Configuration<L>) -> bool {
     accepts_with(constraint, concrete, &Cancellation::default()).expect("not cancelled")
@@ -274,6 +279,56 @@ pub(crate) fn advance_counts(counts: &mut [u32]) -> bool {
     counts[position + 1..].fill(0);
     counts[position + 1] = remainder;
     true
+}
+
+/// given a condensed configuration, visits all possible choices.
+/// it also gives where the labels come from: a vec of vec of labels,
+/// value x in position [i][j] means that we use the jth label of the labelset in the ith part for x times
+pub(crate) fn visit_multisets_with<L: Copy + Ord>(
+    family: &CondensedConfiguration<L>,
+    cancellation: &Cancellation,
+    mut visitor: impl FnMut(&Configuration<L>, &[Vec<u32>]) -> Result<bool, Cancelled>,
+) -> Result<bool, Cancelled> {
+    let choices: Vec<Vec<L>> = family
+        .parts()
+        .iter()
+        .map(|part| part.labels().iter().collect())
+        .collect();
+    let mut counts: Vec<Vec<u32>> = family
+        .parts()
+        .iter()
+        .map(|part| {
+            let mut counts = vec![0; part.labels().len()];
+            counts[0] = part.multiplicity();
+            counts
+        })
+        .collect();
+    let mut visited = BTreeSet::new();
+    loop {
+        cancellation.check()?;
+        let concrete = Configuration::new(
+            choices
+                .iter()
+                .zip(&counts)
+                .flat_map(|(labels, counts)| labels.iter().copied().zip(counts.iter().copied()))
+                .collect(),
+        )
+        .expect("family degree already checked");
+        if visited.insert(concrete.clone()) && !visitor(&concrete, &counts)? {
+            return Ok(false);
+        }
+        let Some(position) = (0..counts.len())
+            .rev()
+            .find(|&index| advance_counts(&mut counts[index]))
+        else {
+            break;
+        };
+        for (index, counts) in counts.iter_mut().enumerate().skip(position + 1) {
+            counts.fill(0);
+            counts[0] = family.parts()[index].multiplicity();
+        }
+    }
+    Ok(true)
 }
 
 #[cfg(test)]

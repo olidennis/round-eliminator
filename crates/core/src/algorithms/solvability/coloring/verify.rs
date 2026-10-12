@@ -7,10 +7,8 @@ use super::{
 use crate::{
     algorithms::{
         configurations::allows_positions_with,
-        solvability::{
-            inputs::{active_inputs, prepare_passive_inputs},
-            passive::{Emission, PassiveMode, forbidden_combination},
-        },
+        inputs::{active_inputs, prepare_passive_inputs},
+        solvability::passive::{Emission, PassiveMode, forbidden_combination},
     },
     computation::Cancellation,
     model::Problem,

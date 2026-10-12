@@ -13,6 +13,7 @@ rustsat = { version = "0.7.5", default-features = false }
 petgraph = { version = "0.8.3", default-features = false, features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = "1.11"
 rustsat-cadical = { version = "0.7.5", features = ["v2-2-1"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -24,4 +25,8 @@ harness = false
 
 [[bench]]
 name = "zero_round"
+harness = false
+
+[[bench]]
+name = "diagram"
 harness = false

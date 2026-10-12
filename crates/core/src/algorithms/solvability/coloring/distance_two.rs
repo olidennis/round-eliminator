@@ -21,10 +21,10 @@ use super::{
 use crate::{
     algorithms::{
         configurations::allows_positions_with,
+        inputs::{LocalInput, active_inputs, prepare_passive_inputs},
         sat::Formula,
         solvability::{
             constraint_encoding::{Choice, encode_constraint},
-            inputs::{LocalInput, active_inputs, prepare_passive_inputs},
             passive::{Emission, PassiveMode, forbidden_combination},
         },
     },

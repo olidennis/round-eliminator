@@ -4,6 +4,7 @@ import type { ProblemSection, SavedProblem } from './session'
 import ProblemView from './ProblemView.vue'
 import ZeroRoundAnalysis from './ZeroRoundAnalysis.vue'
 import ColoringAnalysis from './ColoringAnalysis.vue'
+import DiagramAnalysis from './DiagramAnalysis.vue'
 
 defineProps<{ saved: SavedProblem; backend: Backend; current: boolean }>()
 const emit = defineEmits<{
@@ -13,6 +14,7 @@ const emit = defineEmits<{
   section: [section: ProblemSection, collapsed: boolean]
   zeroRound: [result: SavedProblem['zeroRound']]
   coloring: [analysis: SavedProblem['coloring']]
+  diagram: [analysis: SavedProblem['diagram']]
 }>()
 </script>
 
@@ -29,5 +31,8 @@ const emit = defineEmits<{
     <ColoringAnalysis :problem="saved.problem" :backend="backend" :saved="saved.coloring"
       :collapsed="saved.collapsedSections.coloring" @collapse="emit('section', 'coloring', $event)"
       @update="emit('coloring', $event)" />
+    <DiagramAnalysis :problem="saved.problem" :backend="backend" :saved="saved.diagram"
+      :collapsed="saved.collapsedSections.diagram" @collapse="emit('section', 'diagram', $event)"
+      @update="emit('diagram', $event)" />
   </ProblemView>
 </template>

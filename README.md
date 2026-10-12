@@ -4,6 +4,7 @@ This is a new implementation on the `re3` branch. Start parses and validates
 active/passive problem definitions, and the GUI displays the returned definition.
 It supports plain problems and all three input variants described below.
 Zero-round and coloring checks support all four variants and return strategy witnesses.
+Passive label diagrams support output-only, input-output pairs, and input-aware outputs.
 Other operations remain listed in [FEATURES.md](FEATURES.md).
 
 ## Problems and saved sessions
@@ -123,13 +124,18 @@ crates/core/src/
 ├── parser/                # text entry, notation, and paired conversion
 ├── algorithms/
 │   ├── configurations.rs # generic enumeration, membership, and matching
+│   ├── configurations/   # context coverage and condensed constraint products
+│   ├── diagram.rs        # diagram types, methods, and three views
+│   ├── diagram/          # parallel relation computation and tests
+│   ├── graphs.rs         # SCC condensation and transitive reduction
+│   ├── inputs.rs         # original input preparation shared by analyses
+│   ├── parallel.rs       # bounded native parallel work; serial wasm fallback
 │   ├── sat.rs            # solver setup and generic formula operations
 │   └── solvability/       # analyses and strategy-specific shared helpers
 │       ├── mod.rs
 │       ├── zero_round/
 │       ├── coloring/
 │       ├── constraint_encoding.rs # shared SAT matching for solvability
-│       ├── inputs.rs
 │       └── passive.rs
 └── api/
     ├── mod.rs             # shared dispatch and JSON execution
@@ -158,7 +164,7 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/computation.rs` | Transport-independent cancellation flag and computation phases. |
 | `crates/core/src/algorithms/sat.rs` | RustSAT formula builder, generic cardinality encodings, and target-specific backend setup. |
 | `crates/core/src/algorithms/configurations.rs` | Concrete multiset enumeration, count-distribution stepping, condensed containment, and flow matching of offered labels to allowed configurations. |
-| `crates/core/src/algorithms/solvability/inputs.rs` | Original active input multisets and condensed passive input families, shared by both analyses. |
+| `crates/core/src/algorithms/inputs.rs` | Original active input multisets and condensed passive input families, shared by solvability and diagrams. |
 | `crates/core/src/algorithms/solvability/constraint_encoding.rs` | Shared SAT matching for solvability, with optional activation gates. |
 | `crates/core/src/algorithms/solvability/passive.rs` | Shared verification modes, emission families, containment, exact output checks, and blocking clauses. |
 | `crates/core/src/algorithms/solvability/zero_round/mod.rs` | Local-rule types and SAT search with counterexample refinement. |
@@ -168,12 +174,19 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/algorithms/solvability/coloring/encoding.rs` | Incremental SAT on color/input output sets; active and passive counterexample refinement. |
 | `crates/core/src/algorithms/solvability/coloring/prepare.rs` | Visit color placements while preserving condensed original passive input choices. |
 | `crates/core/src/algorithms/solvability/coloring/verify.rs` | Verify finite and repeatable coloring witnesses independently of SAT. |
+| `crates/core/src/algorithms/configurations/coverage.rs` | Remove one label to obtain contexts; test universal coverage by a union of configurations. |
+| `crates/core/src/algorithms/configurations/product.rs` | Join condensed input/output constraints through compatible incidence pairs, keeping multiplicities counted. |
+| `crates/core/src/algorithms/diagram.rs` | Diagram schema, methods, canonical input integration, and input-aware projection. |
+| `crates/core/src/algorithms/diagram/relation.rs` | Compare occurrence profiles and residual languages, with cached degree-one context unions. |
+| `crates/core/src/algorithms/graphs.rs` | Library SCC grouping and transitive reduction, preserving isolated vertices. |
+| `crates/core/src/algorithms/parallel.rs` | Ordered parallel results and caller-thread progress through Rayon's shared native pool. |
 
 The model, parser, and API each keep their tests in a neighboring `tests.rs` module.
 `algorithms::solvability` groups zero-round and coloring checks with their shared
-local input preparation and strategy verification. General constraint operations,
-constraint SAT encoding, and solver support live directly in `algorithms`, so
-other analyses and transformations can use them independently of solvability.
+strategy verification and the shared solvability SAT encoding. General constraint
+operations, original input preparation, graph operations, and solver support live
+directly in `algorithms`, so other analyses and transformations can use them
+independently of solvability.
 Short modules keep small test suites inline; larger algorithm suites use neighboring
 test modules. Matching benchmarks and their shared native/wasm fixtures live in
 `crates/core/benches`.
@@ -425,6 +438,85 @@ the existing problem tables; the response does not echo or reparse the problem.
 `algorithms::solvability::coloring::verify_witness` checks the strategy with flow matching and
 general passive verification, without SAT. Tests also compare the compact
 encoding with independently constructed explicit colored input problems.
+
+## Passive label diagrams
+
+Choose a diagram type and its method, then press **Compute diagram**. Only that
+relation and its necessary dependencies are computed; each response contains
+one diagram. Changing the choice never starts a computation automatically.
+Previously computed choices reappear immediately from a cache belonging to that
+problem. Layout changes do not require recomputation.
+For independent output validity, input-related choices are hidden when the input
+promise makes them equivalent to output-only. On nonregular graphs, an input
+label can occur only at certain degrees, so input-output pairs may still convey
+different strength. Input-aware outputs are redundant when every degree with
+allowed outputs also has allowed inputs. Earlier cached equivalents are projected
+to output-only results without recomputing comparisons or SCCs.
+All arrows concern passive validity; they do not assert preservation of active
+output requirements.
+
+| View | Arrow meaning |
+| --- | --- |
+| Output-only | Replace one occurrence of A by B in every allowed passive output configuration. Inputs are ignored. |
+| Input-output pairs | Replace `(i,A)` by `(i,B)`, keeping input i fixed, in every admissible passive joint configuration. Both pairs must be permitted by the mapping. |
+| Input-aware outputs | The pair replacement holds for every input permitting A, and every such input also permits B. |
+
+The input-aware relation is derived from the pair relation, including permissions
+which would be lost by intersecting only inputs admitting both outputs. The
+input promise is checked locally; no global realizability analysis is performed.
+An admitted pair with no admissible passive context has vacuous replacement
+arrows to other outputs admitted at the same input. Trivial unrestricted input
+reduces both input-related types to the output-only relation.
+
+**Fast, partial** checks whether every passive label set containing A also
+contains B. **Fast, assuming maximized** runs the same code, but is exact only
+under the caller's guarantee of a complete maximized passive representation.
+Neither mode performs maximization. **Exact** compares residual context languages
+without that prerequisite. For passive degree 2, contexts are single labels and
+their unions are cached for set-inclusion checks. Higher degrees use containment,
+cheap counted counterexamples, and lazy exact multiset enumeration as needed.
+
+Input-output **Cheap** lifts established output arrows through the mapping;
+it can miss arrows even with an exact output-only diagram. Input-output **Exact**
+joins the input promise and output constraint using matrices of part counts and
+compatible pairs. It keeps condensed sets and repetitions, then applies the same
+context comparison, without computing a separate output-only relation. Cheap
+input-output checks need output-only arrows but do not reduce or return an extra
+diagram. Input-aware checks derive their relation from the pair relation and
+reduce only the requested input-aware graph. Large products and union coverage can
+still be combinatorial.
+No arbitrary configuration or iteration cutoff is imposed.
+
+Native context preparation and row comparisons use Rayon's shared worker pool;
+`RAYON_NUM_THREADS` controls its size, otherwise Rayon uses the available CPUs.
+Cheap comparisons stay serial when scheduling overhead would dominate; general
+exact coverage and large occurrence workloads use workers.
+Results are deterministic despite parallel completion order. Progress is reported
+on the calling thread, and cancellation is checked in workers and generic
+configuration operations. Wasm executes serially in the existing cancellable
+browser worker. SAT solver threading is unchanged.
+
+Every result contains the full reflexive relation and SCC membership. The display
+groups SCCs and removes transitive arrows between groups using petgraph. A
+**Partial** label means missing arrows are unknown. Cytoscape.js provides selection,
+dragging, panning, zooming, and force layout; Dagre provides hierarchical layout.
+The visualization library is loaded only when a diagram is displayed.
+**Export to Clipboard**, **Download text**, and **Download PNG** export the selected
+view's groups and reduced arrows. The full relations remain in exported sessions.
+The selected type, layout, methods, cached results, and section collapse state
+are saved. Cache keys include only settings affecting the selected relation.
+Sessions from before diagram support initialize an empty analysis; earlier
+three-diagram results are restored as three cached choices.
+
+`DiagramAnalysis.vue` owns request state; `DiagramView.vue` owns visualization,
+selection, layouts and exports. `diagram.ts` formats canonical labels and graph
+text; `files.ts` supplies the download helper also used by session export.
+`npm run test:diagram -- http://127.0.0.1:8080/api` checks the same diagram fixtures
+through wasm and the server; omit the URL for wasm-only checks.
+
+Rust uses `DiagramKind::{OutputOnly, InputOutput, InputAware}` and the protocol
+uses `output_only`, `input_output`, and `input_aware`. Session import migrates
+earlier names, including cached results, so existing files and links remain usable.
 
 ## Run
 

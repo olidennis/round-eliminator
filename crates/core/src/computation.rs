@@ -9,11 +9,6 @@ use std::sync::{
 use serde::Serialize;
 use ts_rs::TS;
 
-
-
-
-
-
 /// In order to allow the caller to interrupt work, we use Computation, which represents some computation being done.
 /// Cancellation holds a boolean denoting whether the computation has been interrupted.
 /// Cancellation is also held by the caller, and can call the cancel function.
@@ -39,14 +34,12 @@ impl<'a> Computation<'a> {
     }
 }
 
-
 /// Progress stores what we are doing, and some other special parameters, like how many steps we did
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, TS)]
 pub struct Progress {
     pub phase: Phase,
     pub iterations: u32,
 }
-
 
 /// These are all the possible things we could be doing
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, TS)]
@@ -58,10 +51,10 @@ pub enum Phase {
     Encoding,
     Solving,
     Verifying,
+    Preparing,
+    Comparing,
+    Reducing,
 }
-
-
-
 
 /// Cancellation is just a bool that we can update atomically
 /// In case of cancel, we don't kill threads.

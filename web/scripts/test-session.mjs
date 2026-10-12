@@ -20,6 +20,11 @@ const saved = newSavedProblem(problem)
 saved.collapsed = true
 saved.collapsedSections = { output: true, outputPassive: true, coloring: true }
 saved.zeroRound = { status: 'unsolvable' }
+saved.diagram.options = { kind: 'input_output', output: 'partial', input_output: 'exact' }
+saved.diagram.layout = 'physics'
+const diagram = { nodes: [{ input: 0, output: 1 }], successors: [[0]], components: [[0]], edges: [], complete: true }
+saved.diagram.results = [{ options: saved.diagram.options, diagram }]
+saved.collapsedSections.diagram = true
 saved.coloring.kind = 'distance_two'
 saved.coloring.bounds = { minimum: 1, lower: 3, upper: null, testing: 6,
   witness: { kind: 'color_order', smaller: { outputs_by_input: [[0]] }, larger: { outputs_by_input: [[1]] } },
@@ -31,6 +36,24 @@ const expected = structuredClone(session)
 expected.problems[0].coloring.bounds.testing = null
 assert.deepEqual(deserializeSession(serializeSession(session)), expected)
 assert.equal(saved.coloring.bounds.testing, 6, 'Saving must not mutate a live query.')
+const legacy = JSON.parse(serializeSession(session))
+delete legacy.session.problems[0].diagram
+assert.deepEqual(deserializeSession(JSON.stringify(legacy)).problems[0].diagram.results, [])
+const olderDiagrams = JSON.parse(serializeSession(session))
+olderDiagrams.session.problems[0].diagram = {
+  options: { output: 'partial', input_output: 'exact' }, view: 'input_specific', layout: 'physics',
+  result: { options: { output: 'partial', input_output: 'exact' }, output: diagram, input_specific: diagram, uniform: diagram },
+}
+const restored = deserializeSession(JSON.stringify(olderDiagrams)).problems[0].diagram
+assert.equal(restored.options.kind, 'input_output')
+assert.deepEqual(restored.results.map(result => result.options.kind), ['output_only', 'input_output', 'input_aware'])
+assert.ok(restored.results.every(result => result.diagram.nodes[0].output === 1))
+const olderCache = JSON.parse(serializeSession(session))
+olderCache.session.problems[0].diagram.options.kind = 'uniform'
+olderCache.session.problems[0].diagram.results[0].options.kind = 'uniform'
+const renamed = deserializeSession(JSON.stringify(olderCache)).problems[0].diagram
+assert.equal(renamed.options.kind, 'input_aware')
+assert.equal(renamed.results[0].options.kind, 'input_aware')
 
 for (const editor of [
   { kind: 'independent', input: session.editor.constraints, output: session.editor.constraints, degrees: session.editor.degrees },

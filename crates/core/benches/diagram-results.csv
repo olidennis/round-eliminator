@@ -1,0 +1,13 @@
+pool_threads,fixture,method,repetitions,milliseconds
+1,bipartite_64_degree_2,Maximized,100,0.280
+1,bipartite_64_degree_2,Exact,100,0.317
+1,bipartite_256_degree_2,Maximized,100,4.658
+1,bipartite_256_degree_2,Exact,100,5.841
+1,at_least_one_64_degree_13,Maximized,100,0.320
+1,at_least_one_64_degree_13,Exact,100,2.214
+4,bipartite_64_degree_2,Maximized,100,0.274
+4,bipartite_64_degree_2,Exact,100,0.313
+4,bipartite_256_degree_2,Maximized,100,4.631
+4,bipartite_256_degree_2,Exact,100,5.707
+4,at_least_one_64_degree_13,Maximized,100,0.310
+4,at_least_one_64_degree_13,Exact,100,1.083

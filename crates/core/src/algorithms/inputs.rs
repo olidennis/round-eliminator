@@ -1,4 +1,4 @@
-//! Shared preparation of original inputs, without auxiliary coloring constraints.
+//! Original input configurations shared by diagram and solvability analyses.
 use crate::algorithms::configurations::concrete_multisets_with;
 use crate::computation::{Cancellation, Cancelled};
 use crate::model::{CondensedConfiguration, Input, LabelId, LabelSet, Part, Problem};

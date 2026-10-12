@@ -43,6 +43,9 @@ select { margin-left: .4rem; border: 1px solid #aab4c0; background: white; }
 .analysis-options { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; }
 .analysis-options input { max-width: 8rem; }
 .analysis-button { margin-top: .75rem; }
+.diagram-canvas { width: 100%; height: 380px; border: 1px solid #d3dae2; border-radius: .4rem; background: #fbfcfe; }
+.diagram-actions { flex-wrap: wrap; gap: .5rem; }
+.diagram-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 details summary { cursor: pointer; margin: .75rem 0; }
 table { border-collapse: collapse; width: 100%; }
 th, td { padding: .5rem; border-bottom: 1px solid #e3e7ed; text-align: left; vertical-align: top; }

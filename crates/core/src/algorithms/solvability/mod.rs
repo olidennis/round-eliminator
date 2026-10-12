@@ -2,6 +2,5 @@
 
 pub mod coloring;
 pub(crate) mod constraint_encoding;
-pub(crate) mod inputs;
 pub mod passive;
 pub mod zero_round;

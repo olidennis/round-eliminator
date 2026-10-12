@@ -59,6 +59,16 @@ Maximum search for all four coloring kinds tries consecutive palettes after its
 unbounded certificate check, stopping at the first UNSAT. This avoids costly
 overshoots such as querying 20 directly after proving 10 colors solvable.
 
+Diagram computation is implemented for all four entry forms and arbitrary
+declared passive degrees. Classical output diagrams support the same occurrence
+test as a partial computation or as an exact computation under the caller's
+maximization guarantee, plus exact context inclusion without maximization.
+Input-output pair diagrams offer cheap lifting of established output arrows
+or exact checks against the input promise, output constraint, and mapping.
+Input-aware output diagrams derive arrows that hold for every input admitting the source.
+Missing arrows in a partial result remain unknown. Native comparisons use a
+shared Rayon pool; wasm remains serial in its cancellable request worker.
+
 ### Completed entry and display controls
 
 | Feature | Short description |
@@ -91,6 +101,7 @@ are inferred rather than explicitly specified.
 | Edge grabbing from sinkless and sourceless orientation | Edge grabbing given an incoming and outgoing edge at every vertex. |
 | Sinkless and sourceless orientation from edge grabbing | Produce an orientation with an incoming and outgoing edge using an edge-grabbing input. |
 | Edge grabbing from 3-edge coloring | Edge grabbing on 3-regular graphs given a proper 3-edge coloring. |
+| Input-aware label replacement (mapped) | Two inputs and three outputs: both input-related diagrams keep A → B but exclude the output-only arrow B → C. |
 | List coloring (mapped) | Proper 3-coloring subject to input-dependent lists, using the mapped entry form. |
 | List coloring (paired) | The equivalent list-coloring example using input/output pairs. |
 
@@ -103,6 +114,7 @@ are inferred rather than explicitly specified.
 | Edge Coloring Solvability (graph edges) | Check strategies given matching endpoint colors on degree-two passive edges, distinct at active nodes. |
 | Edge Coloring Solvability (incidence edges) | Check strategies given incidence colors distinct at both active and passive nodes. |
 | Distance-two vertex coloring | Check strategies using own and neighboring colors plus original inputs; requires passive degree 2. |
+| Applicable coloring choices | Hide graph edge and distance-two coloring unless all passive degrees are 2. |
 | Orientation solvability / coloring with orientation | Use an orientation as an ordinary input promise in the zero-round or coloring check. |
 | Check a given palette | Decide solvability for a user-specified number of colors. |
 | Find the maximum palette | Find the largest solvable palette, or certify unbounded solvability or that no feasible palette works. |
@@ -113,6 +125,29 @@ are inferred rather than explicitly specified.
 | Computation progress | Display the phase and number of candidate strategies examined, with an indeterminate progress indicator. |
 | Cancel / Retry | Interrupt an analysis and allow a fresh attempt on the same parsed problem, on either backend. |
 | Analysis errors | Display failures inside the relevant problem's analysis section. |
+
+### Completed diagram controls and results
+
+| Feature | Short description |
+| --- | --- |
+| Compute diagram / Full Diagram | Compute only the selected relation and its dependencies; changing the choice requires a button click. |
+| Fast, partial | Establish arrows using label-set occurrences; missing arrows are unknown. |
+| Fast, assuming maximized | Use the same occurrence test, exact when the complete passive constraint is already maximized. |
+| Exact output diagram | Compare residual context languages, with degree-one coverage shortcuts for passive degree 2. |
+| Cheap input-output diagram | Lift known output arrows at inputs permitting both source and target outputs. |
+| Exact input-output diagram | Check fixed-input replacement in admissible joint configurations while retaining condensed sets and counts. |
+| Output-only / Input-output pairs / Input-aware outputs | Select output strength, pair vertices, or replacements valid for every admitting input before computing. |
+| Reuse computed choices | Show previously computed type/method combinations immediately without another native or wasm request. |
+| Applicable diagram choices | Hide redundant diagrams for independent validity; retain distinctions due to input-specific degrees or excluded degrees. |
+| SCC grouping | Group mutually reachable labels into one displayed node; retain full membership and relation in the result. |
+| Strength diagram | Display the reduced directed relation with node/edge selection, dragging, zooming, and panning. |
+| Physics / Hierarchical | Choose Cytoscape's force layout or Dagre's hierarchical layout. |
+| Fit / Reset layout | Fit the graph to its viewport or recompute the selected layout. |
+| Export to Clipboard (diagram) | Copy the current view's equivalence groups and reduced arrows, with a manual-copy fallback. |
+| Download text / Download PNG | Export the current diagram as readable graph text or a full-graph image. |
+| Nodes and arrows as text | Expand an accessible text representation of the displayed diagram. |
+| Diagram progress / Cancel / Retry | Show computation phases and completed comparison rows, cancel, or retry on either backend. |
+| Saved diagrams | Include methods, selected type/layout, cached results, and section collapse state in session files and links. |
 
 ### Completed history and sharing features
 
@@ -153,6 +188,7 @@ explicitly deferred at the user's request.
 | Greedy distance-two coloring | Characterize compatible local views under the Grundy promise before choosing an exact strategy representation. |
 | Expose maximized verification in the UI | Both verification modes are implemented and benchmarked. Once maximization exists, offer direct checking versus maximizing first, including that preparation cost. |
 | Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
+| Optimize exact joint diagrams | Benchmark count-matrix products and union coverage on large input promises before adding alternative encodings; condensed preparation can still be combinatorial. |
 | Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |
 | Preserve input promises in transformations | Keep the graph class and explicit input promise independent of changes to outputs or the mapping; recomputing either can silently narrow the problem domain. |
 
@@ -176,7 +212,6 @@ explicitly deferred at the user's request.
 | Speedup with Star Relaxation | Apply speedup using one-coordinate-star relaxation in the universal phase. |
 | Inverse Speedup | Apply the inverse round-elimination transformation. |
 | Maximize | Maximize the passive constraint, then recompute derived information. |
-| Full Diagram | Compute the complete label-strength diagram without displaying a maximized passive side. |
 | Merge (equivalent labels) | Merge labels identified as equivalent in the computed diagram. |
 | All Different Labels | Split or distinguish labels that currently denote the same choices. |
 | Delta Edge Coloring | Transform labels using an assumed degree-size edge coloring. |
@@ -272,9 +307,6 @@ explicitly deferred at the user's request.
 | Renaming table | Show each current label and its source-label set. |
 | Label mapping table (transformations) | Show each source label's result labels or removal after a transformation; separate from the implemented input-to-output mapping. |
 | Searchable label picker | Select labels by current or source name for transformation tools. |
-| Strength diagram | Draw directed label relations and allow node and edge selection. |
-| Physics / Hierarchical | Toggle force layout and hierarchical diagram layout. |
-| Export to Clipboard (diagram) | Copy strength-diagram nodes and arrows as text; separate from the implemented session export and Copy link. |
 | Reversible-edge report | Show search statistics, verified alternatives, recipes, and mappings. |
 | Action and sequence history | Display each transformation and nested automatic-search sequence. |
 | Computation warnings | Display diagnostics beyond the parse errors already supported. |

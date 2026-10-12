@@ -3,4 +3,4 @@
 /**
  * These are all the possible things we could be doing
  */
-export type Phase = "queued" | "parsing" | "enumerating" | "encoding" | "solving" | "verifying";
+export type Phase = "queued" | "parsing" | "enumerating" | "encoding" | "solving" | "verifying" | "preparing" | "comparing" | "reducing";

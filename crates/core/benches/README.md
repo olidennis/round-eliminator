@@ -1,5 +1,40 @@
 # Algorithm benchmarks
 
+## Passive diagrams
+
+```sh
+RAYON_NUM_THREADS=1 cargo bench -p round-eliminator-3 --bench diagram
+RAYON_NUM_THREADS=4 cargo bench -p round-eliminator-3 --bench diagram
+```
+
+The fixtures are genuinely maximized: a complete bipartite compatibility relation,
+and a degree-13 constraint requiring at least one label from the first half of
+the alphabet. Adding an outside label to the required part permits an invalid
+multiset, so the latter condensed configuration is maximal. Both methods are
+checked for identical results before timing. No maximization algorithm is used.
+The recorded times cover the former API returning all three views, context
+preparation, and SCC reduction. The current benchmark requests only the output
+diagram, matching the API's one-diagram-per-request behavior; new measurements
+therefore cover less orchestration work than this historical table.
+
+Measured 2026-10-12 on ARM64 Linux, Rust 1.89.0, Rayon 1.12.0, native release.
+Each value is the mean of 100 requests after warm-up, in milliseconds.
+Raw measurements are in [diagram-results.csv](diagram-results.csv).
+
+| Fixture | Maximized, pool 1 | Maximized, pool 4 | Exact, pool 1 | Exact, pool 4 |
+| --- | ---: | ---: | ---: | ---: |
+| 64 labels, passive degree 2 | 0.280 | 0.274 | 0.317 | 0.313 |
+| 256 labels, passive degree 2 | 4.658 | 4.631 | 5.841 | 5.707 |
+| 64 labels, passive degree 13 | 0.320 | 0.310 | 2.214 | 1.083 |
+
+Earlier measurements that parallelized cheap comparisons were slower: at 64
+labels, roughly 0.58 ms versus 0.27 ms for the maximized method. The selected
+scheduling policy keeps these cases serial even with a larger pool. General
+exact coverage uses workers; large occurrence profiles can also use them.
+Pool size therefore does not mean every request uses that many threads. These
+fixtures demonstrate useful parallelism and the maximization shortcut, not a
+universal speed ranking. Wasm retains the serial algorithm in a request worker.
+
 ## Configuration membership
 
 Run from the repository root:

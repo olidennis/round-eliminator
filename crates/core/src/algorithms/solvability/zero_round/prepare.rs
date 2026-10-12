@@ -1,6 +1,6 @@
 //! Prepare the initially empty local rules and output domains for zero-round search.
 use super::LocalRule;
-pub(super) use crate::algorithms::solvability::inputs::prepare_passive_inputs;
+pub(super) use crate::algorithms::inputs::prepare_passive_inputs;
 use crate::computation::{Cancellation, Cancelled};
 use crate::model::{LabelId, Problem};
 
@@ -10,7 +10,7 @@ pub(super) fn prepare_local_rules(
     cancellation: &Cancellation,
 ) -> Result<Vec<LocalRule>, Cancelled> {
     Ok(
-        crate::algorithms::solvability::inputs::active_inputs(problem, cancellation)?
+        crate::algorithms::inputs::active_inputs(problem, cancellation)?
             .into_iter()
             .map(|input| LocalRule {
                 degree: input.degree,

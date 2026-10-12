@@ -1,7 +1,7 @@
 //! Visit auxiliary color assignments without constructing a colored input problem.
 
 use super::ColoringKind;
-use crate::algorithms::solvability::inputs::LocalInput;
+use crate::algorithms::inputs::LocalInput;
 use crate::computation::Cancellation;
 use crate::model::{CondensedConfiguration, Input, LabelId, LabelSet, Part, Problem};
 

@@ -16,6 +16,11 @@ the user's Mac. Git worktree repairs may rewrite this pointer; restore it to
 - After each substantive edit, assess whether the code still belongs in its
   current modules. Suggest useful restructuring as the code grows, without
   splitting files merely to give each type its own file.
+- Apply each change consistently across related code, types, variants, variables,
+  protocol names, generated bindings, tests, documentation, and the feature list.
+  A naming change must update the implementation as well as displayed labels.
+  Preserve saved files and links through explicit migration when needed; keep
+  obsolete names confined to migration code and its tests.
 - Eventually handle non-regular active/passive graphs and problems with input labels.
 - Users may specify possible active and passive degrees separately. If omitted,
   infer the degree sets from the supplied problem, then retain the resolved
@@ -120,6 +125,10 @@ class is inferred. Include classical graph problems, input promises, and
 equivalent mapped/paired list-coloring examples; check both transports using
 `web/scripts/test-presets.mjs`. Loading an example copies its text definition,
 so editor changes never mutate the preset.
+Include the small mapped input-aware label replacement preset: i permits A/B,
+j permits C; passive outputs are `A C / BC^2`. Output-only strength is A → B → C,
+while both input-related diagrams retain A → B and exclude B → C because i
+forbids C. Cheap and exact both display one arrow. Keep degree lists inferred.
 
 Coloring solvability must let strategies use both the given coloring
 and all original local inputs, retaining the input promise and output mapping.
@@ -262,7 +271,7 @@ The user approved removing the zero-round `View` struct. General borrowed
 accessors (`graph_class`, `input`, `output`, `mapping`) and incidence restrictions
 (`output_allowed`) live on `Problem`. Algorithm-specific rule/domain preparation
 remains in `algorithms/solvability/zero_round/prepare.rs`; shared original input preparation
-and absent-input conventions live in `algorithms/solvability/inputs.rs`.
+and absent-input conventions live in `algorithms/inputs.rs`.
 The former `Validity` selector is removed: search and verification use the shared
 ordinary output constraints directly. The model must not depend on zero-round
 witness types or SAT preparation.
@@ -270,7 +279,7 @@ witness types or SAT preparation.
 Module placement after the organization review:
 
 - Group zero-round, coloring, and their strategy-specific shared helpers in
-  `algorithms/solvability/`: `zero_round`, `coloring`, `inputs`, and `passive`.
+  `algorithms/solvability/`: `zero_round`, `coloring`, and `passive`.
   The user corrected the broader grouping: generic operations must live outside
   solvability. Keep `configurations` and `sat` directly
   in `algorithms`. These modules must not depend on solvability types or policy.
@@ -308,7 +317,7 @@ Module placement after the organization review:
   shared solvability encoding live with its searches. It supports activation gates, used by
   palette queries, and applies to either side of a problem. Both solvability
   checks call it for active validity.
-- Original input preparation lives in `algorithms/solvability/inputs.rs`, with concrete
+- Original input preparation lives in `algorithms/inputs.rs`, shared with diagrams, with concrete
   active inputs and condensed passive inputs, without algorithm witness types.
   `algorithms/solvability/passive.rs` owns shared verification modes, emission families,
   containment, exact checks and blocking clauses; input keys can include colors.
@@ -352,6 +361,69 @@ then displays the result below. Analyze the displayed structured problem,
 independent of subsequent editor changes. Closing a problem or importing a
 session cancels the removed problems' running analyses. Start appends rather
 than replacing any existing problem. Cancellation leaves a retry button.
+
+## Diagram decisions
+
+The user selected **Output-only**, **Input-output pairs**, and **Input-aware outputs**.
+Use matching names throughout the implementation: `DiagramKind::{OutputOnly,
+InputOutput, InputAware}` and protocol values `output_only`, `input_output`,
+`input_aware`. Older spellings belong only in saved-session migration and its tests.
+Hide inapplicable or redundant choices. For unrestricted mappings, hide pair
+diagrams if every input label can occur at every relevant passive degree, and
+hide input-aware outputs if every relevant passive degree has an input configuration.
+Relevant degrees are positive allowed graph-class degrees with output configurations.
+Trivial unrestricted input has only the output-only controls. Reuse earlier
+equivalent cached diagrams: project one input copy and remap its existing node,
+SCC and edge indices, or reuse the input-aware graph directly; no new computation.
+Do not hide meaningful degree-specific distinctions on nonregular graphs.
+Keep input-related diagrams when even a constant input restricts the outputs.
+Hide graph edge and distance-two coloring unless every passive degree is 2.
+Restore unsupported saved selections to an applicable choice before displaying
+their controls or results.
+
+The user approved all diagram methods and three types. Output-only arrows
+preserve one-occurrence replacement in the passive output constraint. The fast
+occurrence test is sound but partial for arbitrary constraints and exact under
+a complete maximization guarantee; both options execute the same code. Exact
+output checking compares residual context languages, with cached unions of
+degree-one contexts for passive degree 2. No maximization implementation yet.
+Cheap input-output arrows lift known output arrows through mapping permissions;
+exact arrows also consider the passive input promise. Vertices are admitted
+`DiagramNode { input, output }` pairs; arrows always keep the input fixed.
+Input-aware output arrows hold for every input admitting the source; forbidden
+targets block them. A source admitted by no input has vacuous input-aware arrows.
+An admitted pair with no passive context can replace to any admitted target
+at the same input. Use existing local-promise semantics, without global realizability.
+No original paired-entry metadata or parser pair types are needed.
+
+`algorithms/diagram.rs` owns schema/orchestration, `diagram/relation.rs` owns
+occurrence/context comparisons, and adjacent tests use exhaustive joint labels
+as an independent oracle. Keep generic context coverage and compatible multiset
+products in `algorithms/configurations/`, generic SCC/reduction in `graphs.rs`,
+and original input preparation in `inputs.rs`. Lazy counted multiset visitation
+is shared with solvability's provenance-aware passive counterexample search.
+Native comparisons use Rayon's shared bounded pool, avoiding per-request pools;
+cheap operations stay serial to avoid measured scheduling overhead; general exact
+coverage and large occurrence workloads use workers. Progress stays on the calling
+thread. Wasm remains serial in its request worker.
+The user requested using more threads for diagrams, not changing SAT backends.
+
+The user explicitly requested SCC grouping, a visualization library, and diagram
+export buttons. Retain full relations plus SCC members and reduced component
+edges. `DiagramAnalysis.vue` controls methods, cancellation and saved state;
+`DiagramView.vue` lazily loads Cytoscape/Dagre for the selected diagram, two
+layouts, selection and text/PNG exports. The user requires choosing the diagram
+type before computing, with an explicit button for new choices. Compute and
+return only that relation: output requests skip inputs; exact input-output
+requests skip output-only comparisons; cheap input-output requests need output-only
+arrows, and input-aware requests need pair arrows, but reduce only the selected graph.
+Cache completed results per problem and relevant type/method choices, reuse
+them when reselected, and persist the cache in sessions. Ignore unused options
+in cache keys. Do not cache cancellations or errors. Collapse must preserve running work,
+and hidden canvases must resize correctly when expanded. Persist diagram
+settings/results in version-one sessions; older sessions get default diagram
+state. Partial results must describe missing arrows as unknown. Diagrams concern
+passive validity, not full active/passive equivalence for transformations.
 
 ## UI history and sessions
 

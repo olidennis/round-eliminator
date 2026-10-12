@@ -5,7 +5,10 @@ mod protocol;
 pub use protocol::{ApiError, ComputationEvent, Request, Response};
 
 use crate::{
-    algorithms::solvability::{coloring, zero_round},
+    algorithms::{
+        diagram,
+        solvability::{coloring, zero_round},
+    },
     computation::{Cancellation, Computation, Phase},
     parser::parse_problem_with_cancellation,
 };
@@ -44,6 +47,15 @@ fn execute_inner(
     partial: &mut dyn FnMut(Response),
 ) -> Response {
     match request {
+        Request::ComputeDiagram { problem, options } => {
+            match diagram::compute_with(&problem, options, computation) {
+                Ok(result) => Response::Diagram(result),
+                Err(error) => Response::Error(ApiError {
+                    message: error.to_string(),
+                    location: None,
+                }),
+            }
+        }
         Request::ParseProblem(text) => {
             if computation.report(Phase::Parsing, 0).is_err() {
                 return Response::Cancelled;

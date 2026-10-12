@@ -1,6 +1,6 @@
 //! Passive emission families, exact checks, and SAT blocking clauses.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::computation::{Cancellation, Cancelled};
 use rustsat::types::Lit;
@@ -19,7 +19,9 @@ pub enum PassiveMode {
     Maximized,
 }
 
-use crate::algorithms::configurations::{accepts_with, advance_counts, contains_condensed_with};
+use crate::algorithms::configurations::{
+    accepts_with, contains_condensed_with, visit_multisets_with,
+};
 use crate::model::LabelId;
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
 
@@ -57,7 +59,7 @@ pub(crate) fn forbidden_combination<T: Copy + Ord, I: Copy + Ord>(
                                 .map(|emission| emission.output)
                                 .collect(),
                         ),
-                        part.counts.iter().sum(),
+                        part.multiplicity,
                     )
                     .expect("input multiplicity fits u32")
                 })
@@ -171,7 +173,7 @@ pub(crate) fn visit_forbidden<I: Copy + Ord>(
 /// emission per output suffices to justify one counterexample for a fixed candidate.
 struct OutputPart<'a, T, I> {
     choices: Vec<&'a Emission<T, I>>,
-    counts: Vec<u32>,
+    multiplicity: u32,
 }
 
 /// One origin per output suffices for a fixed SAT candidate. Keep ALL origins
@@ -212,10 +214,9 @@ fn output_parts<'a, T: Copy + Ord, I: Copy + Ord>(
     // Source equality preserves the justification of a returned blocking clause.
     let parts: Vec<_> = grouped
         .into_values()
-        .map(|(choices, count)| {
-            let mut counts = vec![0; choices.len()];
-            counts[0] = count;
-            OutputPart { choices, counts }
+        .map(|(choices, count)| OutputPart {
+            choices,
+            multiplicity: count,
         })
         .collect();
     Ok(Some(parts))
@@ -228,49 +229,44 @@ fn forbidden_output<T: Copy + Ord, I: Copy + Ord>(
     parts: &mut [OutputPart<'_, T, I>],
     cancellation: &Cancellation,
 ) -> Result<Option<Vec<T>>, Cancelled> {
-    // Different distributions between overlapping parts can yield the same
-    // output multiset. Check it once; retain only outputs actually visited.
-    let mut visited = BTreeSet::new();
-    loop {
-        cancellation.check()?;
-        let output = Configuration::new(
-            parts
-                .iter()
-                .flat_map(|part| {
-                    part.choices
-                        .iter()
-                        .zip(&part.counts)
-                        .map(|(emission, &count)| (emission.output, count))
-                })
-                .collect(),
-        )
-        .expect("degree preserved");
-        if visited.insert(output.clone()) && !accepts_with(constraint, &output, cancellation)? {
-            let mut clause: Vec<_> = parts
-                .iter()
-                .flat_map(|part| {
-                    part.choices
-                        .iter()
-                        .zip(&part.counts)
-                        .filter(|(_, count)| **count != 0)
-                        .map(|(emission, _)| emission.source)
-                })
-                .collect();
-            clause.sort_unstable();
-            clause.dedup();
-            return Ok(Some(clause));
+    let family = CondensedConfiguration::new(
+        parts
+            .iter()
+            .map(|part| {
+                Part::new(
+                    LabelSet::new(
+                        part.choices
+                            .iter()
+                            .map(|emission| emission.output)
+                            .collect(),
+                    ),
+                    part.multiplicity,
+                )
+                .expect("nonempty choices")
+            })
+            .collect(),
+    )
+    .expect("degree preserved");
+    let mut forbidden = None;
+    visit_multisets_with(&family, cancellation, |output, counts| {
+        if accepts_with(constraint, output, cancellation)? {
+            return Ok(true);
         }
-        let Some(position) = (0..parts.len())
-            .rev()
-            .find(|&index| advance_counts(&mut parts[index].counts))
-        else {
-            break;
-        };
-        for part in &mut parts[position + 1..] {
-            let count = part.counts.iter().sum();
-            part.counts.fill(0);
-            part.counts[0] = count;
-        }
-    }
-    Ok(None)
+        let mut sources: Vec<_> = parts
+            .iter()
+            .zip(counts)
+            .flat_map(|(part, counts)| {
+                part.choices
+                    .iter()
+                    .zip(counts)
+                    .filter(|(_, count)| **count != 0)
+                    .map(|(emission, _)| emission.source)
+            })
+            .collect();
+        sources.sort_unstable();
+        sources.dedup();
+        forbidden = Some(sources);
+        Ok(false)
+    })?;
+    Ok(forbidden)
 }

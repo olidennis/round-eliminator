@@ -9,9 +9,12 @@
     "test:wasm": "node scripts/test-wasm.mjs",
     "test:presets": "node scripts/test-presets.mjs",
     "test:coloring": "node scripts/test-coloring.mjs",
-    "test:session": "node scripts/test-session.mjs"
+    "test:session": "node scripts/test-session.mjs",
+    "test:diagram": "node scripts/test-diagram.mjs"
   },
   "dependencies": {
+    "cytoscape": "^3.34.3",
+    "cytoscape-dagre": "^4.0.1",
     "vue": "^3.5.43"
   },
   "devDependencies": {

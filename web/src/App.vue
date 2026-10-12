@@ -224,7 +224,7 @@ async function start() {
         @collapse="entry.collapsed = $event"
         @section="(section, collapsed) => entry.collapsedSections[section] = collapsed"
         @close="closeProblem(entry.id)" @zero-round="entry.zeroRound = $event"
-        @coloring="entry.coloring = $event" />
+        @coloring="entry.coloring = $event" @diagram="entry.diagram = $event" />
     </section>
   </main>
 </template>
