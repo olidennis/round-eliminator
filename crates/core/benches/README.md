@@ -6,7 +6,9 @@ The [coloring investigation](coloring/README.md) reproduces the native incidence
 edge coloring slowdown after one RE on degree-ten BMM. Temporary prototypes
 test color symmetry, eager passive degree-two clauses and output-domain grouping
 with exact provenance. It compares all four coloring kinds, including original
-inputs, on native and wasm. Selected prototypes are verified but **not integrated**.
+inputs, on native and wasm. The selected changes are now integrated, retaining
+exact lazy fallback for expensive eager encodings; historical kernels remain
+frozen alongside the benchmark tools for reproduction.
 
 ## RE and maximization against the old version
 

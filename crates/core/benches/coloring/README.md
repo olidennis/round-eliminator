@@ -2,7 +2,9 @@
 
 2026-10-14. Investigate incidence edge coloring on the **degree-ten** GUI BMM
 example after one RE, then check whether the improvements help other coloring
-kinds. These are controlled **prototypes**, not production changes.
+kinds. The historical measurements below compare controlled **prototypes**.
+The three selected improvements are now integrated into production; see the
+integration section for the eager fallback policy and final verification.
 
 ## Reproduction and cause
 
@@ -107,9 +109,9 @@ three** rows per case for the table. Fixtures and their exact queries are in
 `cases.json`. These are workload measurements, not universal speedup guarantees.
 
 Eager pair encoding can be expensive for large color, input, or output domains;
-its possible-origin pair count can grow quadratically. Integration should retain
-lazy refinement as a fallback when the estimated encoding cost is large, without
-imposing a mathematical search limit. Group normalization also has a cost when
+its possible-origin pair count can grow quadratically. Production retains lazy
+refinement when the estimated encoding work is large, without imposing a
+mathematical search limit. Group normalization also has a cost when
 all domains differ. These experiments establish benefits on the recorded cases,
 not a measured crossover for those larger regimes.
 
@@ -178,11 +180,62 @@ temporary adapter, including streamed bounds and original inputs. All timed SAT
 decisions also verify their witnesses outside the timer; baseline/prototypes
 agree on every completed query.
 
-For integration, the generic bit-vector comparator belongs with SAT helpers;
-eager passive clauses should reuse `solvability/passive.rs`, with color-placement
-logic in the two coloring solvers. Grouping/provenance belongs in that same shared
-passive checker and already uses generic `Configuration<LabelSet>` normalization.
-Do not normalize or alter the displayed immutable model to achieve this speedup.
+The integrated generic bit-vector comparator lives in `algorithms/sat.rs`.
+Eager clauses and their cost estimate reuse `solvability/passive.rs`, with color
+placement and palette caches in the two coloring solvers. Domain grouping and
+source reconstruction live in the shared passive checker and use generic
+`Configuration<LabelSet>` normalization. The immutable model remains unchanged.
+
+## Production integration
+
+All three selected changes are integrated. Lexicographic ordering applies to
+vertex, graph-edge and incidence-edge coloring, over the complete original-input
+behavior. Distance-two retains its row/column semantics without that symmetry.
+Both coloring solvers cache, per passive input row, the largest fully eagerly
+encoded palette. Extension clauses cover only color placements not yet encoded;
+shrinking/re-enabling palettes safely reuses previous clauses.
+
+An estimated **100,000 possible origin tuples per query** is the eager encoding
+budget. Count all output origins compatible with each condensed input part,
+including its multiplicity, times an upper bound on color placements. Arithmetic
+saturates. Rows exceeding the remaining budget or passive degree two retain exact
+lazy refinement, even if smaller palettes were previously eager. This is a
+conservative scheduling heuristic, not a measured optimal crossover or a search
+limit. A palette with no valid passive color placement needs no clauses.
+
+The new production tests cover eager/lazy transitions on real larger domains,
+shrinking/re-enabling palettes, every gated bit-vector comparison through four
+bits (including negated literals), the provenance oracle, and RE(BMM)'s degree
+2/3/10 palette boundary. Existing isolated-node tests caught and now cover the
+one-color distance-two case. All **164 workspace Rust tests** pass. The rebuilt
+production adapters pass **39 coloring checks through both server and wasm**,
+including streamed bounds and the new degree-ten RE(BMM) regression. Native
+server, optimized wasm and frontend typecheck/build all succeed.
+
+Production confirmation (native release, pinned mimalloc v2, three runs, no
+instrumentation or concurrent build/test jobs):
+
+| Query | Integrated median |
+| --- | ---: |
+| BMM incidence maximum | 1.034 ms |
+| RE(BMM) incidence maximum | 15.861 ms |
+| RE(BMM) vertex, palette 10 | 1.243 ms |
+| Matching graph-edge maximum | 0.550 ms |
+| Orientation-input vertex maximum | 1.365 ms |
+| Mapped list vertex, palette 3 | 0.174 ms |
+| Matching distance-two, palette 4 | 0.236 ms |
+| Matching distance-two, palette 5 | 0.577 ms |
+| Proper 3-coloring distance-two, palette 4 | 0.230 ms |
+| Orientation-input distance-two, palette 6 | 27.905 ms |
+
+Decisions match the historical baseline/prototype cases; the native runner
+independently verifies each returned SAT witness outside the query timer.
+`results/native-integrated.jsonl` records full results, CPU and binary hashes.
+Optimized production wasm (three separate runs) returns maximum 10 in 13.198 ms
+for BMM and 38.911 ms after RE, recorded in `results/wasm-integrated.jsonl`.
+These wasm builds use wasm-opt, so compare them with the earlier production
+wasm-opt measurements, not the matched no-opt prototype table.
+
 
 ## Reproduce
 
@@ -198,5 +251,10 @@ RE3_CASE=bmm-after RE3_WASM_MODULE=/tmp/re3-coloring-selected/wasm/pkg/round_eli
 Prepare `baseline` the same way for comparison. Other variants isolate ordering,
 batching, eager degree-two clauses, probes, grouping, and native BatSat. Build
 everything **before** measuring. `prepare.py` applies diagnostic changes to
-temporary source copies; it never edits production. Production algorithm
-integration is pending the user's next instruction.
+temporary source copies; it never edits production. `baseline/` freezes the four
+pre-integration kernels, which the tool restores before applying experiments.
+Its test copy omits the production degree-ten regression that intentionally
+exposes the historical baseline's long search.
+
+To measure the current production code, use `run.py` without `--core`; it links
+the ordinary core directly and adds no diagnostic instrumentation.

@@ -37,11 +37,14 @@ equal output domains with distinct sources also cause duplicate enumeration.
 Ordering color behaviors, eager passive degree-two encoding, and grouping domains
 with separate provenance reduce RE(BMM) from a 30-second cutoff to 16 ms native
 and 397→40 ms wasm. Original inputs, exact General checking and cancellation are
-preserved. The tested changes are temporary prototypes; integration is pending.
+preserved. These three changes are now integrated, with a conservative eager-work
+budget and exact lazy fallback for larger encodings. The quoted timings above
+are the historical prototype measurements; production confirmation is recorded
+in the linked report.
 
 The full review below retains the original findings. The maximization follow-ups
 have been completed and integrated selectively; the coloring investigation now
-has verified prototypes. Other items remain future work.
+has integrated the selected improvements. Other items remain future work.
 
 ### Maximization follow-up
 

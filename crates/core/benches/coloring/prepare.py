@@ -15,6 +15,18 @@ core.mkdir(parents=True, exist_ok=True)
 shutil.copytree(HERE.parent.parent / 'src', core / 'src', dirs_exist_ok=True)
 shutil.copytree(HERE.parent / 'support', core / 'benches/support', dirs_exist_ok=True)
 (core / 'Cargo.toml').write_text((HERE.parent.parent / 'Cargo.toml').read_text().split('[[bench]]')[0])
+# These are the pre-integration kernels measured in the investigation.
+for name, relative in [('encoding.rs', 'solvability/coloring/encoding.rs'),
+                       ('distance_two.rs', 'solvability/coloring/distance_two.rs'),
+                       ('passive.rs', 'solvability/passive.rs'), ('sat.rs', 'sat.rs')]:
+    shutil.copyfile(HERE / 'baseline' / name, core / 'src/algorithms' / relative)
+# The post-integration degree-ten regression deliberately exercises a query
+# that the historical baseline times out on. Its experimental version remains
+# in this script's diagnostic tests; avoid duplicating the new production test.
+path = core / 'src/algorithms/solvability/coloring/tests.rs'
+source = path.read_text()
+path.write_text(source.split('#[test]\nfn re_matching_preserves_the_incidence_palette_boundary()')[0])
+
 
 path = core / 'src/algorithms/solvability/coloring/encoding.rs'
 source = path.read_text()

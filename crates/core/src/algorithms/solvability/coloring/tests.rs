@@ -456,3 +456,63 @@ fn partial_results_can_cancel_before_the_next_query() {
         false
     ));
 }
+
+#[test]
+fn re_matching_preserves_the_incidence_palette_boundary() {
+    for degree in [2, 3, 10] {
+        let p = plain(
+            &format!("M U^{}\nP^{degree}", degree - 1),
+            &format!("M UP^{}\nU^{degree}", degree - 1),
+        );
+        let p = crate::algorithms::round_elimination::apply(&p).unwrap();
+        let mut report = |_| {};
+        let mut queries = Vec::new();
+        let result = check_with(
+            &p,
+            ColoringKind::IncidenceEdges,
+            PaletteSearch::Maximum,
+            PassiveMode::General,
+            &mut Computation::new(Cancellation::default(), &mut report),
+            &mut |bounds| {
+                if let Some(colors) = bounds.testing {
+                    queries.push(colors);
+                }
+            },
+        )
+        .unwrap();
+        assert_eq!(queries, [degree, degree + 1]);
+        let ColoringResult::Maximum { colors, witness } = result else {
+            panic!("finite maximum expected")
+        };
+        assert_eq!(colors, degree);
+        assert!(verify_witness(
+            &p,
+            ColoringKind::IncidenceEdges,
+            &witness,
+            false
+        ));
+    }
+}
+
+#[test]
+fn incremental_solver_can_disable_and_reenable_colors() {
+    let p = plain("A^2\nB^2\nC^2", "A BC\nB C");
+    let mut report = |_| {};
+    let mut computation = Computation::new(Cancellation::default(), &mut report);
+    let mut solver = encoding::PaletteSolver::new(
+        &p,
+        ColoringKind::Vertex,
+        crate::algorithms::sat::backend(&computation.cancellation),
+        &mut computation,
+    )
+    .unwrap();
+    for colors in [2, 3, 4, 2, 3, 5, 2] {
+        let witness = solver
+            .solve(colors, PassiveMode::General, &mut computation)
+            .unwrap();
+        assert_eq!(witness.is_some(), colors <= 3);
+        if let Some(witness) = witness {
+            assert!(verify_witness(&p, ColoringKind::Vertex, &witness, false));
+        }
+    }
+}

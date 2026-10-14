@@ -217,7 +217,8 @@ links differ from the old GUI's `.re` files and links.
 Coloring performance investigation completed: color-behavior ordering, eager
 passive degree-two clauses and grouping equal output domains with separate origins
 help all four coloring kinds on native/wasm, including degree-ten RE(BMM).
-These are verified temporary prototypes, with production integration pending.
+The selected changes are now integrated, with exact lazy fallback for large eager
+encodings; original input promises, cancellation and both backends are preserved.
 See [the measurements](crates/core/benches/coloring/README.md) and `REVIEW.md`.
 
 The current representation supports the implemented parsing and display features.
@@ -232,7 +233,7 @@ explicitly deferred at the user's request.
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
 | Optimize zero-round search | Compare membership tables per input against current port variables; consider old degree-two behavior/compatibility searches, preserving original inputs and witness verification. |
-| Optimize coloring search | Benchmark lazy color placement, safe symmetry breaking and refinement; reuse known zero-round proofs and derive fixed-palette answers from applicable cached bounds/certificates. |
+| Optimize coloring search | Color-behavior ordering, affordable eager passive clauses and provenance-preserving output-domain grouping are integrated. Calibrate the eager encoding budget on larger domains, consider safe distance-two symmetry, and reuse applicable cached bounds/certificates and zero-round proofs. |
 | Avoid allocations for set overlap | Vector subset cardinality rejection is implemented. Boolean overlap/disjointness for SAT matching remains future work; it was outside the maximization-only experiments. |
 | Share generated duplicates earlier | Implemented for untraced dense algebras certified by a common admissible meet, including covered local rejections. Broad sharing regressed the large fixture; sparse searches keep their previous policy. Monitor history memory on other workloads. |
 | Reduce traversal memory | Skip the visited-configuration set for multiset families whose distributions are provably unique; retain provenance-correct deduplication for overlapping domains. |

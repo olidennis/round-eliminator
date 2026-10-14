@@ -1654,3 +1654,63 @@ For eventual integration retain lazy fallback for very large potential-origin
 pair counts: eager degree2 can become expensive with large alphabets/inputs/colors.
 No crossover threshold was benchmarked; this is an encoding choice, never a
 mathematical search cutoff. Grouping has some overhead when every domain differs.
+
+
+## Coloring improvements integrated (2026-10-14)
+
+User explicitly authorized integration ("do it") after the prototype status
+answer. All THREE selected coloring improvements are now production code:
+- Formula::lexicographic_order in algorithms/sat.rs, gated by the successor
+  enabled color. Local-color membership vectors include all original inputs;
+  equality permitted. Applied to vertex/graph-edge/incidence kinds ONLY.
+  Distance-two retains its own/neighbor indices, without row-only sorting.
+- Both coloring solvers reuse passive::visit_forbidden for affordable passive
+  degree<=2 rows. Shared eager_encoding_work uses saturating arithmetic and
+  EAGER_ENCODING_BUDGET=100_000 possible-origin tuples per query. This is an
+  encoding scheduling heuristic, NOT a search/palette/problem limit and NOT a
+  measured optimal crossover. Larger encodings keep exact lazy refinement.
+  Each input row caches the largest wholly eager palette. Extensions encode
+  only newly colored placements; smaller queries reuse previous clauses. A row
+  may become lazy on a larger palette without losing prior eager clauses.
+  No valid color placements means no passive obligation. In particular, avoid
+  accessing off-diagonal memberships when distance-two has one color; this
+  matters for isolated-node cases and was caught by existing production tests.
+- Shared passive checker merges equal semantic output domains regardless of
+  source origins, using Configuration<LabelSet> normalization. Original
+  OutputParts retain provenance; rejected grouped counts are distributed back
+  over original slots before constructing the blocking clause. No immutable
+  model/UI normalization, new API, solver backend or input promise change.
+  Eager origin scans also check cancellation, including before filtering.
+
+Production confirmation: native uninstrumented release, pinned mimalloc v2,
+three runs with no concurrent builds/tests/heavy jobs. Degree10 BMM maximum10
+1.034ms; RE(BMM) maximum10 15.861ms; vertex RE(BMM) palette10 UNSAT1.243ms;
+graph-edge matching maximum10 .550ms; orientation-input vertex maximum5
+1.365ms; mapped list palette3 UNSAT .174ms. Distance-two matching palette4
+SAT .236ms / palette5 UNSAT .577ms; proper3coloring palette4 UNSAT .230ms;
+orientation-input palette6 UNSAT27.905ms. All decisions agree with historical
+cases; each returned SAT witness independently verified outside the timer.
+Optimized production wasm three runs: BMM13.198ms / RE(BMM)38.911ms, both
+maximum10. Compare with prior wasm-opt production389ms, NOT the no-opt paired
+prototype results. Full results: benches/coloring/results/native-integrated.jsonl
+and wasm-integrated.jsonl. No new historical baseline reruns or universal claim.
+
+157core+5server+2wasm=164workspace Rust tests pass. New regressions cover full
+bit-comparison truth tables including disabled gates/negated literals, both
+solvers shrinking/re-enabling colors, real larger-domain eager/lazy transitions,
+RE(BMM)degree2/3/10 and independent64mask provenance oracle checking all future
+source supersets. Existing original-input/exhaustive/neighbor-color/zero-degree/
+cancellation oracles remain. Native server and optimized wasm rebuilt; frontend
+typecheck/build pass. web/scripts/test-coloring.mjs now includes RE(BMM)degree10
+and passes39checks through BOTH wasm and native server, including bounds.
+Temporary server stopped. Rustfmt and git diff --check pass; ts-rs's incidental
+trailing whitespace in unchanged generated files cleaned after tests.
+
+README/FEATURES/REVIEW/bench reports reflect integration. Historical four kernel
+files frozen in benches/coloring/baseline so prepare.py still reproduces original
+experiments after copying the current crate. Experimental selected copy still
+passes cargo check --release. Production code has no diagnostic counters/flags.
+No commits/pushes. Task complete; don't start additional sweeps or implement
+other REVIEW ideas without a new user request. Future work includes calibrating
+encoding budget on larger domains, valid distance-two row/column symmetry and
+reuse of already computed bounds/certificates/maxima where mathematically valid.

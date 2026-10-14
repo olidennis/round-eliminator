@@ -350,8 +350,10 @@ configurations to be listed, up to permutation; an incorrect caller guarantee
 can give an incorrect decision. Both modes share the SAT search, preparation,
 progress, and cancellation. Neither expands passive input families into concrete
 input multisets. Active input contexts are still enumerated to define local rules.
-Temporary output parts with the same choices and origins are combined; model
-configuration normalization remains deferred.
+Temporary output parts with equal output domains are combined for containment
+and multiset enumeration, even when their input/color origins differ. A rejected
+multiset is allocated back to the original parts to build a sound blocking clause.
+The displayed model is unchanged; configuration normalization remains deferred.
 
 Concrete membership uses petgraph's Dinic maximum flow: distinct labels and
 condensed parts are vertices, and multiplicities are capacities. Large exponents
@@ -442,7 +444,17 @@ input configuration and local ports, rather than fixing one output per label.
 Active matching and passive containment/exact checks are shared with zero-round.
 The general and maximized modes have the same preconditions described above;
 the GUI uses general mode. Original passive input alternatives stay condensed.
-Color placements are visited lazily; no explicit colored input problem is built.
+Active color placements are checked lazily; no explicit colored input problem is
+built. The three local-color solvers lexicographically order complete color
+behaviors (over all original inputs), allowing ties, to remove color-renaming
+symmetry. The ordering is gated so inactive colors impose no restriction.
+Both these solvers and distance-two eagerly encode passive rows of degree at most
+two when the estimated work fits a 100,000-origin-tuple budget per query; larger
+cases use exact refinement. Cached eager clauses cover earlier palettes, and
+extensions add only placements involving new colors. This budget selects an
+encoding strategy; it does not limit the search or permitted palette size.
+Distance-two does not use the row-ordering symmetry: renaming colors would also
+require permuting its neighbor-color columns.
 
 Distance-two witnesses instead index sets by `(own color, neighbor color,
 original input)`. At an active node, neighbor colors are distinct and exclude

@@ -25,7 +25,10 @@ use crate::{
         sat::Formula,
         solvability::{
             constraint_encoding::{Choice, encode_constraint},
-            passive::{Emission, PassiveMode, forbidden_combination},
+            passive::{
+                EAGER_ENCODING_BUDGET, Emission, PassiveMode, eager_encoding_work,
+                forbidden_combination, visit_forbidden,
+            },
         },
     },
     computation::{Cancellation, Computation, Phase},
@@ -40,6 +43,9 @@ pub(super) struct PaletteSolver<'a, S> {
     inputs: Vec<Option<LabelId>>,
     active_inputs: Vec<LocalInput>,
     passive_inputs: Vec<CondensedConfiguration<Option<LabelId>>>,
+    // All reverse-endpoint color placements through each cached palette have
+    // eager clauses. Rows that exceed the encoding budget use exact refinement.
+    eager_palettes: Vec<u32>,
     formula: Formula<S>,
     // own color -> neighbor color -> original input -> output choices.
     memberships: Vec<Vec<Vec<Vec<Choice>>>>,
@@ -55,11 +61,13 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
         computation: &mut Computation<'_>,
     ) -> anyhow::Result<Self> {
         computation.report(Phase::Enumerating, 0)?;
+        let passive_inputs = prepare_passive_inputs(problem, &computation.cancellation)?;
         Ok(Self {
             problem,
             inputs: prepare::input_labels(problem),
             active_inputs: active_inputs(problem, &computation.cancellation)?,
-            passive_inputs: prepare_passive_inputs(problem, &computation.cancellation)?,
+            eager_palettes: vec![0; passive_inputs.len()],
+            passive_inputs,
             formula: Formula::new(solver, computation.cancellation.clone()),
             memberships: Vec::new(),
             enabled: Vec::new(),
@@ -105,6 +113,87 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
         Ok(())
     }
 
+    fn encode_passive(
+        &mut self,
+        colors: u32,
+        cancellation: &Cancellation,
+    ) -> anyhow::Result<Vec<CondensedConfiguration<Option<LabelId>>>> {
+        let mut budget = EAGER_ENCODING_BUDGET;
+        let mut eager = Vec::new();
+        let mut lazy = Vec::new();
+        for (index, input) in self.passive_inputs.iter().enumerate() {
+            self.formula.check()?;
+            if self.eager_palettes[index] >= colors {
+                continue;
+            }
+            let work = eager_encoding_work(
+                input,
+                (colors as usize).saturating_mul(colors.saturating_sub(1) as usize),
+                // Every off-diagonal color pair has the same allowed domain.
+                |input| self.memberships[0][1][input_index(input)].len(),
+                cancellation,
+            )?;
+            if work <= budget {
+                budget -= work;
+                eager.push(index);
+            } else {
+                lazy.push(input.clone());
+            }
+        }
+        if eager.is_empty() {
+            return Ok(lazy);
+        }
+        let mut emissions = Vec::new();
+        for (own, neighbors) in self.memberships[..colors as usize].iter().enumerate() {
+            for (neighbor, inputs) in neighbors[..colors as usize].iter().enumerate() {
+                for (&input, choices) in self.inputs.iter().zip(inputs) {
+                    for choice in choices {
+                        self.formula.check()?;
+                        emissions.push(Emission {
+                            input: (input, own as u32, neighbor as u32),
+                            output: choice.label,
+                            source: choice.literal,
+                        });
+                    }
+                }
+            }
+        }
+        for index in eager {
+            let previous = self.eager_palettes[index];
+            passive_families(
+                std::slice::from_ref(&self.passive_inputs[index]),
+                colors,
+                cancellation,
+                &mut |family| {
+                    if !family.parts().iter().any(|part| {
+                        part.labels()
+                            .iter()
+                            .any(|(_, own, neighbor)| own >= previous || neighbor >= previous)
+                    }) {
+                        return Ok(true);
+                    }
+                    visit_forbidden(
+                        self.problem.output().passive(),
+                        family,
+                        &emissions,
+                        cancellation,
+                        |sources| {
+                            self.formula.add_clause(
+                                &sources
+                                    .into_iter()
+                                    .map(|source| !source)
+                                    .collect::<Vec<_>>(),
+                            )
+                        },
+                    )?;
+                    Ok(true)
+                },
+            )?;
+            self.eager_palettes[index] = colors;
+        }
+        Ok(lazy)
+    }
+
     fn witness(&self, colors: u32) -> anyhow::Result<ColoringWitness> {
         let mut behaviors = Vec::new();
         for neighbors in &self.memberships[..colors as usize] {
@@ -138,6 +227,7 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
     ) -> anyhow::Result<Option<ColoringWitness>> {
         computation.report(Phase::Encoding, self.iterations)?;
         self.extend(colors)?;
+        let passive_inputs = self.encode_passive(colors, &computation.cancellation)?;
         let assumptions: Vec<_> = self
             .enabled
             .iter()
@@ -251,7 +341,7 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
             }
             let mut forbidden = None;
             passive_families(
-                &self.passive_inputs,
+                &passive_inputs,
                 colors,
                 &computation.cancellation,
                 &mut |family| {
@@ -418,4 +508,43 @@ pub(super) fn verify_with(
             .is_none())
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{tests::plain, verify_witness};
+    use super::*;
+
+    #[test]
+    fn large_domains_use_lazy_refinement_and_reuse_smaller_eager_palettes() {
+        let p = plain("ABCDEFGHIJKLMNOPQRSTUVWX^2", "ABCDEFGHIJKLMNOPQRSTUVWX^2");
+        let mut report = |_| {};
+        let mut computation = Computation::new(Cancellation::default(), &mut report);
+        let mut solver = PaletteSolver::new(
+            &p,
+            crate::algorithms::sat::backend(&computation.cancellation),
+            &mut computation,
+        )
+        .unwrap();
+        for (step, colors) in [14, 3, 14, 3].into_iter().enumerate() {
+            solver.extend(colors).unwrap();
+            let lazy = solver
+                .encode_passive(colors, &computation.cancellation)
+                .unwrap();
+            assert_eq!(lazy.len(), usize::from(step % 2 == 0));
+            if step % 2 != 0 {
+                assert_eq!(solver.eager_palettes, [colors]);
+            }
+            let witness = solver
+                .solve(colors, PassiveMode::General, &mut computation)
+                .unwrap()
+                .expect("all outputs are allowed");
+            assert!(verify_witness(
+                &p,
+                ColoringKind::DistanceTwo,
+                &witness,
+                false
+            ));
+        }
+    }
 }

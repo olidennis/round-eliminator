@@ -538,3 +538,30 @@ fn distance_two_maximum_cancellation_retains_the_last_proved_strategy() {
         false
     ));
 }
+
+#[test]
+fn incremental_neighbor_solver_can_disable_and_reenable_colors() {
+    let p = plain("O I", "O I");
+    let mut report = |_| {};
+    let mut computation = Computation::new(Cancellation::default(), &mut report);
+    let mut solver = distance_two::PaletteSolver::new(
+        &p,
+        crate::algorithms::sat::backend(&computation.cancellation),
+        &mut computation,
+    )
+    .unwrap();
+    for colors in [3, 4, 3, 5, 3] {
+        let witness = solver
+            .solve(colors, PassiveMode::General, &mut computation)
+            .unwrap();
+        assert_eq!(witness.is_some(), colors == 3);
+        if let Some(witness) = witness {
+            assert!(verify_witness(
+                &p,
+                ColoringKind::DistanceTwo,
+                &witness,
+                false
+            ));
+        }
+    }
+}

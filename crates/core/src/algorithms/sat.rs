@@ -64,6 +64,31 @@ impl<S: Solve> Formula<S> {
         self.solver.add_clause_ref(literals)
     }
 
+    /// When `enabled` is true, require `left <= right` lexicographically,
+    /// reading false before true. Equal vectors are allowed.
+    pub fn lexicographic_order(
+        &mut self,
+        left: &[Lit],
+        right: &[Lit],
+        enabled: Lit,
+    ) -> anyhow::Result<()> {
+        assert_eq!(left.len(), right.len());
+        let mut prefix_equal = enabled;
+        for (&a, &b) in left.iter().zip(right) {
+            // At the first differing bit, the left bit must be false.
+            self.add_clause(&[!prefix_equal, !a, b])?;
+            let next = self.new_lit();
+            // next <=> prefix_equal && (a == b).
+            self.add_clause(&[!next, prefix_equal])?;
+            self.add_clause(&[!next, !a, b])?;
+            self.add_clause(&[!next, a, !b])?;
+            self.add_clause(&[!prefix_equal, a, b, next])?;
+            self.add_clause(&[!prefix_equal, !a, !b, next])?;
+            prefix_equal = next;
+        }
+        Ok(())
+    }
+
     /// Require exactly one literal to be true; an empty list is unsatisfiable.
     pub fn exactly_one(&mut self, literals: &[Lit]) -> anyhow::Result<()> {
         self.add_clause(literals)?;
@@ -156,6 +181,43 @@ impl<S: Solve> CollectClauses for EncodingClauses<'_, S> {
 mod tests {
     use super::*;
     use rustsat::solvers::SolverResult;
+
+    #[test]
+    fn gated_lexicographic_order_matches_every_bit_assignment() {
+        use rustsat::solvers::SolveIncremental;
+
+        for size in 0..=4 {
+            let cancellation = Cancellation::default();
+            let mut formula = Formula::new(backend(&cancellation), cancellation);
+            // Also exercise negated literals in this generic helper.
+            let left: Vec<_> = (0..size).map(|_| !formula.new_lit()).collect();
+            let right: Vec<_> = (0..size).map(|_| formula.new_lit()).collect();
+            let gate = formula.new_lit();
+            formula.lexicographic_order(&left, &right, gate).unwrap();
+            for a in 0u32..(1 << size) {
+                for b in 0u32..(1 << size) {
+                    for enabled in [false, true] {
+                        // Read bits in vector order, making bit 0 the first
+                        // (most significant) bit for this comparison.
+                        let bits = |mask| (0..size).map(move |i| mask & (1 << i) != 0);
+                        let ordered = bits(a).cmp(bits(b)).is_le();
+                        let mut assumptions: Vec<_> = left
+                            .iter()
+                            .zip(bits(a))
+                            .chain(right.iter().zip(bits(b)))
+                            .map(|(&literal, value)| if value { literal } else { !literal })
+                            .collect();
+                        assumptions.push(if enabled { gate } else { !gate });
+                        assert_eq!(
+                            formula.solver.solve_assumps(&assumptions).unwrap()
+                                == SolverResult::Sat,
+                            !enabled || ordered
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn backend_can_be_interrupted_during_search_and_repeated_calls() {

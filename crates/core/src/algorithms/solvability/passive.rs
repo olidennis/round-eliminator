@@ -34,6 +34,38 @@ pub(crate) struct Emission<T = Lit, I = Option<LabelId>> {
     pub source: T,
 }
 
+// Limit eager *encoding work*, not the problem or palette. Larger cases keep
+// exact lazy refinement. This conservative scheduling heuristic is not a
+// benchmarked crossover; count possible origin tuples, not resulting clauses.
+pub(crate) const EAGER_ENCODING_BUDGET: usize = 100_000;
+
+/// Upper bound on origin tuples across all color placements of this input row.
+/// Repeated parts can avoid permutations, so actual encoding may do less work.
+pub(crate) fn eager_encoding_work<I: Copy + Ord>(
+    input: &CondensedConfiguration<I>,
+    placements: usize,
+    mut choices: impl FnMut(I) -> usize,
+    cancellation: &Cancellation,
+) -> Result<usize, Cancelled> {
+    cancellation.check()?;
+    if input.degree() > 2 {
+        return Ok(usize::MAX);
+    }
+    if placements == 0 {
+        return Ok(0); // No locally valid color placement, hence no obligation.
+    }
+    let mut work = placements;
+    for part in input.parts() {
+        let mut alternatives = 0usize;
+        for label in part.labels().iter() {
+            cancellation.check()?;
+            alternatives = alternatives.saturating_add(choices(label));
+        }
+        work = work.saturating_mul(alternatives.saturating_pow(part.multiplicity()));
+    }
+    Ok(work)
+}
+
 /// Return emission origins whose simultaneous availability permits a forbidden
 /// passive output. Keeping all these origins enabled would preserve the violation.
 pub(crate) fn forbidden_combination<T: Copy + Ord, I: Copy + Ord>(
@@ -45,27 +77,10 @@ pub(crate) fn forbidden_combination<T: Copy + Ord, I: Copy + Ord>(
 ) -> Result<Option<Vec<T>>, Cancelled> {
     for input in inputs {
         cancellation.check()?;
-        let Some(mut parts) = output_parts(input, emissions, cancellation)? else {
+        let Some(parts) = output_parts(input, emissions, cancellation)? else {
             continue; // No compatible active neighbors can realize this family.
         };
-        let family = CondensedConfiguration::new(
-            parts
-                .iter()
-                .map(|part| {
-                    Part::new(
-                        LabelSet::new(
-                            part.choices
-                                .iter()
-                                .map(|emission| emission.output)
-                                .collect(),
-                        ),
-                        part.multiplicity,
-                    )
-                    .expect("input multiplicity fits u32")
-                })
-                .collect(),
-        )
-        .expect("transformation preserves degree");
+        let family = output_family(&parts);
         let mut covered = false;
         for target in constraint.configurations_at_degree(family.degree()) {
             if contains_condensed_with(target, &family, cancellation)? {
@@ -95,7 +110,7 @@ pub(crate) fn forbidden_combination<T: Copy + Ord, I: Copy + Ord>(
             return Ok(Some(sources));
         }
         // If the constraint is maximized, this is skipped
-        if let Some(sources) = forbidden_output(constraint, &mut parts, cancellation)? {
+        if let Some(sources) = forbidden_output(constraint, &parts, cancellation)? {
             return Ok(Some(sources));
         }
     }
@@ -111,14 +126,18 @@ pub(crate) fn visit_forbidden<I: Copy + Ord>(
     mut visitor: impl FnMut(Vec<Lit>) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     // Eager clauses must cover every emission origin, even when several input
-    // labels can emit the same output. Degree <= 2 keeps this traversal small.
+    // labels can emit the same output. Callers estimate the work first when
+    // degree <= 2 still has many possible origins.
     let mut choices = Vec::new();
     let mut equal_previous = Vec::new();
     for part in input.parts() {
-        let compatible: Vec<_> = emissions
-            .iter()
-            .filter(|emission| part.labels().contains(emission.input))
-            .collect();
+        let mut compatible = Vec::new();
+        for emission in emissions {
+            cancellation.check()?;
+            if part.labels().contains(emission.input) {
+                compatible.push(emission);
+            }
+        }
         for occurrence in 0..part.multiplicity() {
             choices.push(compatible.clone());
             equal_previous.push(occurrence != 0);
@@ -226,14 +245,70 @@ fn output_parts<'a, T: Copy + Ord, I: Copy + Ord>(
 /// emission origins so the caller can add a sound SAT blocking clause.
 fn forbidden_output<T: Copy + Ord, I: Copy + Ord>(
     constraint: &Constraint,
-    parts: &mut [OutputPart<'_, T, I>],
+    parts: &[OutputPart<'_, T, I>],
     cancellation: &Cancellation,
 ) -> Result<Option<Vec<T>>, Cancelled> {
-    let family = CondensedConfiguration::new(
+    let mut grouped = BTreeMap::<Vec<LabelId>, Vec<&OutputPart<'_, T, I>>>::new();
+    for part in parts.iter() {
+        cancellation.check()?;
+        grouped
+            .entry(
+                part.choices
+                    .iter()
+                    .map(|emission| emission.output)
+                    .collect(),
+            )
+            .or_default()
+            .push(part);
+    }
+    // Group only the semantic choices. Provenance stays attached to every
+    // original part; equal output domains may have distinct input/color origins.
+    let groups: Vec<_> = grouped.into_values().collect();
+    let family = output_family(parts);
+    let mut forbidden = None;
+    visit_multisets_with(&family, cancellation, |output, counts| {
+        if accepts_with(constraint, output, cancellation)? {
+            return Ok(true);
+        }
+        let mut sources = Vec::new();
+        for (origins, counts) in groups.iter().zip(counts) {
+            let mut remaining = counts.clone();
+            // All these original parts have the same output domain. Allocate
+            // this group's counts to their slots, preserving an actual source
+            // for every output used in the counterexample. Blocking those
+            // sources stays sound even if future candidates enable others.
+            for origin in origins {
+                cancellation.check()?;
+                let mut slots = origin.multiplicity;
+                for (emission, count) in origin.choices.iter().zip(&mut remaining) {
+                    cancellation.check()?;
+                    let used = slots.min(*count);
+                    if used != 0 {
+                        sources.push(emission.source);
+                    }
+                    slots -= used;
+                    *count -= used;
+                }
+                debug_assert_eq!(slots, 0);
+            }
+            debug_assert!(remaining.iter().all(|count| *count == 0));
+        }
+        sources.sort_unstable();
+        sources.dedup();
+        forbidden = Some(sources);
+        Ok(false)
+    })?;
+    Ok(forbidden)
+}
+
+fn output_family<T, I>(parts: &[OutputPart<'_, T, I>]) -> CondensedConfiguration {
+    // Equal output sets are interchangeable for checking output validity.
+    // Original input/color sources remain separate in OutputPart.
+    let normalized = Configuration::new(
         parts
             .iter()
             .map(|part| {
-                Part::new(
+                (
                     LabelSet::new(
                         part.choices
                             .iter()
@@ -242,31 +317,128 @@ fn forbidden_output<T: Copy + Ord, I: Copy + Ord>(
                     ),
                     part.multiplicity,
                 )
-                .expect("nonempty choices")
             })
             .collect(),
     )
-    .expect("degree preserved");
-    let mut forbidden = None;
-    visit_multisets_with(&family, cancellation, |output, counts| {
-        if accepts_with(constraint, output, cancellation)? {
-            return Ok(true);
-        }
-        let mut sources: Vec<_> = parts
+    .expect("same total degree");
+    CondensedConfiguration::new(
+        normalized
+            .multiplicities()
             .iter()
-            .zip(counts)
-            .flat_map(|(part, counts)| {
-                part.choices
-                    .iter()
-                    .zip(counts)
-                    .filter(|(_, count)| **count != 0)
-                    .map(|(emission, _)| emission.source)
-            })
-            .collect();
-        sources.sort_unstable();
-        sources.dedup();
-        forbidden = Some(sources);
-        Ok(false)
-    })?;
-    Ok(forbidden)
+            .map(|(labels, count)| Part::new(labels.clone(), *count).expect("nonempty choices"))
+            .collect(),
+    )
+    .expect("same degree")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eager_work_estimate_handles_condensed_inputs_overflow_and_no_placements() {
+        let input =
+            CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![0u8, 1]), 2).unwrap()])
+                .unwrap();
+        let cancellation = Cancellation::default();
+        assert_eq!(
+            eager_encoding_work(&input, 6, |i| usize::from(i) + 2, &cancellation).unwrap(),
+            6 * 25
+        );
+        assert_eq!(
+            eager_encoding_work(&input, 6, |_| usize::MAX, &cancellation).unwrap(),
+            usize::MAX
+        );
+        assert_eq!(
+            eager_encoding_work(&input, 0, |_| panic!("no color placement"), &cancellation)
+                .unwrap(),
+            0
+        );
+        let high =
+            CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![0u8]), 3).unwrap()])
+                .unwrap();
+        assert_eq!(
+            eager_encoding_work(&high, 1, |_| 1, &cancellation).unwrap(),
+            usize::MAX
+        );
+        cancellation.cancel();
+        assert!(eager_encoding_work(&input, 0, |_| 0, &cancellation).is_err());
+    }
+
+    // Independent oracle: allowed iff the number of A outputs is not three.
+    fn safe(mask: u8) -> bool {
+        let counts = [1, 2, 4];
+        let mut totals = vec![0];
+        for (input, count) in counts.into_iter().enumerate() {
+            let a = mask & (1 << (2 * input)) != 0;
+            let b = mask & (1 << (2 * input + 1)) != 0;
+            if !a && !b {
+                return true;
+            } // this emission family cannot occur
+            totals = totals
+                .into_iter()
+                .flat_map(|total| {
+                    (0..=count)
+                        .filter(move |n| (*n == 0 || a) && (*n == count || b))
+                        .map(move |n| total + n)
+                })
+                .collect();
+        }
+        !totals.contains(&3)
+    }
+
+    #[test]
+    fn every_grouped_counterexample_clause_preserves_input_origins() {
+        let target = Constraint::new(
+            (0..=7)
+                .filter(|count| *count != 3)
+                .map(|count| {
+                    CondensedConfiguration::new(vec![
+                        Part::new(LabelSet::new(vec![LabelId(0)]), count).unwrap(),
+                        Part::new(LabelSet::new(vec![LabelId(1)]), 7 - count).unwrap(),
+                    ])
+                    .unwrap()
+                })
+                .collect(),
+        );
+        let input = CondensedConfiguration::new(
+            [1, 2, 4]
+                .into_iter()
+                .enumerate()
+                .map(|(input, count)| Part::new(LabelSet::new(vec![input as u8]), count).unwrap())
+                .collect(),
+        )
+        .unwrap();
+        for mask in 0u8..64 {
+            let emissions: Vec<_> = (0u8..6)
+                .filter(|source| mask & (1 << source) != 0)
+                .map(|source| Emission {
+                    input: source / 2,
+                    output: LabelId(u32::from(source % 2)),
+                    source,
+                })
+                .collect();
+            let forbidden = forbidden_combination(
+                &target,
+                std::slice::from_ref(&input),
+                &emissions,
+                PassiveMode::General,
+                &Cancellation::default(),
+            )
+            .unwrap();
+            assert_eq!(forbidden.is_none(), safe(mask), "mask {mask}");
+            if let Some(sources) = forbidden {
+                assert!(!sources.is_empty());
+                let required = sources
+                    .into_iter()
+                    .fold(0, |bits, source| bits | (1 << source));
+                assert_eq!(mask & required, required);
+                for future in 0u8..64 {
+                    if future & required == required {
+                        assert!(!safe(future), "clause admitted a valid future assignment");
+                    }
+                }
+            }
+        }
+    }
 }

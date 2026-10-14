@@ -65,11 +65,17 @@ async function nativeEvents(body) {
   return { events: events.slice(0, -1), response: events.at(-1).data }
 }
 
-async function check(definition, kind, search, expected, mode = 'general') {
+async function check(definition, kind, search, expected, mode = 'general', reSteps = 0) {
   const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
   assert.equal(parsed.type, 'problem')
+  let problem = parsed.data
+  for (let step = 0; step < reSteps; step++) {
+    const transformed = JSON.parse(execute_json(JSON.stringify({ type: 'apply_re', data: { problem } })))
+    assert.equal(transformed.type, 'problem')
+    problem = transformed.data
+  }
   const body = JSON.stringify({ type: 'check_coloring', data: {
-    problem: parsed.data, kind, search, passive_mode: mode,
+    problem, kind, search, passive_mode: mode,
   } })
   const events = []
   const response = JSON.parse(execute_with_events(body, json => events.push(JSON.parse(json))))
@@ -118,6 +124,9 @@ await check(plain('A\nB\nC', 'A B C'), 'incidence_edges', { kind: 'maximum' },
 const matchingEvents = await check(plain('M U^9\nP^10', 'M UP^9\nU^10'), 'incidence_edges',
   { kind: 'maximum' }, { status: 'maximum', colors: 10 })
 assert.equal(matchingEvents.filter(event => event.type === 'partial_result').at(-1).data.data.lower, 10)
+// Regression: this same boundary after RE previously stalled in native SAT.
+await check(plain('M U^9\nP^10', 'M UP^9\nU^10'), 'incidence_edges',
+  { kind: 'maximum' }, { status: 'maximum', colors: 10 }, 'general', 1)
 
 // Both the original inputs and colors are necessary: a and b have disjoint
 // output lists, while an arbitrary proper coloring still has to be reduced.
