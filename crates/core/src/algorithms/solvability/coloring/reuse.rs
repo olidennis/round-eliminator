@@ -194,3 +194,18 @@ pub fn maximum_from_bounds(bounds: &super::ColoringBounds) -> Option<ColoringRes
     }
     None
 }
+
+/// Combine proofs belonging to the same problem and coloring kind. Keep the
+/// witness of the stronger lower bound; never retain the interrupted query.
+pub fn merge_bounds(target: &mut super::ColoringBounds, saved: &super::ColoringBounds) {
+    if let Some(lower) = saved.lower
+        && target.lower.is_none_or(|old| lower > old)
+    {
+        target.lower = Some(lower);
+        target.witness = saved.witness.clone();
+    }
+    if let Some(upper) = saved.upper {
+        target.upper = Some(target.upper.map_or(upper, |old| old.min(upper)));
+    }
+    target.testing = None;
+}

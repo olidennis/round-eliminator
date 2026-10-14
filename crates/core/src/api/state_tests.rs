@@ -517,3 +517,93 @@ fn a_known_upper_bound_is_not_mistaken_for_a_completed_maximum() {
         Response::Coloring(ColoringResult::Maximum { colors: 3, .. })
     ));
 }
+
+#[test]
+fn cancelled_palette_searches_resume_from_proved_bounds_and_keep_the_witness() {
+    for (problem, kind) in [
+        (plain("A^3\nB^3\nC^3", "A BC\nB C"), ColoringKind::Vertex),
+        (plain("O I", "O I"), ColoringKind::DistanceTwo),
+    ] {
+        let state = ProblemState::from(problem);
+        let request = Request::Compute {
+            state: state.clone(),
+            operation: Operation::CheckColoring {
+                kind,
+                search: PaletteSearch::Maximum,
+                passive_mode: PassiveMode::General,
+            },
+        };
+        let cancellation = Cancellation::default();
+        let packet = api::execute_text_with_events(
+            &serde_json::to_string(&request).unwrap(),
+            cancellation.clone(),
+            &mut |event| {
+                if let ComputationEvent::PartialResult(response) = event
+                    && let Response::ColoringBounds(bounds) = response.as_ref()
+                    && bounds.testing == Some(4)
+                {
+                    cancellation.cancel();
+                }
+            },
+        );
+        assert!(matches!(packet.response, Response::Cancelled));
+        let proof = packet
+            .cache
+            .coloring_bounds
+            .iter()
+            .find(|entry| entry.kind == kind)
+            .unwrap();
+        assert_eq!(proof.bounds.lower, Some(3));
+        assert_eq!(proof.bounds.upper, None);
+        assert_eq!(proof.bounds.testing, None);
+        assert!(coloring::verify_witness(
+            &state.problem,
+            kind,
+            proof.bounds.witness.as_ref().unwrap(),
+            false
+        ));
+        let resumed = ProblemState {
+            analyses: packet.cache,
+            ..state.clone()
+        };
+        let mut tested = Vec::new();
+        let packet = api::execute_text_with_events(
+            &serde_json::to_string(&Request::Compute {
+                state: resumed.clone(),
+                operation: Operation::CheckColoring {
+                    kind,
+                    search: PaletteSearch::Maximum,
+                    passive_mode: PassiveMode::General,
+                },
+            })
+            .unwrap(),
+            Cancellation::default(),
+            &mut |event| {
+                if let ComputationEvent::PartialResult(response) = event
+                    && let Response::ColoringBounds(bounds) = response.as_ref()
+                    && let Some(colors) = bounds.testing
+                {
+                    tested.push(colors);
+                }
+            },
+        );
+        assert_eq!(tested, vec![4]);
+        assert!(matches!(
+            packet.response,
+            Response::Coloring(ColoringResult::Maximum { colors: 3, .. })
+        ));
+        let (fixed, phases) = run(
+            &resumed,
+            Operation::CheckColoring {
+                kind,
+                search: PaletteSearch::Fixed { colors: 3 },
+                passive_mode: PassiveMode::General,
+            },
+        );
+        assert!(matches!(
+            fixed.response,
+            Response::Coloring(ColoringResult::Solvable { colors: 3, .. })
+        ));
+        assert!(!phases.contains(&Phase::Solving));
+    }
+}

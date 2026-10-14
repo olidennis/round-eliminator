@@ -1,5 +1,6 @@
 //! Successor-closed subsets of the default output diagram, including the empty
-//! set, with precomputed joins/meets for the two dual closure algebras.
+//! set. Small lattices precompute operations; large ones use direct operations
+//! and an interning lookup without quadratic tables.
 
 use crate::{
     algorithms::{graphs::reachability_with, maximize::Operations},
@@ -11,6 +12,11 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) struct Lattice {
     pub sets: Vec<LabelSet>,
     pub principal: Vec<LabelId>,
+    tables: Option<Tables>,
+    ids: BTreeMap<LabelSet, LabelId>,
+}
+
+struct Tables {
     union: Vec<Vec<LabelId>>,
     intersection: Vec<Vec<LabelId>>,
     subset: Vec<Vec<bool>>,
@@ -48,34 +54,102 @@ impl Lattice {
         let mut union = Vec::new();
         let mut intersection = Vec::new();
         let mut subset = Vec::new();
-        for a in &sets {
-            let (mut joins, mut meets, mut order) = (Vec::new(), Vec::new(), Vec::new());
-            for b in &sets {
-                computation.cancellation.check()?;
-                joins.push(ids[&a.union(b)]);
-                meets.push(ids[&a.intersection(b)]);
-                order.push(a.is_subset_of(b));
+        if sets.len() <= 128 {
+            for a in &sets {
+                let (mut joins, mut meets, mut order) = (Vec::new(), Vec::new(), Vec::new());
+                for b in &sets {
+                    computation.cancellation.check()?;
+                    joins.push(ids[&a.union(b)]);
+                    meets.push(ids[&a.intersection(b)]);
+                    order.push(a.is_subset_of(b));
+                }
+                union.push(joins);
+                intersection.push(meets);
+                subset.push(order);
             }
-            union.push(joins);
-            intersection.push(meets);
-            subset.push(order);
         }
-        Ok(Self {
-            sets,
-            principal,
+        let tables = (sets.len() <= 128).then_some(Tables {
             union,
             intersection,
             subset,
+        });
+        let ids = if tables.is_none() {
+            ids
+        } else {
+            BTreeMap::new()
+        };
+        Ok(Self {
+            sets,
+            principal,
+            tables,
+            ids,
         })
+    }
+
+    pub(super) fn table_operations(&self, dual: bool) -> Option<TableOperations<'_>> {
+        self.tables
+            .as_ref()
+            .map(|tables| TableOperations { tables, dual })
+    }
+
+    fn is_subset(&self, a: LabelId, b: LabelId) -> bool {
+        match &self.tables {
+            Some(tables) => tables.subset[a.0 as usize][b.0 as usize],
+            None => self.sets[a.0 as usize].is_subset_of(&self.sets[b.0 as usize]),
+        }
+    }
+    fn union(&self, a: LabelId, b: LabelId) -> LabelId {
+        match &self.tables {
+            Some(tables) => tables.union[a.0 as usize][b.0 as usize],
+            None => self.ids[&self.sets[a.0 as usize].union(&self.sets[b.0 as usize])],
+        }
+    }
+    fn intersection(&self, a: LabelId, b: LabelId) -> LabelId {
+        match &self.tables {
+            Some(tables) => tables.intersection[a.0 as usize][b.0 as usize],
+            None => self.ids[&self.sets[a.0 as usize].intersection(&self.sets[b.0 as usize])],
+        }
     }
 
     pub fn subsets(&self, label: LabelId) -> LabelSet {
         LabelSet::new(
             (0..self.sets.len())
-                .filter(|&i| self.subset[i][label.0 as usize])
+                .filter(|&i| self.is_subset(LabelId(i as u32), label))
                 .map(|i| LabelId(i as u32))
                 .collect(),
         )
+    }
+}
+
+/// Keep the hot small-lattice path monomorphic: select the representation once
+/// before entering the generic maximizer, rather than branching per operation.
+pub(super) struct TableOperations<'a> {
+    tables: &'a Tables,
+    dual: bool,
+}
+impl Operations<LabelId> for TableOperations<'_> {
+    fn union(&self, a: &LabelId, b: &LabelId) -> LabelId {
+        let table = if self.dual {
+            &self.tables.intersection
+        } else {
+            &self.tables.union
+        };
+        table[a.0 as usize][b.0 as usize]
+    }
+    fn intersection(&self, a: &LabelId, b: &LabelId) -> LabelId {
+        let table = if self.dual {
+            &self.tables.union
+        } else {
+            &self.tables.intersection
+        };
+        table[a.0 as usize][b.0 as usize]
+    }
+    fn is_superset(&self, a: &LabelId, b: &LabelId) -> bool {
+        if self.dual {
+            self.tables.subset[a.0 as usize][b.0 as usize]
+        } else {
+            self.tables.subset[b.0 as usize][a.0 as usize]
+        }
     }
 }
 
@@ -85,26 +159,24 @@ pub(super) struct LatticeOperations<'a> {
 }
 impl Operations<LabelId> for LatticeOperations<'_> {
     fn union(&self, a: &LabelId, b: &LabelId) -> LabelId {
-        let table = if self.dual {
-            &self.lattice.intersection
+        if self.dual {
+            self.lattice.intersection(*a, *b)
         } else {
-            &self.lattice.union
-        };
-        table[a.0 as usize][b.0 as usize]
+            self.lattice.union(*a, *b)
+        }
     }
     fn intersection(&self, a: &LabelId, b: &LabelId) -> LabelId {
-        let table = if self.dual {
-            &self.lattice.union
+        if self.dual {
+            self.lattice.union(*a, *b)
         } else {
-            &self.lattice.intersection
-        };
-        table[a.0 as usize][b.0 as usize]
+            self.lattice.intersection(*a, *b)
+        }
     }
     fn is_superset(&self, a: &LabelId, b: &LabelId) -> bool {
         if self.dual {
-            self.lattice.subset[a.0 as usize][b.0 as usize]
+            self.lattice.is_subset(*a, *b)
         } else {
-            self.lattice.subset[b.0 as usize][a.0 as usize]
+            self.lattice.is_subset(*b, *a)
         }
     }
     // The default admissibility keeps every value, including the empty set.
@@ -154,6 +226,39 @@ mod tests {
                 assert_eq!(
                     lattice.sets[ordinary.union(&a, &b).0 as usize],
                     lattice.sets[a.0 as usize].union(&lattice.sets[b.0 as usize])
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod direct_tests {
+    use super::*;
+    use crate::computation::Cancellation;
+    #[test]
+    fn direct_large_lattice_operations_agree_with_original_set_algebra() {
+        let lattice = Lattice::new(
+            &vec![vec![]; 8],
+            &mut Computation::new(Cancellation::default(), &mut |_| {}),
+        )
+        .unwrap();
+        assert_eq!(lattice.sets.len(), 256);
+        assert!(lattice.tables.is_none());
+        for a in 0..256 {
+            for b in 0..256 {
+                let (a, b) = (LabelId(a), LabelId(b));
+                assert_eq!(
+                    lattice.is_subset(a, b),
+                    lattice.sets[a.0 as usize].is_subset_of(&lattice.sets[b.0 as usize])
+                );
+                assert_eq!(
+                    lattice.sets[lattice.union(a, b).0 as usize],
+                    lattice.sets[a.0 as usize].union(&lattice.sets[b.0 as usize])
+                );
+                assert_eq!(
+                    lattice.sets[lattice.intersection(a, b).0 as usize],
+                    lattice.sets[a.0 as usize].intersection(&lattice.sets[b.0 as usize])
                 );
             }
         }

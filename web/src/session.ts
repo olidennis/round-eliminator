@@ -73,7 +73,6 @@ export type SavedColoring = {
   kind: ColoringKind
   search: 'maximum' | 'fixed'
   colors: number
-  bounds: ColoringBounds | null
 }
 
 export function coloringQuery(selection: Pick<SavedColoring, 'kind' | 'search' | 'colors'>): ColoringQuery {
@@ -85,12 +84,12 @@ export function coloringKey(query: ColoringQuery): string {
   return query.search.kind === 'fixed' ? `${query.kind}:fixed:${query.search.colors}` : `${query.kind}:maximum`
 }
 
-function restoreColoring(saved: SavedColoring & { results?: CachedColoring[] }): SavedColoring & { results: CachedColoring[] } {
+function restoreColoring(saved: SavedColoring & { bounds?: ColoringBounds | null; results?: CachedColoring[] }): SavedColoring & { bounds: ColoringBounds | null; results: CachedColoring[] } {
   // Earlier version-one files stored only the selected result. Retain it as
   // the first cache entry, without leaving the obsolete field in new exports.
   const older = saved as SavedColoring & { result?: ColoringResult | null }
   const results = saved.results ?? (older.result ? [{ ...coloringQuery(saved), result: older.result }] : [])
-  return { kind: saved.kind, search: saved.search, colors: saved.colors, bounds: saved.bounds, results }
+  return { kind: saved.kind, search: saved.search, colors: saved.colors, bounds: saved.bounds ?? null, results }
 }
 
 export type ProblemSection = 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring' | 'diagram' | 'maximization'
@@ -110,8 +109,8 @@ type SessionFile = { format: 'round-eliminator-3'; version: 2; session: Session 
 
 export function newSavedProblem(problem: Problem): SavedProblem {
   return {
-    state: { problem, analyses: { maximization: null, zero_round: null, coloring: [], diagrams: [] } }, collapsed: false, collapsedSections: {},
-    coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null },
+    state: { problem, analyses: { maximization: null, zero_round: null, coloring: [], diagrams: [], coloring_bounds: [] } }, collapsed: false, collapsedSections: {},
+    coloring: { kind: 'vertex', search: 'maximum', colors: 3 },
     diagram: { options: newSavedDiagram().options, layout: 'physics' },
   }
 }
@@ -120,11 +119,8 @@ export function serializeSession(session: Session): string {
   // Save proofs, not an in-flight query. Imported computations never resume.
   const file: SessionFile = {
     format: 'round-eliminator-3', version: 2,
-    session: { ...session, problems: session.problems.map(entry => ({
-      ...entry, coloring: { ...entry.coloring,
-        bounds: entry.coloring.bounds ? { ...entry.coloring.bounds, testing: null } : null,
-      },
-    })) },
+    session,
+
   }
   return JSON.stringify(file, null, 2)
 }
@@ -153,12 +149,17 @@ export function deserializeSession(text: string): Session {
     const oldDiagram = restoreDiagram(entry.diagram as LegacySavedDiagram)
     const restored: AnalysisCache = entry.state?.analyses ?? {
       maximization: entry.maximization ?? null, zero_round: entry.zeroRound ?? null,
-      coloring: oldColoring.results, diagrams: oldDiagram.results,
+      coloring: oldColoring.results, diagrams: oldDiagram.results, coloring_bounds: [],
     }
-    const analyses = { ...restored, diagrams: restoreDiagramResults(restored.diagrams) }
+    const coloringBounds = (restored.coloring_bounds ?? []).map(entry => ({ ...entry, bounds: { ...entry.bounds, testing: null } }))
+    if (entry.state?.analyses?.coloring_bounds === undefined && oldColoring.bounds && (oldColoring.bounds.lower !== null || oldColoring.bounds.upper !== null)
+      && !coloringBounds.some(entry => entry.kind === oldColoring.kind)) {
+      coloringBounds.push({ kind: oldColoring.kind, bounds: { ...oldColoring.bounds, testing: null } })
+    }
+    const analyses = { ...restored, coloring_bounds: coloringBounds, diagrams: restoreDiagramResults(restored.diagrams) }
     const { graph: _graph, ...collapsedSections } = (entry.collapsedSections ?? {}) as CollapsedSections & { graph?: boolean }
     return { state: { problem, analyses }, collapsed: entry.collapsed ?? false, collapsedSections,
-      coloring: { kind: oldColoring.kind, search: oldColoring.search, colors: oldColoring.colors, bounds: oldColoring.bounds },
+      coloring: { kind: oldColoring.kind, search: oldColoring.search, colors: oldColoring.colors },
       diagram: { options: oldDiagram.options, layout: oldDiagram.layout },
     }
   }) }

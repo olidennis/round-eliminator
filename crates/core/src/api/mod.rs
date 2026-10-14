@@ -4,7 +4,7 @@ mod protocol;
 mod state;
 
 pub use protocol::{ApiError, ComputationEvent, Operation, Request, Response, ResponsePacket};
-pub use state::{AnalysisCache, CachedColoring, ProblemState};
+pub use state::{AnalysisCache, CachedColoring, CachedColoringBounds, ProblemState};
 
 use crate::{
     algorithms::{
@@ -126,6 +126,10 @@ fn execute_operation(
                 .coloring
                 .iter()
                 .any(|entry| coloring::excludes_zero_round(&entry.result))
+                || cached
+                    .coloring_bounds
+                    .iter()
+                    .any(|entry| entry.bounds.upper.is_some())
             {
                 zero_round::ZeroRoundResult::Unsolvable
             } else {
@@ -174,7 +178,7 @@ fn execute_operation(
                     return Ok(Response::Coloring(result));
                 }
             }
-            let bounds = coloring::bounds_from_results(
+            let mut bounds = coloring::bounds_from_results(
                 minimum,
                 cached
                     .coloring
@@ -183,6 +187,14 @@ fn execute_operation(
                     .map(|entry| &entry.result),
                 &computation.cancellation,
             )?;
+            let saved_bounds = cached
+                .coloring_bounds
+                .iter()
+                .find(|entry| entry.kind == kind)
+                .map(|entry| &entry.bounds);
+            if let Some(saved) = saved_bounds {
+                coloring::merge_bounds(&mut bounds, saved);
+            }
             if search == coloring::PaletteSearch::Maximum
                 && let Some(result) = coloring::maximum_from_bounds(&bounds)
             {
@@ -200,6 +212,7 @@ fn execute_operation(
             if kind != coloring::ColoringKind::DistanceTwo
                 && search == coloring::PaletteSearch::Maximum
                 && cached.zero_round.is_none()
+                && bounds.upper.is_none()
             {
                 updates.zero_round = Some(
                     if cached
@@ -219,6 +232,7 @@ fn execute_operation(
                 );
                 cache_update(updates.clone());
             }
+            let preflight = updates.zero_round.clone();
             let result = coloring::check_with_cached(
                 problem,
                 kind,
@@ -226,7 +240,8 @@ fn execute_operation(
                 passive_mode,
                 coloring::ColoringCache {
                     passive_maximum: cached.maximization.as_ref(),
-                    zero_round: cached.zero_round.as_ref().or(updates.zero_round.as_ref()),
+                    zero_round: cached.zero_round.as_ref().or(preflight.as_ref()),
+                    bounds: saved_bounds,
                     results: cached
                         .coloring
                         .iter()
@@ -235,7 +250,29 @@ fn execute_operation(
                         .collect(),
                 },
                 computation,
-                &mut |bounds| partial(Response::ColoringBounds(bounds)),
+                &mut |bounds| {
+                    let previous = updates
+                        .coloring_bounds
+                        .iter()
+                        .find(|entry| entry.kind == kind)
+                        .map(|entry| &entry.bounds)
+                        .or(saved_bounds);
+                    if (bounds.lower.is_some() || bounds.upper.is_some())
+                        && previous.is_none_or(|previous| {
+                            previous.lower != bounds.lower || previous.upper != bounds.upper
+                        })
+                    {
+                        let mut proved = bounds.clone();
+                        proved.testing = None;
+                        updates.coloring_bounds.retain(|entry| entry.kind != kind);
+                        updates.coloring_bounds.push(CachedColoringBounds {
+                            kind,
+                            bounds: proved,
+                        });
+                        cache_update(updates.clone());
+                    }
+                    partial(Response::ColoringBounds(bounds));
+                },
             )?;
             publish_coloring_bounds(&result, minimum, partial);
             if cached.zero_round.is_none()
@@ -243,6 +280,14 @@ fn execute_operation(
                 && coloring::excludes_zero_round(&result)
             {
                 updates.zero_round = Some(zero_round::ZeroRoundResult::Unsolvable);
+            }
+            if matches!(
+                result,
+                coloring::ColoringResult::Maximum { .. }
+                    | coloring::ColoringResult::Unbounded { .. }
+                    | coloring::ColoringResult::NoPalette
+            ) {
+                updates.coloring_bounds.retain(|entry| entry.kind != kind);
             }
             updates.coloring.push(CachedColoring {
                 kind,

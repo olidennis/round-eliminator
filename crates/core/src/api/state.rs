@@ -6,7 +6,7 @@ use crate::{
         diagram::{DiagramOptions, DiagramResult},
         maximize::MaximizationResult,
         solvability::{
-            coloring::{ColoringKind, ColoringResult, PaletteSearch},
+            coloring::{ColoringBounds, ColoringKind, ColoringResult, PaletteSearch},
             zero_round::ZeroRoundResult,
         },
     },
@@ -31,8 +31,8 @@ impl From<Problem> for ProblemState {
     }
 }
 
-/// Completed results only. Progress and cancelled/failed computations are not
-/// cache entries. Label IDs always refer to the enclosing problem snapshot.
+/// Completed results and proved palette bounds only. In-flight queries and
+/// failed decisions are not proofs. Label IDs always refer to the enclosing problem snapshot.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
 pub struct AnalysisCache {
@@ -40,6 +40,7 @@ pub struct AnalysisCache {
     pub zero_round: Option<ZeroRoundResult>,
     pub coloring: Vec<CachedColoring>,
     pub diagrams: Vec<DiagramResult>,
+    pub coloring_bounds: Vec<CachedColoringBounds>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
@@ -47,6 +48,15 @@ pub struct CachedColoring {
     pub kind: ColoringKind,
     pub search: PaletteSearch,
     pub result: ColoringResult,
+}
+
+/// The best proved interval for one coloring kind, including the lower witness.
+/// Cancellation does not establish an upper bound. `testing` is always omitted
+/// from this artifact by setting it to None before publication.
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
+pub struct CachedColoringBounds {
+    pub kind: ColoringKind,
+    pub bounds: ColoringBounds,
 }
 
 impl AnalysisCache {

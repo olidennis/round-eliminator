@@ -18,6 +18,33 @@ fn plain(active: &str, passive: &str) -> Problem {
 
 fn expect(problem: &Problem, solvable: bool) -> Vec<LocalRule> {
     let result = check(problem, PassiveMode::General).unwrap();
+    let mut report = |_| {};
+    if degree_two::applicable(problem) {
+        let port_result = search(
+            problem,
+            PassiveMode::General,
+            None,
+            backend(&Cancellation::default()),
+            &mut Computation::new(Cancellation::default(), &mut report),
+        )
+        .unwrap();
+        assert_eq!(
+            matches!(port_result, ZeroRoundResult::Solvable { .. }),
+            solvable
+        );
+        let specialized = degree_two::check(
+            problem,
+            &mut Computation::new(Cancellation::default(), &mut report),
+        )
+        .unwrap();
+        assert_eq!(
+            matches!(specialized, ZeroRoundResult::Solvable { .. }),
+            solvable
+        );
+        if let ZeroRoundResult::Solvable { strategy } = specialized {
+            assert!(verify_strategy(problem, &strategy));
+        }
+    }
     match result {
         ZeroRoundResult::Solvable { strategy } => {
             assert!(solvable, "unexpected witness: {strategy:?}");
@@ -513,3 +540,48 @@ fn paired_sat_agrees_with_exhaustive_search() {
 }
 
 mod passive;
+
+#[test]
+fn specialized_degree_two_handles_deep_configurations_and_interrupts_search() {
+    let part = Part::new(LabelSet::new(vec![LabelId(0)]), 1).unwrap();
+    let output = ConstraintPair::new(
+        vec!["A".into()],
+        Constraint::new(vec![
+            CondensedConfiguration::new(vec![part; 10_000]).unwrap(),
+        ]),
+        Constraint::new(vec![
+            CondensedConfiguration::new(vec![
+                Part::new(LabelSet::new(vec![LabelId(0)]), 2).unwrap(),
+            ])
+            .unwrap(),
+        ]),
+    )
+    .unwrap();
+    let problem = Problem::new(
+        GraphClass::new(vec![10_000], vec![2]),
+        Input::Trivial,
+        output,
+        OutputMapping::Unrestricted,
+    )
+    .unwrap();
+    let result = check(&problem, PassiveMode::General).unwrap();
+    let ZeroRoundResult::Solvable { strategy } = result else {
+        panic!()
+    };
+    assert_eq!(strategy[0].output.len(), 10_000);
+    assert!(verify_strategy(&problem, &strategy));
+    let cancellation = Cancellation::default();
+    let mut report = |progress: crate::computation::Progress| {
+        if progress.phase == Phase::Solving && progress.iterations >= 2 {
+            cancellation.cancel();
+        }
+    };
+    assert!(
+        check_with(
+            &problem,
+            PassiveMode::General,
+            &mut Computation::new(cancellation.clone(), &mut report)
+        )
+        .is_err()
+    );
+}

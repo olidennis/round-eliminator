@@ -84,6 +84,17 @@ results exclude zero-round solvability. Partial bounds from cancelled searches a
 retained by the UI but do not yet initialize future searches. Basic FP retains its
 representation-dependent original partial diagram so its construction is unchanged.
 
+## Seven algorithm experiments completed (2026-10-14)
+
+See the [full report](crates/core/benches/algorithm_review/README.md) for measured
+before/after results, memory probes and correctness arguments. Integrated unique
+multiset traversal, shared lazy diagram contexts/coverage with a degree-two eager
+path, plain degree-two support search, hybrid Basic FP lattice operations, and
+cancelled numerical-bound resumption. Membership zero-round SAT and both safe
+D2 symmetry prototypes were verified but not adopted. These are comparisons
+against this rewrite before the experiment batch, not against the old repository.
+The historical shortlist below is superseded by this status and the report.
+
 ## Current deferred work
 
 Consolidated on 2026-10-14 at the user's request. The historical numbered review
@@ -91,24 +102,71 @@ below includes suggestions that have since been implemented or tested and
 rejected; use this list for remaining work. These are investigation topics,
 without a selected implementation unless explicitly stated otherwise.
 
+### Updated algorithmic shortlist (2026-10-14)
+
+Rechecked after shared cache integration and the two-method diagram UI. This is
+an investigation order, not measured speedup predictions or authorization to
+implement every item. Existing completed-result reuse is no longer pending.
+
+1. **Allocation-free label overlap — completed.** Integrated an early-exit
+   disjointness check. Counted matching fixtures improve 1.24–9.57×; ten full
+   coloring queries differ by approximately −1% to +2%, without a meaningful
+   end-to-end gain. See [measurements](crates/core/benches/label_overlap/README.md).
+2. **Multiset traversal memory.** Omit visited-row storage for one-part and
+   provably disjoint-domain families; preserve deduplication and source provenance
+   for overlapping families. Potential memory gain without changing the search.
+3. **Lazy/grouped diagram contexts.** Group equal occurrence profiles and prepare
+   residual languages only when occurrence containment cannot settle a comparison.
+   Dense bitsets may help degree-two profiles. Benchmark large joint products
+   separately. Compact SCC/DAG wire storage is a later, distinct change.
+4. **Zero-round membership encoding.** Compare one output-membership table per
+   input against current local-rule/port variables, reconstructing a witness once.
+   Compare a specialized degree-two compatibility search too; support enumeration
+   may itself explode, so retain an exact general fallback.
+5. **Distance-two color symmetry.** Break interchangeable color names while
+   permuting both own-color rows and neighbor-color columns; row-only ordering
+   can remove valid strategies. Requires an equivalence argument before timing.
+6. **Basic FP operation tables.** Retain fast full tables on small lattices;
+   compare direct set operations or selective memoization for larger lattices.
+   This removes quadratic preparation, not exponential lattice enumeration.
+7. **Condensed active obligations.** Generate a violating active input obligation
+   lazily instead of enumerating all active inputs before SAT. Coverage remains
+   potentially exponential; preserve every original input promise.
+8. **Direct unbounded-certificate verification.** Verify repeated behaviors
+   against the original constraints without enumerating dummy coloring placements.
+   Target verification work separately from SAT search.
+9. **Eager/lazy coloring policy.** Calibrate the existing eager budget on larger
+   domains and both backends; consider structure-aware estimates. Bounded clause
+   batches are an optional new experiment, not revival of rejected unrestricted
+   batching. Neither policy may limit accepted problems or palettes.
+10. **Resume cancelled palette searches.** Consume saved proved lower/upper bounds
+    and their witnesses; do not serialize backend-specific SAT state or infer an
+    upper bound from interruption. Completed bounds already initialize searches.
+11. **Further maximization tuning.** Test the selected density/storage/history and
+    adaptive generation/pruning policies on other graph/input/custom-algebra
+    workloads, including peak memory and total CPU. No previously selected
+    maximization improvement is awaiting integration; changes need new evidence.
+
+Item 1 is complete; start with 2–3 for the next bounded investigation. Prioritize 4–5 if solvability is
+again the main bottleneck, or 6 if Basic FP initialization dominates. Parallel SAT,
+GPU kernels and the user's deferred structural normalization remain separate
+longer-term topics. No new benchmarks accompany this update.
+
 ### Saved review topics
 
 | Topic | Work to revisit |
 | --- | --- |
-| Resume partial proofs | Completed maxima and palette/zero-round proofs are now reused. Investigate resuming cancelled searches directly from saved partial-bound snapshots. |
 | Simplify unbounded verification | Verify repeated unbounded behaviors directly instead of enumerating redundant dummy colors. Related-query proof reuse is now implemented. |
-| Alternative zero-round encodings | Compare membership SAT with the current per-rule/per-port encoding; benchmark specialized passive-degree-two behavior/compatibility searches. |
-| Allocation-free set overlap | Test Boolean overlap without constructing an intersection. Vector subset cardinality rejection is already implemented. |
-| Multiset enumeration memory | Avoid retaining every visited multiset when uniqueness follows from the family's structure; keep exact deduplication for overlapping domains. |
+| Further zero-round encodings | Membership SAT was tested without a general replacement; plain degree-two search is integrated. Revisit direct membership-witness extraction or extensions to inputs if justified. |
 | Lazy active input obligations | Work with condensed active promises and add only violated obligations, preserving all promised inputs. |
-| Diagram computation and storage | Group equal occurrence profiles, build expensive contexts lazily, benchmark exact joint products/coverage, and consider a compact SCC/DAG representation with session migration. |
-| Basic FP lattice scaling | Replace quadratic operation tables with direct operations or selective caching when the lattice is large. |
+| Diagram computation and storage | Grouped lazy contexts are integrated. Benchmark large exact joint products and consider compact SCC/DAG storage with migration. |
+| Further Basic FP scaling | Hybrid tables/direct operations are integrated. Revisit lookup or selective memoization policies on other workloads. |
 | Runtime scheduling and interruption | Consider budgets for mixed SAT/Rayon workloads, clearer generation/pruning phase accounting, and cancellation granularity in parsing/library calls including flow. Evaluate wasm worker reuse only if startup measurements justify it. |
 | UI data and computation controllers | Keep immutable snapshots raw/shallow, consider paging/virtualization for large tables, and share repeated cancellation/progress/controller logic with a small composable. |
 
 ### Later coloring follow-ups
 
-- Investigate safe distance-two symmetry breaking: color renaming must permute
+- Two safe distance-two symmetry approaches were tested without adoption: color renaming must permute
   both own-color rows and neighbor-color columns.
 - Calibrate the eager encoding budget on larger color/input/output domains.
   The existing threshold chooses eager versus exact lazy encoding; it does not
@@ -137,6 +195,8 @@ They are retained as experiments, not pending integrations.
 ## First improvements to consider
 
 ### 1. Avoid allocating sets when only overlap is needed
+
+**Completed 2026-10-14:** see the [overlap report](crates/core/benches/label_overlap/README.md). The following text records the original proposal.
 
 In [configurations.rs](crates/core/src/algorithms/configurations.rs),
 `allows_positions_with` tests compatibility using

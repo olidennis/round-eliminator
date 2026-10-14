@@ -1,10 +1,13 @@
 //! Exact active-side, deterministic zero-round solvability in the port-numbering
 //! model. A node knows its degree, incident inputs, and local port order.
+//! Plain problems of passive degree at most two use compatible-support search;
+//! other problems use SAT with exact passive verification.
 //! Rules may distinguish occurrences of the same input label. Passive validity
 //! must hold for every compatible combination of outputs from active nodes.
 
 use super::constraint_encoding as encoding;
 use super::passive;
+mod degree_two;
 mod prepare;
 mod verify;
 
@@ -107,6 +110,9 @@ pub fn check_with_maximum(
     maximum: Option<&MaximizationResult>,
     computation: &mut Computation<'_>,
 ) -> Result<ZeroRoundResult, ZeroRoundError> {
+    if degree_two::applicable(problem) {
+        return degree_two::check(problem, computation).map_err(ZeroRoundError::from);
+    }
     let solver = backend(&computation.cancellation);
     search(problem, mode, maximum, solver, computation)
 }

@@ -65,7 +65,7 @@ async function run() {
 <template>
   <CollapsibleSection class="analysis" title="Zero-round solvability" :aria-busy="state === 'running'"
     :collapsed="collapsed" :collapsed-target="collapsedTarget" @update:collapsed="emit('collapse', $event)">
-    <ComputationProgress v-if="state === 'running'" :progress="progress"
+    <ComputationProgress v-if="state === 'running'" :progress="progress" iteration-label="search steps"
       label="Zero-round computation in progress" @cancel="cancel" />
     <ZeroRoundView v-else-if="state === 'done' && result" :problem="problem" :result="result" />
     <template v-else>

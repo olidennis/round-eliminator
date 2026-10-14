@@ -550,8 +550,10 @@ SAT/UNSAT decisions can determine a maximum without another search. A cached
 zero-round strategy certifies every coloring kind by ignoring its auxiliary
 colors; completed negative coloring results also rule out a zero-round strategy.
 The ordinary maximum search's zero-round preflight is retained for future requests.
-Cancelled partial bounds remain saved UI proofs; resuming directly from those
-partial snapshots is a separate future improvement.
+Interrupted searches retain a proved interval and its witness per coloring kind
+in shared analysis state. Retry resumes at the next unknown palette; files and
+links retain these proofs. Neither interruption nor an in-flight palette supplies
+an upper bound. Current UI controls do not duplicate the mathematical bounds.
 
 Run `npm run test:state -- http://127.0.0.1:8080/api` and `npm run test:client-api`
 in `web` to check stateless reuse and concurrent/cancelled cache delivery.
@@ -867,3 +869,16 @@ streamed bounds through both transports.
 The preset script imports TypeScript directly and requires Node 22.18 or newer.
 Build wasm before building the frontend so that `web/dist` contains the latest
 wasm artifacts.
+
+## Algorithm experiments (2026-10-14)
+
+The [seven-experiment report](crates/core/benches/algorithm_review/README.md)
+records traversal, diagrams, zero-round alternatives, symmetry, lattice scaling
+and search resumption. Unique multiset distributions avoid visited-row storage;
+exact diagrams share lazy residual contexts and coverage for equal profiles,
+retaining eager degree-two comparisons when sharing offers little benefit.
+Plain problems with passive degree at most two use an exact compatible-support
+search with an explicit stack; problems with inputs retain general SAT.
+Basic FP keeps fast small-lattice tables and uses direct operations for larger
+lattices. Membership SAT and both distance-two symmetry prototypes were verified
+but not adopted because their runtime tradeoffs did not justify a general default.

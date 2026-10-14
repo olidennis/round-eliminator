@@ -52,9 +52,9 @@ const diagram = { nodes: [{ input: 0, output: 1 }], successors: [[0]], component
 saved.state.analyses.diagrams = [{ options: saved.diagram.options, diagram }]
 saved.collapsedSections.diagram = true
 saved.coloring.kind = 'distance_two'
-saved.coloring.bounds = { minimum: 1, lower: 3, upper: null, testing: 6,
+saved.state.analyses.coloring_bounds = [{ kind: 'distance_two', bounds: { minimum: 1, lower: 3, upper: null, testing: null,
   witness: { kind: 'color_order', smaller: { outputs_by_input: [[0]] }, larger: { outputs_by_input: [[1]] } },
-}
+} }]
 const session = { editor: { kind: 'plain', constraints: { active: '()', passive: '(α) (blue 💙)' }, degrees: { active: '', passive: '' } },
   problems: [saved, newSavedProblem(problem)],
 }
@@ -64,7 +64,6 @@ saved.state.analyses.coloring = [
   { kind: 'distance_two', search: { kind: 'fixed', colors: 4 }, result: { status: 'unsolvable', colors: 4 } },
 ]
 const expected = structuredClone(session)
-expected.problems[0].coloring.bounds.testing = null
 assert.deepEqual(deserializeSession(serializeSession(session)), expected)
 const freeSession = structuredClone(expected)
 freeSession.problems[0].diagram.layout = 'free'
@@ -73,7 +72,7 @@ const graphSectionSession = JSON.parse(serializeSession(session))
 graphSectionSession.session.problems[0].collapsedSections.graph = true
 assert.deepEqual(deserializeSession(JSON.stringify(graphSectionSession)), expected,
   'Legacy graph-class folding must not hide header metadata or remain in saved state.')
-assert.equal(saved.coloring.bounds.testing, 6, 'Saving must not mutate a live query.')
+assert.equal(saved.state.analyses.coloring_bounds[0].bounds.testing, null)
 // Version-one caches lived beside the controls. Migrate every entry and
 // preserve the original problem independently of those artifacts.
 const oldFile = JSON.parse(serializeSession(session))
@@ -84,6 +83,7 @@ for (const entry of oldFile.session.problems) {
   entry.zeroRound = analyses.zero_round
   entry.maximization = analyses.maximization
   entry.coloring.results = analyses.coloring
+  entry.coloring.bounds = analyses.coloring_bounds[0]?.bounds ?? null
   entry.diagram.results = analyses.diagrams
   delete entry.state
 }

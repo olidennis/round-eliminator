@@ -22,11 +22,14 @@ const query = computed(() => coloringQuery({ kind: kind.value, search: search.va
 const results = computed(() => props.state.analyses.coloring.filter(entry => ordinaryGraph.value
   || !['graph_edges', 'distance_two'].includes(entry.kind)))
 const result = computed(() => results.value.find(entry => coloringKey(entry) === coloringKey(query.value))?.result ?? null)
+const savedBounds = () => search.value === 'maximum' ? props.state.analyses.coloring_bounds
+  .find(entry => entry.kind === kind.value)?.bounds ?? null : null
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(
-  result.value ? 'done' : savedKindSupported && props.saved.bounds ? 'cancelled' : 'idle',
+  result.value ? 'done' : savedBounds() ? 'cancelled' : 'idle',
 )
+
 const progress = shallowRef<Progress | null>(null)
-const bounds = shallowRef<ColoringBounds | null>(savedKindSupported && props.saved.bounds ? { ...props.saved.bounds, testing: null } : null)
+const bounds = shallowRef<ColoringBounds | null>(savedBounds())
 const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => { controller?.abort(); controller = null })
@@ -51,17 +54,16 @@ const witness = computed(() => {
 // Bounds certify one particular query; do not display them for changed settings.
 watch([kind, search, colors], () => {
   if (state.value !== 'running') {
-    state.value = result.value ? 'done' : 'idle'
-    bounds.value = null
+    bounds.value = savedBounds()
+    state.value = result.value ? 'done' : bounds.value ? 'cancelled' : 'idle'
     error.value = ''
   }
 })
 
 // Only stable settings and mathematical results belong in a saved session.
 // Progress, workers, controllers and running state remain local to this card.
-watch([kind, search, colors, bounds, results], () => emit('update', {
+watch([kind, search, colors], () => emit('update', {
   kind: kind.value, search: search.value, colors: colors.value,
-  bounds: bounds.value,
 }), { immediate: true })
 
 function cancel() {
@@ -133,7 +135,7 @@ async function run() {
         <input v-model.number="colors" type="number" :min="minimum" step="1" />
       </label>
       <button v-if="state !== 'running' && state !== 'done'" type="button" @click="run">
-        {{ state === 'idle' ? 'Check coloring solvability' : 'Retry coloring check' }}
+        {{ state === 'idle' ? 'Check coloring solvability' : state === 'cancelled' ? 'Resume coloring check' : 'Retry coloring check' }}
       </button>
     </fieldset>
     <details class="help-details analysis-help">

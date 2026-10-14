@@ -1803,3 +1803,108 @@ and saved-state migration, 151 diagram fixtures and 30 cache checks across
 server/wasm. Browser checked the strict 3/2 boundary, large-result folding,
 explicit expansion, maximum table contents and both computation transports.
 Native/wasm artifacts rebuilt; no commits or pushes.
+
+
+## Algorithmic backlog refreshed (2026-10-14)
+
+User requested an updated list, not implementation. REVIEW.md now has an Updated
+algorithmic shortlist after checking current source and saved experiments. First
+bounded candidates: allocation-free overlap, uniqueness-aware multiset traversal,
+and lazy/grouped diagram contexts. Larger candidates: membership zero-round SAT,
+safe distance-two symmetry, Basic FP operation-table scaling and lazy active
+obligations. Completed maxima and completed coloring/zero-round proof reuse are
+integrated; only cancelled partial-bound resumption remains pending there. All
+selected maximization improvements are integrated; further tuning needs additional
+workloads and total-CPU/peak-memory evidence. Rejected flow retention, phase
+overlap, broad history and unrestricted coloring batching are experiments, not
+pending integrations. No algorithm edits or new measurements in this update.
+
+
+## Allocation-free overlap evaluated and integrated (2026-10-14)
+
+User requested checking the first remaining improvement. LabelSet::is_disjoint
+now performs an allocation-free sorted scan with early exit; allows_positions_with
+uses it instead of constructing an intersection. Real intersection operations,
+counted flow matching, provenance and cancellation are unchanged. Extended the
+existing exhaustive 256-pair label-set test with an independent BTreeSet oracle;
+178 workspace tests pass. Isolated before/after benchmark and raw samples are in
+crates/core/benches/label_overlap. Matching fixtures improve 1.24–9.57x; ten full
+coloring medians change approximately -1% to +2%, so no meaningful application
+speedup is established. Both cores returned exactly equal results/strategies;
+witnesses independently verified outside timing. Native release, serial Rayon,
+configured mimallocv2, five interleaved samples, no builds during measurements.
+Keep the simple change; no further optimization sweep authorized in this task.
+REVIEW/FEATURES and benchmark index mark overlap complete. No commits/pushes.
+
+Final native/wasm artifacts rebuilt; frontend build and 39 coloring fixtures
+passed on both transports. Test server stopped after verification. No further
+benchmark sweep performed.
+
+
+## Seven algorithm experiments completed (2026-10-14)
+
+User requested trying updated-list items 1,2,3,4,5,6,10: uniqueness-aware multiset
+traversal, lazy/grouped diagram contexts, membership zero-round SAT, specialized
+passive-degree-two search, safe distance-two symmetry, scalable Basic FP tables,
+and cancelled-palette proof resumption. Preserve overlap and other dirty changes.
+Baseline core snapshot: /tmp/re3-seven-baseline/core. Try isolated before/after
+comparisons, verify mathematical results/witnesses, integrate only supported
+choices and retain rejected prototypes in benchmark records. No agents authorized,
+no commits/pushes. Keep stateless API, input promises, generic/custom algebras,
+linear palette search, cancellation and native/wasm parity. Do not benchmark
+while builds/tests or other agent benchmarks run.
+
+Seven-experiment interim state: 1 traversal is 2.55–2.82x faster for unique
+families, single fixture RSS37MiB→6.5MiB; overlapping unchanged. 2 lazy/grouped
+contexts plus shared coverage answers (only cache when groups<=labels/2) gives
+9–17% degree2 and14.13x required64 fixture. 3 membership prototype verified but
+general default rejected: up to1.89x faster, up to1.86x slower; source retained
+in benches/algorithm_review/membership.rs, not compiled into production. 4 plain
+passive<=2 compatible-support search integrated; recursive measured prototype
+replaced with explicit stack plus cancellation/progress, needs final regression
+checks and final timing. 5 tensor lex leaders and row-union leaders correct but
+all four D2 fixtures regress; both retained in benches/algorithm_review and
+production distance_two.rs restored. 6 hybrid lattice uses full tables<=128,
+direct operations above; TableOperations selects small representation once to
+avoid per-operation branches. Initial lattice benchmarks show4096 init3s→<1ms,
+but operation kernels slower. Full serial Basic benchmark is still running
+(session18423); DO NOT build/test while it runs. 10 bounds with witness now live
+in AnalysisCache.coloring_bounds per kind; no bounds duplicated in SavedColoring.
+API streams only proved intervals (testing=None) and resume consumes them; shared
+client API merges concurrent bounds monotonically and captures partial events
+prior to cancellation. Existing sessions migrate old UI bounds. Earlier181 tests
+and client/session checks passed before latest refinements. Still need root tests,
+final isolated diagram (including sparse64), graph timing, lattice corrected
+wrapper/CPU/RSS and Basic result, resumption timing, rebuilt native+wasm and
+transport checks/docs. Experiment runner prepare.py --only selects individual
+kernels. /tmp/re3-seven and /tmp/re3-overlap-target/release/algorithm-review are
+temporary copies/binary. Preserve earlier overlap benchmark/dirty documents.
+
+
+Final seven-experiment selection: integrated 1 unique multiset traversal (constant
+singleton parts cannot create ambiguity), 2 grouped/lazy contexts and coverage
+with eager degree-two fallback, 4 explicit-stack plain passive<=2 support search,
+6 small precomputed tables/direct large-lattice operations, and 10 shared resumable
+bounds/witnesses. Rejected membership SAT general replacement and BOTH safe D2
+symmetry variants (tensor lex leaders and row-union leaders). Prototypes and frozen
+baseline kernels/three-sample raw results in benches/algorithm_review; README there
+records scope, before/after metadata, RSS and correctness arguments. Full serial
+Basic is22.585→22.542s, unchanged; 8/12-label construction excluding simplification
+11.013→2.534ms and3.064→0.203s. Lattice4096 RSS151.03→9.19MiB, preparation~3s→<1ms.
+Enumeration speedups2.55–2.82x; diagrams shared64 up to14.18x, corrected sparse ring
+67.376→70.787us (~5% slower), keep eager path to avoid larger sparse regression.
+Resumption numerically skips proved palettes but measured first interruptions
+mostly0–8% elapsed gains; D2 order preflight is still repeated without an upper
+bound. Do not claim a large general resumption speedup or whole-button large FP
+gain. New mathematical intervals live only in AnalysisCache.coloring_bounds, per
+kind, testing=None; SavedColoring has controls only. Imports migrate former UI
+bounds. Client merges intervals monotonically before user cancellation callbacks
+and drops redundant intervals on complete maximum/unbounded/no-palette results.
+Root173+server5+wasm3=181 tests pass, frontend typecheck and session/client tests
+pass, native/wasm rebuilt. Final checks passed: 30 state-cache fixtures, 39 coloring and 151 diagram
+fixtures on both rebuilt native and wasm, plus all-four-input parity. Browser
+server/wasm import a partial proof and resume to maximum3; RE/source caches and
+zero-round UI also pass without page errors. Test server stopped at completion.
+Earlier interim task notes are historical; session18423 and all benchmark jobs
+are complete. Do not rerun full serial Basic casually: eight calls took~3minutes.
+No agents, commits or pushes; preserve preceding overlap work/dirty documents.

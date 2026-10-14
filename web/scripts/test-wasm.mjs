@@ -45,9 +45,9 @@ const progressRequest = encode({ type: 'check_zero_round', data: { problem: pars
 const progress = []
 const progressResult = decode(execute_with_progress(progressRequest, json => progress.push(JSON.parse(json))))
 assert.deepEqual(progressResult, decode(execute_json(progressRequest)))
-assert.equal(progress[0].phase, 'enumerating')
+assert.ok(['enumerating','preparing'].includes(progress[0].phase))
 assert.equal(progress.at(-1).phase, 'verifying')
-assert.ok(progress.every(update => ['enumerating', 'encoding', 'solving', 'verifying'].includes(update.phase)))
+assert.ok(progress.every(update => ['preparing', 'enumerating', 'encoding', 'solving', 'verifying'].includes(update.phase)))
 assert.equal(progress.at(-1).iterations, 1)
 if (serverUrl) {
   const stream = await fetch(`${serverUrl}/stream`, {

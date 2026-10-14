@@ -19,6 +19,6 @@ self.onmessage = async (event: MessageEvent<string>) => {
     post({ type: 'response', data: JSON.parse(response) as ResponsePacket })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    post({ type: 'response', data: { response: { type: 'error', data: { message, location: null } }, cache: { maximization: null, zero_round: null, coloring: [], diagrams: [] } } })
+    post({ type: 'response', data: { response: { type: 'error', data: { message, location: null } }, cache: { maximization: null, zero_round: null, coloring: [], diagrams: [], coloring_bounds: [] } } })
   }
 }

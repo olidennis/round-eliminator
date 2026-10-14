@@ -118,7 +118,7 @@ pub(crate) fn allows_positions_with<L: Copy + Ord>(
         if match_parts_with(
             target,
             &family,
-            |offered, allowed| !offered.intersection(allowed).is_empty(),
+            |offered, allowed| !offered.is_disjoint(allowed),
             cancellation,
         )? {
             return Ok(true);
@@ -232,7 +232,29 @@ pub(crate) fn visit_multisets_with<L: Copy + Ord>(
             counts
         })
         .collect();
-    let mut visited = BTreeSet::new();
+    // One-part distributions are unique. Disjoint domains also determine
+    // each part's distribution from the resulting multiset. Fixed singleton
+    // parts contribute constant counts and cannot create distribution ambiguity.
+    let mut unique = choices.iter().filter(|labels| labels.len() > 1).count() <= 1;
+    if !unique {
+        unique = true;
+        'pairs: for (index, part) in family.parts().iter().enumerate() {
+            if part.labels().len() == 1 {
+                continue;
+            }
+            for previous in family.parts()[..index]
+                .iter()
+                .filter(|part| part.labels().len() > 1)
+            {
+                cancellation.check()?;
+                if !part.labels().is_disjoint(previous.labels()) {
+                    unique = false;
+                    break 'pairs;
+                }
+            }
+        }
+    }
+    let mut visited = (!unique).then(BTreeSet::new);
     loop {
         cancellation.check()?;
         let concrete = Configuration::new(
@@ -243,7 +265,11 @@ pub(crate) fn visit_multisets_with<L: Copy + Ord>(
                 .collect(),
         )
         .expect("family degree already checked");
-        if visited.insert(concrete.clone()) && !visitor(&concrete, &counts)? {
+        if visited
+            .as_mut()
+            .is_none_or(|seen| seen.insert(concrete.clone()))
+            && !visitor(&concrete, &counts)?
+        {
             return Ok(false);
         }
         let Some(position) = (0..counts.len())
@@ -382,6 +408,19 @@ mod tests {
                                 expanded.insert(tuple);
                             }
                         }
+                        let mut visited = BTreeSet::new();
+                        visit_multisets_with(
+                            &constraint.configurations_at_degree(degree)[0],
+                            &Cancellation::default(),
+                            |row, counts| {
+                                assert!(visited.insert(row.occurrences().collect::<Vec<_>>()));
+                                assert_eq!(counts[0].iter().sum::<u32>(), first_count);
+                                assert_eq!(counts[1].iter().sum::<u32>(), second_count);
+                                Ok(true)
+                            },
+                        )
+                        .unwrap();
+                        assert_eq!(visited, expanded);
                         assert_eq!(
                             concrete_multisets(&constraint, &[degree]),
                             expanded

@@ -56,6 +56,19 @@ impl<L: Copy + Ord> LabelSet<L> {
         self.0.binary_search(&label).is_ok()
     }
 
+    /// Whether the sets have no common label, without constructing an intersection.
+    pub fn is_disjoint(&self, other: &Self) -> bool {
+        let (mut left, mut right) = (0, 0);
+        while left < self.len() && right < other.len() {
+            match self.0[left].cmp(&other.0[right]) {
+                Ordering::Less => left += 1,
+                Ordering::Greater => right += 1,
+                Ordering::Equal => return false,
+            }
+        }
+        true
+    }
+
     pub fn is_subset_of(&self, other: &Self) -> bool {
         if self.len() > other.len() {
             return false;
@@ -198,6 +211,7 @@ mod tests {
                         .collect::<Vec<_>>()
                 );
                 assert_eq!(a.is_subset_of(&b), expected_a.is_subset(&expected_b));
+                assert_eq!(a.is_disjoint(&b), expected_a.is_disjoint(&expected_b));
             }
         }
     }

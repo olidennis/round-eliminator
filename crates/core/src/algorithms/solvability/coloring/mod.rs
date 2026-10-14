@@ -7,7 +7,9 @@ mod prepare;
 mod reuse;
 mod verify;
 pub use prepare::minimum;
-pub use reuse::{bounds_from_results, excludes_zero_round, maximum_from_bounds, reuse_result};
+pub use reuse::{
+    bounds_from_results, excludes_zero_round, maximum_from_bounds, merge_bounds, reuse_result,
+};
 pub use verify::verify_witness;
 
 use crate::{
@@ -123,6 +125,7 @@ pub struct ColoringCache<'a> {
     pub passive_maximum: Option<&'a crate::algorithms::maximize::MaximizationResult>,
     pub zero_round: Option<&'a ZeroRoundResult>,
     pub results: Vec<&'a ColoringResult>,
+    pub bounds: Option<&'a ColoringBounds>,
 }
 
 pub fn check(
@@ -195,11 +198,32 @@ pub fn check_with_cached(
             return Ok(reused);
         }
     }
-    let bounds = bounds_from_results(
+    let mut bounds = bounds_from_results(
         minimum,
         cache.results.iter().copied(),
         &computation.cancellation,
     )?;
+    if let Some(saved) = cache.bounds {
+        merge_bounds(&mut bounds, saved);
+    }
+    if let PaletteSearch::Fixed { colors } = search {
+        if bounds.upper.is_some_and(|upper| colors > upper) {
+            return Ok(ColoringResult::Unsolvable { colors });
+        }
+        if let (Some(lower), Some(witness)) = (bounds.lower, &bounds.witness)
+            && colors <= lower
+        {
+            return Ok(reuse_result(
+                search,
+                &ColoringResult::Solvable {
+                    colors: lower,
+                    witness: witness.clone(),
+                },
+                &computation.cancellation,
+            )?
+            .expect("restriction of a proved palette"));
+        }
+    }
     if search == PaletteSearch::Maximum
         && let Some(result) = maximum_from_bounds(&bounds)
     {

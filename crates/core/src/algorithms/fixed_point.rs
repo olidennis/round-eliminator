@@ -165,12 +165,17 @@ fn close(
         // this callback, so callback-triggered cancellation propagates normally.
         let _ = computation.report_progress(progress);
     };
-    Ok(maximize_custom_with(
-        initial,
-        &LatticeOperations { lattice, dual },
-        &mut Computation::new(cancellation, &mut report),
-        None,
-    )?)
+    let mut context = Computation::new(cancellation, &mut report);
+    Ok(if let Some(operations) = lattice.table_operations(dual) {
+        maximize_custom_with(initial, &operations, &mut context, None)?
+    } else {
+        maximize_custom_with(
+            initial,
+            &LatticeOperations { lattice, dual },
+            &mut context,
+            None,
+        )?
+    })
 }
 
 #[cfg(test)]

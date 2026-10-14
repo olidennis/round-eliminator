@@ -298,7 +298,10 @@ fn analysis_reuses_the_start_result_without_a_parsing_phase() {
     assert_eq!(response["data"]["status"], "solvable");
     assert!(response["data"].get("problem").is_none());
     assert!(response["data"].get("result").is_none());
-    assert_eq!(phases.first(), Some(&Phase::Enumerating));
+    assert!(matches!(
+        phases.first(),
+        Some(Phase::Enumerating | Phase::Preparing)
+    ));
     assert!(!phases.contains(&Phase::Parsing));
 }
 

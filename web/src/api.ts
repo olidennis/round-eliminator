@@ -23,6 +23,15 @@ type Options = { onCache?: (cache: AnalysisCache) => void; signal?: AbortSignal;
 export function sendForProblem(state: ProblemState, operation: Operation, backend: Backend, options: Options = {}): Promise<Response> {
   return send({ type: 'compute', data: { state, operation } }, backend, {
     ...options,
+    onPartialResult: update => {
+      if (operation.type === 'check_coloring' && update.type === 'coloring_bounds'
+        && (update.data.lower !== null || update.data.upper !== null)) {
+        state.analyses = mergeAnalyses(state.analyses, { maximization: null, zero_round: null,
+          coloring: [], diagrams: [], coloring_bounds: [{ kind: operation.data.kind,
+            bounds: { ...update.data, testing: null } }] })
+      }
+      options.onPartialResult?.(update)
+    },
     onCache: update => { state.analyses = mergeAnalyses(state.analyses, update); options.onCache?.(update) },
   })
 }
@@ -30,10 +39,26 @@ export function sendForProblem(state: ProblemState, operation: Operation, backen
 export function mergeAnalyses(current: AnalysisCache, update: AnalysisCache): AnalysisCache {
   const merge = <T>(old: T[], added: T[], key: (value: T) => string): T[] =>
     Array.from(new Map([...old, ...added].map(value => [key(value), value])).values())
+  const coloring = merge(current.coloring, update.coloring, value => value.search.kind === 'fixed'
+    ? `${value.kind}:fixed:${value.search.colors}` : `${value.kind}:maximum`)
+  const bounds = new Map((current.coloring_bounds ?? []).map(entry => [entry.kind, entry]))
+  for (const entry of update.coloring_bounds ?? []) {
+    const previous = bounds.get(entry.kind)
+    const lower = previous?.bounds.lower ?? null
+    const upper = previous?.bounds.upper ?? null
+    const stronger = entry.bounds.lower !== null && (lower === null || entry.bounds.lower > lower)
+    bounds.set(entry.kind, { kind: entry.kind, bounds: { ...entry.bounds, testing: null,
+      lower: stronger ? entry.bounds.lower : lower,
+      witness: stronger ? entry.bounds.witness : previous?.bounds.witness ?? null,
+      upper: entry.bounds.upper === null ? upper : upper === null ? entry.bounds.upper : Math.min(upper, entry.bounds.upper),
+    } })
+  }
   return {
     maximization: update.maximization ?? current.maximization,
     zero_round: update.zero_round ?? current.zero_round,
-    coloring: merge(current.coloring, update.coloring, value => value.search.kind === 'fixed' ? `${value.kind}:fixed:${value.search.colors}` : `${value.kind}:maximum`),
+    coloring,
+    coloring_bounds: [...bounds.values()].filter(entry => !coloring.some(proof => proof.kind === entry.kind
+      && ['maximum', 'unbounded', 'no_palette'].includes(proof.result.status))),
     diagrams: merge(current.diagrams, update.diagrams, value => diagramKey(value.options)),
   }
 }

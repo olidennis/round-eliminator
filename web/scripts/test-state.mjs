@@ -4,7 +4,7 @@ import init, { execute_json, execute_with_events } from '../public/wasm/round_el
 
 await init({ module_or_path: await readFile(new URL('../public/wasm/round_eliminator_3_wasm_bg.wasm', import.meta.url)) })
 const server = process.argv[2]
-const empty = () => ({ maximization: null, zero_round: null, diagrams: [], coloring: [] })
+const empty = () => ({ maximization: null, zero_round: null, diagrams: [], coloring_bounds: [], coloring: [] })
 const plain = (active, passive) => ({ kind: 'plain', constraints: { active, passive } })
 let checks = 0
 

@@ -155,6 +155,11 @@ are inferred rather than explicitly specified.
 | Find the maximum palette | Find the largest solvable palette, or certify unbounded solvability or that no feasible palette works. |
 | Zero-round result and strategy | Display solvable/unsolvable status and outputs for each active input configuration in occurrence order. |
 | Coloring result / Show strategy | Display the result and output-set certificate; its "Reading the strategy" explanation is collapsed by default. |
+| Allocation-free active matching | Compare label-set overlap without constructing intersections; both native and wasm share the same matching code. |
+| Resume coloring searches | Retain proved bounds and witnesses per kind through cancellation, files and links; retry skips proved numerical palettes. |
+| Efficient multiset traversal | Skip duplicate tracking for provably unique distributions while retaining provenance-correct deduplication for overlaps. |
+| Specialized zero-round search | Plain problems with passive degree at most two use compatible supports; problems with inputs retain SAT. |
+| Shared diagram contexts | Lazily prepare equal occurrence profiles once and reuse their coverage answers; retain cheap eager degree-two comparisons. |
 | Cached coloring checks | Reuse exact queries and related palette proofs; start maximum search from known bounds and reuse zero-round certificates. Preserve all entries in files and links. |
 | Unbounded coloring certificates | Show repeatable behavior, or smaller/larger neighbor-color behavior for distance-two coloring. |
 | Partial coloring results | Stream the current palette and proved bounds, retaining the latest witness and bounds on cancellation. |
@@ -233,21 +238,19 @@ explicitly deferred at the user's request.
 | Benchmark label-set storage | Maximization uses u64/u128 masks, density-dependent four-word/dynamic masks and sparse vector fallback; the model retains sorted vectors. Revisit the measured storage heuristics on other workloads. |
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
-| Optimize zero-round search | Compare membership tables per input against current port variables; consider old degree-two behavior/compatibility searches, preserving original inputs and witness verification. |
-| Optimize coloring search | Color-behavior ordering, affordable eager passive clauses and provenance-preserving output-domain grouping are integrated. Calibrate the eager encoding budget on larger domains, consider safe distance-two symmetry, and evaluate maximum-search initialization on other cached-query workloads. |
-| Avoid allocations for set overlap | Vector subset cardinality rejection is implemented. Boolean overlap/disjointness for SAT matching remains future work; it was outside the maximization-only experiments. |
+| Optimize zero-round search | Compare membership tables per input against current port variables; plain degree-two support search is integrated; membership SAT was tested without selecting a general replacement, preserving original inputs and witness verification. |
+| Optimize coloring search | Color-behavior ordering, affordable eager passive clauses and provenance-preserving output-domain grouping are integrated. Calibrate the eager encoding budget on larger domains, both safe distance-two symmetry prototypes were tested and rejected, and evaluate maximum-search initialization on other cached-query workloads. |
 | Share generated duplicates earlier | Implemented for untraced dense algebras certified by a common admissible meet, including covered local rejections. Broad sharing regressed the large fixture; sparse searches keep their previous policy. Monitor history memory on other workloads. |
-| Reduce traversal memory | Skip the visited-configuration set for multiset families whose distributions are provably unique; retain provenance-correct deduplication for overlapping domains. |
 | Reuse matching/search preparation | Prepared alignments, component rejection and stack compatibility caching are implemented. Flow-network reuse was tested without a meaningful runtime gain and left out; petgraph still performs exact matching. |
-| Scale Basic FP lattices | For larger successor-closed lattices, compare direct set operations and lazy operation caching with the current quadratic tables; do not introduce search limits. |
+| Further Basic FP scaling | Hybrid small tables/direct large operations are integrated. Revisit lookup/memoization policies on other workloads without limiting the lattice. |
 | Further maximization performance | Density-dependent multiword masks, compressed dynamic-mask history and unit-count task grains are integrated. Flow reuse and bounded overlap were tested without selecting them. Evaluate the chosen policies on other workloads when requested; all four requested experiments are complete. See `crates/core/benches/re_comparison/investigation/final-four.md`. |
 | Custom-algebra maximization | The shared generic engine supports live native pruning, early history and exchange rejection, and adaptive generation batches. Keep ordinary task splitting for custom algebras, ordered tracing, and serial wasm; benchmark other algebras before tuning their scheduling. |
 | Native allocator portability | Native server now uses pinned mimalloc v2, option26=0 before Tokio starts, matching the comparison executable. Monitor platform memory/performance; core and wasm remain allocator-independent. |
 | Evaluate parallel native SAT solvers | Deferred by the user. Benchmark a candidate such as CryptoMiniSat against CaDiCaL before integrating it; require incremental assumptions and cancellation, retaining RustSAT encodings and the wasm backend. |
 | GPU computation | A possible future optimization requested by the user; select kernels only after profiling identifies suitable work. |
 | Greedy distance-two coloring | Characterize compatible local views under the Grundy promise before choosing an exact strategy representation. |
-| Further proof reuse | Maxima, completed palette bounds and zero-round certificates are reused. Consider resuming from saved cancelled partial-bound snapshots without losing their witnesses or treating interruption as UNSAT. |
-| Compact/lazy diagram computation | Group identical occurrence profiles and defer expensive contexts; consider representing transitive relations by SCCs and their DAG with explicit session migration. |
+| Further proof reuse | Completed proofs and cancelled numerical bounds are reused. Consider reusing failed distance-two order preflight separately. |
+| Compact diagram storage | Lazy/grouped contexts are integrated. Consider representing transitive relations by SCCs and their DAG with explicit session migration. |
 | Lazy active input checks | Investigate checking condensed active promises and adding only violated SAT obligations; exact coverage remains potentially exponential. |
 | Cheap unbounded witness verification | Verify the repeated behavior directly against original constraints instead of enumerating redundant dummy color assignments. |
 | UI computation and data handling | Consider a small shared controller composable and raw/shallow immutable problem/result snapshots; preserve independent caches, cancellation, and collapse behavior. |

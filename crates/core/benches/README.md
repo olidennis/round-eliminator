@@ -1,5 +1,18 @@
 # Algorithm benchmarks
 
+## Seven algorithm experiments
+
+The [algorithm review experiments](algorithm_review/README.md) record seven
+requested trials, including measured gains, rejected SAT/symmetry alternatives,
+large-lattice memory, and cancelled-proof resumption.
+
+## Allocation-free label overlap
+
+The [overlap comparison](label_overlap/README.md) tests the allocating callback
+against an early-exit disjointness check in the production counted matcher and
+ten full coloring queries. Matching kernels improve; these application fixtures
+show no meaningful end-to-end gain. The small change is integrated.
+
 ## Coloring solvability
 
 The [coloring investigation](coloring/README.md) reproduces the native incidence
