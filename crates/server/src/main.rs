@@ -13,17 +13,24 @@ use tower_http::services::ServeDir;
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+/// LLM: Configure the pinned allocator before any worker starts, then launch the native
+/// LLM: server. This is the process entry point.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Match the configured v2 benchmarks and the old server's macOS setting.
-    // The pinned v2 C header names option 26 abandoned_reclaim_on_free; the
-    // wrapper's older Rust option constants do not expose this name.
-    // SAFETY: valid option in the pinned v2 ABI; configure before starting workers.
+    // LLM: Match the configured v2 benchmarks and the old server's macOS setting.
+    // LLM: The pinned v2 C header names option 26 abandoned_reclaim_on_free; the
+    // LLM: wrapper's older Rust option constants do not expose this name.
+    // LLM: SAFETY: valid option in the pinned v2 ABI; configure before starting workers.
+
     unsafe { libmimalloc_sys::mi_option_set(26, 0) };
     run()
 }
 
+/// LLM: Build the HTTP routes, bounded CPU-work permits, and static-file service, then listen
+/// LLM: at RE3_ADDR. Called by the native process entry point.
 #[tokio::main]
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    // LLM: Bound simultaneous computations by available CPUs and share the same permit pool
+    // LLM: across both API routes.
     let workers = std::thread::available_parallelism().map_or(1, usize::from);
     let app = Router::new()
         .route("/api", post(api))
@@ -32,21 +39,26 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(Arc::new(Semaphore::new(workers)));
     let address = std::env::var("RE3_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_owned());
     let listener = tokio::net::TcpListener::bind(&address).await?;
+    // LLM: Update the current working state before continuing this operation.
     println!("Round Eliminator 3 listening on http://{address}");
     axum::serve(listener, app).await?;
     Ok(())
 }
 
+/// LLM: Serve the nonstreaming JSON endpoint on a bounded blocking worker. Called by Axum; the
+/// LLM: CPU permit remains held until computation ends.
 async fn api(
     State(workers): State<Arc<Semaphore>>,
     body: String,
 ) -> Result<([(header::HeaderName, &'static str); 1], String), (StatusCode, String)> {
-    // CPU searches run outside the async executor. Bound concurrent searches
-    // by available CPUs; retain the permit until the computation actually ends.
+    // LLM: CPU searches run outside the async executor. Bound concurrent searches
+    // LLM: by available CPUs; retain the permit until the computation actually ends.
+
     let permit = workers
         .acquire_owned()
         .await
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    // LLM: Move CPU work off the async executor and retain its permit until it exits.
     let response = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         execute_json(&body)

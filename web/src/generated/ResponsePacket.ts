@@ -3,7 +3,8 @@ import type { AnalysisCache } from "./AnalysisCache";
 import type { Response } from "./Response";
 
 /**
- * The requested result and completed source-cache entries produced by it.
- * The submitted problem and pre-existing entries are never echoed.
+ * LLM: A final response plus the new source-problem cache entries produced by that request.
+ * LLM: It does not echo the submitted problem or pre-existing analyses; the client merges
+ * LLM: these entries into its state.
  */
 export type ResponsePacket = { response: Response, cache: AnalysisCache, };

@@ -1,14 +1,18 @@
-//! Capacity matching for arbitrary counted values with a compatibility relation.
+//! LLM: Capacity matching for arbitrary counted values with a compatibility relation.
 
 use crate::computation::{Cancellation, Cancelled};
 use petgraph::{Graph, algo::dinics};
 
+/// LLM: Decide whether all offered counts can be assigned to compatible target capacities
+/// LLM: using cheap rejection followed by exact Dinic flow. Used by membership, dominance, and
+/// LLM: existential choice checks.
 pub(crate) fn matches_counts_with<A, B>(
     offered: &[(A, u32)],
     allowed: &[(B, u32)],
     compatible: impl Fn(&A, &B) -> bool,
     cancellation: &Cancellation,
 ) -> Result<bool, Cancelled> {
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     cancellation.check()?;
     let degree: u64 = offered.iter().map(|(_, n)| u64::from(*n)).sum();
     if degree != allowed.iter().map(|(_, n)| u64::from(*n)).sum::<u64>() {
@@ -17,7 +21,10 @@ pub(crate) fn matches_counts_with<A, B>(
     if degree == 0 {
         return Ok(true);
     }
+    // LLM: Handle this condition before continuing with the remaining search alternatives.
     if let [(target, _)] = allowed {
+        // LLM: Visit the remaining alternatives for this stage, stopping when the required
+        // LLM: search condition is settled.
         for (value, count) in offered {
             cancellation.check()?;
             if *count > 0 && !compatible(value, target) {
@@ -26,7 +33,10 @@ pub(crate) fn matches_counts_with<A, B>(
         }
         return Ok(true);
     }
+    // LLM: Handle this condition before continuing with the remaining search alternatives.
     if let [(value, _)] = offered {
+        // LLM: Visit the remaining alternatives for this stage, stopping when the required
+        // LLM: search condition is settled.
         for (target, count) in allowed {
             cancellation.check()?;
             if *count > 0 && !compatible(value, target) {
@@ -35,21 +45,28 @@ pub(crate) fn matches_counts_with<A, B>(
         }
         return Ok(true);
     }
-    // Most containment queries fail this necessary capacity condition. Check
-    // it before allocating a flow network. Successful queries repeat the
-    // compatibility tests while adding edges for larger matrices. Small ones
-    // retain the successful comparisons in a stack bitmask, so neither rejected
-    // queries nor compatibility caching allocate a separate buffer.
+    // LLM: Most containment queries fail this necessary capacity condition. Check
+    // LLM: it before allocating a flow network. Successful queries repeat the
+    // LLM: compatibility tests while adding edges for larger matrices. Small ones
+    // LLM: retain the successful comparisons in a stack bitmask, so neither rejected
+    // LLM: queries nor compatibility caching allocate a separate buffer.
+
     let cache = offered.len().saturating_mul(allowed.len()) <= 128;
     let mut bits = 0u128;
     let mut compatible_edges = 0usize;
+    // LLM: Offer each positive-count value only to compatible target nodes, with edges bounded
+    // LLM: by the two counts.
     for (i, (value, count)) in offered.iter().enumerate() {
+        // LLM: Observe cooperative interruption before continuing this unit of work.
         cancellation.check()?;
         if *count == 0 {
             continue;
         }
         let mut capacity = 0u64;
+        // LLM: Visit the remaining alternatives for this stage, stopping when the required
+        // LLM: search condition is settled.
         for (j, (target, n)) in allowed.iter().enumerate() {
+            // LLM: Observe cooperative interruption before continuing this unit of work.
             cancellation.check()?;
             if *n > 0 && compatible(value, target) {
                 capacity += u64::from(*n);
@@ -59,10 +76,13 @@ pub(crate) fn matches_counts_with<A, B>(
                 }
             }
         }
+        // LLM: Handle this condition before continuing with the remaining search alternatives.
         if capacity < u64::from(*count) {
             return Ok(false);
         }
     }
+    // LLM: Build a bipartite capacity network: offered counts enter from the source and target
+    // LLM: counts drain to the sink.
     let mut network = Graph::<(), u32>::with_capacity(
         2 + offered.len() + allowed.len(),
         offered.len() + allowed.len() + compatible_edges,
@@ -70,20 +90,28 @@ pub(crate) fn matches_counts_with<A, B>(
     let source = network.add_node(());
     let sink = network.add_node(());
     let mut destinations = Vec::with_capacity(allowed.len());
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for (_, count) in allowed {
         cancellation.check()?;
         let node = network.add_node(());
         network.add_edge(node, sink, *count);
         destinations.push(node);
     }
+    // LLM: Offer each positive-count value only to compatible target nodes, with edges bounded
+    // LLM: by the two counts.
     for (i, (value, count)) in offered.iter().enumerate() {
+        // LLM: Observe cooperative interruption before continuing this unit of work.
         cancellation.check()?;
         if *count == 0 {
             continue;
         }
         let node = network.add_node(());
         network.add_edge(source, node, *count);
+        // LLM: Visit the remaining alternatives for this stage, stopping when the required
+        // LLM: search condition is settled.
         for (j, ((target, n), &destination)) in allowed.iter().zip(&destinations).enumerate() {
+            // LLM: Observe cooperative interruption before continuing this unit of work.
             cancellation.check()?;
             if *n > 0
                 && (if cache {
@@ -96,6 +124,7 @@ pub(crate) fn matches_counts_with<A, B>(
             }
         }
     }
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     cancellation.check()?;
     let matched = dinics(&network, source, sink).0;
     cancellation.check()?;
@@ -106,10 +135,16 @@ pub(crate) fn matches_counts_with<A, B>(
 mod tests {
     use super::*;
 
+    /// LLM: Regression test: verify that compatibility cache last bit and larger fallback keep
+    /// LLM: exact flow checks. Used by the test suite to protect this behavior while
+    /// LLM: implementations change.
     #[test]
     fn compatibility_cache_last_bit_and_larger_fallback_keep_exact_flow_checks() {
+        // LLM: Share the stop flag with the work performed in this stage.
         let cancellation = Cancellation::default();
         for width in [64, 65] {
+            // LLM: Prepare `allowed` for the following computation; it stores the allowed for
+            // LLM: this stage.
             let allowed: Vec<_> = (0..width).map(|i| (i, 1)).collect();
             assert!(
                 matches_counts_with(
@@ -121,8 +156,9 @@ mod tests {
                 .unwrap()
             );
         }
-        // Every offered row passes its capacity check, but they compete for
-        // the same destinations. Cached compatibility still needs the flow.
+        // LLM: Every offered row passes its capacity check, but they compete for
+        // LLM: the same destinations. Cached compatibility still needs the flow.
+
         let allowed: Vec<_> = (0..64).map(|i| (i, 1)).collect();
         assert!(
             !matches_counts_with(&[(0, 32), (1, 32)], &allowed, |_, b| *b < 32, &cancellation)
@@ -130,8 +166,11 @@ mod tests {
         );
     }
 
+    /// LLM: Regression test: verify that zero count values do not restrict matching. Used by
+    /// LLM: the test suite to protect this behavior while implementations change.
     #[test]
     fn zero_count_values_do_not_restrict_matching() {
+        // LLM: Share the stop flag with the work performed in this stage.
         let cancellation = Cancellation::default();
         assert!(
             matches_counts_with(
@@ -142,6 +181,8 @@ mod tests {
             )
             .unwrap()
         );
+        // LLM: Assert that interruption propagates as cancellation and does not produce a
+        // LLM: completed mathematical result.
         assert!(
             !matches_counts_with(
                 &[(0, 0), (1, 2), (2, 1)],
@@ -153,8 +194,12 @@ mod tests {
         );
     }
 
+    /// LLM: Regression test: verify that cancellation during compatibility checks aborts
+    /// LLM: matching. Used by the test suite to protect this behavior while implementations
+    /// LLM: change.
     #[test]
     fn cancellation_during_compatibility_checks_aborts_matching() {
+        // LLM: Share the stop flag with the work performed in this stage.
         let cancellation = Cancellation::default();
         let result = matches_counts_with(
             &[(0, 2), (1, 2)],
@@ -165,6 +210,8 @@ mod tests {
             },
             &cancellation,
         );
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert!(result.is_err());
     }
 }

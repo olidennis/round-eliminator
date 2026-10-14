@@ -3,7 +3,8 @@ import type { DegreeGroup } from "./DegreeGroup";
 import type { LabelId } from "./LabelId";
 
 /**
- * Allowed condensed configurations, grouped by their degree.
- * Missing degrees have no allowed configurations.
+ * LLM: The union of allowed condensed configurations, partitioned into sorted degree groups.
+ * LLM: Missing degrees have no allowed configurations. Exact duplicate rows are discarded,
+ * LLM: but equivalent differently condensed rows may remain.
  */
 export type Constraint<L = LabelId> = { degrees: Array<DegreeGroup<L>>, };

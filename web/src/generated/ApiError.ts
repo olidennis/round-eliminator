@@ -2,6 +2,8 @@
 import type { Location } from "./Location";
 
 /**
- * In case of error, we give a message and we say what it refers to.
+ * LLM: A transport-visible error explanation and optional text-entry location. Algorithm
+ * LLM: errors generally have no location; parse errors preserve the field and line that
+ * LLM: caused them.
  */
 export type ApiError = { message: string, location: Location | null, };

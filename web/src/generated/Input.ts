@@ -2,7 +2,8 @@
 import type { ConstraintPair } from "./ConstraintPair";
 
 /**
- * The input promise. `Trivial` means the same input everywhere (or equivalently, no input).
- * `Explicit` means that we have a pair of constraints representing the input problem.
+ * LLM: The promise supplied to the algorithm. `Trivial` denotes no input information without
+ * LLM: allocating dummy constraints; `Explicit` stores the valid input configurations and
+ * LLM: their own alphabet.
  */
 export type Input = { "kind": "trivial" } | { "kind": "explicit", "data": ConstraintPair };

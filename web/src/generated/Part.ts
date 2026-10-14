@@ -3,7 +3,8 @@ import type { LabelId } from "./LabelId";
 import type { LabelSet } from "./LabelSet";
 
 /**
- * A part is a set with an exponent.
- * The set must be nonempty.
+ * LLM: A nonempty set of label choices and a multiplicity. Each of these occurrences chooses
+ * LLM: independently from the same set. A zero count is accepted at construction and omitted
+ * LLM: when forming a condensed configuration.
  */
 export type Part<L = LabelId> = { labels: LabelSet<L>, multiplicity: number, };

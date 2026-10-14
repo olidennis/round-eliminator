@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+from investigate import patch_source
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
@@ -18,7 +19,7 @@ BASE = HERE / "investigation/baseline/2026-10-13/review"
 
 
 def replace(path, old, new):
-    text = path.read_text()
+    text = patch_source(path.read_text())
     assert text.count(old) == 1, (path, old, text.count(old))
     path.write_text(text.replace(old, new))
 
@@ -60,12 +61,12 @@ def prepare(directory):
 +}
 +'''.replace("\n+", "\n"))
     combination = core / "src/algorithms/maximize/combination.rs"
-    source = combination.read_text()
+    source = patch_source(combination.read_text())
     begin = source.index("    let mut choices = Vec::new();")
-    end = source.index("    // Dense alignments", begin)
+    end = source.index("    if !tracking && compatible.iter().all", begin)
     choice_code = source[begin:end]
     source = source[:begin] + source[end:]
-    marker = "    // Each intersection"
+    marker = "    let mut intersections = Vec::with_capacity"
     source = source.replace(marker, choice_code + '''    if crate::review_flags::enabled("early") && choices.is_empty() {
         return Ok(Vec::new());
     }

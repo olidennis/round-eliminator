@@ -2,7 +2,8 @@
 import type { ColorBehavior } from "./ColorBehavior";
 
 /**
- * Behavior for one own color. Neighbor entries index the neighbor's color;
- * the diagonal entry has empty output sets because adjacent colors differ.
+ * LLM: The output choices for one own-color row, indexed by neighbor color and original
+ * LLM: input. Endpoint reversal selects the corresponding opposite-direction table on a
+ * LLM: passive degree-two node.
  */
 export type NeighborColorBehavior = { outputs_by_neighbor: Array<ColorBehavior>, };

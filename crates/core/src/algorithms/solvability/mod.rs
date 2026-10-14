@@ -1,4 +1,4 @@
-//! Zero-round and coloring solvability, with shared input and strategy verification.
+//! LLM: Zero-round and coloring solvability, with shared input and strategy verification.
 
 pub mod coloring;
 pub(crate) mod constraint_encoding;

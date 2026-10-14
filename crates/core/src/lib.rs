@@ -1,4 +1,4 @@
-//! Core problem definition, parser, and transport-neutral request handler.
+//! LLM: Core problem definition, parser, and transport-neutral request handler.
 
 pub mod algorithms;
 pub mod api;

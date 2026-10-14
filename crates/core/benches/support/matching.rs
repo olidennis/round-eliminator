@@ -1,5 +1,5 @@
-//! Reproducible fixtures and alternatives for configuration membership.
-//! The occurrence matcher is the implementation used before counted configurations.
+//! LLM: Reproducible fixtures and alternatives for configuration membership.
+//! LLM: The occurrence matcher is the implementation used before counted configurations.
 
 use petgraph::{
     Graph,
@@ -11,6 +11,8 @@ use round_eliminator_3::{
     model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part},
 };
 
+/// LLM: A named benchmark input together with the fixture data and expected behavior needed to
+/// LLM: compare implementations reproducibly.
 pub struct Case {
     pub name: &'static str,
     pub constraint: Constraint<u32>,
@@ -19,12 +21,16 @@ pub struct Case {
     pub expected: bool,
 }
 
+/// LLM: Construct a named matching fixture with offered counts, target capacities, and
+/// LLM: compatibility data. Used to feed the same instance to each benchmark matcher.
 fn case(
     name: &'static str,
     parts: Vec<(Vec<u32>, u32)>,
     counts: Vec<(u32, u32)>,
     expected: bool,
 ) -> Case {
+    // LLM: Prepare `concrete` for the following computation; it stores the concrete for this
+    // LLM: stage.
     let concrete = Configuration::new(counts).unwrap();
     Case {
         name,
@@ -43,7 +49,10 @@ fn case(
     }
 }
 
+/// LLM: List the representative matching workloads shared by the benchmark implementations.
+/// LLM: Used to keep library and custom-matcher comparisons on equivalent inputs.
 pub fn cases() -> Vec<Case> {
+    // LLM: Prepare `cases` for the following computation; it stores the cases for this stage.
     let mut cases = vec![
         case(
             "degree 2, reassignment",
@@ -94,11 +103,13 @@ pub fn cases() -> Vec<Case> {
             true,
         ),
     ];
+    // LLM: Process the relevant label choices while preserving their table identities.
     for (name, size) in [
         ("16 distinct, dense", 16),
         ("64 distinct, dense", 64),
         ("256 distinct, dense", 256),
     ] {
+        // LLM: Retain the newly constructed choices in the result for this stage.
         cases.push(case(
             name,
             (0..size).map(|_| ((0..size).collect(), 1)).collect(),
@@ -106,6 +117,7 @@ pub fn cases() -> Vec<Case> {
             true,
         ));
     }
+    // LLM: Prepare `retry` for the following computation; it stores the retry for this stage.
     let mut retry = case(
         "degree 10, union retry",
         vec![(vec![0, 1], 5), (vec![2, 3], 5)],
@@ -113,6 +125,7 @@ pub fn cases() -> Vec<Case> {
         true,
     );
     let mut configurations: Vec<_> = retry.constraint.configurations().cloned().collect();
+    // LLM: Retain the newly constructed choices in the result for this stage.
     configurations.push(
         CondensedConfiguration::new(vec![
             Part::new(LabelSet::new(vec![0, 1, 2, 3]), 10).unwrap(),
@@ -121,12 +134,16 @@ pub fn cases() -> Vec<Case> {
     );
     retry.constraint = Constraint::new(configurations);
     cases.push(retry);
+    // LLM: Update the current working state before continuing this operation.
     cases
 }
 
 pub const ALGORITHMS: [&str; 4] = ["original", "selected", "dinic", "edmonds-karp"];
 
+/// LLM: Evaluate the prepared benchmark or operation fixture and return its result data. Used
+/// LLM: by this module's harness rather than the application protocol.
 pub fn run(case: &Case, algorithm: usize) -> bool {
+    // LLM: Handle this condition before continuing with the remaining search alternatives.
     match algorithm {
         0 => original(case),
         1 => accepts(&case.constraint, &case.concrete),
@@ -136,17 +153,23 @@ pub fn run(case: &Case, algorithm: usize) -> bool {
     }
 }
 
+/// LLM: Build and solve the fixture's counted flow network using the selected library
+/// LLM: algorithm. Used to compare Dinic and Edmonds–Karp against the original matcher.
 fn flow(case: &Case, use_dinic: bool) -> bool {
+    // LLM: Share the stop flag with the work performed in this stage.
     let cancellation = Cancellation::default();
     for configuration in case
         .constraint
         .configurations()
         .filter(|configuration| configuration.degree() == case.concrete.degree())
     {
+        // LLM: Observe cooperative interruption before continuing this unit of work.
         cancellation.check().unwrap();
         let mut network = Graph::<(), u32>::new();
         let source = network.add_node(());
         let sink = network.add_node(());
+        // LLM: Prepare `destinations` for the following computation; it stores the
+        // LLM: destinations for this stage.
         let destinations: Vec<_> = configuration
             .parts()
             .iter()
@@ -156,7 +179,9 @@ fn flow(case: &Case, use_dinic: bool) -> bool {
                 node
             })
             .collect();
+        // LLM: Process each condensed part without expanding its repeated occurrences.
         for &(label, count) in case.concrete.multiplicities() {
+            // LLM: Observe cooperative interruption before continuing this unit of work.
             cancellation.check().unwrap();
             let node = network.add_node(());
             network.add_edge(source, node, count);
@@ -166,28 +191,39 @@ fn flow(case: &Case, use_dinic: bool) -> bool {
                 }
             }
         }
+        // LLM: Compute exact maximum flow and compare it with the required total occurrence
+        // LLM: count.
         let total = if use_dinic {
             dinics(&network, source, sink).0
         } else {
             ford_fulkerson(&network, source, sink).0
         };
         cancellation.check().unwrap();
+        // LLM: Handle this condition before continuing with the remaining search alternatives.
         if total == case.concrete.degree() {
             return true;
         }
     }
+    // LLM: Return the result of this completed search or conversion to its caller.
     false
 }
 
+/// LLM: Run the original occurrence-based matcher for a benchmark fixture. Used as the
+/// LLM: historical comparison rather than the production matching implementation.
 fn original(case: &Case) -> bool {
+    // LLM: Share the stop flag with the work performed in this stage.
     let cancellation = Cancellation::default();
     for configuration in case
         .constraint
         .configurations()
         .filter(|configuration| configuration.degree() as usize == case.occurrences.len())
     {
+        // LLM: Prepare `occupants` for the following computation; it stores the occupants for
+        // LLM: this stage.
         let mut occupants = vec![Vec::new(); configuration.parts().len()];
         if (0..case.occurrences.len()).all(|occurrence| {
+            // LLM: Delegate to the common implementation so this entry point shares its
+            // LLM: semantics and checks.
             augment(
                 occurrence,
                 &case.occurrences,
@@ -200,9 +236,12 @@ fn original(case: &Case) -> bool {
             return true;
         }
     }
+    // LLM: Return the result of this completed search or conversion to its caller.
     false
 }
 
+/// LLM: Search an augmenting assignment path in the original benchmark matcher. Used only to
+/// LLM: compare the previous custom matcher with flow-library alternatives.
 fn augment(
     occurrence: usize,
     occurrences: &[u32],
@@ -211,8 +250,10 @@ fn augment(
     visited: &mut [bool],
     cancellation: &Cancellation,
 ) -> bool {
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     cancellation.check().unwrap();
     for (part, choices) in parts.iter().enumerate() {
+        // LLM: Handle this condition before continuing with the remaining search alternatives.
         if visited[part] || !choices.labels().contains(occurrences[occurrence]) {
             continue;
         }
@@ -221,7 +262,10 @@ fn augment(
             occupants[part].push(occurrence);
             return true;
         }
+        // LLM: Process each condensed part without expanding its repeated occurrences.
         for slot in 0..occupants[part].len() {
+            // LLM: Prepare `displaced` for the following computation; it stores the displaced
+            // LLM: for this stage.
             let displaced = occupants[part][slot];
             if augment(
                 displaced,
@@ -236,5 +280,6 @@ fn augment(
             }
         }
     }
+    // LLM: Return the result of this completed search or conversion to its caller.
     false
 }

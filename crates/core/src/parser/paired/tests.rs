@@ -1,9 +1,15 @@
 use super::*;
 
+/// LLM: Regression test: verify that input projection discards duplicates without merging
+/// LLM: distinct outputs. Used by the test suite to protect this behavior while
+/// LLM: implementations change.
 #[test]
 fn input_projection_discards_duplicates_without_merging_distinct_outputs() {
+    // LLM: Prepare the local constants, types, or helper imports used by the following work.
     use crate::parser::{ConstraintText, DegreeText, ProblemText, parse_problem};
 
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Paired {
         degrees: DegreeText::default(),
         constraints: ConstraintText {
@@ -12,11 +18,14 @@ fn input_projection_discards_duplicates_without_merging_distinct_outputs() {
         },
     })
     .unwrap();
+    // LLM: Prepare `Input` for the following computation; it stores the input for this stage.
     let Input::Explicit(input) = problem.input() else {
         panic!("paired entry has an explicit input projection");
     };
     assert_eq!(input.active().configurations_at_degree(3).len(), 3);
     assert_eq!(input.passive().configurations_at_degree(2).len(), 1);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         problem.output().active().configurations_at_degree(3).len(),
         6
@@ -25,17 +34,25 @@ fn input_projection_discards_duplicates_without_merging_distinct_outputs() {
         problem.output().passive().configurations_at_degree(2).len(),
         2
     );
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(problem.graph_class().active(), &[3]);
     assert_eq!(problem.graph_class().passive(), &[2]);
 }
 
+/// LLM: Regression test: verify that pair projection keeps correlations in the original
+/// LLM: constraints. Used by the test suite to protect this behavior while implementations
+/// LLM: change.
 #[test]
 fn pair_projection_keeps_correlations_in_the_original_constraints() {
+    // LLM: Prepare `pair` for the following computation; it stores the pair for this stage.
     let pair = LabelPair {
         input: LabelId(0),
         output: LabelId(0),
     };
     let zero = Part::new(LabelSet::new(vec![pair]), 0).unwrap();
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert!(
         CondensedConfiguration::new(vec![zero])
             .unwrap()
@@ -43,6 +60,7 @@ fn pair_projection_keeps_correlations_in_the_original_constraints() {
             .is_empty()
     );
 
+    // LLM: Queue the parent pairs for this bounded generation batch.
     let pairs = LabelSet::new(vec![
         LabelPair {
             input: LabelId(0),
@@ -57,9 +75,13 @@ fn pair_projection_keeps_correlations_in_the_original_constraints() {
             output: LabelId(1),
         },
     ]);
+    // LLM: Prepare `active` for the following computation; it stores the active for this
+    // LLM: stage.
     let active = Constraint::new(vec![
         CondensedConfiguration::new(vec![Part::new(pairs.clone(), 2).unwrap()]).unwrap(),
     ]);
+    // LLM: Prepare `constraints` for the following computation; it stores the constraints for
+    // LLM: this stage.
     let constraints = InputOutputConstraintPair::new(
         vec!["a".into(), "b".into()],
         vec!["X".into(), "Y".into()],
@@ -68,6 +90,8 @@ fn pair_projection_keeps_correlations_in_the_original_constraints() {
     )
     .unwrap();
     let input = constraints.input_projection().unwrap();
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(input.labels(), constraints.input_labels());
     let projected = &input.active().degrees()[0].configurations()[0];
     assert_eq!(projected.degree(), 2);
@@ -76,6 +100,8 @@ fn pair_projection_keeps_correlations_in_the_original_constraints() {
         [LabelId(0), LabelId(1)]
     );
     let original = constraints.active().degrees()[0].configurations()[0].parts()[0].labels();
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(original, &pairs);
     assert!(!original.contains(LabelPair {
         input: LabelId(1),
@@ -83,8 +109,12 @@ fn pair_projection_keeps_correlations_in_the_original_constraints() {
     }));
 }
 
+/// LLM: Regression test: verify that pair ids are checked against their respective tables.
+/// LLM: Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn pair_ids_are_checked_against_their_respective_tables() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for pair in [
         LabelPair {
             input: LabelId(1),
@@ -95,10 +125,14 @@ fn pair_ids_are_checked_against_their_respective_tables() {
             output: LabelId(1),
         },
     ] {
+        // LLM: Prepare `active` for the following computation; it stores the active for this
+        // LLM: stage.
         let active = Constraint::new(vec![
             CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![pair]), 1).unwrap()])
                 .unwrap(),
         ]);
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert!(
             InputOutputConstraintPair::new(
                 vec!["a".into()],
@@ -111,14 +145,20 @@ fn pair_ids_are_checked_against_their_respective_tables() {
     }
 }
 
+/// LLM: Regression test: verify that input output constraint pairs check both tables and
+/// LLM: sides. Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn input_output_constraint_pairs_check_both_tables_and_sides() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for (inputs, outputs) in [
         (vec!["".into()], vec![]),
         (vec!["a".into(), "a".into()], vec![]),
         (vec![], vec!["".into()]),
         (vec![], vec!["X".into(), "X".into()]),
     ] {
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert!(
             InputOutputConstraintPair::new(
                 inputs,
@@ -129,6 +169,8 @@ fn input_output_constraint_pairs_check_both_tables_and_sides() {
             .is_err()
         );
     }
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for pair in [
         LabelPair {
             input: LabelId(1),
@@ -139,10 +181,14 @@ fn input_output_constraint_pairs_check_both_tables_and_sides() {
             output: LabelId(1),
         },
     ] {
+        // LLM: Prepare `passive` for the following computation; it stores the passive for this
+        // LLM: stage.
         let passive = Constraint::new(vec![
             CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![pair]), 1).unwrap()])
                 .unwrap(),
         ]);
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert!(
             InputOutputConstraintPair::new(
                 vec!["a".into()],
@@ -153,7 +199,8 @@ fn input_output_constraint_pairs_check_both_tables_and_sides() {
             .is_err()
         );
     }
-    // Equal names in separate input and output domains remain valid.
+    // LLM: Equal names in separate input and output domains remain valid.
+
     let constraints = InputOutputConstraintPair::new(
         vec!["A".into()],
         vec!["A".into()],
@@ -162,5 +209,7 @@ fn input_output_constraint_pairs_check_both_tables_and_sides() {
     )
     .unwrap();
     assert_eq!(constraints.input_labels(), ["A"]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(constraints.output_labels(), ["A"]);
 }

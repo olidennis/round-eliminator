@@ -260,6 +260,10 @@ explicitly deferred at the user's request.
 | Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |
 | Preserve input promises in transformations | Keep the graph class and explicit input promise independent of changes to outputs or the mapping; recomputing either can silently narrow the problem domain. |
 
+The user explicitly deferred the remaining algorithmic investigations on
+2026-10-14, including lazy active inputs, direct unbounded verification,
+large exact joint diagram products, compact diagram storage, and further tuning.
+
 The [implementation review](REVIEW.md) records source evidence, tradeoffs and a
 suggested order for these ideas. Flow domination is stronger than semantic language
 coverage: future pruning must preserve the complete maximum guarantee used by

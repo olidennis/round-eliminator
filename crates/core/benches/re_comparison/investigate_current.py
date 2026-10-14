@@ -11,12 +11,12 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from investigate import HERE, ROOT, OLD, replace
+from investigate import HERE, ROOT, OLD, patch_source, replace
 
 
 def prepare(directory, counts):
     directory.mkdir(parents=True, exist_ok=True)
-    hooks = (HERE / "profile_hooks.rs").read_text()
+    hooks = patch_source((HERE / "profile_hooks.rs").read_text())
     hooks = hooks.replace("const N: usize = 43;", "const N: usize = 47;")
     hooks = hooks.replace('    "refresh_wall_ns",', '''    "refresh_wall_ns",
     "generation_user_ticks", "generation_system_ticks",

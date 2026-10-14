@@ -1,4 +1,4 @@
-//! Incremental SAT over color/input output-set memberships.
+//! LLM: Incremental SAT over color/input output-set memberships.
 
 use rustsat::{
     solvers::{SolveIncremental, SolverResult},
@@ -24,6 +24,9 @@ use crate::{
     model::{CondensedConfiguration, LabelId, LabelSet, Problem},
 };
 
+/// LLM: The incremental membership SAT state for one problem and coloring kind. It retains
+/// LLM: output-membership variables, activation gates, encoded active obligations, passive
+/// LLM: input rows, and refinement clauses across palette queries.
 pub(super) struct PaletteSolver<'a, S> {
     problem: &'a Problem,
     kind: ColoringKind,
@@ -31,7 +34,8 @@ pub(super) struct PaletteSolver<'a, S> {
     inputs: Vec<Option<LabelId>>,
     active_inputs: Vec<LocalInput>,
     passive_inputs: Vec<CondensedConfiguration<Option<LabelId>>>,
-    // color -> original input -> possible output memberships.
+    // LLM: color -> original input -> possible output memberships.
+
     memberships: Vec<Vec<Vec<Choice>>>,
     enabled: Vec<Lit>,
     encoded: BTreeSet<(usize, Vec<u32>)>,
@@ -39,12 +43,15 @@ pub(super) struct PaletteSolver<'a, S> {
 }
 
 impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
+    /// LLM: Prepare the original input contexts and an empty incremental coloring formula.
+    /// LLM: Used by this frozen comparison kernel before any palette is solved.
     pub fn new(
         problem: &'a Problem,
         kind: ColoringKind,
         solver: S,
         computation: &mut Computation<'_>,
     ) -> anyhow::Result<Self> {
+        // LLM: Update the current working state before continuing this operation.
         computation.report(Phase::Enumerating, 0)?;
         Ok(Self {
             problem,
@@ -60,16 +67,28 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
         })
     }
 
+    /// LLM: Allocate missing color memberships and their activation gates, retaining all
+    /// LLM: previous variables and clauses. Used before querying a larger palette.
     fn extend(&mut self, colors: u32) -> anyhow::Result<()> {
+        // LLM: Prepare `labels` for the following computation; it stores the labels for this
+        // LLM: stage.
         let labels: BTreeSet<_> = self.problem.output().active().labels().collect();
         while self.memberships.len() < colors as usize {
+            // LLM: Use the stored state for this operation without exposing mutable
+            // LLM: representation details.
             self.formula.check()?;
             let enabled = self.formula.new_lit();
             self.enabled.push(enabled);
             let mut behavior = Vec::new();
+            // LLM: Add the necessary SAT restriction; a refinement clause forbids the selected
+            // LLM: violating combination.
             for &input in &self.inputs {
+                // LLM: Prepare `outputs` for the following computation; it stores the outputs
+                // LLM: for this stage.
                 let mut outputs = Vec::new();
                 for &label in &labels {
+                    // LLM: Use the stored state for this operation without exposing mutable
+                    // LLM: representation details.
                     self.formula.check()?;
                     if self.problem.output_allowed(input, label) {
                         let literal = self.formula.new_lit();
@@ -77,18 +96,29 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                         outputs.push(Choice { label, literal });
                     }
                 }
+                // LLM: Retain the newly constructed choices in the result for this stage.
                 behavior.push(outputs);
             }
+            // LLM: Retain the newly constructed choices in the result for this stage.
             self.memberships.push(behavior);
         }
+        // LLM: Return the result of this completed search or conversion to its caller.
         Ok(())
     }
 
+    /// LLM: Read true output memberships into the appropriate color/input behavior tables.
+    /// LLM: Used after SAT to verify or return a strategy certificate.
     fn witness(&self, colors: u32) -> anyhow::Result<ColoringWitness> {
+        // LLM: Prepare `behaviors` for the following computation; it stores the behaviors for
+        // LLM: this stage.
         let mut behaviors = Vec::new();
         for behavior in &self.memberships[..colors as usize] {
+            // LLM: Prepare `outputs_by_input` for the following computation; it stores the
+            // LLM: outputs by input for this stage.
             let mut outputs_by_input = Vec::new();
             for choices in behavior {
+                // LLM: Use the stored state for this operation without exposing mutable
+                // LLM: representation details.
                 self.formula.check()?;
                 let mut outputs = Vec::new();
                 for choice in choices {
@@ -98,21 +128,28 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                 }
                 outputs_by_input.push(LabelSet::new(outputs));
             }
+            // LLM: Retain the newly constructed choices in the result for this stage.
             behaviors.push(ColorBehavior { outputs_by_input });
         }
+        // LLM: Return the result of this completed search or conversion to its caller.
         Ok(ColoringWitness::LocalColors { behaviors })
     }
 
+    /// LLM: Query one palette, checking candidate active/passive validity and refining
+    /// LLM: violated obligations until a witness or UNSAT. Used by fixed decisions and
+    /// LLM: consecutive maximum search; interruption remains a separate error.
     pub fn solve(
         &mut self,
         colors: u32,
         mode: PassiveMode,
         computation: &mut Computation<'_>,
     ) -> anyhow::Result<Option<ColoringWitness>> {
+        // LLM: Update the current working state before continuing this operation.
         computation.report(Phase::Encoding, self.iterations)?;
         self.extend(colors)?;
-        // Smaller queries disable extra colors, including their memberships.
-        // Learned constraints remain valid for every subsequent palette size.
+        // LLM: Smaller queries disable extra colors, including their memberships.
+        // LLM: Learned constraints remain valid for every subsequent palette size.
+
         let assumptions: Vec<_> = self
             .enabled
             .iter()
@@ -125,7 +162,10 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                 }
             })
             .collect();
+        // LLM: Ask the incremental solver under the current activation gates; interruption is
+        // LLM: not a negative proof.
         loop {
+            // LLM: Update the current working state before continuing this operation.
             computation.report(Phase::Solving, self.iterations)?;
             match self.formula.solver.solve_assumps(&assumptions)? {
                 SolverResult::Unsat => return Ok(None),
@@ -134,12 +174,17 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
             }
             self.iterations = self.iterations.saturating_add(1);
             computation.report(Phase::Verifying, self.iterations)?;
+            // LLM: Construct a checkable strategy from the current output choices.
             let witness = self.witness(colors)?;
             let ColoringWitness::LocalColors { behaviors } = &witness else {
                 unreachable!("local-color search produces local-color witnesses");
             };
             let mut failed = None;
+            // LLM: Check whether these local output domains can jointly realize some valid
+            // LLM: active configuration.
             for (context, input) in self.active_inputs.iter().enumerate() {
+                // LLM: Prepare `inputs` for the following computation; it stores the inputs
+                // LLM: for this stage.
                 let inputs = port_inputs(input);
                 if !prepare::active_colors(
                     &inputs,
@@ -147,6 +192,8 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                     colors,
                     &computation.cancellation,
                     &mut |palette| {
+                        // LLM: Associate each occurrence with its available outputs before
+                        // LLM: checking a whole configuration.
                         let positions: Vec<_> = inputs
                             .iter()
                             .zip(palette)
@@ -155,6 +202,8 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                                     .clone()
                             })
                             .collect();
+                        // LLM: Check whether these local output domains can jointly realize
+                        // LLM: some valid active configuration.
                         if !allows_positions_with(
                             self.problem.output().active(),
                             &positions,
@@ -163,18 +212,26 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                             failed = Some((context, palette.to_vec()));
                             return Ok(false);
                         }
+                        // LLM: Return the result of this completed search or conversion to its
+                        // LLM: caller.
                         Ok(true)
                     },
                 )? {
                     break;
                 }
             }
+            // LLM: Require a whole valid active output by matching available per-port choices
+            // LLM: to condensed part capacities.
             if let Some((context, palette)) = failed {
+                // LLM: Handle this condition before continuing with the remaining search
+                // LLM: alternatives.
                 if !self.encoded.insert((context, palette.clone())) {
                     anyhow::bail!("Active matching encoding disagrees with coloring verification.");
                 }
                 let input = &self.active_inputs[context];
                 let inputs = port_inputs(input);
+                // LLM: Associate each occurrence with its available outputs before checking a
+                // LLM: whole configuration.
                 let positions: Vec<_> = inputs
                     .iter()
                     .zip(&palette)
@@ -182,11 +239,15 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                         self.memberships[color as usize][input_index(input)].clone()
                     })
                     .collect();
+                // LLM: Prepare activation gates so cached clauses remain usable when the
+                // LLM: palette changes.
                 let enabled: BTreeSet<_> = palette
                     .iter()
                     .map(|&color| self.enabled[color as usize])
                     .collect();
                 computation.report(Phase::Encoding, self.iterations)?;
+                // LLM: Require a whole valid active output by matching available per-port
+                // LLM: choices to condensed part capacities.
                 encode_constraint(
                     &mut self.formula,
                     self.problem.output().active(),
@@ -196,10 +257,18 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                 )?;
                 continue;
             }
+            // LLM: Collect available outputs with their input/color descriptors and source
+            // LLM: provenance.
             let mut emissions = Vec::new();
             for (color, behavior) in self.memberships[..colors as usize].iter().enumerate() {
+                // LLM: Visit the color placements required by the auxiliary promise while
+                // LLM: retaining original input context.
                 for (&input, choices) in self.inputs.iter().zip(behavior) {
+                    // LLM: Visit the color placements required by the auxiliary promise while
+                    // LLM: retaining original input context.
                     for choice in choices {
+                        // LLM: Use the stored state for this operation without exposing
+                        // LLM: mutable representation details.
                         self.formula.check()?;
                         if self.formula.solver.lit_val(choice.literal)? == TernaryVal::True {
                             emissions.push(Emission {
@@ -211,6 +280,8 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                     }
                 }
             }
+            // LLM: Preserve the violation or conflict needed to reject an invalid search
+            // LLM: branch.
             let mut forbidden = None;
             prepare::passive_families(
                 &self.passive_inputs,
@@ -218,6 +289,8 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                 colors,
                 &computation.cancellation,
                 &mut |family| {
+                    // LLM: Find the emission origins of a passive violation so refinement
+                    // LLM: blocks that simultaneous choice.
                     forbidden = forbidden_combination(
                         self.problem.output().passive(),
                         std::slice::from_ref(family),
@@ -228,7 +301,11 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                     Ok(forbidden.is_none())
                 },
             )?;
+            // LLM: Add the necessary SAT restriction; a refinement clause forbids the selected
+            // LLM: violating combination.
             if let Some(sources) = forbidden {
+                // LLM: Add the necessary SAT restriction; a refinement clause forbids the
+                // LLM: selected violating combination.
                 self.formula.add_clause(
                     &sources
                         .into_iter()
@@ -237,6 +314,8 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                 )?;
                 continue;
             }
+            // LLM: Return the complete strategy certificate after all required contexts have
+            // LLM: been covered.
             return Ok(Some(witness));
         }
     }

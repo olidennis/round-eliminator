@@ -2,6 +2,7 @@
 import type { LocalRule } from "./LocalRule";
 
 /**
- * A zero round algorithm is just a vector of local rules
+ * LLM: Either a complete deterministic active-side zero-round strategy, expressed as local
+ * LLM: rules, or a proof that none exists under the problem's input promise and graph class.
  */
 export type ZeroRoundResult = { "status": "solvable", strategy: Array<LocalRule>, } | { "status": "unsolvable" };

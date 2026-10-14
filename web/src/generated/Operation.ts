@@ -5,6 +5,8 @@ import type { PaletteSearch } from "./PaletteSearch";
 import type { PassiveMode } from "./PassiveMode";
 
 /**
- * An action on a supplied snapshot. Cache selection belongs to Rust.
+ * LLM: One requested computation on a problem snapshot. Options select semantics; Rust
+ * LLM: chooses applicable cached artifacts instead of requiring the UI to assemble
+ * LLM: algorithm-specific inputs.
  */
 export type Operation = { "type": "maximize" } | { "type": "apply_re" } | { "type": "basic_fixed_point" } | { "type": "compute_diagram", "data": { options: DiagramOptions, } } | { "type": "check_zero_round", "data": { passive_mode: PassiveMode, } } | { "type": "check_coloring", "data": { kind: ColoringKind, search: PaletteSearch, passive_mode: PassiveMode, } };

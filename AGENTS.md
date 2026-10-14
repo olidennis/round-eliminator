@@ -11,6 +11,20 @@ the user's Mac. Git worktree repairs may rewrite this pointer; restore it to
 
 ## Goal and scope
 
+- Every newly written code comment line must start with `LLM: ` after its
+  comment marker. Rust forms are `// LLM: ...`, `/// LLM: ...`, and `//! LLM: ...`.
+  Apply this to production code, tests, benchmarks, and retained prototypes.
+  Explain each type's stored data and semantics, each function's purpose and
+  intended callers, and the high-level ideas of logical blocks inside functions
+  (roughly 3–10 lines where useful). Preserve this convention in future edits.
+  When editing already commented code, update the affected comments to reflect
+  the changes. If an affected comment lacks `LLM: `, add the tag to every line
+  when updating it. Keep already attributed comments accurate as well.
+- The user deferred the remaining algorithmic investigations on 2026-10-14:
+  lazy active-input obligations, direct unbounded-certificate verification,
+  avoiding large exact diagram input/output products, compact diagram storage,
+  and the remaining encoding/scheduling/lattice tuning. Do not start them until
+  explicitly requested.
 - Build readable, fast, idiomatic Rust, with coherent modules, tests, and comments.
 - Keep abstractions few and justified, but leave room for all old GUI features and future features.
 - After each substantive edit, assess whether the code still belongs in its
@@ -1908,3 +1922,22 @@ zero-round UI also pass without page errors. Test server stopped at completion.
 Earlier interim task notes are historical; session18423 and all benchmark jobs
 are complete. Do not rerun full serial Basic casually: eight calls took~3minutes.
 No agents, commits or pushes; preserve preceding overlap work/dirty documents.
+
+## Attributed Rust documentation completed (2026-10-14)
+
+The user requested replacing every Rust comment and documenting types, functions,
+and logical stages inside functions. All 132 repository Rust source files were
+covered, including tests, benchmark prototypes, and historical kernel snapshots.
+Every Rust comment line now has the `LLM: ` attribution. Public type documentation
+also propagates into generated TypeScript bindings; their shapes are unchanged.
+An audit compared syntax with comments removed and confirmed unchanged executable
+Rust tokens in every file. All parsed type/function declarations have doc comments,
+and every function body has an explanatory comment. Macro-emitted benchmark
+helpers were checked separately because the parser sees them as token trees.
+
+Benchmark instrumentation now removes attributed comments in temporary copies
+before matching source patches; former comment anchors use executable statements.
+Nine benchmark preparation paths completed without rerunning measurements.
+Verified 181 workspace tests, the wasm target check, frontend typecheck, formatting,
+and comment-prefix/source-preservation audits. Keep the prefix convention in future
+edits. Remaining algorithmic investigations are explicitly deferred by the user.

@@ -4,8 +4,8 @@ import type { InputOutputLabel } from "./InputOutputLabel";
 import type { LabelId } from "./LabelId";
 
 /**
- * A complete result for the submitted problem snapshot, not a replacement
- * problem. IDs refer to that problem's name tables. Cancelled work returns no
- * result. Joint maximality must not be mistaken for output-only maximality.
+ * LLM: A completed passive maximum of the submitted snapshot, separate from the original
+ * LLM: problem. Output-only maxima certify ordinary output families; joint maxima certify
+ * LLM: permitted input/output rectangles and cannot certify output-only maximality.
  */
 export type MaximizationResult = { "kind": "output_only", "constraint": Constraint<LabelId> } | { "kind": "input_output", "constraint": Constraint<InputOutputLabel> };

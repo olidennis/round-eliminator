@@ -2,4 +2,8 @@
 import type { Diagram } from "./Diagram";
 import type { DiagramOptions } from "./DiagramOptions";
 
+/**
+ * LLM: The computed diagram paired with the effective options that produced it. The options
+ * LLM: identify the artifact when storing or reusing it in client-owned analysis state.
+ */
 export type DiagramResult = { options: DiagramOptions, diagram: Diagram, };

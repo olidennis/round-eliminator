@@ -46,10 +46,10 @@ def prepare_packed(directory):
             .map(|value| value.parse::<usize>().unwrap()).unwrap_or(worker_count());
         let chunk_size = count.div_ceil(workers);''')
     parallel = algorithms / "parallel.rs"
-    replace(parallel, "            // Rayon splits and steals ranges", '''            let minimum = if count >= 512 {
+    replace(parallel, "            scope.spawn(move |_| {", '''            let minimum = if count >= 512 {
                 std::env::var("RE_PROFILE_GRAIN").ok().map(|value| value.parse::<usize>().unwrap()).unwrap_or(minimum)
             } else { minimum };
-            // Rayon splits and steals ranges''')
+            scope.spawn(move |_| {''')
     replace(parallel, ".with_max_len(128)", ".with_max_len(128.max(minimum))")
     manifest = directory / "Cargo.toml"
     manifest.write_text(manifest.read_text().replace("re-cpu-", "re-packed-"))

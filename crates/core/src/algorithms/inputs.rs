@@ -1,23 +1,30 @@
-//! Original input configurations shared by diagram and solvability analyses.
+//! LLM: Original input configurations shared by diagram and solvability analyses.
+
 use crate::algorithms::configurations::concrete_multisets_with;
 use crate::computation::{Cancellation, Cancelled};
 use crate::model::{CondensedConfiguration, Input, LabelId, LabelSet, Part, Problem};
 
+/// LLM: One active-node input context at a specified degree. `Some(labels)` is the canonical
+/// LLM: occurrence vector of an explicit input multiset; `None` represents trivial input
+/// LLM: without allocating dummy occurrences.
 pub(crate) struct LocalInput {
     pub degree: u32,
     pub labels: Option<Vec<LabelId>>,
 }
 
-/// Canonical sorted multisets suffice because constraints are invariant under
-/// port permutations. A strategy may still distinguish repeated occurrences
-/// using local port order, and may depend on the entire multiset.
+/// LLM: Prepare canonical active input multisets at the declared degrees, or one implicit
+/// LLM: context per degree for trivial input. Shared by solvability encodings and witness
+/// LLM: checks.
 pub(crate) fn active_inputs(
     problem: &Problem,
     cancellation: &Cancellation,
 ) -> Result<Vec<LocalInput>, Cancelled> {
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     cancellation.check()?;
     Ok(match problem.input() {
         Input::Explicit(input) => {
+            // LLM: Delegate to the common implementation so this entry point shares its
+            // LLM: semantics and checks.
             concrete_multisets_with(input.active(), problem.graph_class().active(), cancellation)?
                 .into_iter()
                 .map(|input| LocalInput {
@@ -38,22 +45,27 @@ pub(crate) fn active_inputs(
     })
 }
 
-/// Extract the possible input configurations from the passive constraint.
-/// Configurations are kept condensed.
-/// We will use these condensed input configurations to construct the possible
-/// output configurations that a candidate strategy could create on the passive side,
-/// by replacing each input label with all possible output labels mapped to it.
+/// LLM: Extract passive input families at the declared degrees and retain their condensed
+/// LLM: parts. Shared by diagrams, maximization, solvability, and verification; `None`
+/// LLM: represents trivial input.
 pub(crate) fn prepare_passive_inputs(
     problem: &Problem,
     cancellation: &Cancellation,
 ) -> Result<Vec<CondensedConfiguration<Option<LabelId>>>, Cancelled> {
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     cancellation.check()?;
     let graph = problem.graph_class();
     let mut configurations = Vec::new();
+    // LLM: Select the representation path that preserves the supplied input promise and
+    // LLM: incidence permissions.
     match problem.input() {
         Input::Explicit(input) => {
+            // LLM: Process each condensed part without expanding its repeated occurrences.
             for &degree in graph.passive() {
+                // LLM: Process each condensed part without expanding its repeated occurrences.
                 for configuration in input.passive().configurations_at_degree(degree) {
+                    // LLM: Observe cooperative interruption before continuing this unit of
+                    // LLM: work.
                     cancellation.check()?;
                     configurations.push(
                         CondensedConfiguration::new(
@@ -75,7 +87,9 @@ pub(crate) fn prepare_passive_inputs(
             }
         }
         Input::Trivial => {
+            // LLM: Process the relevant label choices while preserving their table identities.
             for &degree in graph.passive() {
+                // LLM: Observe cooperative interruption before continuing this unit of work.
                 cancellation.check()?;
                 configurations.push(
                     CondensedConfiguration::new(vec![
@@ -86,5 +100,6 @@ pub(crate) fn prepare_passive_inputs(
             }
         }
     }
+    // LLM: Return the result of this completed search or conversion to its caller.
     Ok(configurations)
 }

@@ -2,6 +2,7 @@
 import type { Field } from "./Field";
 
 /**
- * A text-entry location. Line numbers are one-based; None refers to the whole field.
+ * LLM: A parsing location identified by editor field and optional one-based line number. No
+ * LLM: line means the whole field rather than an individual row.
  */
 export type Location = { field: Field, line: number | null, };

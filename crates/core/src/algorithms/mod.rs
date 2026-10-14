@@ -1,4 +1,4 @@
-//! Analyses and transformations of validated problem definitions.
+//! LLM: Analyses and transformations of validated problem definitions.
 
 pub mod configurations;
 pub mod diagram;

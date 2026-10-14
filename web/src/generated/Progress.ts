@@ -3,10 +3,12 @@ import type { Phase } from "./Phase";
 import type { WorkProgress } from "./WorkProgress";
 
 /**
- * Progress stores what we are doing, and some other special parameters, like how many steps we did
+ * LLM: A snapshot of the current computation phase and phase-dependent iteration count,
+ * LLM: optionally with a known work total. This reports execution status, separately from
+ * LLM: proved coloring bounds.
  */
 export type Progress = { phase: Phase, iterations: number,
 /**
- * Absent when the remaining work is unknown, for example SAT search.
+ * LLM: Absent when the remaining work is unknown, for example SAT search.
  */
 work?: WorkProgress, };

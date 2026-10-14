@@ -2,9 +2,8 @@
 import type { LabelId } from "./LabelId";
 
 /**
- * A set of labels (or of L), stored in increasing order without duplicates.
- *
- * Set operations preserve this invariant. The storage is private so algorithms
- * can use set semantics without depending on its representation.
+ * LLM: A mathematical set backed by a sorted vector with no duplicates. Most problem sets
+ * LLM: contain label IDs; generic algorithms can store other ordered values. Set operations
+ * LLM: preserve canonical storage, and JSON represents it as an array.
  */
 export type LabelSet<L = LabelId> = Array<L>;

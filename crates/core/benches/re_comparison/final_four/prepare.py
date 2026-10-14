@@ -12,10 +12,12 @@ HERE = Path(__file__).resolve().parent
 DRIVER = HERE.parent
 ROOT = DRIVER.parents[3]
 BASE = DRIVER / "investigation/baseline/2026-10-13/final-four"
+sys.path.insert(0, str(DRIVER))
+from investigate import patch_source
 
 
 def replace(path, old, new):
-    text = path.read_text()
+    text = patch_source(path.read_text())
     assert text.count(old) == 1, (path, old, text.count(old))
     path.write_text(text.replace(old, new))
 

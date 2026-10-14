@@ -3,7 +3,8 @@ import type { ConstraintText } from "./ConstraintText";
 import type { DegreeText } from "./DegreeText";
 
 /**
- * For each possible problem type,
- * we receive different text fields.
+ * LLM: The four supported text-entry forms and their associated editor fields. Parsing
+ * LLM: converts each form to the single canonical mapped problem; this enum is not an
+ * LLM: algorithm-facing representation.
  */
 export type ProblemText = { "kind": "plain", constraints: ConstraintText, degrees: DegreeText, } | { "kind": "independent", input: ConstraintText, output: ConstraintText, degrees: DegreeText, } | { "kind": "paired", constraints: ConstraintText, degrees: DegreeText, } | { "kind": "mapped", input: ConstraintText, output: ConstraintText, mapping: string, degrees: DegreeText, };

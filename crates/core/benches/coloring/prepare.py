@@ -3,8 +3,11 @@
 import argparse
 from pathlib import Path
 import shutil
+import sys
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / 're_comparison'))
+from investigate import patch_source
 parser = argparse.ArgumentParser()
 parser.add_argument('destination', type=Path)
 parser.add_argument('--variant', choices=['baseline', 'symmetry', 'batch', 'symmetry-batch', 'batsat', 'eager', 'symmetry-eager', 'probes', 'symmetry-eager-probes', 'grouped', 'symmetry-eager-grouped'], default='baseline')
@@ -20,6 +23,8 @@ for name, relative in [('encoding.rs', 'solvability/coloring/encoding.rs'),
                        ('distance_two.rs', 'solvability/coloring/distance_two.rs'),
                        ('passive.rs', 'solvability/passive.rs'), ('sat.rs', 'sat.rs')]:
     shutil.copyfile(HERE / 'baseline' / name, core / 'src/algorithms' / relative)
+for source_path in (core / 'src').rglob('*.rs'):
+    source_path.write_text(patch_source(source_path.read_text()))
 # The surrounding API now accepts cached artifacts. Historical probes always
 # use fresh snapshots; these adapters retain the original uncached kernels.
 for filename, local_color in [('encoding.rs', True), ('distance_two.rs', False)]:

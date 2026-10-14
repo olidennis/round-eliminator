@@ -1,26 +1,38 @@
 use super::*;
 use crate::model::LabelId;
 
+/// LLM: Build active/passive editor text for parser fixtures. Used by parser tests to exercise
+/// LLM: the same entry envelope as the UI.
 fn text(active: &str, passive: &str) -> ConstraintText {
+    // LLM: Update the current working state before continuing this operation.
     ConstraintText {
         active: active.into(),
         passive: passive.into(),
     }
 }
 
+/// LLM: Build a plain text-entry envelope with omitted graph degrees. Used by parser tests to
+/// LLM: exercise inferred degrees.
 fn plain(active: &str, passive: &str) -> ProblemText {
+    // LLM: Update the current working state before continuing this operation.
     ProblemText::Plain {
         constraints: text(active, passive),
         degrees: DegreeText::default(),
     }
 }
 
+/// LLM: Regression test: verify that existing notation shares labels and preserves degree
+/// LLM: groups. Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn existing_notation_shares_labels_and_preserves_degree_groups() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(plain("M U^9\nP^10\n(foo) A", "M UP^9\nU^10")).unwrap();
     assert_eq!(problem.output().labels(), ["M", "U", "P", "foo", "A"]);
     assert_eq!(problem.graph_class().active(), [2, 10]);
     assert_eq!(problem.graph_class().passive(), [10]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         problem.output().active().degrees()[1]
             .configurations()
@@ -28,6 +40,8 @@ fn existing_notation_shares_labels_and_preserves_degree_groups() {
         2
     );
     let choices = &problem.output().passive().degrees()[0].configurations()[0].parts()[1];
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         choices.labels(),
         &LabelSet::new(vec![LabelId(1), LabelId(2)])
@@ -35,8 +49,12 @@ fn existing_notation_shares_labels_and_preserves_degree_groups() {
     assert_eq!(choices.multiplicity(), 9);
 }
 
+/// LLM: Regression test: verify that explicit degrees are separate from configuration degrees.
+/// LLM: Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn explicit_degrees_are_separate_from_configuration_degrees() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Plain {
         constraints: text("A\nA^3", "A^2"),
         degrees: DegreeText {
@@ -45,13 +63,20 @@ fn explicit_degrees_are_separate_from_configuration_degrees() {
         },
     })
     .unwrap();
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(problem.graph_class().active(), [1, 4]);
     assert_eq!(problem.graph_class().passive(), [2]);
     assert_eq!(problem.output().inferred_graph_class().active(), [1, 3]);
 }
 
+/// LLM: Regression test: verify that independent defaults come only from input and alphabets
+/// LLM: are separate. Used by the test suite to protect this behavior while implementations
+/// LLM: change.
 #[test]
 fn independent_defaults_come_only_from_input_and_alphabets_are_separate() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Independent {
         input: text("a\na^3", "b^2"),
         output: text("b^4", "a"),
@@ -60,23 +85,33 @@ fn independent_defaults_come_only_from_input_and_alphabets_are_separate() {
     .unwrap();
     assert_eq!(problem.graph_class().active(), [1, 3]);
     assert_eq!(problem.graph_class().passive(), [2]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(explicit(&problem).labels(), ["a", "b"]);
     assert_eq!(problem.output().labels(), ["b", "a"]);
 }
 
+/// LLM: Regression test: verify that paired notation projects inputs and deduplicates pairs.
+/// LLM: Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn paired_notation_projects_inputs_and_deduplicates_pairs() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Paired {
         degrees: DegreeText::default(),
         constraints: text("(red,X)(red,Y)(red,X)^2\n(blue,Y)", "(red,Y)(blue,X)"),
     })
     .unwrap();
     assert_eq!(explicit(&problem).labels(), ["red", "blue"]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         problem.output().labels(),
         ["red,X", "red,Y", "blue,X", "blue,Y"]
     );
     assert_eq!(explicit(&problem).inferred_graph_class().active(), [1, 2]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         problem.graph_class(),
         &explicit(&problem).inferred_graph_class()
@@ -85,11 +120,17 @@ fn paired_notation_projects_inputs_and_deduplicates_pairs() {
     assert_eq!(parts[0].labels().len(), 2);
     let projected = &explicit(&problem).active().degrees()[1].configurations()[0].parts()[0];
     assert_eq!(projected.labels().len(), 1);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(projected.multiplicity(), 2);
 }
 
+/// LLM: Regression test: verify that mapped problems accept empty output sets and mapping only
+/// LLM: labels. Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn mapped_problems_accept_empty_output_sets_and_mapping_only_labels() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Mapped {
         input: text("(red)\n(blue)^3", "(blue)^2"),
         output: text("X^4", "X"),
@@ -98,17 +139,25 @@ fn mapped_problems_accept_empty_output_sets_and_mapping_only_labels() {
     })
     .unwrap();
     assert_eq!(problem.graph_class().active(), [1, 3]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(problem.graph_class().passive(), [2]);
     assert_eq!(problem.output().labels(), ["X", "Yellow"]);
     assert_eq!(restricted(&problem)[0].len(), 2);
     assert!(restricted(&problem)[1].is_empty());
 }
 
+/// LLM: Regression test: verify that empty outputs and degree zero are representable. Used by
+/// LLM: the test suite to protect this behavior while implementations change.
 #[test]
 fn empty_outputs_and_degree_zero_are_representable() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(plain("()", "")).unwrap();
     assert_eq!(problem.graph_class().active(), [0]);
     assert!(problem.graph_class().passive().is_empty());
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Independent {
         input: text("a^3", "a^2"),
         output: text("", ""),
@@ -119,9 +168,15 @@ fn empty_outputs_and_degree_zero_are_representable() {
     assert!(problem.output().active().degrees().is_empty());
 }
 
+/// LLM: Regression test: verify that invalid notation reports the editor and line. Used by the
+/// LLM: test suite to protect this behavior while implementations change.
 #[test]
 fn invalid_notation_reports_the_editor_and_line() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for invalid in ["A*", "A^", "(missing", "A^4294967296", "A^4294967295 B"] {
+        // LLM: Prepare `error` for the following computation; it stores the error for this
+        // LLM: stage.
         let error = parse_problem(plain("A", &format!("A\n{invalid}"))).unwrap_err();
         assert_eq!(
             error.location,
@@ -131,6 +186,7 @@ fn invalid_notation_reports_the_editor_and_line() {
             })
         );
     }
+    // LLM: Prepare `error` for the following computation; it stores the error for this stage.
     let error = parse_problem(ProblemText::Independent {
         input: text("a*", "a"),
         output: text("A", "A"),
@@ -139,7 +195,11 @@ fn invalid_notation_reports_the_editor_and_line() {
     .unwrap_err();
     assert_eq!(error.location.unwrap().field, Field::InputActive);
 
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for pair in ["(a)", "(,X)", "(a,)", "(a,X,Y)", "(a,X", "(a,X)*", "a,X"] {
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert!(
             parse_problem(ProblemText::Paired {
                 degrees: DegreeText::default(),
@@ -151,9 +211,15 @@ fn invalid_notation_reports_the_editor_and_line() {
     }
 }
 
+/// LLM: Regression test: verify that mapping errors have mapping locations. Used by the test
+/// LLM: suite to protect this behavior while implementations change.
 #[test]
 fn mapping_errors_have_mapping_locations() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for mapping in ["a -> A", "a -> A\na -> B\nb -> A", "ab -> A", "a A"] {
+        // LLM: Prepare `error` for the following computation; it stores the error for this
+        // LLM: stage.
         let error = parse_problem(ProblemText::Mapped {
             input: text("a b", "ab"),
             output: text("A", "A"),
@@ -165,8 +231,12 @@ fn mapping_errors_have_mapping_locations() {
     }
 }
 
+/// LLM: Regression test: verify that mapping delimiters respect parenthesized names. Used by
+/// LLM: the test suite to protect this behavior while implementations change.
 #[test]
 fn mapping_delimiters_respect_parenthesized_names() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Mapped {
         input: text("(α->β)", "(α->β)"),
         output: text("(X->Y)", "(X->Y)"),
@@ -175,9 +245,12 @@ fn mapping_delimiters_respect_parenthesized_names() {
     })
     .unwrap();
     assert_eq!(explicit(&problem).labels(), ["α->β"]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(problem.output().labels(), ["X->Y"]);
     assert_eq!(restricted(&problem)[0], LabelSet::new(vec![LabelId(0)]));
 
+    // LLM: Prepare `error` for the following computation; it stores the error for this stage.
     let error = parse_problem(ProblemText::Mapped {
         input: text("a", "a"),
         output: text("A", "A"),
@@ -188,9 +261,15 @@ fn mapping_delimiters_respect_parenthesized_names() {
     assert_eq!(error.location.unwrap().field, Field::Mapping);
 }
 
+/// LLM: Regression test: verify that invalid degrees are errors. Used by the test suite to
+/// LLM: protect this behavior while implementations change.
 #[test]
 fn invalid_degrees_are_errors() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for degrees in ["-1", "1.5", "*", "4294967296", ","] {
+        // LLM: Prepare `error` for the following computation; it stores the error for this
+        // LLM: stage.
         let error = parse_problem(ProblemText::Plain {
             constraints: text("A", "A"),
             degrees: DegreeText {
@@ -199,14 +278,19 @@ fn invalid_degrees_are_errors() {
             },
         })
         .unwrap_err();
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert_eq!(error.location.unwrap().field, Field::ActiveDegrees);
     }
 }
 
+/// LLM: Regression test: verify that paired degrees can be explicit or inferred on each side.
+/// LLM: Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn paired_degrees_can_be_explicit_or_inferred_on_each_side() {
-    // Omitted degrees remain valid in the JSON protocol, including degree zero
-    // and empty constraints. Inference resolves each side independently.
+    // LLM: Omitted degrees remain valid in the JSON protocol, including degree zero
+    // LLM: and empty constraints. Inference resolves each side independently.
+
     for (degrees, active, passive) in [
         (serde_json::json!(null), vec![0, 1, 2], vec![2]),
         (serde_json::json!({"active": "4, 1 4"}), vec![1, 4], vec![2]),
@@ -217,6 +301,8 @@ fn paired_degrees_can_be_explicit_or_inferred_on_each_side() {
             vec![3],
         ),
     ] {
+        // LLM: Prepare `request` for the following computation; it stores the request for this
+        // LLM: stage.
         let mut request = serde_json::json!({
             "kind": "paired",
             "constraints": {"active": "(a,X)^0..2", "passive": "(a,X)^2"},
@@ -225,15 +311,19 @@ fn paired_degrees_can_be_explicit_or_inferred_on_each_side() {
             request["degrees"] = degrees;
         }
         let problem = parse_problem(serde_json::from_value(request).unwrap()).unwrap();
+        // LLM: Check the expected result and invariants for this fixture, including the
+        // LLM: relevant edge case.
         assert_eq!(problem.graph_class().active(), active);
         assert_eq!(problem.graph_class().passive(), passive);
-        // Explicit restrictions do not remove configurations or change the promise.
+        // LLM: Explicit restrictions do not remove configurations or change the promise.
+
         assert_eq!(
             explicit(&problem).inferred_graph_class().active(),
             [0, 1, 2]
         );
         assert_eq!(problem.output().active().configurations().count(), 3);
     }
+    // LLM: Prepare `empty` for the following computation; it stores the empty for this stage.
     let empty = parse_problem(ProblemText::Paired {
         constraints: text("", "()"),
         degrees: DegreeText::default(),
@@ -243,9 +333,15 @@ fn paired_degrees_can_be_explicit_or_inferred_on_each_side() {
     assert_eq!(empty.graph_class().passive(), [0]);
 }
 
+/// LLM: Regression test: verify that invalid paired degrees identify the degree field. Used by
+/// LLM: the test suite to protect this behavior while implementations change.
 #[test]
 fn invalid_paired_degrees_identify_the_degree_field() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for invalid in ["-1", "1.5", "*", "4294967296", ","] {
+        // LLM: Visit the remaining alternatives for this stage, stopping when the required
+        // LLM: search condition is settled.
         for (degrees, field) in [
             (
                 DegreeText {
@@ -262,6 +358,8 @@ fn invalid_paired_degrees_identify_the_degree_field() {
                 Field::PassiveDegrees,
             ),
         ] {
+            // LLM: Prepare `error` for the following computation; it stores the error for this
+            // LLM: stage.
             let error = parse_problem(ProblemText::Paired {
                 constraints: text("(a,X)", "(a,X)"),
                 degrees,
@@ -272,8 +370,12 @@ fn invalid_paired_degrees_identify_the_degree_field() {
     }
 }
 
+/// LLM: Regression test: verify that exponent ranges expand inclusively and independently.
+/// LLM: Used by the test suite to protect this behavior while implementations change.
 #[test]
 fn exponent_ranges_expand_inclusively_and_independently() {
+    // LLM: Prepare `ranged` for the following computation; it stores the ranged for this
+    // LLM: stage.
     let ranged = parse_problem(plain("AB^1..2 C^2..3", "A^5..8")).unwrap();
     let explicit = parse_problem(plain(
         "AB C^2\nAB^2 C^2\nAB C^3\nAB^2 C^3",
@@ -282,19 +384,28 @@ fn exponent_ranges_expand_inclusively_and_independently() {
     .unwrap();
     assert_eq!(ranged, explicit);
     let problem = ranged;
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(problem.graph_class().active(), [3, 4, 5]);
     assert_eq!(problem.graph_class().passive(), [5, 6, 7, 8]);
     assert_eq!(problem.output().active().configurations().count(), 4);
 }
 
+/// LLM: Regression test: verify that zero and single value exponents preserve model
+/// LLM: invariants. Used by the test suite to protect this behavior while implementations
+/// LLM: change.
 #[test]
 fn zero_and_single_value_exponents_preserve_model_invariants() {
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         parse_problem(plain("A^0..2", "A^2..2")).unwrap(),
         parse_problem(plain("()\nA\nA^2", "A^2")).unwrap(),
     );
     let problem = parse_problem(plain("A^0", "A^0..0 B")).unwrap();
     assert_eq!(problem.graph_class().active(), [0]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert!(
         problem
             .output()
@@ -305,6 +416,8 @@ fn zero_and_single_value_exponents_preserve_model_invariants() {
             .parts()
             .is_empty()
     );
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(problem.graph_class().passive(), [1]);
     assert_eq!(
         problem
@@ -317,11 +430,18 @@ fn zero_and_single_value_exponents_preserve_model_invariants() {
             .len(),
         1
     );
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert!(parse_problem(plain("^0", "")).is_err());
 }
 
+/// LLM: Regression test: verify that input ranges determine degrees for independent and mapped
+/// LLM: problems. Used by the test suite to protect this behavior while implementations
+/// LLM: change.
 #[test]
 fn input_ranges_determine_degrees_for_independent_and_mapped_problems() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for request in [
         ProblemText::Independent {
             input: text("a^1..3", "a^0..1"),
@@ -342,13 +462,19 @@ fn input_ranges_determine_degrees_for_independent_and_mapped_problems() {
     }
 }
 
+/// LLM: Regression test: verify that pair ranges preserve choices and input projection. Used
+/// LLM: by the test suite to protect this behavior while implementations change.
 #[test]
 fn pair_ranges_preserve_choices_and_input_projection() {
+    // LLM: Prepare `ranged` for the following computation; it stores the ranged for this
+    // LLM: stage.
     let ranged = parse_problem(ProblemText::Paired {
         degrees: DegreeText::default(),
         constraints: text("(red,X)(red,Y)^0..2", "(blue,Y)^1..2"),
     })
     .unwrap();
+    // LLM: Prepare `explicit` for the following computation; it stores the explicit for this
+    // LLM: stage.
     let explicit = parse_problem(ProblemText::Paired {
         degrees: DegreeText::default(),
         constraints: text(
@@ -357,11 +483,17 @@ fn pair_ranges_preserve_choices_and_input_projection() {
         ),
     })
     .unwrap();
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(ranged, explicit);
 }
 
+/// LLM: Regression test: verify that invalid ranges report the source line. Used by the test
+/// LLM: suite to protect this behavior while implementations change.
 #[test]
 fn invalid_ranges_report_the_source_line() {
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for invalid in [
         "A^2..1",
         "A^..2",
@@ -376,6 +508,8 @@ fn invalid_ranges_report_the_source_line() {
         "A^1..2^3",
         "A^1..*",
     ] {
+        // LLM: Prepare `error` for the following computation; it stores the error for this
+        // LLM: stage.
         let error = parse_problem(plain("A", &format!("A\n{invalid}"))).unwrap_err();
         assert_eq!(
             error.location,
@@ -386,35 +520,54 @@ fn invalid_ranges_report_the_source_line() {
             "{invalid}"
         );
     }
-    // A large exponent is valid if the range itself is small and the degree fits.
+    // LLM: A large exponent is valid if the range itself is small and the degree fits.
+
     assert!(parse_problem(plain("A^4294967294..4294967295", "")).is_ok());
 }
 
+/// LLM: Regression test: verify that expansion has no fixed configuration limit. Used by the
+/// LLM: test suite to protect this behavior while implementations change.
 #[test]
 fn expansion_has_no_fixed_configuration_limit() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(plain("A^1..101 B^1..100\n()", "")).unwrap();
     assert_eq!(problem.output().active().configurations().count(), 10_101);
 }
 
+/// LLM: Borrow the explicit input constraint pair from a parsed test problem. Used by parser
+/// LLM: assertions that inspect the retained input promise.
 fn explicit(problem: &Problem) -> &ConstraintPair {
+    // LLM: Select the representation path that preserves the supplied input promise and
+    // LLM: incidence permissions.
     match problem.input() {
         Input::Explicit(input) => input,
         Input::Trivial => panic!("expected explicit inputs"),
     }
 }
 
+/// LLM: Borrow the restricted mapping entries from a parsed test problem. Used by parser
+/// LLM: assertions that inspect permissions after conversion.
 fn restricted(problem: &Problem) -> &[LabelSet] {
+    // LLM: Select the representation path that preserves the supplied input promise and
+    // LLM: incidence permissions.
     match problem.mapping() {
         OutputMapping::Restricted(mapping) => mapping,
         OutputMapping::Unrestricted => panic!("expected a restricted mapping"),
     }
 }
 
+/// LLM: Regression test: verify that plain and independent use compact cases. Used by the test
+/// LLM: suite to protect this behavior while implementations change.
 #[test]
 fn plain_and_independent_use_compact_cases() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(plain("A", "A^2")).unwrap();
     assert_eq!(problem.input(), &Input::Trivial);
     assert_eq!(problem.mapping(), &OutputMapping::Unrestricted);
+    // LLM: Prepare `independent` for the following computation; it stores the independent for
+    // LLM: this stage.
     let independent = parse_problem(ProblemText::Independent {
         input: text("a", "a^2"),
         output: text("A", "A^2"),
@@ -425,14 +578,21 @@ fn plain_and_independent_use_compact_cases() {
     assert_eq!(independent.mapping(), &OutputMapping::Unrestricted);
 }
 
+/// LLM: Regression test: verify that paired conversion retains condensed counts and separate
+/// LLM: pair tags. Used by the test suite to protect this behavior while implementations
+/// LLM: change.
 #[test]
 fn paired_conversion_retains_condensed_counts_and_separate_pair_tags() {
+    // LLM: Prepare `problem` for the following computation; it stores the problem for this
+    // LLM: stage.
     let problem = parse_problem(ProblemText::Paired {
         constraints: text("(a,X)(b,X)^4294967295", "(a,X) (b,X)"),
         degrees: DegreeText::default(),
     })
     .unwrap();
     assert_eq!(problem.output().labels(), ["a,X", "b,X"]);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(
         restricted(&problem),
         [
@@ -440,6 +600,7 @@ fn paired_conversion_retains_condensed_counts_and_separate_pair_tags() {
             LabelSet::new(vec![LabelId(1)])
         ]
     );
+    // LLM: Prepare `parts` for the following computation; it stores the parts for this stage.
     let parts = problem
         .output()
         .active()
@@ -448,6 +609,8 @@ fn paired_conversion_retains_condensed_counts_and_separate_pair_tags() {
         .unwrap()
         .parts();
     assert_eq!(parts.len(), 1);
+    // LLM: Check the expected result and invariants for this fixture, including the relevant
+    // LLM: edge case.
     assert_eq!(parts[0].multiplicity(), u32::MAX);
     assert_eq!(parts[0].labels().len(), 2);
 }

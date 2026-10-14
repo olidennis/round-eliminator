@@ -5,9 +5,9 @@ import type { Input } from "./Input";
 import type { OutputMapping } from "./OutputMapping";
 
 /**
- * A `Problem`. We are given a `graph_class` where we want to solve it,
- * we are promised to be given a valid `input`,
- * and we are required to produce an `output`,
- * that respects the requirements of `mapping`.
+ * LLM: The canonical mathematical problem: a graph class, a promised input solution, required
+ * LLM: output constraints, and per-incidence input/output permissions. All entry forms become
+ * LLM: this representation. Constructors check invariants; deserialization trusts client
+ * LLM: snapshots.
  */
 export type Problem = { graph_class: GraphClass, input: Input, output: ConstraintPair, mapping: OutputMapping, };

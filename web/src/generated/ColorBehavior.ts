@@ -3,8 +3,8 @@ import type { LabelId } from "./LabelId";
 import type { LabelSet } from "./LabelSet";
 
 /**
- * Output sets indexed by the original input label table; trivial input has one
- * implicit entry. A local rule may choose a different valid output for each
- * full local input/color context. Empty sets are allowed for unused inputs.
+ * LLM: The output choices available to one local color, indexed by original input. These sets
+ * LLM: permit a whole valid active configuration to be selected after seeing the full local
+ * LLM: context.
  */
 export type ColorBehavior = { outputs_by_input: Array<LabelSet<LabelId>>, };

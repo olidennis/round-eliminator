@@ -3,4 +3,9 @@ import type { ColoringKind } from "./ColoringKind";
 import type { ColoringResult } from "./ColoringResult";
 import type { PaletteSearch } from "./PaletteSearch";
 
+/**
+ * LLM: A completed coloring result paired with its coloring kind and query. The keys
+ * LLM: distinguish numerical palette decisions, maximum searches, and incompatible kinds of
+ * LLM: coloring.
+ */
 export type CachedColoring = { kind: ColoringKind, search: PaletteSearch, result: ColoringResult, };

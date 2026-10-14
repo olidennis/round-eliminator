@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -13,8 +14,15 @@ ROOT = HERE.parents[3]
 OLD = ROOT.parent / "round-eliminator" / "round-eliminator-lib"
 
 
+def patch_source(text):
+    # LLM: Temporary instrumentation matches executable source, independent of
+    # LLM: the repository's attributed documentation and block explanations.
+    text = re.sub(r"(?m)^[ \t]*//[/!]?[ \t]+LLM: [^\n]*(?:\n|$)", "", text)
+    return re.sub(r"(?m)[ \t]+// LLM: [^\n]*$", "", text)
+
+
 def replace(path, before, after):
-    text = path.read_text()
+    text = patch_source(path.read_text())
     if text.count(before) != 1:
         raise RuntimeError(f"Expected exactly one profiling anchor in {path}: {before[:60]}")
     path.write_text(text.replace(before, after))

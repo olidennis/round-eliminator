@@ -2,8 +2,8 @@
 import type { ColoringWitness } from "./ColoringWitness";
 
 /**
- * Proved palette bounds, streamed after each completed SAT decision and before
- * the next query. `upper` is inclusive; neither cancellation nor a timeout
- * supplies an upper bound. The witness certifies `lower`.
+ * LLM: The local minimum, current tested palette, proved lower/upper bounds, and lower-bound
+ * LLM: witness. The upper bound is inclusive for the maximum; cancellation adds no negative
+ * LLM: proof.
  */
 export type ColoringBounds = { minimum: number, testing: number | null, lower: number | null, upper: number | null, witness: ColoringWitness | null, };

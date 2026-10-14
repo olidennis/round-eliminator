@@ -3,12 +3,17 @@ import type { DiagramKind } from "./DiagramKind";
 import type { InputOutputDiagramMethod } from "./InputOutputDiagramMethod";
 import type { OutputDiagramMethod } from "./OutputDiagramMethod";
 
+/**
+ * LLM: The requested relation kind and its output/joint comparison methods. Only options that
+ * LLM: affect that relation participate in cache equivalence; a compatible computed maximum
+ * LLM: can make a partial occurrence test exact.
+ */
 export type DiagramOptions = { kind: DiagramKind,
 /**
- * Output-only method, also used as the dependency of cheap input-output checks.
+ * LLM: Output-only method, also used as the dependency of cheap input-output checks.
  */
 output: OutputDiagramMethod,
 /**
- * Used only for input-output pairs and input-aware outputs.
+ * LLM: Used only for input-output pairs and input-aware outputs.
  */
 input_output: InputOutputDiagramMethod, };

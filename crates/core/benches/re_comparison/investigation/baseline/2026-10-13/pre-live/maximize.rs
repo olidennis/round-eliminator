@@ -1,6 +1,6 @@
-//! Complete passive maxima, kept separately from the original problem.
-//! Unrestricted mappings use output sets. Restricted mappings maximize the
-//! condensed joint relation, retaining the original input promise independently.
+//! LLM: Complete passive maxima, kept separately from the original problem.
+//! LLM: Unrestricted mappings use output sets. Restricted mappings maximize the
+//! LLM: condensed joint relation, retaining the original input promise independently.
 
 mod antichain;
 mod combination;
@@ -20,9 +20,9 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// A complete result for the submitted problem snapshot, not a replacement
-/// problem. IDs refer to that problem's name tables. Cancelled work returns no
-/// result. Joint maximality must not be mistaken for output-only maximality.
+/// LLM: A completed passive maximum of the submitted snapshot, separate from the original
+/// LLM: problem. Output-only maxima certify ordinary output families; joint maxima certify
+/// LLM: permitted input/output rectangles and cannot certify output-only maximality.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "kind", content = "constraint", rename_all = "snake_case")]
 pub enum MaximizationResult {
@@ -30,17 +30,26 @@ pub enum MaximizationResult {
     InputOutput(Constraint<InputOutputLabel>),
 }
 
+/// LLM: Compute the passive maximum appropriate to this problem's permissions: ordinary
+/// LLM: outputs for unrestricted mappings, joint input/output rectangles otherwise. Used by
+/// LLM: the API and RE preparation. This wrapper uses a silent fresh context.
 pub fn compute(problem: &Problem) -> anyhow::Result<MaximizationResult> {
+    // LLM: Delegate to the common implementation so this entry point shares its semantics and
+    // LLM: checks.
     compute_with(
         problem,
         &mut Computation::new(Cancellation::default(), &mut |_| {}),
     )
 }
 
+/// LLM: Compute the passive maximum appropriate to this problem's permissions: ordinary
+/// LLM: outputs for unrestricted mappings, joint input/output rectangles otherwise. Used by
+/// LLM: the API and RE preparation. Progress and cancellation use the supplied context.
 pub fn compute_with(
     problem: &Problem,
     computation: &mut Computation<'_>,
 ) -> anyhow::Result<MaximizationResult> {
+    // LLM: Update the current working state before continuing this operation.
     computation.report(Phase::Preparing, 0)?;
     let output = Constraint::new(
         problem
@@ -48,6 +57,7 @@ pub fn compute_with(
             .passive()
             .iter()
             .flat_map(|&d| {
+                // LLM: Update the current working state before continuing this operation.
                 problem
                     .output()
                     .passive()
@@ -57,6 +67,8 @@ pub fn compute_with(
             })
             .collect(),
     );
+    // LLM: Select the representation path that preserves the supplied input promise and
+    // LLM: incidence permissions.
     if matches!(problem.mapping(), OutputMapping::Unrestricted) {
         return Ok(MaximizationResult::OutputOnly(maximize_constraint_with(
             &output,
@@ -64,6 +76,8 @@ pub fn compute_with(
         )?));
     }
     let input = Constraint::new(prepare_passive_inputs(problem, &computation.cancellation)?);
+    // LLM: Align counted input and output parts and retain only permitted joint label
+    // LLM: combinations.
     let joint = product_with(
         &input,
         &output,
@@ -74,20 +88,25 @@ pub fn compute_with(
         },
         &computation.cancellation,
     )?;
+    // LLM: Return the result of this completed search or conversion to its caller.
     Ok(MaximizationResult::InputOutput(maximize_constraint_with(
         &joint,
         computation,
     )?))
 }
 
-/// Normalize working parts without changing model-wide equality or entry order.
-/// The same engine is used for ordinary outputs and temporary joint labels.
+/// LLM: Convert condensed rows to canonical counted algebra values, compute closure, and
+/// LLM: return maximal condensed rows. Shared by ordinary output and joint input/output
+/// LLM: maximization.
 pub fn maximize_constraint_with<L: Copy + Ord + Send + Sync>(
     constraint: &Constraint<L>,
     computation: &mut Computation<'_>,
 ) -> anyhow::Result<Constraint<L>> {
+    // LLM: Prepare `initial` for the following computation; it stores the initial for this
+    // LLM: stage.
     let mut initial = Vec::new();
     for family in constraint.configurations() {
+        // LLM: Observe cooperative interruption before continuing this unit of work.
         computation.cancellation.check()?;
         initial.push(Configuration::new(
             family
@@ -97,6 +116,7 @@ pub fn maximize_constraint_with<L: Copy + Ord + Send + Sync>(
                 .collect(),
         )?);
     }
+    // LLM: Compute exact closure under the selected standard or dual algebra.
     let maximum = maximize_custom_with(
         &initial,
         &SetOperations { allow_empty: false },
@@ -104,7 +124,9 @@ pub fn maximize_constraint_with<L: Copy + Ord + Send + Sync>(
         None,
     )?;
     let mut result = Vec::with_capacity(maximum.len());
+    // LLM: Process each condensed part without expanding its repeated occurrences.
     for configuration in maximum {
+        // LLM: Observe cooperative interruption before continuing this unit of work.
         computation.cancellation.check()?;
         let parts = configuration
             .multiplicities()
@@ -113,6 +135,7 @@ pub fn maximize_constraint_with<L: Copy + Ord + Send + Sync>(
             .collect::<Result<Vec<_>, _>>()?;
         result.push(CondensedConfiguration::new(parts)?);
     }
+    // LLM: Return the result of this completed search or conversion to its caller.
     Ok(Constraint::new(result))
 }
 

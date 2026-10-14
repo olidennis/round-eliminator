@@ -1,4 +1,4 @@
-//! Zero-round strategies using both a promised coloring and the original inputs.
+//! LLM: Zero-round strategies using both a promised coloring and the original inputs.
 
 mod distance_two;
 mod encoding;
@@ -27,19 +27,23 @@ use encoding::PaletteSolver;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// Color placement and the information available to an active node.
-/// Vertex coloring is strong: colors around every passive node are distinct.
+/// LLM: The promise supplied by the auxiliary coloring: vertex/strong hypergraph, graph-edge,
+/// LLM: incidence-edge, or distance-two coloring. Each kind determines which local color
+/// LLM: placements must be supported.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum ColoringKind {
     Vertex,
     GraphEdges,
     IncidenceEdges,
-    /// Proper coloring of the original graph's square. Each active node knows
-    /// its own color and all neighboring colors; passive nodes must have degree 2.
+    /// LLM: Proper coloring of the original graph's square. Each active node knows
+    /// LLM: its own color and all neighboring colors; passive nodes must have degree 2.
     DistanceTwo,
 }
 
+/// LLM: A request to decide one fixed palette or find the maximum supported palette. Maximum
+/// LLM: search can also return an unbounded certificate or report that no locally feasible
+/// LLM: palette works.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PaletteSearch {
@@ -47,25 +51,25 @@ pub enum PaletteSearch {
     Maximum,
 }
 
-/// Output sets indexed by the original input label table; trivial input has one
-/// implicit entry. A local rule may choose a different valid output for each
-/// full local input/color context. Empty sets are allowed for unused inputs.
+/// LLM: The output choices available to one local color, indexed by original input. These sets
+/// LLM: permit a whole valid active configuration to be selected after seeing the full local
+/// LLM: context.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct ColorBehavior {
     pub outputs_by_input: Vec<LabelSet>,
 }
 
-/// Behavior for one own color. Neighbor entries index the neighbor's color;
-/// the diagonal entry has empty output sets because adjacent colors differ.
+/// LLM: The output choices for one own-color row, indexed by neighbor color and original
+/// LLM: input. Endpoint reversal selects the corresponding opposite-direction table on a
+/// LLM: passive degree-two node.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct NeighborColorBehavior {
     pub outputs_by_neighbor: Vec<ColorBehavior>,
 }
 
-/// These sets describe a strategy: choose a whole allowed active configuration
-/// using the relevant sets. Passive validity holds for every such choice.
-/// Behavior at index c belongs to given color c; for NeighborColors this is the
-/// node's own color. The UI displays colors from 1.
+/// LLM: A checkable strategy certificate: local-color output tables, own/neighbor-color
+/// LLM: tables, or smaller/larger order tables for an unbounded distance-two strategy. All
+/// LLM: tables retain original input permissions.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ColoringWitness {
@@ -75,14 +79,17 @@ pub enum ColoringWitness {
     NeighborColors {
         behaviors: Vec<NeighborColorBehavior>,
     },
-    /// The neighbor's color is smaller or larger than the node's own color.
-    /// Both sets retain original input dependence and certify every palette.
+    /// LLM: The neighbor's color is smaller or larger than the node's own color.
+    /// LLM: Both sets retain original input dependence and certify every palette.
     ColorOrder {
         smaller: ColorBehavior,
         larger: ColorBehavior,
     },
 }
 
+/// LLM: A fixed-palette decision, a certified finite maximum, an unbounded strategy, or
+/// LLM: absence of any feasible palette. Positive decisions carry independently checkable
+/// LLM: strategy tables.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ColoringResult {
@@ -98,17 +105,17 @@ pub enum ColoringResult {
         witness: ColoringWitness,
     },
     NoPalette,
-    /// Every locally feasible palette works, using a repeatable local behavior
-    /// or the smaller/larger certificate for visible neighboring colors.
+    /// LLM: Every locally feasible palette works, using a repeatable local behavior
+    /// LLM: or the smaller/larger certificate for visible neighboring colors.
     Unbounded {
         minimum: u32,
         witness: ColoringWitness,
     },
 }
 
-/// Proved palette bounds, streamed after each completed SAT decision and before
-/// the next query. `upper` is inclusive; neither cancellation nor a timeout
-/// supplies an upper bound. The witness certifies `lower`.
+/// LLM: The local minimum, current tested palette, proved lower/upper bounds, and lower-bound
+/// LLM: witness. The upper bound is inclusive for the maximum; cancellation adds no negative
+/// LLM: proof.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct ColoringBounds {
     pub minimum: u32,
@@ -118,8 +125,9 @@ pub struct ColoringBounds {
     pub witness: Option<ColoringWitness>,
 }
 
-/// Borrowed artifacts for one problem and coloring kind, selected by Rust.
-/// This is execution input, not a second serialized problem representation.
+/// LLM: Borrowed applicable proof artifacts for one coloring request: a passive maximum,
+/// LLM: zero-round result, completed same-kind results, and saved numerical bounds. It is a
+/// LLM: query view, not a second serialized problem.
 #[derive(Default)]
 pub struct ColoringCache<'a> {
     pub passive_maximum: Option<&'a crate::algorithms::maximize::MaximizationResult>,
@@ -128,12 +136,17 @@ pub struct ColoringCache<'a> {
     pub bounds: Option<&'a ColoringBounds>,
 }
 
+/// LLM: Decide the requested coloring palette or maximum while retaining original inputs and
+/// LLM: mapping restrictions. Used by the shared API and direct callers; applicable cached
+/// LLM: proofs initialize the search rather than changing the promise.
 pub fn check(
     problem: &Problem,
     kind: ColoringKind,
     search: PaletteSearch,
     mode: PassiveMode,
 ) -> anyhow::Result<ColoringResult> {
+    // LLM: Prepare `progress` for the following computation; it stores the progress for this
+    // LLM: stage.
     let mut progress = |_| {};
     check_with(
         problem,
@@ -145,6 +158,9 @@ pub fn check(
     )
 }
 
+/// LLM: Decide the requested coloring palette or maximum while retaining original inputs and
+/// LLM: mapping restrictions. Used by the shared API and direct callers; applicable cached
+/// LLM: proofs initialize the search rather than changing the promise.
 pub fn check_with(
     problem: &Problem,
     kind: ColoringKind,
@@ -153,6 +169,8 @@ pub fn check_with(
     computation: &mut Computation<'_>,
     on_bounds: &mut dyn FnMut(ColoringBounds),
 ) -> anyhow::Result<ColoringResult> {
+    // LLM: Delegate to the common implementation so this entry point shares its semantics and
+    // LLM: checks.
     check_with_cached(
         problem,
         kind,
@@ -164,7 +182,9 @@ pub fn check_with(
     )
 }
 
-/// Reuse passive maxima and a completed zero-round preflight for this snapshot.
+/// LLM: Decide the requested coloring palette or maximum while retaining original inputs and
+/// LLM: mapping restrictions. Used by the shared API and direct callers; applicable cached
+/// LLM: proofs initialize the search rather than changing the promise.
 pub fn check_with_cached(
     problem: &Problem,
     kind: ColoringKind,
@@ -174,18 +194,28 @@ pub fn check_with_cached(
     computation: &mut Computation<'_>,
     on_bounds: &mut dyn FnMut(ColoringBounds),
 ) -> anyhow::Result<ColoringResult> {
+    // LLM: Establish the feasible bound for this local search before exploring or allocating
+    // LLM: alternatives.
     let maximum = cache.passive_maximum;
     let zero_round = cache.zero_round;
     let minimum = prepare::minimum(problem, kind)?;
+    // LLM: Validate the fixed palette against the coloring promise before applying any cached
+    // LLM: decision.
     if let PaletteSearch::Fixed { colors } = search {
         anyhow::ensure!(
             colors >= minimum,
             "This coloring requires at least {minimum} colors locally."
         );
     }
+    // LLM: Combine completed same-kind proofs before starting another numerical search.
     for result in &cache.results {
+        // LLM: Combine completed same-kind proofs before starting another numerical search.
         if let Some(reused) = reuse_result(search, result, &computation.cancellation)? {
+            // LLM: Combine completed same-kind proofs before starting another numerical
+            // LLM: search.
             if search == PaletteSearch::Maximum {
+                // LLM: Combine completed same-kind proofs before starting another numerical
+                // LLM: search.
                 let bounds = bounds_from_results(
                     minimum,
                     std::iter::once(*result),
@@ -195,9 +225,11 @@ pub fn check_with_cached(
                     publish(&bounds, computation, on_bounds)?;
                 }
             }
+            // LLM: Return the result of this completed search or conversion to its caller.
             return Ok(reused);
         }
     }
+    // LLM: Combine completed same-kind proofs before starting another numerical search.
     let mut bounds = bounds_from_results(
         minimum,
         cache.results.iter().copied(),
@@ -206,13 +238,19 @@ pub fn check_with_cached(
     if let Some(saved) = cache.bounds {
         merge_bounds(&mut bounds, saved);
     }
+    // LLM: Validate the fixed palette against the coloring promise before applying any cached
+    // LLM: decision.
     if let PaletteSearch::Fixed { colors } = search {
+        // LLM: A proved inclusive maximum upper bound rules out this larger palette without
+        // LLM: another SAT query.
         if bounds.upper.is_some_and(|upper| colors > upper) {
             return Ok(ColoringResult::Unsolvable { colors });
         }
+        // LLM: Try deriving this query from a previous completed same-kind proof.
         if let (Some(lower), Some(witness)) = (bounds.lower, &bounds.witness)
             && colors <= lower
         {
+            // LLM: Try deriving this query from a previous completed same-kind proof.
             return Ok(reuse_result(
                 search,
                 &ColoringResult::Solvable {
@@ -224,37 +262,47 @@ pub fn check_with_cached(
             .expect("restriction of a proved palette"));
         }
     }
+    // LLM: Return early only when the proved interval already determines the answer.
     if search == PaletteSearch::Maximum
         && let Some(result) = maximum_from_bounds(&bounds)
     {
         publish(&bounds, computation, on_bounds)?;
         return Ok(result);
     }
+    // LLM: Turn the color-independent strategy into a certificate that ignores auxiliary
+    // LLM: colors.
     if let Some(zero_round) = zero_round
         && let Some(result) =
             reuse::from_zero_round(problem, kind, search, zero_round, &computation.cancellation)?
     {
         return Ok(result);
     }
+    // LLM: Search the current formula and distinguish SAT, UNSAT, and interruption.
     if kind == ColoringKind::DistanceTwo {
+        // LLM: Handle this condition before continuing with the remaining search alternatives.
         if search == PaletteSearch::Maximum
             && bounds.upper.is_none()
             && let Some(witness) = order::check_with(problem, mode, computation)?
         {
             return Ok(ColoringResult::Unbounded { minimum, witness });
         }
+        // LLM: Prepare the numerical own/neighbor solver only after the order-based unbounded
+        // LLM: preflight has failed.
         let mut solver = distance_two::PaletteSolver::new_with_maximum(
             problem,
             backend(&computation.cancellation),
             maximum,
             computation,
         )?;
+        // LLM: Validate the fixed palette against the coloring promise before applying any
+        // LLM: cached decision.
         if let PaletteSearch::Fixed { colors } = search {
             return Ok(match solver.solve(colors, mode, computation)? {
                 Some(witness) => ColoringResult::Solvable { colors, witness },
                 None => ColoringResult::Unsolvable { colors },
             });
         }
+        // LLM: Search the current formula and distinguish SAT, UNSAT, and interruption.
         return search_maximum(
             bounds,
             computation,
@@ -262,13 +310,16 @@ pub fn check_with_cached(
             &mut |colors, computation| solver.solve(colors, mode, computation),
         );
     }
+    // LLM: Turn the color-independent strategy into a certificate that ignores auxiliary
+    // LLM: colors.
     if search == PaletteSearch::Maximum && bounds.upper.is_none() {
-        // A color-independent strategy supplies a repeatable behavior. Conversely,
-        // with finite labels, inputs and degrees, there are finitely many behavior
-        // vectors. Arbitrarily large palettes contain enough equal vectors to
-        // cover every active/passive degree and hence give a color-independent
-        // strategy. This proves the remaining maximum search terminates; there
-        // is no heuristic palette cutoff.
+        // LLM: A color-independent strategy supplies a repeatable behavior. Conversely,
+        // LLM: with finite labels, inputs and degrees, there are finitely many behavior
+        // LLM: vectors. Arbitrarily large palettes contain enough equal vectors to
+        // LLM: cover every active/passive degree and hence give a color-independent
+        // LLM: strategy. This proves the remaining maximum search terminates; there
+        // LLM: is no heuristic palette cutoff.
+
         let computed;
         let zero_round = match zero_round {
             Some(result) => result,
@@ -277,12 +328,16 @@ pub fn check_with_cached(
                 &computed
             }
         };
+        // LLM: Turn the color-independent strategy into a certificate that ignores auxiliary
+        // LLM: colors.
         if let Some(result) =
             reuse::from_zero_round(problem, kind, search, zero_round, &computation.cancellation)?
         {
             return Ok(result);
         }
     }
+    // LLM: Keep one local-color incremental solver for all unproved numerical palettes in this
+    // LLM: request.
     let mut solver = PaletteSolver::new_with_maximum(
         problem,
         kind,
@@ -290,12 +345,15 @@ pub fn check_with_cached(
         maximum,
         computation,
     )?;
+    // LLM: Validate the fixed palette against the coloring promise before applying any cached
+    // LLM: decision.
     if let PaletteSearch::Fixed { colors } = search {
         return Ok(match solver.solve(colors, mode, computation)? {
             Some(witness) => ColoringResult::Solvable { colors, witness },
             None => ColoringResult::Unsolvable { colors },
         });
     }
+    // LLM: Search the current formula and distinguish SAT, UNSAT, and interruption.
     search_maximum(
         bounds,
         computation,
@@ -304,30 +362,34 @@ pub fn check_with_cached(
     )
 }
 
-/// Solvability is downward closed: restrict a strategy to a smaller palette.
-/// Call only after ruling out unbounded solvability with a complete certificate.
-/// Try consecutive palettes: larger jumps reduce the query count but can make
-/// color-placement enumeration and SAT search much more expensive. The first
-/// UNSAT query proves that the preceding SAT palette is the maximum.
+/// LLM: Try consecutive unproved palettes above the saved lower bound until UNSAT closes the
+/// LLM: maximum interval. Shared by all coloring kinds; publish proved bounds and preserve
+/// LLM: their witnesses on cancellation.
 fn search_maximum(
     mut bounds: ColoringBounds,
     computation: &mut Computation<'_>,
     on_bounds: &mut dyn FnMut(ColoringBounds),
     solve: &mut impl FnMut(u32, &mut Computation<'_>) -> anyhow::Result<Option<ColoringWitness>>,
 ) -> anyhow::Result<ColoringResult> {
+    // LLM: Establish the feasible bound for this local search before exploring or allocating
+    // LLM: alternatives.
     let minimum = bounds.minimum;
     if bounds.lower.is_some() || bounds.upper.is_some() {
         publish(&bounds, computation, on_bounds)?;
     }
+    // LLM: Reject degree/count overflow rather than silently wrapping a model invariant.
     let mut colors = match bounds.lower {
         Some(lower) => lower
             .checked_add(1)
             .ok_or_else(|| anyhow::anyhow!("Palette size exceeds the u32 representation."))?,
         None => minimum,
     };
+    // LLM: Reject degree/count overflow rather than silently wrapping a model invariant.
     loop {
+        // LLM: Announce the next unproved palette separately from the already proved interval.
         bounds.testing = Some(colors);
         publish(&bounds, computation, on_bounds)?;
+        // LLM: Search the current formula and distinguish SAT, UNSAT, and interruption.
         match solve(colors, computation)? {
             Some(witness) => {
                 bounds.lower = Some(colors);
@@ -336,6 +398,8 @@ fn search_maximum(
             None => bounds.upper = Some(colors - 1),
         }
         bounds.testing = None;
+        // LLM: Delegate to the common implementation so this entry point shares its semantics
+        // LLM: and checks.
         publish(&bounds, computation, on_bounds)?;
         if let Some(result) = maximum_from_bounds(&bounds) {
             return Ok(result);
@@ -346,11 +410,15 @@ fn search_maximum(
     }
 }
 
+/// LLM: Report a numerical coloring-bound snapshot and propagate cancellation after the
+/// LLM: consumer callback. Used by maximum search to distinguish partial proofs from execution
+/// LLM: progress.
 fn publish(
     bounds: &ColoringBounds,
     computation: &Computation<'_>,
     on_bounds: &mut dyn FnMut(ColoringBounds),
 ) -> anyhow::Result<()> {
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     computation.cancellation.check()?;
     on_bounds(bounds.clone());
     computation.cancellation.check()?;

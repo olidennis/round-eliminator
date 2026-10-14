@@ -1,5 +1,5 @@
-//! Domain model: problems, constraints, configurations, labels, and graph classes.
-//! Implementation modules are private; callers import types through `model`.
+//! LLM: Domain model: problems, constraints, configurations, labels, and graph classes.
+//! LLM: Implementation modules are private; callers import types through `model`.
 
 mod configuration;
 mod constraint;

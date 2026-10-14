@@ -3,9 +3,8 @@ import type { LabelId } from "./LabelId";
 import type { Part } from "./Part";
 
 /**
- * A condensed configuration: each occurrence chooses independently from its part.
- * For example, `AB^2` denotes the multisets `AA`, `AB`, and `BB`.
- * Zero-count parts are discarded. Otherwise, equality compares stored parts;
- * it does not perform semantic normalization.
+ * LLM: A family of multisets represented by parts. Each occurrence independently chooses a
+ * LLM: label from its part, so `AB^2` permits AA, AB, and BB. Zero-count parts are dropped;
+ * LLM: stored part order and grouping are not semantically normalized.
  */
 export type CondensedConfiguration<L = LabelId> = { parts: Array<Part<L>>, };

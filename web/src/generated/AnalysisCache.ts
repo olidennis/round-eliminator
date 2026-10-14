@@ -6,7 +6,8 @@ import type { MaximizationResult } from "./MaximizationResult";
 import type { ZeroRoundResult } from "./ZeroRoundResult";
 
 /**
- * Completed results and proved palette bounds only. In-flight queries and
- * failed decisions are not proofs. Label IDs always refer to the enclosing problem snapshot.
+ * LLM: Completed analyses and proved palette intervals belonging to one unchanged problem.
+ * LLM: IDs refer to that snapshot. Cache selection must respect the scope of each proof;
+ * LLM: interrupted queries and partial maxima are not certificates.
  */
 export type AnalysisCache = { maximization: MaximizationResult | null, zero_round: ZeroRoundResult | null, coloring: Array<CachedColoring>, diagrams: Array<DiagramResult>, coloring_bounds: Array<CachedColoringBounds>, };

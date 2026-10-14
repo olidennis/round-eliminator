@@ -3,8 +3,8 @@ import type { LabelId } from "./LabelId";
 import type { LabelSet } from "./LabelSet";
 
 /**
- * For problems where the constraints do not depend on the input, we use `Unrestricted`.
- * Otherwise, we use `Restricted`,
- * and in position `i`` we store the set of allowed outputs for the ports with input label `i``.
+ * LLM: The per-incidence permission relation from inputs to outputs. `Unrestricted` allows
+ * LLM: every output for every input; `Restricted[i]` contains the allowed output IDs for
+ * LLM: input i, with one implicit entry for trivial input.
  */
 export type OutputMapping = { "kind": "unrestricted" } | { "kind": "restricted", "data": Array<LabelSet<LabelId>> };

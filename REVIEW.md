@@ -97,6 +97,12 @@ The historical shortlist below is superseded by this status and the report.
 
 ## Current deferred work
 
+The user explicitly deferred the remaining investigations on 2026-10-14,
+including lazy active-input obligations, direct unbounded-certificate verification,
+avoiding full input/output products in exact diagrams, compact SCC/DAG storage,
+and the remaining encoding-policy, scheduling, and large-lattice tuning.
+The next authorized task is Rust comment documentation, not these optimizations.
+
 Consolidated on 2026-10-14 at the user's request. The historical numbered review
 below includes suggestions that have since been implemented or tested and
 rejected; use this list for remaining work. These are investigation topics,

@@ -4,6 +4,8 @@ import type { ProblemState } from "./ProblemState";
 import type { ProblemText } from "./ProblemText";
 
 /**
- * These are the possible requests that we can receive from the UI
+ * LLM: The shared server/wasm request envelope: parse a text definition, or perform one
+ * LLM: operation on supplied client-owned state. Serde tags and generated TypeScript keep the
+ * LLM: transport schema aligned.
  */
 export type Request = { "type": "parse_problem", "data": ProblemText } | { "type": "compute", "data": { state: ProblemState, operation: Operation, } };

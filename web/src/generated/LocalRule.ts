@@ -2,10 +2,8 @@
 import type { LabelId } from "./LabelId";
 
 /**
- * A `LocalRule` specifies, for a node of a certain `degree` and a certain `input`, to give a specific `output`.
- * We use many of these rules to describe a zero round algorithm (one rule for each degree/input).
- * For problems with no input, `input` is `None`.
- * The input configuration is stored explicitly (not with multiplicities),
- * because we may need to map the same label to different labels.
+ * LLM: One zero-round action for an active node of a given degree and full local input
+ * LLM: multiset. Its output vector assigns a label to each occurrence/port; repeated equal
+ * LLM: inputs may receive different outputs. `None` is trivial input.
  */
 export type LocalRule = { degree: number, input: Array<LabelId> | null, output: Array<LabelId>, };

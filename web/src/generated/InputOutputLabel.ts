@@ -2,8 +2,8 @@
 import type { LabelId } from "./LabelId";
 
 /**
- * A joint label used in computed constraints and input-aware diagrams.
- * IDs refer to the original problem's separate input/output name tables.
- * `None` denotes the implicit trivial input or an output-only diagram vertex.
+ * LLM: An input/output combination in a computed joint constraint or diagram. The two IDs
+ * LLM: refer to the original input and output tables; `None` is the implicit trivial input or
+ * LLM: an output-only vertex.
  */
 export type InputOutputLabel = { input: LabelId | null, output: LabelId, };

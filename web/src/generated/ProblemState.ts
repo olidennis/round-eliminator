@@ -2,4 +2,9 @@
 import type { AnalysisCache } from "./AnalysisCache";
 import type { Problem } from "./Problem";
 
+/**
+ * LLM: A client-owned immutable problem snapshot and its reusable analysis artifacts.
+ * LLM: Requests send this object to the stateless backend; a transformed problem starts with
+ * LLM: an empty analysis cache.
+ */
 export type ProblemState = { problem: Problem, analyses: AnalysisCache, };

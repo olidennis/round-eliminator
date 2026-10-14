@@ -5,7 +5,8 @@ import type { Response } from "./Response";
 import type { ResponsePacket } from "./ResponsePacket";
 
 /**
- * Latest progress and cumulative proof snapshots precede a final response.
- * Transports may coalesce superseded updates; the final response is retained.
+ * LLM: The streamed event envelope shared by native SSE and wasm callbacks. Progress,
+ * LLM: cumulative cache updates, cumulative partial proofs, and the final response have
+ * LLM: distinct meanings and delivery slots.
  */
 export type ComputationEvent = { "type": "progress", "data": Progress } | { "type": "cache_update", "data": AnalysisCache } | { "type": "partial_result", "data": Response } | { "type": "response", "data": ResponsePacket };

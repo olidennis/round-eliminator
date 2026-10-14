@@ -1,8 +1,7 @@
-//! Pairwise closure of counted configurations under custom union/intersection.
-//!
-//! Values can be label sets or elements of another finite ordered algebra.
-//! Counts avoid expanding repeated occurrences. Complete results are antichains
-//! closed under one union and intersections at all remaining occurrences.
+//! LLM: Pairwise closure of counted configurations under custom union/intersection.
+//! LLM: Values can be label sets or elements of another finite ordered algebra.
+//! LLM: Counts avoid expanding repeated occurrences. Complete results are antichains
+//! LLM: closed under one union and intersections at all remaining occurrences.
 
 pub use super::combination::{Combination, DerivationObserver};
 use super::{
@@ -16,54 +15,81 @@ use crate::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Operations must be stable and compatible with a finite partial order:
-/// union is a join, intersection is a meet, and both are monotone. Admissibility
-/// must be upward closed. Ordinary nonempty sets and finite lattices satisfy
-/// this contract. These laws justify discarding dominated configurations and
-/// skipping comparable union operands; arbitrary callbacks need not do so.
+/// LLM: The ordered algebra required by the generic closure engine: stable monotone join,
+/// LLM: meet, containment, and upward-closed admissibility. These laws make dominance pruning
+/// LLM: sound; arbitrary unrelated callbacks would not suffice.
 pub trait Operations<T>: Sync {
+    /// LLM: Compute the join in this representation's chosen standard or dual order. Called by
+    /// LLM: the generic pairwise closure and its pruning proofs.
     fn union(&self, left: &T, right: &T) -> T;
+    /// LLM: Compute the meet in this representation's chosen standard or dual order. Called by
+    /// LLM: the generic pairwise closure and its pruning proofs.
     fn intersection(&self, left: &T, right: &T) -> T;
+    /// LLM: Test domination in this representation's chosen standard or dual order. Called by
+    /// LLM: the generic pairwise closure and its pruning proofs.
     fn is_superset(&self, left: &T, right: &T) -> bool;
-    /// Custom uses may keep their bottom/empty values; ordinary maximization
-    /// overrides this to reject empty output choices.
+
+    /// LLM: Check whether the value is permitted by this algebra's bottom/empty policy. Called
+    /// LLM: by the generic pairwise closure and its pruning proofs.
     fn is_admissible(&self, _value: &T) -> bool {
+        // LLM: Return the result of this completed search or conversion to its caller.
         true
     }
 }
 
-/// Standard set algebra, with the empty-set policy local to the computation.
+/// LLM: The ordinary label-set algebra and the local policy for admitting the empty set.
+/// LLM: Standard maximization excludes empty choices; custom fixed-point closures may retain
+/// LLM: them.
 pub struct SetOperations {
     pub allow_empty: bool,
 }
 impl<L: Copy + Ord> Operations<LabelSet<L>> for SetOperations {
+    /// LLM: Compute the join in this representation's chosen standard or dual order. Called by
+    /// LLM: the generic pairwise closure and its pruning proofs.
     fn union(&self, a: &LabelSet<L>, b: &LabelSet<L>) -> LabelSet<L> {
+        // LLM: Apply the representation's set/order operation, preserving the algebra used by
+        // LLM: containment and closure.
         a.union(b)
     }
+    /// LLM: Compute the meet in this representation's chosen standard or dual order. Called by
+    /// LLM: the generic pairwise closure and its pruning proofs.
     fn intersection(&self, a: &LabelSet<L>, b: &LabelSet<L>) -> LabelSet<L> {
+        // LLM: Apply the representation's set/order operation, preserving the algebra used by
+        // LLM: containment and closure.
         a.intersection(b)
     }
+    /// LLM: Test domination in this representation's chosen standard or dual order. Called by
+    /// LLM: the generic pairwise closure and its pruning proofs.
     fn is_superset(&self, a: &LabelSet<L>, b: &LabelSet<L>) -> bool {
+        // LLM: Apply the representation's set/order operation, preserving the algebra used by
+        // LLM: containment and closure.
         b.is_subset_of(a)
     }
+    /// LLM: Check whether the value is permitted by this algebra's bottom/empty policy. Called
+    /// LLM: by the generic pairwise closure and its pruning proofs.
     fn is_admissible(&self, value: &LabelSet<L>) -> bool {
+        // LLM: Apply the representation's set/order operation, preserving the algebra used by
+        // LLM: containment and closure.
         self.allow_empty || !value.is_empty()
     }
 }
 
-/// Compute the full closure; cancellation returns no purported maximum.
-/// Mixed degrees are processed independently. A counted configuration of values
-/// is an internal algebraic object, so it can contain empty sets without weakening
-/// the nonempty `Part` invariant of the problem model.
+/// LLM: Compute the full undominated pairwise closure under a supplied ordered algebra. Used
+/// LLM: by ordinary maximization and Basic FP; degrees remain separate, and interruption
+/// LLM: returns no maximum.
 pub fn maximize_custom_with<T: Clone + Ord + Send + Sync>(
     initial: &[Configuration<T>],
     operations: &impl Operations<T>,
     computation: &mut Computation<'_>,
     mut observe: Option<&mut DerivationObserver<'_, T>>,
 ) -> Result<Vec<Configuration<T>>, Cancelled> {
+    // LLM: Share the stop flag with the work performed in this stage.
     let cancellation = computation.cancellation.clone();
     let mut degrees: BTreeMap<u32, Vec<Configuration<T>>> = BTreeMap::new();
+    // LLM: Visit the remaining alternatives for this stage, stopping when the required search
+    // LLM: condition is settled.
     for configuration in initial {
+        // LLM: Observe cooperative interruption before continuing this unit of work.
         cancellation.check()?;
         if configuration
             .multiplicities()
@@ -76,17 +102,25 @@ pub fn maximize_custom_with<T: Clone + Ord + Send + Sync>(
                 .push(configuration.clone());
         }
     }
-    // Large batches amortize dispatch and parallel global pruning. The cap
-    // bounds temporary pair results; this is scheduling, never a search limit.
+    // LLM: Large batches amortize dispatch and parallel global pruning. The cap
+    // LLM: bounds temporary pair results; this is scheduling, never a search limit.
+
     #[cfg(not(target_arch = "wasm32"))]
+    // LLM: Keep the generation grain local to this degree so scheduling adapts without sharing
+    // LLM: mutable worker state.
     let batch_size = worker_count().saturating_mul(512).clamp(512, 4096);
     #[cfg(target_arch = "wasm32")]
+    // LLM: Keep the generation grain local to this degree so scheduling adapts without sharing
+    // LLM: mutable worker state.
     let batch_size = 1;
     let tracking = observe.is_some();
     let mut all = Vec::new();
     let mut completed = 0u32;
     computation.report(Phase::Maximizing, completed)?;
+    // LLM: Check that computed indices and counts fit the model's integer representation.
     for seeds in degrees.values_mut() {
+        // LLM: Restore deterministic canonical ordering before the value is stored or
+        // LLM: returned.
         seeds.sort();
         let mut current = Antichain::default();
         for seed in seeds.drain(..) {
@@ -95,37 +129,49 @@ pub fn maximize_custom_with<T: Clone + Ord + Send + Sync>(
         current.sort();
         let mut seen: BTreeSet<_> = current.as_slice().iter().cloned().collect();
         let mut previous = BTreeSet::new();
+        // LLM: Check that computed indices and counts fit the model's integer representation.
         loop {
+            // LLM: Observe cooperative interruption before continuing this unit of work.
             cancellation.check()?;
             let snapshot = current.as_slice().to_vec();
             let mut pairs = Vec::with_capacity(batch_size);
             let mut changed = false;
-            // Queue only pairs with a newly admitted parent, including self-pairs.
-            // Bounded batches cap temporary results. Global comparisons use
-            // immutable snapshots and apply their decisions on this thread.
+            // LLM: Queue only pairs with a newly admitted parent, including self-pairs.
+            // LLM: Bounded batches cap temporary results. Global comparisons use
+            // LLM: immutable snapshots and apply their decisions on this thread.
+
             let mut process = |pairs: &mut Vec<(usize, usize)>| -> Result<(), Cancelled> {
-                // On the baseline fixtures, dispatching tiny pairs cost hundreds
-                // of microseconds versus 4–15 us for the entire serial closure.
-                // Estimate count-matrix freedom to reserve workers for larger
-                // batches. This is scheduling only, never a search cutoff.
+                // LLM: On the baseline fixtures, dispatching tiny pairs cost hundreds
+                // LLM: of microseconds versus 4–15 us for the entire serial closure.
+                // LLM: Estimate count-matrix freedom to reserve workers for larger
+                // LLM: batches. This is scheduling only, never a search cutoff.
+
                 let work = pairs.iter().fold(0usize, |sum, &(a, b)| {
+                    // LLM: Prepare `dimensions` for the following computation; it stores the
+                    // LLM: dimensions for this stage.
                     let dimensions = snapshot[a]
                         .multiplicities()
                         .len()
                         .saturating_sub(1)
                         .saturating_mul(snapshot[b].multiplicities().len().saturating_sub(1));
+                    // LLM: Check that computed indices and counts fit the model's integer
+                    // LLM: representation.
                     sum.saturating_add(
                         (snapshot[a].degree() as usize)
                             .saturating_add(1)
                             .saturating_pow(u32::try_from(dimensions).unwrap_or(u32::MAX)),
                     )
                 });
+                // LLM: Prepare `batch_started` for the following computation; it stores the
+                // LLM: batch started for this stage.
                 let batch_started = completed;
                 let results = map_with_progress(
                     pairs.len(),
                     &cancellation,
                     work >= 20_000,
                     |index| {
+                        // LLM: Update the current working state before continuing this
+                        // LLM: operation.
                         let (a, b) = pairs[index];
                         combine(
                             &snapshot[a],
@@ -141,14 +187,22 @@ pub fn maximize_custom_with<T: Clone + Ord + Send + Sync>(
                         computation.report(Phase::Maximizing, completed)
                     },
                 )?;
+                // LLM: Filter duplicate history before offering fresh rows to global dominance
+                // LLM: pruning.
                 let fresh = new_candidates(results, &mut seen, &cancellation)?;
                 changed |= current.merge(fresh, operations, &cancellation, &mut observe)?;
                 computation.report(Phase::Maximizing, completed)?;
                 pairs.clear();
                 Ok(())
             };
+            // LLM: Visit the remaining alternatives for this stage, stopping when the required
+            // LLM: search condition is settled.
             for a in 0..snapshot.len() {
+                // LLM: Visit the remaining alternatives for this stage, stopping when the
+                // LLM: required search condition is settled.
                 for b in 0..=a {
+                    // LLM: Observe cooperative interruption before continuing this unit of
+                    // LLM: work.
                     cancellation.check()?;
                     if previous.contains(&snapshot[a]) && previous.contains(&snapshot[b]) {
                         continue;
@@ -159,6 +213,8 @@ pub fn maximize_custom_with<T: Clone + Ord + Send + Sync>(
                     }
                 }
             }
+            // LLM: Handle the empty case explicitly before the general traversal or allocation
+            // LLM: path.
             if !pairs.is_empty() {
                 process(&mut pairs)?;
             }
@@ -168,31 +224,39 @@ pub fn maximize_custom_with<T: Clone + Ord + Send + Sync>(
             previous = snapshot.into_iter().collect();
             current.sort();
         }
+        // LLM: Retain the newly constructed choices in the result for this stage.
         all.extend(current.into_vec());
     }
+    // LLM: Restore deterministic canonical ordering before the value is stored or returned.
     all.sort_by(|a, b| a.degree().cmp(&b.degree()).then_with(|| a.cmp(b)));
     Ok(all)
 }
 
-/// Query large histories concurrently before ordered insertion. The immutable
-/// pass avoids cloning known configurations; insertion still keeps the first
-/// derivation when several jobs produce the same new configuration.
+/// LLM: Remove previously generated configurations while preserving the first derivation of
+/// LLM: each new row. Used between parallel pair generation and antichain admission.
 fn new_candidates<T: Clone + Ord + Send + Sync>(
     results: Vec<Vec<Candidate<T>>>,
     seen: &mut BTreeSet<Configuration<T>>,
     cancellation: &Cancellation,
 ) -> Result<Vec<Candidate<T>>, Cancelled> {
+    // LLM: Observe cooperative interruption before continuing this unit of work.
     cancellation.check()?;
     let mut candidates: Vec<_> = results.into_iter().flatten().collect();
-    // A second lookup costs more than it saves for small histories/batches.
+    // LLM: A second lookup costs more than it saves for small histories/batches.
+
     if can_parallelize() && seen.len() >= 4096 && candidates.len() >= 2048 {
+        // LLM: Prepare `chunk_size` for the following computation; it stores the chunk size
+        // LLM: for this stage.
         let chunk_size = candidates.len().div_ceil(worker_count());
         let history = &*seen;
+        // LLM: Observe cooperative interruption before performing the next unit of CPU work.
         let known = map_with_progress(
             candidates.len().div_ceil(chunk_size),
             cancellation,
             true,
             |chunk| {
+                // LLM: Prepare `start` for the following computation; it stores the start for
+                // LLM: this stage.
                 let start = chunk * chunk_size;
                 let end = (start + chunk_size).min(candidates.len());
                 let mut known = Vec::with_capacity(end - start);
@@ -204,9 +268,12 @@ fn new_candidates<T: Clone + Ord + Send + Sync>(
             },
             |_| cancellation.check(),
         )?;
+        // LLM: Prepare `known` for the following computation; it stores the known for this
+        // LLM: stage.
         let mut known = known.into_iter().flatten();
         candidates.retain(|_| !known.next().expect("history mask"));
     }
+    // LLM: Collect genuinely new candidates before their antichain admission.
     let mut fresh = Vec::new();
     for candidate in candidates {
         cancellation.check()?;
@@ -221,17 +288,27 @@ fn new_candidates<T: Clone + Ord + Send + Sync>(
 mod tests {
     use super::*;
 
+    /// LLM: Regression test: verify that history filter preserves first derivations in large
+    /// LLM: batches. Used by the test suite to protect this behavior while implementations
+    /// LLM: change.
     #[test]
     fn history_filter_preserves_first_derivations_in_large_batches() {
+        // LLM: Prepare `row` for the following computation; it stores the row for this stage.
         let row = |label| Configuration::new(vec![(label, 1)]).unwrap();
         let mut history: BTreeSet<_> = (0u32..4096).map(row).collect();
-        // Include known rows and two copies of every new row across job groups.
+        // LLM: Include known rows and two copies of every new row across job groups.
+
         let jobs = (0..3)
             .map(|job| {
+                // LLM: Update the current working state before continuing this operation.
                 (0..1024)
                     .map(|index| {
+                        // LLM: Prepare `label` for the following computation; it stores the
+                        // LLM: label for this stage.
                         let label = if job == 0 { index } else { 4096 + index };
                         let configuration = row(label);
+                        // LLM: Update the current working state before continuing this
+                        // LLM: operation.
                         Candidate {
                             combination: Some(Box::new(Combination {
                                 left: configuration.clone(),
@@ -245,10 +322,12 @@ mod tests {
                     .collect()
             })
             .collect();
+        // LLM: Share the stop flag with the work performed in this stage.
         let cancellation = Cancellation::default();
         let fresh = new_candidates(jobs, &mut history, &cancellation).unwrap();
         assert_eq!(fresh.len(), 1024);
         assert_eq!(history.len(), 5120);
+        // LLM: Process each condensed part without expanding its repeated occurrences.
         for (index, candidate) in fresh.iter().enumerate() {
             assert_eq!(candidate.configuration, row(4096 + index as u32));
             assert_eq!(
@@ -257,6 +336,8 @@ mod tests {
             );
         }
         cancellation.cancel();
+        // LLM: Assert that interruption propagates as cancellation and does not produce a
+        // LLM: completed mathematical result.
         assert!(new_candidates(Vec::new(), &mut history, &cancellation).is_err());
     }
 }

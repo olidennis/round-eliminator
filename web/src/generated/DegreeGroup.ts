@@ -3,6 +3,7 @@ import type { CondensedConfiguration } from "./CondensedConfiguration";
 import type { LabelId } from "./LabelId";
 
 /**
- * All stored configurations in this group have exactly this degree.
+ * LLM: The allowed condensed configurations of one exact degree. Every stored row has that
+ * LLM: degree; its position inside the enclosing constraint follows increasing degree order.
  */
 export type DegreeGroup<L = LabelId> = { degree: number, configurations: Array<CondensedConfiguration<L>>, };

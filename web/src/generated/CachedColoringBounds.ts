@@ -3,8 +3,8 @@ import type { ColoringBounds } from "./ColoringBounds";
 import type { ColoringKind } from "./ColoringKind";
 
 /**
- * The best proved interval for one coloring kind, including the lower witness.
- * Cancellation does not establish an upper bound. `testing` is always omitted
- * from this artifact by setting it to None before publication.
+ * LLM: The proved numerical interval for one coloring kind, with a witness for its lower
+ * LLM: bound. It belongs to the same problem snapshot; `testing` is cleared because an
+ * LLM: interrupted query proves no upper bound.
  */
 export type CachedColoringBounds = { kind: ColoringKind, bounds: ColoringBounds, };

@@ -1,5 +1,5 @@
-//! Client-owned computational state for one immutable problem snapshot.
-//! This is sent with requests; neither transport retains a backend session.
+//! LLM: Client-owned computational state for one immutable problem snapshot.
+//! LLM: This is sent with requests; neither transport retains a backend session.
 
 use crate::{
     algorithms::{
@@ -15,6 +15,9 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// LLM: A client-owned immutable problem snapshot and its reusable analysis artifacts.
+/// LLM: Requests send this object to the stateless backend; a transformed problem starts with
+/// LLM: an empty analysis cache.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct ProblemState {
     pub problem: Problem,
@@ -23,7 +26,10 @@ pub struct ProblemState {
 }
 
 impl From<Problem> for ProblemState {
+    /// LLM: Attach an empty analysis cache to a new problem snapshot. Used for fresh
+    /// LLM: parsing/transformation results so proofs from another problem are never inherited.
     fn from(problem: Problem) -> Self {
+        // LLM: Construct the stored representation from the prepared fields.
         Self {
             problem,
             analyses: AnalysisCache::default(),
@@ -31,8 +37,9 @@ impl From<Problem> for ProblemState {
     }
 }
 
-/// Completed results and proved palette bounds only. In-flight queries and
-/// failed decisions are not proofs. Label IDs always refer to the enclosing problem snapshot.
+/// LLM: Completed analyses and proved palette intervals belonging to one unchanged problem.
+/// LLM: IDs refer to that snapshot. Cache selection must respect the scope of each proof;
+/// LLM: interrupted queries and partial maxima are not certificates.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
 pub struct AnalysisCache {
@@ -43,6 +50,9 @@ pub struct AnalysisCache {
     pub coloring_bounds: Vec<CachedColoringBounds>,
 }
 
+/// LLM: A completed coloring result paired with its coloring kind and query. The keys
+/// LLM: distinguish numerical palette decisions, maximum searches, and incompatible kinds of
+/// LLM: coloring.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct CachedColoring {
     pub kind: ColoringKind,
@@ -50,9 +60,9 @@ pub struct CachedColoring {
     pub result: ColoringResult,
 }
 
-/// The best proved interval for one coloring kind, including the lower witness.
-/// Cancellation does not establish an upper bound. `testing` is always omitted
-/// from this artifact by setting it to None before publication.
+/// LLM: The proved numerical interval for one coloring kind, with a witness for its lower
+/// LLM: bound. It belongs to the same problem snapshot; `testing` is cleared because an
+/// LLM: interrupted query proves no upper bound.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct CachedColoringBounds {
     pub kind: ColoringKind,
@@ -60,7 +70,12 @@ pub struct CachedColoringBounds {
 }
 
 impl AnalysisCache {
+    /// LLM: Find a cached relation equivalent to the effective requested options, allowing a
+    /// LLM: complete relation to satisfy a weaker request. Used by the stateless diagram
+    /// LLM: operation before new comparison work.
     pub fn diagram(&self, options: DiagramOptions) -> Option<DiagramResult> {
+        // LLM: Normalize the method through a compatible source maximum before searching
+        // LLM: equivalent completed relations.
         let options = options.with_maximum(self.maximization.as_ref());
         self.diagrams
             .iter()

@@ -3,9 +3,8 @@ import type { ColorBehavior } from "./ColorBehavior";
 import type { NeighborColorBehavior } from "./NeighborColorBehavior";
 
 /**
- * These sets describe a strategy: choose a whole allowed active configuration
- * using the relevant sets. Passive validity holds for every such choice.
- * Behavior at index c belongs to given color c; for NeighborColors this is the
- * node's own color. The UI displays colors from 1.
+ * LLM: A checkable strategy certificate: local-color output tables, own/neighbor-color
+ * LLM: tables, or smaller/larger order tables for an unbounded distance-two strategy. All
+ * LLM: tables retain original input permissions.
  */
 export type ColoringWitness = { "kind": "local_colors", behaviors: Array<ColorBehavior>, } | { "kind": "neighbor_colors", behaviors: Array<NeighborColorBehavior>, } | { "kind": "color_order", smaller: ColorBehavior, larger: ColorBehavior, };

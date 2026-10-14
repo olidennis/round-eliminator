@@ -8,6 +8,7 @@ import type { Problem } from "./Problem";
 import type { ZeroRoundResult } from "./ZeroRoundResult";
 
 /**
- * These are the possible answers that we can send to the UI
+ * LLM: The requested mathematical result, a structured error, or cancellation. Coloring-bound
+ * LLM: variants can also carry a partial proof while computation continues.
  */
 export type Response = { "type": "problem", "data": Problem } | { "type": "maximization", "data": MaximizationResult } | { "type": "diagram", "data": DiagramResult } | { "type": "zero_round", "data": ZeroRoundResult } | { "type": "coloring", "data": ColoringResult } | { "type": "coloring_bounds", "data": ColoringBounds } | { "type": "error", "data": ApiError } | { "type": "cancelled" };
