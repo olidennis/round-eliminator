@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json, execute_with_events } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -7,12 +8,12 @@ await init({ module_or_path: await readFile(new URL('../public/wasm/round_elimin
 const server = process.argv[2]
 let checks = 0
 async function check(definition, verify = () => {}) {
-  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
+  const parsed = decode(execute_json(encode({ type: 'parse_problem', data: definition })))
   assert.equal(parsed.type, 'problem')
   const before = structuredClone(parsed.data)
-  const body = JSON.stringify({ type: 'maximize', data: { problem: parsed.data } })
+  const body = encode({ type: 'maximize', data: { problem: parsed.data } })
   const events = []
-  const response = JSON.parse(execute_with_events(body, raw => events.push(JSON.parse(raw))))
+  const response = decode(execute_with_events(body, raw => events.push(decodeEvent(raw))))
   assert.equal(response.type, 'maximization')
   assert.equal(response.data.kind, parsed.data.mapping.kind === 'unrestricted' ? 'output_only' : 'input_output')
   assert.ok(events.some(event => event.type === 'progress'))
@@ -37,7 +38,7 @@ async function check(definition, verify = () => {}) {
     const http = await fetch(`${server}/stream`, {method:'POST',headers:{'content-type':'application/json'},body})
     assert.equal(http.status,200)
     const updates = (await http.text()).split('\n\n').filter(frame => frame.includes('data:'))
-      .map(frame => JSON.parse(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
+      .map(frame => decodeEvent(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
     assert.equal(updates[0].data.phase,'queued')
     assert.deepEqual(updates.at(-1).data,response)
   }

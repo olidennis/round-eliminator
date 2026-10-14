@@ -1,7 +1,10 @@
+import type { CachedColoring } from './generated/CachedColoring'
 import type { ColoringBounds } from './generated/ColoringBounds'
 import type { ColoringKind } from './generated/ColoringKind'
 import type { ColoringResult } from './generated/ColoringResult'
 import type { PaletteSearch } from './generated/PaletteSearch'
+import type { ProblemState } from './generated/ProblemState'
+import type { AnalysisCache } from './generated/AnalysisCache'
 import type { Problem } from './generated/Problem'
 import type { ProblemText } from './generated/ProblemText'
 import type { ZeroRoundResult } from './generated/ZeroRoundResult'
@@ -12,14 +15,11 @@ import type { DiagramKind } from './generated/DiagramKind'
 import type { MaximizationResult } from './generated/MaximizationResult'
 
 export type DiagramLayout = 'hierarchical' | 'physics' | 'free'
-export type SavedDiagram = {
-  options: DiagramOptions
-  layout: DiagramLayout
-  results: DiagramResult[]
-}
+export type SavedDiagram = { options: DiagramOptions; layout: DiagramLayout }
+type LegacySavedDiagram = SavedDiagram & { results?: DiagramResult[] }
 
 export function newSavedDiagram(): SavedDiagram {
-  return { options: { kind: 'output_only', output: 'exact', input_output: 'cheap' }, layout: 'physics', results: [] }
+  return { options: { kind: 'output_only', output: 'exact', input_output: 'cheap' }, layout: 'physics' }
 }
 
 type LegacyDiagramKind = 'output' | 'input_specific' | 'uniform'
@@ -35,11 +35,11 @@ function restoreDiagramKind(kind?: DiagramKind | LegacyDiagramKind): DiagramKind
   }
 }
 
-function restoreDiagram(saved?: SavedDiagram): SavedDiagram {
-  if (!saved) return newSavedDiagram()
+function restoreDiagram(saved?: LegacySavedDiagram): SavedDiagram & { results: DiagramResult[] } {
+  if (!saved) return { ...newSavedDiagram(), results: [] }
   // Earlier version-one sessions stored a view selector and one three-diagram
   // result. Keep those already-computed relations in the per-choice cache.
-  const older = saved as SavedDiagram & { view?: DiagramKind | LegacyDiagramKind; result?: DiagramResult & Partial<Record<LegacyDiagramKind, Diagram>> }
+  const older = saved as LegacySavedDiagram & { view?: DiagramKind | LegacyDiagramKind; result?: DiagramResult & Partial<Record<LegacyDiagramKind, Diagram>> }
   const kind = restoreDiagramKind(saved.options.kind ?? older.view)
   const options = { ...saved.options, kind }
   let results = saved.results
@@ -57,13 +57,12 @@ function restoreDiagram(saved?: SavedDiagram): SavedDiagram {
 
 /** Browser state only; problems and analysis results use the Rust protocol types. */
 export type ColoringQuery = { kind: ColoringKind; search: PaletteSearch }
-export type CachedColoring = ColoringQuery & { result: ColoringResult }
+export type { CachedColoring } from './generated/CachedColoring'
 export type SavedColoring = {
   kind: ColoringKind
   search: 'maximum' | 'fixed'
   colors: number
   bounds: ColoringBounds | null
-  results: CachedColoring[]
 }
 
 export function coloringQuery(selection: Pick<SavedColoring, 'kind' | 'search' | 'colors'>): ColoringQuery {
@@ -75,7 +74,7 @@ export function coloringKey(query: ColoringQuery): string {
   return query.search.kind === 'fixed' ? `${query.kind}:fixed:${query.search.colors}` : `${query.kind}:maximum`
 }
 
-function restoreColoring(saved: SavedColoring): SavedColoring {
+function restoreColoring(saved: SavedColoring & { results?: CachedColoring[] }): SavedColoring & { results: CachedColoring[] } {
   // Earlier version-one files stored only the selected result. Retain it as
   // the first cache entry, without leaving the obsolete field in new exports.
   const older = saved as SavedColoring & { result?: ColoringResult | null }
@@ -88,30 +87,28 @@ export type ProblemSection = 'input' | 'output' | 'mapping' | 'zeroRound' | 'col
 export type CollapsedSections = Partial<Record<ProblemSection, boolean>>
 
 export type SavedProblem = {
-  problem: Problem
+  state: ProblemState
   collapsed: boolean
   collapsedSections: CollapsedSections
-  zeroRound: ZeroRoundResult | null
-  maximization: MaximizationResult | null
   coloring: SavedColoring
   diagram: SavedDiagram
 }
 
 export type Session = { editor: ProblemText; problems: SavedProblem[] }
-type SessionFile = { format: 'round-eliminator-3'; version: 1; session: Session }
+type SessionFile = { format: 'round-eliminator-3'; version: 2; session: Session }
 
 export function newSavedProblem(problem: Problem): SavedProblem {
   return {
-    problem, collapsed: false, collapsedSections: {}, zeroRound: null, maximization: null,
-    coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null, results: [] },
-    diagram: newSavedDiagram(),
+    state: { problem, analyses: { maximization: null, zero_round: null, coloring: [], diagrams: [] } }, collapsed: false, collapsedSections: {},
+    coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null },
+    diagram: { options: newSavedDiagram().options, layout: 'physics' },
   }
 }
 
 export function serializeSession(session: Session): string {
   // Save proofs, not an in-flight query. Imported computations never resume.
   const file: SessionFile = {
-    format: 'round-eliminator-3', version: 1,
+    format: 'round-eliminator-3', version: 2,
     session: { ...session, problems: session.problems.map(entry => ({
       ...entry, coloring: { ...entry.coloring,
         bounds: entry.coloring.bounds ? { ...entry.coloring.bounds, testing: null } : null,
@@ -122,26 +119,36 @@ export function serializeSession(session: Session): string {
 }
 
 export function deserializeSession(text: string): Session {
-  const file = JSON.parse(text) as SessionFile
+  const file = JSON.parse(text)
   if (file?.format !== 'round-eliminator-3') {
     throw new Error('This is not a Round Eliminator 3 session. Old Round Eliminator files are not supported.')
   }
-  if (file.version !== 1) throw new Error('Unsupported Round Eliminator 3 session version.')
+  if (file.version !== 1 && file.version !== 2) throw new Error('Unsupported Round Eliminator 3 session version.')
   const session = file.session
   if (!session?.editor || !['plain', 'independent', 'mapped', 'paired'].includes(session.editor.kind)
-    || !session.editor.degrees || !Array.isArray(session.problems)
-    || !session.problems.every(entry => entry?.problem?.graph_class && entry.problem.input
-      && entry.problem.output && entry.problem.mapping && entry.coloring && 'zeroRound' in entry)) {
+    || !session.editor.degrees || !Array.isArray(session.problems)) {
     throw new Error('The session is missing its editor or problem data.')
   }
-  // As with analysis requests, snapshots from this version are trusted. Do not
-  // reparse problem notation or repeat Rust's semantic construction checks.
-  // Version-one sessions written before diagram support have no diagram state.
-  return { ...session, problems: session.problems.map(entry => {
-    // Graph class is now always-visible header metadata; discard its old fold flag.
+  return { ...session, problems: session.problems.map((entry: SavedProblem & {
+    problem?: Problem; zeroRound?: ZeroRoundResult | null; maximization?: MaximizationResult | null;
+  }) => {
+    const problem = entry.state?.problem ?? entry.problem
+    if (!problem?.graph_class || !problem.input || !problem.output || !problem.mapping || !entry.coloring) {
+      throw new Error('The session is missing its editor or problem data.')
+    }
+    // Older snapshots stored caches beside their UI controls. Move those proofs
+    // into the shared computational state, keeping view settings independently.
+    const oldColoring = restoreColoring(entry.coloring)
+    const oldDiagram = restoreDiagram(entry.diagram as LegacySavedDiagram)
+    const analyses: AnalysisCache = entry.state?.analyses ?? {
+      maximization: entry.maximization ?? null, zero_round: entry.zeroRound ?? null,
+      coloring: oldColoring.results, diagrams: oldDiagram.results,
+    }
     const { graph: _graph, ...collapsedSections } = (entry.collapsedSections ?? {}) as CollapsedSections & { graph?: boolean }
-    return { ...entry, collapsedSections, maximization: entry.maximization ?? null,
-      coloring: restoreColoring(entry.coloring), diagram: restoreDiagram(entry.diagram) }
+    return { state: { problem, analyses }, collapsed: entry.collapsed ?? false, collapsedSections,
+      coloring: { kind: oldColoring.kind, search: oldColoring.search, colors: oldColoring.colors, bounds: oldColoring.bounds },
+      diagram: { options: oldDiagram.options, layout: oldDiagram.layout },
+    }
   }) }
 }
 

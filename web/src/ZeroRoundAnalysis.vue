@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
-import { send, type Backend } from './api'
-import type { Problem } from './generated/Problem'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { sendForProblem, type Backend } from './api'
+import type { ProblemState } from './generated/ProblemState'
 import type { Progress } from './generated/Progress'
-import type { ZeroRoundResult } from './generated/ZeroRoundResult'
 import ZeroRoundView from './ZeroRoundView.vue'
 import ComputationProgress from './ComputationProgress.vue'
 import CollapsibleSection from './CollapsibleSection.vue'
 
-const props = defineProps<{ problem: Problem; backend: Backend; saved: ZeroRoundResult | null; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
-const emit = defineEmits<{ update: [result: ZeroRoundResult | null]; collapse: [collapsed: boolean] }>()
-const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(props.saved ? 'done' : 'idle')
+const props = defineProps<{ state: ProblemState; backend: Backend; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
+const problem = computed(() => props.state.problem)
+const emit = defineEmits<{ collapse: [collapsed: boolean] }>()
+const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(props.state.analyses.zero_round ? 'done' : 'idle')
 const progress = ref<Progress | null>(null)
-const result = ref<ZeroRoundResult | null>(props.saved)
-watch(result, value => emit('update', value), { flush: 'sync' })
+const result = computed(() => props.state.analyses.zero_round)
+watch(result, value => { if (value && state.value !== 'running') state.value = 'done' })
 const error = ref('')
 let controller: AbortController | null = null
 onBeforeUnmount(() => {
@@ -35,14 +35,13 @@ async function run() {
   progress.value = null
   error.value = ''
   try {
-    const response = await send({ type: 'check_zero_round', data: { problem: props.problem, passive_mode: 'general' } }, props.backend, {
+    const response = await sendForProblem(props.state, { type: 'check_zero_round', data: { passive_mode: 'general' } }, props.backend, {
       signal: current.signal,
       onProgress: update => { if (controller === current) progress.value = update },
     })
     // Cancellation/retry/unmount may have superseded this request.
     if (controller !== current) return
     if (response.type === 'zero_round') {
-      result.value = response.data
       state.value = 'done'
     } else if (response.type === 'cancelled') {
       state.value = 'cancelled'

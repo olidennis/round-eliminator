@@ -236,9 +236,9 @@ async function start() {
         :current="entry.id === currentProblemId" @activate="currentProblemId = entry.id"
         @collapse="entry.collapsed = $event"
         @section="(section, collapsed) => entry.collapsedSections[section] = collapsed"
-        @close="closeProblem(entry.id)" @zero-round="entry.zeroRound = $event"
+        @close="closeProblem(entry.id)"
         @coloring="entry.coloring = $event" @diagram="entry.diagram = $event"
-        @maximization="entry.maximization = $event" @transformed="appendProblem" />
+        @transformed="appendProblem" />
     </section>
   </main>
 </template>

@@ -1,3 +1,8 @@
+import type { Operation } from './generated/Operation'
+import type { ProblemState } from './generated/ProblemState'
+import type { AnalysisCache } from './generated/AnalysisCache'
+import type { ResponsePacket } from './generated/ResponsePacket'
+import { diagramKey } from './diagram'
 import type { Request } from './generated/Request'
 import type { Response } from './generated/Response'
 import type { ComputationEvent } from './generated/ComputationEvent'
@@ -10,7 +15,33 @@ export function defaultBackend(url: URL): Backend {
   if (requested === 'server' || requested === 'wasm') return requested
   return url.hostname === 'localhost' || url.hostname === '127.0.0.1' ? 'server' : 'wasm'
 }
-type Options = { signal?: AbortSignal; onProgress?: (progress: Progress) => void; onPartialResult?: (response: Response) => void }
+type Options = { onCache?: (cache: AnalysisCache) => void; signal?: AbortSignal; onProgress?: (progress: Progress) => void; onPartialResult?: (response: Response) => void }
+
+/** Components request an operation; this adapter owns snapshot/cache transport.
+ * Merge against the live cache so concurrent analyses retain each other's results.
+ */
+export function sendForProblem(state: ProblemState, operation: Operation, backend: Backend, options: Options = {}): Promise<Response> {
+  return send({ type: 'compute', data: { state, operation } }, backend, {
+    ...options,
+    onCache: update => { state.analyses = mergeAnalyses(state.analyses, update); options.onCache?.(update) },
+  })
+}
+
+export function mergeAnalyses(current: AnalysisCache, update: AnalysisCache): AnalysisCache {
+  const merge = <T>(old: T[], added: T[], key: (value: T) => string): T[] =>
+    Array.from(new Map([...old, ...added].map(value => [key(value), value])).values())
+  return {
+    maximization: update.maximization ?? current.maximization,
+    zero_round: update.zero_round ?? current.zero_round,
+    coloring: merge(current.coloring, update.coloring, value => value.search.kind === 'fixed' ? `${value.kind}:fixed:${value.search.colors}` : `${value.kind}:maximum`),
+    diagrams: merge(current.diagrams, update.diagrams, value => diagramKey(value.options)),
+  }
+}
+
+function completed(packet: ResponsePacket, options: Options): Response {
+  options.onCache?.(packet.cache)
+  return packet.response
+}
 
 /** The same Rust-defined events arrive through HTTP streaming or a worker. */
 export async function send(request: Request, backend: Backend, options: Options = {}): Promise<Response> {
@@ -32,11 +63,13 @@ export async function send(request: Request, backend: Backend, options: Options 
     worker.onmessage = (event: MessageEvent<ComputationEvent>) => {
       if (event.data.type === 'progress') {
         options.onProgress?.(event.data.data)
+      } else if (event.data.type === 'cache_update') {
+        options.onCache?.(event.data.data)
       } else if (event.data.type === 'partial_result') {
         options.onPartialResult?.(event.data.data)
       } else {
         cleanup()
-        resolve(event.data.data)
+        resolve(completed(event.data.data, options))
       }
     }
     worker.onerror = (event) => {
@@ -75,7 +108,8 @@ async function sendToServer(json: string, options: Options): Promise<Response> {
         if (!data) continue // SSE keep-alive comments carry no protocol event.
         options.signal?.throwIfAborted()
         const event = JSON.parse(data) as ComputationEvent
-        if (event.type === 'response') return event.data
+        if (event.type === 'response') return completed(event.data, options)
+        if (event.type === 'cache_update') { options.onCache?.(event.data); continue }
         if (event.type === 'partial_result') options.onPartialResult?.(event.data)
         else options.onProgress?.(event.data)
       }

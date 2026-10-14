@@ -4,7 +4,10 @@ mod distance_two;
 mod encoding;
 mod order;
 mod prepare;
+mod reuse;
 mod verify;
+pub use prepare::minimum;
+pub use reuse::{bounds_from_results, excludes_zero_round, maximum_from_bounds, reuse_result};
 pub use verify::verify_witness;
 
 use crate::{
@@ -78,7 +81,7 @@ pub enum ColoringWitness {
     },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ColoringResult {
     Solvable {
@@ -104,13 +107,22 @@ pub enum ColoringResult {
 /// Proved palette bounds, streamed after each completed SAT decision and before
 /// the next query. `upper` is inclusive; neither cancellation nor a timeout
 /// supplies an upper bound. The witness certifies `lower`.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct ColoringBounds {
     pub minimum: u32,
     pub testing: Option<u32>,
     pub lower: Option<u32>,
     pub upper: Option<u32>,
     pub witness: Option<ColoringWitness>,
+}
+
+/// Borrowed artifacts for one problem and coloring kind, selected by Rust.
+/// This is execution input, not a second serialized problem representation.
+#[derive(Default)]
+pub struct ColoringCache<'a> {
+    pub passive_maximum: Option<&'a crate::algorithms::maximize::MaximizationResult>,
+    pub zero_round: Option<&'a ZeroRoundResult>,
+    pub results: Vec<&'a ColoringResult>,
 }
 
 pub fn check(
@@ -138,6 +150,29 @@ pub fn check_with(
     computation: &mut Computation<'_>,
     on_bounds: &mut dyn FnMut(ColoringBounds),
 ) -> anyhow::Result<ColoringResult> {
+    check_with_cached(
+        problem,
+        kind,
+        search,
+        mode,
+        ColoringCache::default(),
+        computation,
+        on_bounds,
+    )
+}
+
+/// Reuse passive maxima and a completed zero-round preflight for this snapshot.
+pub fn check_with_cached(
+    problem: &Problem,
+    kind: ColoringKind,
+    search: PaletteSearch,
+    mode: PassiveMode,
+    cache: ColoringCache<'_>,
+    computation: &mut Computation<'_>,
+    on_bounds: &mut dyn FnMut(ColoringBounds),
+) -> anyhow::Result<ColoringResult> {
+    let maximum = cache.passive_maximum;
+    let zero_round = cache.zero_round;
     let minimum = prepare::minimum(problem, kind)?;
     if let PaletteSearch::Fixed { colors } = search {
         anyhow::ensure!(
@@ -145,15 +180,49 @@ pub fn check_with(
             "This coloring requires at least {minimum} colors locally."
         );
     }
+    for result in &cache.results {
+        if let Some(reused) = reuse_result(search, result, &computation.cancellation)? {
+            if search == PaletteSearch::Maximum {
+                let bounds = bounds_from_results(
+                    minimum,
+                    std::iter::once(*result),
+                    &computation.cancellation,
+                )?;
+                if bounds.lower.is_some() || bounds.upper.is_some() {
+                    publish(&bounds, computation, on_bounds)?;
+                }
+            }
+            return Ok(reused);
+        }
+    }
+    let bounds = bounds_from_results(
+        minimum,
+        cache.results.iter().copied(),
+        &computation.cancellation,
+    )?;
+    if search == PaletteSearch::Maximum
+        && let Some(result) = maximum_from_bounds(&bounds)
+    {
+        publish(&bounds, computation, on_bounds)?;
+        return Ok(result);
+    }
+    if let Some(zero_round) = zero_round
+        && let Some(result) =
+            reuse::from_zero_round(problem, kind, search, zero_round, &computation.cancellation)?
+    {
+        return Ok(result);
+    }
     if kind == ColoringKind::DistanceTwo {
         if search == PaletteSearch::Maximum
+            && bounds.upper.is_none()
             && let Some(witness) = order::check_with(problem, mode, computation)?
         {
             return Ok(ColoringResult::Unbounded { minimum, witness });
         }
-        let mut solver = distance_two::PaletteSolver::new(
+        let mut solver = distance_two::PaletteSolver::new_with_maximum(
             problem,
             backend(&computation.cancellation),
+            maximum,
             computation,
         )?;
         if let PaletteSearch::Fixed { colors } = search {
@@ -163,46 +232,38 @@ pub fn check_with(
             });
         }
         return search_maximum(
-            minimum,
+            bounds,
             computation,
             on_bounds,
             &mut |colors, computation| solver.solve(colors, mode, computation),
         );
     }
-    if search == PaletteSearch::Maximum {
+    if search == PaletteSearch::Maximum && bounds.upper.is_none() {
         // A color-independent strategy supplies a repeatable behavior. Conversely,
         // with finite labels, inputs and degrees, there are finitely many behavior
         // vectors. Arbitrarily large palettes contain enough equal vectors to
         // cover every active/passive degree and hence give a color-independent
         // strategy. This proves the remaining maximum search terminates; there
         // is no heuristic palette cutoff.
-        if let ZeroRoundResult::Solvable { strategy } =
-            zero_round::check_with(problem, mode, computation)?
-        {
-            let inputs = prepare::input_labels(problem);
-            let mut outputs = vec![Vec::new(); inputs.len()];
-            for rule in strategy {
-                computation.cancellation.check()?;
-                for (port, output) in rule.output.into_iter().enumerate() {
-                    let input = rule.input.as_ref().map(|labels| labels[port]);
-                    outputs[prepare::input_index(input)].push(output);
-                }
+        let computed;
+        let zero_round = match zero_round {
+            Some(result) => result,
+            None => {
+                computed = zero_round::check_with_maximum(problem, mode, maximum, computation)?;
+                &computed
             }
-            let behavior = ColorBehavior {
-                outputs_by_input: outputs.into_iter().map(LabelSet::new).collect(),
-            };
-            return Ok(ColoringResult::Unbounded {
-                minimum,
-                witness: ColoringWitness::LocalColors {
-                    behaviors: vec![behavior],
-                },
-            });
+        };
+        if let Some(result) =
+            reuse::from_zero_round(problem, kind, search, zero_round, &computation.cancellation)?
+        {
+            return Ok(result);
         }
     }
-    let mut solver = PaletteSolver::new(
+    let mut solver = PaletteSolver::new_with_maximum(
         problem,
         kind,
         backend(&computation.cancellation),
+        maximum,
         computation,
     )?;
     if let PaletteSearch::Fixed { colors } = search {
@@ -212,7 +273,7 @@ pub fn check_with(
         });
     }
     search_maximum(
-        minimum,
+        bounds,
         computation,
         on_bounds,
         &mut |colors, computation| solver.solve(colors, mode, computation),
@@ -225,19 +286,21 @@ pub fn check_with(
 /// color-placement enumeration and SAT search much more expensive. The first
 /// UNSAT query proves that the preceding SAT palette is the maximum.
 fn search_maximum(
-    minimum: u32,
+    mut bounds: ColoringBounds,
     computation: &mut Computation<'_>,
     on_bounds: &mut dyn FnMut(ColoringBounds),
     solve: &mut impl FnMut(u32, &mut Computation<'_>) -> anyhow::Result<Option<ColoringWitness>>,
 ) -> anyhow::Result<ColoringResult> {
-    let mut bounds = ColoringBounds {
-        minimum,
-        testing: None,
-        lower: None,
-        upper: None,
-        witness: None,
+    let minimum = bounds.minimum;
+    if bounds.lower.is_some() || bounds.upper.is_some() {
+        publish(&bounds, computation, on_bounds)?;
+    }
+    let mut colors = match bounds.lower {
+        Some(lower) => lower
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("Palette size exceeds the u32 representation."))?,
+        None => minimum,
     };
-    let mut colors = minimum;
     loop {
         bounds.testing = Some(colors);
         publish(&bounds, computation, on_bounds)?;
@@ -250,14 +313,8 @@ fn search_maximum(
         }
         bounds.testing = None;
         publish(&bounds, computation, on_bounds)?;
-        if bounds.upper.is_some() {
-            return Ok(match bounds.lower {
-                Some(colors) => ColoringResult::Maximum {
-                    colors,
-                    witness: bounds.witness.expect("proved lower bound"),
-                },
-                None => ColoringResult::NoPalette,
-            });
+        if let Some(result) = maximum_from_bounds(&bounds) {
+            return Ok(result);
         }
         colors = colors
             .checked_add(1)

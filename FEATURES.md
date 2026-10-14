@@ -139,7 +139,9 @@ are inferred rather than explicitly specified.
 | Feature | Short description |
 | --- | --- |
 | Maximize | Compute and cache the passive maximum, respecting input-dependent validity, with progress, cancellation, and retry. |
-| Saved maximization | Retain the complete result in files and links while keeping the displayed problem unchanged. |
+| Saved maximization | Retain the source maximum and reuse it automatically in RE, applicable diagrams and passive solvability checks; keep the displayed problem unchanged. |
+| Stateless problem state | Send the problem and completed caches through one shared envelope; Rust selects reusable artifacts, and the client API merges new entries, including across cancellation. |
+| Saved-state migration | Version-two files and links separate computational state from UI controls; import version-one sessions with their proofs and caches intact. |
 | Apply RE (Speedup) | Apply one round-elimination step and append its result, reusing the source maximum; supports progress, cancellation, and all input variants. |
 | Check zero-round solvability | Decide deterministic active-side zero-round solvability; show a short result and table, with strategy help collapsed by default. |
 | Coloring assumptions / Diagram assumptions | Expand detailed explanations while keeping analysis controls compact. |
@@ -153,10 +155,10 @@ are inferred rather than explicitly specified.
 | Find the maximum palette | Find the largest solvable palette, or certify unbounded solvability or that no feasible palette works. |
 | Zero-round result and strategy | Display solvable/unsolvable status and outputs for each active input configuration in occurrence order. |
 | Coloring result / Show strategy | Display the result and output-set certificate; its "Reading the strategy" explanation is collapsed by default. |
-| Cached coloring checks | Reuse completed checks by coloring kind and palette choice; preserve all entries in files and links. |
+| Cached coloring checks | Reuse exact queries and related palette proofs; start maximum search from known bounds and reuse zero-round certificates. Preserve all entries in files and links. |
 | Unbounded coloring certificates | Show repeatable behavior, or smaller/larger neighbor-color behavior for distance-two coloring. |
 | Partial coloring results | Stream the current palette and proved bounds, retaining the latest witness and bounds on cancellation. |
-| Computation progress | Display the phase and candidate count; both backends coalesce updates to ten batches per second without blocking CPU work on UI consumption. Final results and the latest cumulative proof snapshot are retained. |
+| Computation progress | Display the phase and candidate count; both backends coalesce updates to ten batches per second without blocking CPU work on UI consumption. Final results, cumulative new cache entries and the latest proof snapshot are retained independently. |
 | Cancel / Retry | Interrupt an analysis and allow a fresh attempt on the same parsed problem, on either backend. |
 | Analysis errors | Display failures inside the relevant problem's analysis section. |
 
@@ -229,11 +231,11 @@ explicitly deferred at the user's request.
 | Topic | Short description |
 | --- | --- |
 | Normalize condensed configurations | Merge identical parts and sort parts. Equality currently compares stored structure; this normalization will not decide all semantic equivalences. |
-| Benchmark label-set storage | Maximization uses packed masks for up to 64 labels while the model retains sorted vectors; evaluate larger bitsets on representative workloads before extending this. |
+| Benchmark label-set storage | Maximization uses u64/u128 masks, density-dependent four-word/dynamic masks and sparse vector fallback; the model retains sorted vectors. Revisit the measured storage heuristics on other workloads. |
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
 | Optimize zero-round search | Compare membership tables per input against current port variables; consider old degree-two behavior/compatibility searches, preserving original inputs and witness verification. |
-| Optimize coloring search | Color-behavior ordering, affordable eager passive clauses and provenance-preserving output-domain grouping are integrated. Calibrate the eager encoding budget on larger domains, consider safe distance-two symmetry, and reuse applicable cached bounds/certificates and zero-round proofs. |
+| Optimize coloring search | Color-behavior ordering, affordable eager passive clauses and provenance-preserving output-domain grouping are integrated. Calibrate the eager encoding budget on larger domains, consider safe distance-two symmetry, and evaluate maximum-search initialization on other cached-query workloads. |
 | Avoid allocations for set overlap | Vector subset cardinality rejection is implemented. Boolean overlap/disjointness for SAT matching remains future work; it was outside the maximization-only experiments. |
 | Share generated duplicates earlier | Implemented for untraced dense algebras certified by a common admissible meet, including covered local rejections. Broad sharing regressed the large fixture; sparse searches keep their previous policy. Monitor history memory on other workloads. |
 | Reduce traversal memory | Skip the visited-configuration set for multiset families whose distributions are provably unique; retain provenance-correct deduplication for overlapping domains. |
@@ -245,7 +247,7 @@ explicitly deferred at the user's request.
 | Evaluate parallel native SAT solvers | Deferred by the user. Benchmark a candidate such as CryptoMiniSat against CaDiCaL before integrating it; require incremental assumptions and cancellation, retaining RustSAT encodings and the wasm backend. |
 | GPU computation | A possible future optimization requested by the user; select kernels only after profiling identifies suitable work. |
 | Greedy distance-two coloring | Characterize compatible local views under the Grundy promise before choosing an exact strategy representation. |
-| Reuse computed maxima in analyses | Connect an already stored maximum to fast diagrams and passive verification; distinguish output-only/joint guarantees and avoid silently maximizing unrelated requested analyses. |
+| Further proof reuse | Maxima, completed palette bounds and zero-round certificates are reused. Consider resuming from saved cancelled partial-bound snapshots without losing their witnesses or treating interruption as UNSAT. |
 | Compact/lazy diagram computation | Group identical occurrence profiles and defer expensive contexts; consider representing transitive relations by SCCs and their DAG with explicit session migration. |
 | Lazy active input checks | Investigate checking condensed active promises and adding only violated SAT obligations; exact coverage remains potentially exponential. |
 | Cheap unbounded witness verification | Verify the repeated behavior directly against original constraints instead of enumerating redundant dummy color assignments. |

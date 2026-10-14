@@ -17,7 +17,7 @@ use axum::{
     },
 };
 use round_eliminator_3::{
-    api::{ApiError, ComputationEvent, Response, execute_text_with_events},
+    api::{ApiError, ComputationEvent, Response, ResponsePacket, execute_text_with_events},
     computation::{Cancellation, Phase, Progress},
 };
 use tokio::{
@@ -47,13 +47,14 @@ fn start(workers: Arc<Semaphore>, body: String) -> ComputationStream {
     })
 }
 
-fn start_work(
+fn start_work<R: Into<ResponsePacket> + Send + 'static>(
     workers: Arc<Semaphore>,
-    work: impl FnOnce(Cancellation, &mut dyn FnMut(ComputationEvent)) -> Response + Send + 'static,
+    work: impl FnOnce(Cancellation, &mut dyn FnMut(ComputationEvent)) -> R + Send + 'static,
 ) -> ComputationStream {
     // Each watch channel retains one snapshot. CPU work never waits for the
     // browser, and overwritten progress never incurs JSON or network work.
     let (progress_tx, progress) = watch::channel(None);
+    let (cache_tx, cache) = watch::channel(None);
     let (partial_tx, partial) = watch::channel(None);
     let (mut response_tx, response) = oneshot::channel();
     let cancellation = Cancellation::default();
@@ -70,19 +71,23 @@ fn start_work(
                 ComputationEvent::Progress(progress) => {
                     progress_tx.send_replace(Some(progress));
                 }
+                update @ ComputationEvent::CacheUpdate(_) => {
+                    cache_tx.send_replace(Some(Arc::new(update)));
+                }
                 // Partial results are cumulative proof snapshots, not deltas.
                 // A later snapshot supersedes the earlier one, retaining its proof.
                 other => {
                     partial_tx.send_replace(Some(Arc::new(other)));
                 }
             };
-            work(cancel_work, &mut report)
+            work(cancel_work, &mut report).into()
         });
         let result = task.await.unwrap_or_else(|error| {
             Response::Error(ApiError {
                 message: format!("Computation failed: {error}"),
                 location: None,
             })
+            .into()
         });
         // Final delivery is independent of the progress slots and never blocks.
         let _ = response_tx.send(result);
@@ -92,6 +97,7 @@ fn start_work(
     ComputationStream {
         progress,
         partial,
+        cache,
         response,
         tick,
         cancellation,
@@ -102,18 +108,23 @@ fn start_work(
         pending_partial: None,
         last_progress: None,
         last_partial: None,
+        pending_cache: None,
+        last_cache: None,
     }
 }
 
 pub(crate) struct ComputationStream {
     progress: watch::Receiver<Option<Progress>>,
     partial: watch::Receiver<Option<Arc<ComputationEvent>>>,
-    response: oneshot::Receiver<Response>,
+    cache: watch::Receiver<Option<Arc<ComputationEvent>>>,
+    response: oneshot::Receiver<ResponsePacket>,
     tick: Interval,
     cancellation: Cancellation,
     queued: bool,
     finished: bool,
-    final_response: Option<Response>,
+    final_response: Option<ResponsePacket>,
+    pending_cache: Option<Arc<ComputationEvent>>,
+    last_cache: Option<Arc<ComputationEvent>>,
     pending_progress: Option<Progress>,
     pending_partial: Option<Arc<ComputationEvent>>,
     last_progress: Option<Progress>,
@@ -143,6 +154,7 @@ impl Stream for ComputationStream {
                             message: "Computation worker stopped without a result.".to_owned(),
                             location: None,
                         })
+                        .into()
                     }));
                 }
                 Poll::Pending => {}
@@ -154,6 +166,14 @@ impl Stream for ComputationStream {
             let progress = *self.progress.borrow_and_update();
             if progress != self.last_progress {
                 self.pending_progress = progress;
+            }
+            let cache = self.cache.borrow_and_update().clone();
+            if cache.as_ref().is_some_and(|update| {
+                self.last_cache
+                    .as_ref()
+                    .is_none_or(|previous| !Arc::ptr_eq(previous, update))
+            }) {
+                self.pending_cache = cache;
             }
             let partial = self.partial.borrow_and_update().clone();
             if partial.as_ref().is_some_and(|update| {
@@ -167,6 +187,10 @@ impl Stream for ComputationStream {
         if let Some(progress) = self.pending_progress.take() {
             self.last_progress = Some(progress);
             return Poll::Ready(Some(event(&ComputationEvent::Progress(progress))));
+        }
+        if let Some(cache) = self.pending_cache.take() {
+            self.last_cache = Some(cache.clone());
+            return Poll::Ready(Some(event(&cache)));
         }
         if let Some(partial) = self.pending_partial.take() {
             self.last_partial = Some(partial.clone());
@@ -234,6 +258,15 @@ mod tests {
                     }),
                 )));
             }
+            let mut cache = round_eliminator_3::api::AnalysisCache::default();
+            cache.zero_round = Some(round_eliminator_3::algorithms::solvability::zero_round::ZeroRoundResult::Unsolvable);
+            report(ComputationEvent::CacheUpdate(Box::new(cache.clone())));
+            cache.maximization = Some(
+                round_eliminator_3::algorithms::maximize::MaximizationResult::OutputOnly(
+                    round_eliminator_3::model::Constraint::new(Vec::new()),
+                ),
+            );
+            report(ComputationEvent::CacheUpdate(Box::new(cache)));
             let _ = done_tx.send(());
             Response::Cancelled
         });
@@ -248,11 +281,14 @@ mod tests {
             .unwrap();
         drop(permit);
         let updates = read_events(stream).await;
-        assert_eq!(updates.len(), 4); // Queued, latest progress, best proof, final result.
+        assert_eq!(updates.len(), 5); // Queued, progress, cache, proof, final result.
         assert_eq!(updates[1]["data"]["iterations"], 99_999);
-        assert_eq!(updates[2]["data"]["data"]["lower"], 4);
-        assert_eq!(updates[3]["type"], "response");
-        assert_eq!(updates[3]["data"]["type"], "cancelled");
+        assert_eq!(updates[2]["type"], "cache_update");
+        assert_eq!(updates[2]["data"]["zero_round"]["status"], "unsolvable");
+        assert_eq!(updates[2]["data"]["maximization"]["kind"], "output_only");
+        assert_eq!(updates[3]["data"]["data"]["lower"], 4);
+        assert_eq!(updates[4]["type"], "response");
+        assert_eq!(updates[4]["data"]["response"]["type"], "cancelled");
     }
 
     #[tokio::test(start_paused = true)]
@@ -310,7 +346,7 @@ mod tests {
         let updates = read_events(stream).await;
         assert_eq!(updates.len(), 2); // Immediate last progress and final response.
         assert_eq!(updates[0]["data"]["iterations"], 100_000);
-        assert_eq!(updates[1]["data"]["type"], "cancelled");
+        assert_eq!(updates[1]["data"]["response"]["type"], "cancelled");
     }
 
     fn analysis_request() -> String {
@@ -320,7 +356,7 @@ mod tests {
         }))
         .unwrap();
         let problem = round_eliminator_3::parser::parse_problem(text).unwrap();
-        serde_json::json!({"type":"check_zero_round", "data":{"problem":problem}}).to_string()
+        serde_json::json!({"type":"compute", "data":{"state":{"problem":problem}, "operation":{"type":"check_zero_round", "data":{}}}}).to_string()
     }
 
     #[tokio::test]

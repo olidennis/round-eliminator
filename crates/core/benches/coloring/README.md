@@ -63,9 +63,9 @@ It does not establish that BatSat is generally a better solver.
    sources. Thus a clause still proves a realizable forbidden tuple with the
    correct input/color origins. This is exact and requires no maximized constraint.
 
-**Recommend integrating these three together.** Keep CaDiCaL native and BatSat
-wasm. All three are temporary kernel changes created by `prepare.py`; model,
-protocol, UI, production solver settings and allocator are unchanged.
+**All three are now integrated together.** CaDiCaL remains the native backend
+and BatSat the wasm backend. `prepare.py` reproduces the historical temporary
+variants; the model, protocol, UI, solver settings and allocator are unchanged.
 
 Simple row sorting is **not** applied to distance-two behaviors: renaming a color
 permutes both own and neighbor indices. A valid symmetry scheme there would need
@@ -149,8 +149,9 @@ Production module runs are in `results/wasm-production.jsonl`.
   sorting takes 62 ms / 112 candidates; add near-homogeneous output probes and
   it takes 32.5 ms. Maximum preparation is about 1.3 ms on this tiny case.
   The grouped general prototype wins at 15.9 ms **without** this extra computation.
-  Reusing correct cached artifacts remains a separate integration task, especially
-  for restricted mappings that require an input-aware maximum.
+  Correct cached artifacts are now reused by the stateless analysis API, including
+  joint maxima for restricted mappings. These historical screens predate that
+  integration; they are not new measurements of its performance.
 - Borrow nearly homogeneous witness probes from generic `covers_with`:
   helps verification in some cases but alone still times out at ten seconds on
   RE(BMM). Sorting/eager/probes gives 161 ms; exact domain grouping is much better.

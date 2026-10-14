@@ -1,5 +1,12 @@
 # Maximization review experiments
 
+This report records the earlier review stage. The later
+[final-four report](final-four.md) supersedes its future-work and server-allocator
+status: wider density-dependent masks and dynamic-mask history compression were
+integrated, the server switched to mimalloc v2, and flow reuse and phase overlap
+were tested without selecting them. The measurements below retain their original
+meaning and were not rerun for this status update.
+
 2026-10-13. This follows the static review in the root `REVIEW.md`. Only
 maximization improvements were attempted. Other findings, especially incidence
 edge coloring after one RE step, remain deferred.

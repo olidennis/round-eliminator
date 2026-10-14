@@ -58,12 +58,14 @@ struct Updates {
     last_progress: Option<Progress>,
     progress: Option<Progress>,
     partial: Option<ComputationEvent>,
+    cache: Option<ComputationEvent>,
 }
 
 impl Updates {
     fn push(&mut self, event: ComputationEvent, now: f64, emit: &mut dyn FnMut(ComputationEvent)) {
         match event {
             ComputationEvent::Progress(progress) => self.progress = Some(progress),
+            event @ ComputationEvent::CacheUpdate(_) => self.cache = Some(event),
             other => self.partial = Some(other),
         }
         if self
@@ -81,6 +83,9 @@ impl Updates {
         {
             self.last_progress = Some(progress);
             emit(ComputationEvent::Progress(progress));
+        }
+        if let Some(cache) = self.cache.take() {
+            emit(cache);
         }
         if let Some(partial) = self.partial.take() {
             emit(partial);
@@ -137,6 +142,44 @@ mod tests {
         assert!(
             matches!(&events[2], ComputationEvent::PartialResult(response)
             if matches!(**response, round_eliminator_3::api::Response::ColoringBounds(ColoringBounds { lower: Some(4), .. })))
+        );
+    }
+
+    #[test]
+    fn cache_updates_and_partial_proofs_are_coalesced_independently() {
+        use round_eliminator_3::{
+            algorithms::solvability::zero_round::ZeroRoundResult, api::AnalysisCache,
+        };
+        let mut updates = Updates::default();
+        let mut events = Vec::new();
+        updates.push(progress(0), 0.0, &mut |event| events.push(event));
+        let mut cache = AnalysisCache::default();
+        cache.zero_round = Some(ZeroRoundResult::Unsolvable);
+        updates.push(
+            ComputationEvent::CacheUpdate(Box::new(cache.clone())),
+            1.0,
+            &mut |event| events.push(event),
+        );
+        updates.push(proof(3), 2.0, &mut |event| events.push(event));
+        cache.maximization = Some(
+            round_eliminator_3::algorithms::maximize::MaximizationResult::OutputOnly(
+                round_eliminator_3::model::Constraint::new(Vec::new()),
+            ),
+        );
+        updates.push(
+            ComputationEvent::CacheUpdate(Box::new(cache.clone())),
+            3.0,
+            &mut |event| events.push(event),
+        );
+        updates.push(proof(4), 4.0, &mut |event| events.push(event));
+        updates.flush(&mut |event| events.push(event));
+        assert_eq!(events.len(), 3);
+        assert!(
+            matches!(&events[1], ComputationEvent::CacheUpdate(actual) if actual.as_ref() == &cache)
+        );
+        assert!(
+            matches!(&events[2], ComputationEvent::PartialResult(response)
+            if matches!(response.as_ref(), round_eliminator_3::api::Response::ColoringBounds(bounds) if bounds.lower == Some(4)))
         );
     }
 

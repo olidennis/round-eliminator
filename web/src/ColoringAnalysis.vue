@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { send, type Backend } from './api'
-import type { Problem } from './generated/Problem'
+import { sendForProblem, type Backend } from './api'
+import type { ProblemState } from './generated/ProblemState'
 import type { Progress } from './generated/Progress'
 import type { ColoringKind } from './generated/ColoringKind'
 import type { ColoringBounds } from './generated/ColoringBounds'
-import { coloringKey, coloringQuery, type CachedColoring, type SavedColoring } from './session'
+import { coloringKey, coloringQuery, type SavedColoring } from './session'
 import ComputationProgress from './ComputationProgress.vue'
 import ColoringView from './ColoringView.vue'
 import CollapsibleSection from './CollapsibleSection.vue'
 
-const props = defineProps<{ problem: Problem; backend: Backend; saved: SavedColoring; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
+const props = defineProps<{ state: ProblemState; backend: Backend; saved: SavedColoring; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
+const problem = computed(() => props.state.problem)
 const emit = defineEmits<{ update: [analysis: SavedColoring]; collapse: [collapsed: boolean] }>()
-const ordinaryGraph = computed(() => props.problem.graph_class.passive.every(degree => degree === 2))
+const ordinaryGraph = computed(() => props.state.problem.graph_class.passive.every(degree => degree === 2))
 const savedKindSupported = ordinaryGraph.value || !['graph_edges', 'distance_two'].includes(props.saved.kind)
 const kind = ref<ColoringKind>(savedKindSupported ? props.saved.kind : 'vertex')
 const search = ref<'maximum' | 'fixed'>(props.saved.search)
 const colors = ref(props.saved.colors)
 const query = computed(() => coloringQuery({ kind: kind.value, search: search.value, colors: colors.value }))
-const results = shallowRef<CachedColoring[]>(props.saved.results.filter(entry => ordinaryGraph.value
+const results = computed(() => props.state.analyses.coloring.filter(entry => ordinaryGraph.value
   || !['graph_edges', 'distance_two'].includes(entry.kind)))
 const result = computed(() => results.value.find(entry => coloringKey(entry) === coloringKey(query.value))?.result ?? null)
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(
@@ -31,11 +32,11 @@ let controller: AbortController | null = null
 onBeforeUnmount(() => { controller?.abort(); controller = null })
 
 const minimum = computed(() => kind.value === 'distance_two'
-  ? Math.max(0, ...props.problem.graph_class.active) + 1
+  ? Math.max(0, ...props.state.problem.graph_class.active) + 1
   : Math.max(1, ...(
-  kind.value === 'vertex' ? props.problem.graph_class.passive :
-  kind.value === 'graph_edges' ? props.problem.graph_class.active :
-  [...props.problem.graph_class.active, ...props.problem.graph_class.passive]
+  kind.value === 'vertex' ? props.state.problem.graph_class.passive :
+  kind.value === 'graph_edges' ? props.state.problem.graph_class.active :
+  [...props.state.problem.graph_class.active, ...props.state.problem.graph_class.passive]
 )))
 watch(kind, value => {
   if (value === 'distance_two') {
@@ -60,7 +61,7 @@ watch([kind, search, colors], () => {
 // Progress, workers, controllers and running state remain local to this card.
 watch([kind, search, colors, bounds, results], () => emit('update', {
   kind: kind.value, search: search.value, colors: colors.value,
-  bounds: bounds.value, results: results.value,
+  bounds: bounds.value,
 }), { immediate: true })
 
 function cancel() {
@@ -79,8 +80,8 @@ async function run() {
   bounds.value = null
   error.value = ''
   try {
-    const response = await send({ type: 'check_coloring', data: {
-      problem: props.problem, ...requested, passive_mode: 'general',
+    const response = await sendForProblem(props.state, { type: 'check_coloring', data: {
+      ...requested, passive_mode: 'general',
     } }, props.backend, {
       signal: current.signal,
       onProgress: update => { if (controller === current) progress.value = update },
@@ -90,8 +91,6 @@ async function run() {
     })
     if (controller !== current) return
     if (response.type === 'coloring') {
-      results.value = [...results.value.filter(entry => coloringKey(entry) !== coloringKey(requested)),
-        { ...requested, result: response.data }]
       bounds.value = null
       state.value = 'done'
     } else if (response.type === 'cancelled') {

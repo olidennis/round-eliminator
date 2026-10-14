@@ -53,8 +53,8 @@ The requested prototypes and their production confirmation are recorded in
 Implemented useful-join rejection, prepared alignment traversal, component-balance
 rejection, stack compatibility caching, selective exact generated history, and
 65–128-label packing. Broad history sharing regressed sparse workloads and was
-not selected. Larger representation changes (interning/multiword storage) and
-flow-network reuse remain possible future experiments. The non-maximization
+not selected. The subsequent experiments adopted wider masks and dynamic-mask
+history compression, and tested flow-network reuse without selecting it. The non-maximization
 items below remain deferred except for the completed coloring investigation above.
 The numbered descriptions retain the original review's observations and proposals;
 consult the follow-up for the current implementation and measurements.
@@ -66,6 +66,73 @@ were tested. Wider density-aware masks, dynamic-mask compression and conditional
 unit-count grains are adopted; flow reuse and phase overlap stay out of the
 production path. The server now uses mimalloc v2. Earlier allocator/timing
 statements below describe the static review's historical state.
+
+## Stateless cache reuse implemented (2026-10-14)
+
+The user selected a stateless backend and authorized shared computational state.
+`ProblemState` now owns an immutable problem and completed analysis cache on the
+client. Rust operations automatically consume applicable artifacts; the common
+client API attaches state and merges cumulative new entries. Existing saved
+sessions migrate to the new state layout. No persistent workers/backend handles.
+
+Cached output maxima accelerate exact output diagrams; joint maxima accelerate
+exact pair/input-aware diagrams without claiming output-only maximality. Zero-round
+and coloring checks reuse maxima while retaining concrete counterexample clauses.
+Exact results and completed coloring bounds are reused; maximum search skips proved
+palettes, zero-round strategies certify every coloring kind, and negative coloring
+results exclude zero-round solvability. Partial bounds from cancelled searches are
+retained by the UI but do not yet initialize future searches. Basic FP retains its
+representation-dependent original partial diagram so its construction is unchanged.
+
+## Current deferred work
+
+Consolidated on 2026-10-14 at the user's request. The historical numbered review
+below includes suggestions that have since been implemented or tested and
+rejected; use this list for remaining work. These are investigation topics,
+without a selected implementation unless explicitly stated otherwise.
+
+### Saved review topics
+
+| Topic | Work to revisit |
+| --- | --- |
+| Resume partial proofs | Completed maxima and palette/zero-round proofs are now reused. Investigate resuming cancelled searches directly from saved partial-bound snapshots. |
+| Simplify unbounded verification | Verify repeated unbounded behaviors directly instead of enumerating redundant dummy colors. Related-query proof reuse is now implemented. |
+| Alternative zero-round encodings | Compare membership SAT with the current per-rule/per-port encoding; benchmark specialized passive-degree-two behavior/compatibility searches. |
+| Allocation-free set overlap | Test Boolean overlap without constructing an intersection. Vector subset cardinality rejection is already implemented. |
+| Multiset enumeration memory | Avoid retaining every visited multiset when uniqueness follows from the family's structure; keep exact deduplication for overlapping domains. |
+| Lazy active input obligations | Work with condensed active promises and add only violated obligations, preserving all promised inputs. |
+| Diagram computation and storage | Group equal occurrence profiles, build expensive contexts lazily, benchmark exact joint products/coverage, and consider a compact SCC/DAG representation with session migration. |
+| Basic FP lattice scaling | Replace quadratic operation tables with direct operations or selective caching when the lattice is large. |
+| Runtime scheduling and interruption | Consider budgets for mixed SAT/Rayon workloads, clearer generation/pruning phase accounting, and cancellation granularity in parsing/library calls including flow. Evaluate wasm worker reuse only if startup measurements justify it. |
+| UI data and computation controllers | Keep immutable snapshots raw/shallow, consider paging/virtualization for large tables, and share repeated cancellation/progress/controller logic with a small composable. |
+
+### Later coloring follow-ups
+
+- Investigate safe distance-two symmetry breaking: color renaming must permute
+  both own-color rows and neighbor-color columns.
+- Calibrate the eager encoding budget on larger color/input/output domains.
+  The existing threshold chooses eager versus exact lazy encoding; it does not
+  bound permitted problems or palette searches.
+
+These follow-ups were identified during the later coloring work, rather than
+being part of the original saved review. The three tested coloring improvements
+are already integrated.
+
+### Other recorded longer-term topics
+
+- Condensed-configuration normalization: merge equal parts and sort them;
+  explicitly deferred by the user, independently of temporary algorithm views.
+- Parallel native SAT solvers and possible GPU kernels; neither is selected.
+- Greedy distance-two coloring and the design question of optional global
+  realizability checks for input promises.
+- Revisit measured storage/scheduling policies on other workloads, small-kernel
+  parallel CPU overhead, and allocator portability when justified by evidence.
+- Starred configurations remain unsupported and explicitly deferred.
+
+Flow-network retention, overlapping maximization phases, broad compression,
+unconditional coarser generation grains, unrestricted coloring clause batching,
+and extra witness probes were tested without selecting them for production.
+They are retained as experiments, not pending integrations.
 
 ## First improvements to consider
 

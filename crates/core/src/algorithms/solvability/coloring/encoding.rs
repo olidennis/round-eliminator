@@ -19,7 +19,7 @@ use crate::{
             constraint_encoding::{Choice, encode_constraint},
             passive::{
                 EAGER_ENCODING_BUDGET, Emission, PassiveMode, eager_encoding_work,
-                forbidden_combination, visit_forbidden,
+                forbidden_with_maximum, visit_forbidden,
             },
         },
     },
@@ -29,6 +29,7 @@ use crate::{
 
 pub(super) struct PaletteSolver<'a, S> {
     problem: &'a Problem,
+    maximum: Option<&'a crate::algorithms::maximize::MaximizationResult>,
     kind: ColoringKind,
     formula: Formula<S>,
     inputs: Vec<Option<LabelId>>,
@@ -45,16 +46,28 @@ pub(super) struct PaletteSolver<'a, S> {
 }
 
 impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
+    #[cfg(test)]
     pub fn new(
         problem: &'a Problem,
         kind: ColoringKind,
         solver: S,
         computation: &mut Computation<'_>,
     ) -> anyhow::Result<Self> {
+        Self::new_with_maximum(problem, kind, solver, None, computation)
+    }
+
+    pub(super) fn new_with_maximum(
+        problem: &'a Problem,
+        kind: ColoringKind,
+        solver: S,
+        maximum: Option<&'a crate::algorithms::maximize::MaximizationResult>,
+        computation: &mut Computation<'_>,
+    ) -> anyhow::Result<Self> {
         computation.report(Phase::Enumerating, 0)?;
         let passive_inputs = prepare_passive_inputs(problem, &computation.cancellation)?;
         Ok(Self {
             problem,
+            maximum,
             kind,
             formula: Formula::new(solver, computation.cancellation.clone()),
             inputs: prepare::input_labels(problem),
@@ -333,11 +346,13 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                 colors,
                 &computation.cancellation,
                 &mut |family| {
-                    forbidden = forbidden_combination(
+                    forbidden = forbidden_with_maximum(
                         self.problem.output().passive(),
                         std::slice::from_ref(family),
                         &emissions,
                         mode,
+                        self.maximum,
+                        |input| input.0,
                         &computation.cancellation,
                     )?;
                     Ok(forbidden.is_none())

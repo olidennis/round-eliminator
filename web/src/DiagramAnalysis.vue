@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { send, type Backend } from './api'
-import type { Problem } from './generated/Problem'
+import { sendForProblem, type Backend } from './api'
+import type { ProblemState } from './generated/ProblemState'
 import type { Progress } from './generated/Progress'
 import type { DiagramResult } from './generated/DiagramResult'
 import type { InputOutputDiagramMethod } from './generated/InputOutputDiagramMethod'
@@ -13,9 +13,10 @@ import CollapsibleSection from './CollapsibleSection.vue'
 // Load the visualization library only when a diagram is actually displayed.
 const DiagramView = defineAsyncComponent(() => import('./DiagramView.vue'))
 
-const props = defineProps<{ problem: Problem; backend: Backend; saved: SavedDiagram; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
+const props = defineProps<{ state: ProblemState; backend: Backend; saved: SavedDiagram; collapsed?: boolean; collapsedTarget?: HTMLElement | null }>()
+const problem = computed(() => props.state.problem)
 const emit = defineEmits<{ update: [analysis: SavedDiagram]; collapse: [collapsed: boolean] }>()
-const kinds = computed(() => diagramKinds(props.problem))
+const kinds = computed(() => diagramKinds(props.state.problem))
 const inputDiagrams = computed(() => kinds.value.length > 1)
 function applicableOptions(options: DiagramResult['options']): DiagramResult['options'] {
   if (kinds.value.includes(options.kind)) return options
@@ -27,8 +28,8 @@ const inputOutput = ref<InputOutputDiagramMethod>(props.saved.options.input_outp
 const kind = ref(initial.kind)
 const layout = ref(props.saved.layout)
 // Imported equivalent diagrams remain usable after removing redundant choices.
-const results = shallowRef<DiagramResult[]>(Array.from(new Map(props.saved.results.flatMap(candidate => {
-  const reusable = reuseOutputOnlyDiagram(props.problem, candidate)
+const results = computed(() => Array.from(new Map(props.state.analyses.diagrams.flatMap(candidate => {
+  const reusable = reuseOutputOnlyDiagram(props.state.problem, candidate)
   return reusable ? [[diagramKey(reusable.options), reusable] as const] : []
 })).values()))
 const options = computed(() => ({ kind: kind.value, output: output.value, input_output: inputOutput.value }))
@@ -45,7 +46,7 @@ watch([kind, output, inputOutput], () => {
 })
 watch([options, layout, results], () => emit('update', {
   options: options.value,
-  layout: layout.value, results: results.value,
+  layout: layout.value,
 }), { immediate: true })
 
 function cancel() {
@@ -62,13 +63,13 @@ async function run() {
   progress.value = null
   error.value = ''
   try {
-    const response = await send({ type: 'compute_diagram', data: {
-      problem: props.problem, options: options.value,
+    const response = await sendForProblem(props.state, { type: 'compute_diagram', data: {
+      options: options.value,
     } }, props.backend, { signal: current.signal,
       onProgress: update => { if (controller === current) progress.value = update },
     })
     if (controller !== current) return
-    if (response.type === 'diagram') { results.value = [...results.value, response.data]; state.value = 'done' }
+    if (response.type === 'diagram') { state.value = 'done' }
     else if (response.type === 'cancelled') state.value = 'cancelled'
     else throw new Error(response.type === 'error' ? response.data.message : 'Unexpected diagram response.')
   } catch (cause) {
@@ -116,8 +117,8 @@ async function run() {
         {{ state === 'idle' ? 'Compute diagram' : 'Retry diagram computation' }}
       </button>
     </fieldset>
-    <p v-if="output === 'maximized' && (kind === 'output_only' || inputOutput === 'cheap')" class="hint">Use this method only when the complete passive
-      output constraint is already maximized. This computation does not maximize it.</p>
+    <p v-if="output === 'maximized' && (kind === 'output_only' || inputOutput === 'cheap')" class="hint">Uses a saved output-only maximum when available.
+      Otherwise, the displayed passive output constraint must already be maximized. This computation does not maximize it.</p>
     <details class="help-details analysis-help">
     <summary>Diagram assumptions</summary>
     <p class="hint">Arrows describe replacements preserving passive validity.

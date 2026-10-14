@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json, execute_with_events } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -9,14 +10,14 @@ const server = process.argv[2]
 let fixtures = 0
 
 async function execute(problem, maximum) {
-  const body = JSON.stringify({ type: 'apply_re', data: { problem, maximum } })
+  const body = encode({ type: 'apply_re', data: { problem, maximum } })
   const events = []
-  const response = JSON.parse(execute_with_events(body, raw => events.push(JSON.parse(raw))))
-  assert.equal(response.type, 'problem', JSON.stringify(response))
+  const response = decode(execute_with_events(body, raw => events.push(decodeEvent(raw))))
+  assert.equal(response.type, 'problem', encode(response))
   assert.ok(events.every(event => event.type !== 'progress' || event.data.phase !== 'parsing'))
-  const snapshots = events.filter(event => event.type === 'partial_result').map(event => event.data)
+  const snapshots = events.filter(event => event.type === 'cache_update').map(event => event.data)
   assert.equal(snapshots.length, maximum ? 0 : 1)
-  if (!maximum) assert.equal(snapshots[0].type, 'maximization')
+  if (!maximum) assert.ok(snapshots[0].maximization)
   else assert.ok(events.every(event => event.type !== 'progress' || event.data.phase !== 'maximizing'))
   if (server) {
     const http = await fetch(`${server}/stream`, {
@@ -24,17 +25,17 @@ async function execute(problem, maximum) {
     })
     assert.equal(http.status, 200)
     const updates = (await http.text()).split('\n\n').filter(frame => frame.includes('data:'))
-      .map(frame => JSON.parse(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
+      .map(frame => decodeEvent(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
     assert.deepEqual(updates.at(-1).data, response)
-    assert.deepEqual(updates.filter(event => event.type === 'partial_result').map(event => event.data), snapshots)
+    assert.deepEqual(updates.filter(event => event.type === 'cache_update').map(event => event.data), snapshots)
     assert.ok(updates.every(event => event.type !== 'progress' || event.data.phase !== 'parsing'))
     if (maximum) assert.ok(updates.every(event => event.type !== 'progress' || event.data.phase !== 'maximizing'))
   }
-  return { problem: response.data, maximum: maximum ?? snapshots[0].data }
+  return { problem: response.data, maximum: maximum ?? snapshots[0].maximization }
 }
 
 async function check(definition, verify = () => {}) {
-  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
+  const parsed = decode(execute_json(encode({ type: 'parse_problem', data: definition })))
   assert.equal(parsed.type, 'problem')
   const source = parsed.data
   const before = structuredClone(source)
@@ -70,7 +71,7 @@ for (const preset of problemPresets) await check(preset.definition)
 const matching = await check({ kind: 'plain', constraints: {
   active: 'M U^3\nP^4', passive: 'M^2\nU UP',
 } }, result => {
-  const expected = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: {
+  const expected = decode(execute_json(encode({ type: 'parse_problem', data: {
     kind: 'plain', constraints: { active: 'A^2\nB C', passive: 'A BC^3\nC^4' },
   } })))
   assert.deepEqual(result, expected.data)

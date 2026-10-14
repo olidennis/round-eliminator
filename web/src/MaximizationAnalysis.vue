@@ -1,27 +1,27 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { send, type Backend } from './api'
-import type { Problem } from './generated/Problem'
+import { sendForProblem, type Backend } from './api'
+import type { ProblemState } from './generated/ProblemState'
 import type { Progress } from './generated/Progress'
-import type { MaximizationResult } from './generated/MaximizationResult'
 import CollapsibleSection from './CollapsibleSection.vue'
 import ComputationProgress from './ComputationProgress.vue'
 
 const props = defineProps<{
-  problem: Problem; backend: Backend; saved: MaximizationResult | null
+  state: ProblemState; backend: Backend
   collapsed?: boolean; collapsedTarget?: HTMLElement | null
   disabled?: boolean
 }>()
-const emit = defineEmits<{ update: [result: MaximizationResult]; collapse: [collapsed: boolean]; busy: [running: boolean] }>()
-const result = shallowRef(props.saved)
+const problem = computed(() => props.state.problem)
+const emit = defineEmits<{ collapse: [collapsed: boolean]; busy: [running: boolean] }>()
+const result = computed(() => props.state.analyses.maximization)
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(result.value ? 'done' : 'idle')
 const progress = shallowRef<Progress | null>(null)
 const error = ref('')
 const count = computed(() => result.value?.constraint.degrees.reduce((sum, group) => sum + group.configurations.length, 0) ?? 0)
 let controller: AbortController | null = null
-watch(result, value => { if (value) emit('update', value) })
+
 // Apply RE can complete the source maximum through the same saved snapshot.
-watch(() => props.saved, value => { if (value) { result.value = value; state.value = 'done' } })
+watch(result, value => { if (value) { state.value = 'done' } })
 watch(() => state.value === 'running', value => emit('busy', value), { flush: 'sync' })
 onBeforeUnmount(() => { controller?.abort(); controller = null })
 
@@ -39,12 +39,12 @@ async function run() {
   progress.value = null
   error.value = ''
   try {
-    const response = await send({ type: 'maximize', data: { problem: props.problem } }, props.backend, {
+    const response = await sendForProblem(props.state, { type: 'maximize' }, props.backend, {
       signal: current.signal,
       onProgress: update => { if (controller === current) progress.value = update },
     })
     if (controller !== current) return
-    if (response.type === 'maximization') { result.value = response.data; state.value = 'done' }
+    if (response.type === 'maximization') { state.value = 'done' }
     else if (response.type === 'cancelled') state.value = 'cancelled'
     else throw new Error(response.type === 'error' ? response.data.message : 'Unexpected maximization response.')
   } catch (cause) {
@@ -73,6 +73,7 @@ async function run() {
       <summary>About maximization</summary>
       <p class="hint">Compute and retain the passive maximum for this problem. With input-dependent output
         validity, maximize valid input-output pairs while keeping input configurations condensed.
+        RE, applicable diagram computations and solvability checks reuse the saved maximum automatically.
         The displayed definition stays unchanged; saved sessions retain the complete result.</p>
     </details>
   </CollapsibleSection>

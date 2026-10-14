@@ -1,3 +1,4 @@
+import { encode, decode } from '../../../../web/scripts/protocol.mjs'
 // Production wasm, isolated in a worker so the deadline can interrupt SAT.
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { readFile } from 'node:fs/promises'
@@ -28,28 +29,28 @@ if (isMainThread) {
     new URL('../../../../web/public/wasm/round_eliminator_3_wasm.js', import.meta.url)
   const { default: init, execute_json, execute_with_events } = await import(moduleURL)
   await init({ module_or_path: await readFile(new URL('./round_eliminator_3_wasm_bg.wasm', moduleURL)) })
-  let problem = workerData.problemFile === 'bmm' ? JSON.parse(execute_json(JSON.stringify({
+  let problem = workerData.problemFile === 'bmm' ? decode(execute_json(encode({
     type: 'parse_problem', data: { kind: 'plain', constraints: { active: 'M U^9\nP^10', passive: 'M UP^9\nU^10' } },
   }))).data : JSON.parse(await readFile(workerData.problemFile, 'utf8'))
   if (workerData.caseName) {
     const fixture = JSON.parse(await readFile(new URL('./cases.json', import.meta.url), 'utf8'))[workerData.caseName]
-    problem = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: fixture.definition }))).data
+    problem = decode(execute_json(encode({ type: 'parse_problem', data: fixture.definition }))).data
     for (let step = 0; step < (fixture.steps ?? 0); step++) {
-      problem = JSON.parse(execute_json(JSON.stringify({ type: 'apply_re', data: { problem } }))).data
+      problem = decode(execute_json(encode({ type: 'apply_re', data: { problem } }))).data
     }
     workerData.kind = fixture.kind
     workerData.palette = String(fixture.palette)
   }
   const search = workerData.palette === 'maximum' ? { kind: 'maximum' } :
     { kind: 'fixed', colors: Number(workerData.palette) }
-  const request = JSON.stringify({ type: 'check_coloring', data: {
+  const request = encode({ type: 'check_coloring', data: {
     problem, kind: workerData.kind, search, passive_mode: workerData.mode,
   } })
   const started = performance.now()
   let printed = started
   let latestProgress
   parentPort.postMessage({ event: 'started' })
-  const response = JSON.parse(execute_with_events(request, json => {
+  const response = decode(execute_with_events(request, json => {
     const event = JSON.parse(json)
     if (event.type === 'progress') latestProgress = event.data
     const now = performance.now()

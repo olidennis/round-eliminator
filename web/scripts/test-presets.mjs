@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -8,14 +9,14 @@ await init({ module_or_path: await readFile(new URL(
 const serverUrl = process.argv[2]
 
 async function execute(request) {
-  const body = JSON.stringify(request)
-  const response = JSON.parse(execute_json(body))
+  const body = encode(request)
+  const response = decode(execute_json(body))
   if (serverUrl) {
     const http = await fetch(serverUrl, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body,
     })
     assert.equal(http.status, 200)
-    const native = await http.json()
+    const native = unwrap(await http.json())
     if (response.type === 'zero_round') {
       assert.equal(native.type, response.type)
       assert.equal(native.data.status, response.data.status)
@@ -29,7 +30,7 @@ async function execute(request) {
 const parsed = new Map()
 for (const preset of problemPresets) {
   const response = await execute({ type: 'parse_problem', data: preset.definition })
-  assert.equal(response.type, 'problem', `${preset.name}: ${JSON.stringify(response)}`)
+  assert.equal(response.type, 'problem', `${preset.name}: ${encode(response)}`)
   assert.deepEqual(response.data.graph_class, {
     active: [preset.name === '5-coloring with outdegree 2 (degree 5)' ? 5 : 3],
     passive: [preset.name === 'Bipartite maximal matching' ? 3 : 2],
@@ -80,7 +81,7 @@ for (const [side, degree] of [['active', 3], ['passive', 2]]) {
       tuple.every(([input, output]) => mapped.mapping.data[mapped.input.data.labels.indexOf(input)]
         .includes(mapped.output.labels.indexOf(output)))
     assert.equal(accepts(paired.output[side], paired.output.labels,
-      tuple.map(([input, output]) => `${input},${output}`)), allowed, `${side}: ${JSON.stringify(tuple)}`)
+      tuple.map(([input, output]) => `${input},${output}`)), allowed, `${side}: ${encode(tuple)}`)
   }
   for (const input of tuples(['r', 'g', 'b'], degree)) {
     assert.equal(accepts(paired.input.data[side], paired.input.data.labels, input),

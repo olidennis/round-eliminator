@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json, execute_with_events } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -7,13 +8,13 @@ const server = process.argv[2]
 let checks = 0
 
 async function check(definition, supported = true) {
-  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
+  const parsed = decode(execute_json(encode({ type: 'parse_problem', data: definition })))
   assert.equal(parsed.type, 'problem')
   const before = structuredClone(parsed.data)
-  const body = JSON.stringify({ type: 'basic_fixed_point', data: { problem: before } })
+  const body = encode({ type: 'basic_fixed_point', data: { problem: before } })
   const events = []
-  const response = JSON.parse(execute_with_events(body, raw => events.push(JSON.parse(raw))))
-  assert.equal(response.type, supported ? 'problem' : 'error', JSON.stringify(response))
+  const response = decode(execute_with_events(body, raw => events.push(decodeEvent(raw))))
+  assert.equal(response.type, supported ? 'problem' : 'error', encode(response))
   assert.deepEqual(parsed.data, before)
   if (supported) {
     assert.deepEqual(response.data.input, before.input)
@@ -31,7 +32,7 @@ async function check(definition, supported = true) {
     })
     assert.equal(http.status, 200)
     const updates = (await http.text()).split('\n\n').filter(frame => frame.includes('data:'))
-      .map(frame => JSON.parse(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
+      .map(frame => decodeEvent(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
     assert.deepEqual(updates.at(-1).data, response)
   }
   checks++

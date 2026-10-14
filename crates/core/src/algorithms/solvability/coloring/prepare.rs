@@ -29,7 +29,7 @@ pub(super) fn input_labels(problem: &Problem) -> Vec<Option<LabelId>> {
     }
 }
 
-pub(super) fn minimum(problem: &Problem, kind: ColoringKind) -> anyhow::Result<u32> {
+pub fn minimum(problem: &Problem, kind: ColoringKind) -> anyhow::Result<u32> {
     let graph = problem.graph_class();
     let active = graph.active().iter().copied().max().unwrap_or(0);
     let passive = graph.passive().iter().copied().max().unwrap_or(0);

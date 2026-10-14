@@ -3,11 +3,11 @@ import type { DiagramKind } from "./DiagramKind";
 import type { InputOutputDiagramMethod } from "./InputOutputDiagramMethod";
 import type { OutputDiagramMethod } from "./OutputDiagramMethod";
 
-export type DiagramOptions = { kind: DiagramKind, 
+export type DiagramOptions = { kind: DiagramKind,
 /**
  * Output-only method, also used as the dependency of cheap input-output checks.
  */
-output: OutputDiagramMethod, 
+output: OutputDiagramMethod,
 /**
  * Used only for input-output pairs and input-aware outputs.
  */

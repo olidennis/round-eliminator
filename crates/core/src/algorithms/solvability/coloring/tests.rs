@@ -234,7 +234,13 @@ fn maximum_search_stops_at_the_first_unsolvable_palette() {
     // A decision oracle isolates the search policy from SAT heuristics. This
     // models the reported 10/11 boundary and catches accidental doubling.
     let result = search_maximum(
-        3,
+        ColoringBounds {
+            minimum: 3,
+            lower: None,
+            upper: None,
+            testing: None,
+            witness: None,
+        },
         &mut Computation::new(Cancellation::default(), &mut progress),
         &mut |bounds| updates.push(bounds),
         &mut |colors, _| {

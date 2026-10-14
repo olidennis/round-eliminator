@@ -1714,3 +1714,71 @@ No commits/pushes. Task complete; don't start additional sweeps or implement
 other REVIEW ideas without a new user request. Future work includes calibrating
 encoding budget on larger domains, valid distance-two row/column symmetry and
 reuse of already computed bounds/certificates/maxima where mathematically valid.
+
+
+## Integration status audit (2026-10-14)
+
+User asked whether anything else was forgotten. Cross-checked recorded selected
+maximization/adaptive/live-pruning/final-four changes, server allocator and all
+three coloring improvements against production source. No accepted, tested
+improvement remains only in a prototype. Historical reports preserve rejected
+or superseded alternatives; do not integrate them simply because files exist.
+Corrected stale current-status wording in coloring report, REVIEW overview and
+FEATURES label-set storage; added a supersession note to review-improvements.md
+without changing historical timings. Algorithm code untouched; no new benchmarks.
+Cached maxima in diagrams/solvability (Apply RE already reuses them), related-query
+proof reuse, allocation-free overlap checks, distance-two symmetry and calibration
+of eager budget remain deliberate future work. Flow retention, phase pipelines,
+broad compression/unconditional coarse grains, unrestricted coloring clause
+batching and extra witness probes were intentionally left out based on trials.
+
+
+## Consolidated deferred backlog (2026-10-14)
+
+User requested a summary of all saved deferred work, explicitly including the
+later distance-two symmetry and eager-budget calibration follow-ups. REVIEW.md
+now has a Current deferred work section separating the original saved review,
+later coloring follow-ups and longer-term topics. Use it instead of interpreting
+historical numbered proposals as current pending work. No algorithm changes or
+new benchmarks. Tested-but-rejected variants are not pending integrations.
+
+
+## Stateless analysis-state restructuring completed (2026-10-14)
+
+User selected STATELESS backend, then authorized shared ProblemState + automatic
+cache reuse (including diagrams on maximized problems). Current implementation:
+api/state.rs owns ProblemState {problem, analyses:AnalysisCache}; cache holds
+maximization/zero_round/coloring entries/diagrams. Mathematical Problem immutable.
+Request ParseProblem or Compute {state, operation}; Operation enum contains old
+operations without problem/cache fields. Responses ResponsePacket {response,cache}
+carry only requested result and cumulative NEW entries from this request, never
+old problem/cache echo. CacheUpdate event separate from PartialResult bounds;
+server/wasm coalescing keeps both independent slots and final packet retainscache.
+UI sendForProblem auto attaches full state and merges live cache, preventing
+concurrent result loss. SavedProblem owns state + UI controls; sessionsv2 migratev1.
+Maxima: output-only cached constraint gives fast exact/partial output diagrams;
+joint maximum only helps exact joint/input-aware diagrams, NEVER output-only.
+Solvability supports optional max using shared passive checker; retain concrete
+General counterexamples. Coloring reuses existing zero-round preflight and cached
+fixed/max/unbounded proofs through witness restriction, including BOTH D2indices.
+No implicit maximization. RE source completed maxima preserved on cancellation;
+new transformed problem starts with emptycache. APIstate tests in api/state_tests.rs.
+No new session handles/persistentworkers/backendcaches/solverchange/agents.
+Implementation and integration are complete. ColoringCache is a borrowed per-query
+view of selected artifacts, not another serialized model. Completed fixed-palette
+proofs initialize maximum searches above known SAT palettes and stop at tight known
+upper bounds; combined adjacent SAT/UNSAT proofs can answer without another search.
+Positive zero-round witnesses certify all coloring kinds; completed negative/finite
+coloring results exclude zero-round solvability. Cancelled partial-bound snapshots
+remain saved UI proofs; direct search resumption from those snapshots is deferred.
+Basic FP deliberately retains its original representation-dependent partial diagram.
+
+Verified 169 core + 5 server + 3 wasm adapter tests (177 total), frontend production
+build/typecheck, session migration and shared client API concurrency/cancellation
+checks. Final stateless-cache (28) and coloring (39) checks passed on both rebuilt
+native server and wasm. Earlier in this task: all diagram (157), maximization (23),
+RE (18), Basic FP (6), presets (14), wasm/server parity and browser checks passed.
+Historical coloring benchmark preparation was adapted without changing frozen
+kernel behavior; its selected copy passed release cargo check. No new timings.
+Server and wasm artifacts rebuilt. No commits/pushes. Preserve pre-existing dirty
+changes. Do not add more optimizations or benchmark sweeps without a new request.

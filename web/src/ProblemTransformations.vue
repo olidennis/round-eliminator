@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef } from 'vue'
-import { send, type Backend } from './api'
+import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { sendForProblem, type Backend } from './api'
 import type { Problem } from './generated/Problem'
+import type { ProblemState } from './generated/ProblemState'
 import type { Progress } from './generated/Progress'
-import type { MaximizationResult } from './generated/MaximizationResult'
 import ComputationProgress from './ComputationProgress.vue'
 
 const props = defineProps<{
-  problem: Problem; maximum: MaximizationResult | null; backend: Backend; disabled: boolean
+  state: ProblemState; backend: Backend; disabled: boolean
 }>()
+const problem = computed(() => props.state.problem)
 const emit = defineEmits<{
-  created: [problem: Problem]; maximization: [result: MaximizationResult]; busy: [running: boolean]
+  created: [problem: Problem]; busy: [running: boolean]
 }>()
 const running = ref(false)
 const progress = shallowRef<Progress | null>(null)
@@ -39,17 +40,9 @@ async function apply(action: 'apply_re' | 'basic_fixed_point') {
   progress.value = null
   emit('busy', true)
   try {
-    const request = action === 'apply_re' ? { type: 'apply_re' as const, data: {
-      problem: props.problem, maximum: props.maximum,
-    } } : { type: 'basic_fixed_point' as const, data: { problem: props.problem } }
-    const response = await send(request, props.backend, {
+    const response = await sendForProblem(props.state, { type: action }, props.backend, {
       signal: current.signal,
       onProgress: value => { if (controller === current) progress.value = value },
-      onPartialResult: response => {
-        // A completed maximum can survive cancellation of the transformation.
-        // Cache it on the source card, never on the newly transformed problem.
-        if (controller === current && response.type === 'maximization') emit('maximization', response.data)
-      },
     })
     if (controller !== current) return
     if (response.type === 'problem') emit('created', response.data)

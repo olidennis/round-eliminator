@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::state::{AnalysisCache, ProblemState};
+
 use crate::{
     algorithms::diagram::{DiagramOptions, DiagramResult},
     algorithms::maximize::MaximizationResult,
@@ -22,31 +24,29 @@ use crate::{
 #[ts(export)]
 pub enum Request {
     ParseProblem(ProblemText),
-    Maximize {
-        problem: Problem,
+    Compute {
+        state: ProblemState,
+        operation: Operation,
     },
-    ApplyRe {
-        problem: Problem,
-        /// A complete maximum of this snapshot, if already computed.
-        #[serde(default)]
-        maximum: Option<MaximizationResult>,
-    },
-    BasicFixedPoint {
-        problem: Problem,
-    },
+}
+
+/// An action on a supplied snapshot. Cache selection belongs to Rust.
+#[derive(Clone, Debug, Deserialize, Serialize, TS)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+#[ts(export)]
+pub enum Operation {
+    Maximize,
+    ApplyRe,
+    BasicFixedPoint,
     ComputeDiagram {
-        problem: Problem,
         #[serde(default)]
         options: DiagramOptions,
     },
     CheckZeroRound {
-        problem: Problem,
-        // Default to general mode when callers omit the field.
         #[serde(default)]
         passive_mode: PassiveMode,
     },
     CheckColoring {
-        problem: Problem,
         kind: ColoringKind,
         search: PaletteSearch,
         #[serde(default)]
@@ -69,6 +69,24 @@ pub enum Response {
     Cancelled,
 }
 
+/// The requested result and completed source-cache entries produced by it.
+/// The submitted problem and pre-existing entries are never echoed.
+#[derive(Clone, Debug, Serialize, TS)]
+#[ts(export)]
+pub struct ResponsePacket {
+    pub response: Response,
+    pub cache: AnalysisCache,
+}
+
+impl From<Response> for ResponsePacket {
+    fn from(response: Response) -> Self {
+        Self {
+            response,
+            cache: AnalysisCache::default(),
+        }
+    }
+}
+
 /// Latest progress and cumulative proof snapshots precede a final response.
 /// Transports may coalesce superseded updates; the final response is retained.
 #[derive(Clone, Debug, Serialize, TS)]
@@ -76,10 +94,12 @@ pub enum Response {
 #[ts(export)]
 pub enum ComputationEvent {
     Progress(Progress),
+    /// Cumulative completed entries produced by this request, for the source snapshot.
+    CacheUpdate(Box<AnalysisCache>),
     /// A self-contained proof snapshot, including earlier bounds and witnesses.
     /// Computation continues afterward; a later snapshot supersedes this one.
     PartialResult(Box<Response>),
-    Response(Box<Response>),
+    Response(Box<ResponsePacket>),
 }
 
 /// In case of error, we give a message and we say what it refers to.

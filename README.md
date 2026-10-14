@@ -35,7 +35,9 @@ Degree columns use **Deg.**, with the full name available as a tooltip.
 the editor, open problem definitions, collapse state, analysis settings, completed
 results, and proved coloring bounds. **Import** replaces the current session and
 cancels its computations. Imported analyses start with their saved results or
-retained bounds; no computation resumes automatically.
+retained bounds; no computation resumes automatically. Version-two sessions keep
+one computational state per problem, separate from view controls. Version-one
+files and links migrate their existing caches on import.
 **Copy link** carries the same session as compressed UTF-8 data in the URL fragment,
 without uploading it. Opening the link restores the session with either backend.
 If clipboard access is unavailable, the UI offers a selectable link for manual
@@ -176,7 +178,9 @@ crates/core/src/
 │       └── passive.rs
 └── api/
     ├── mod.rs             # shared dispatch and JSON execution
-    ├── protocol.rs        # request/response/event schema
+    ├── protocol.rs        # request/operation/response/event schema
+    ├── state.rs           # client-owned problem and completed-analysis cache
+    ├── state_tests.rs     # cache reuse, scope and proof equivalence tests
     └── tests.rs           # API behavior and cancellation tests
 ```
 
@@ -197,7 +201,8 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/parser/paired.rs` | Private temporary pair types, validation, input projection, and conversion to ordinary output labels. |
 | `crates/core/src/parser/notation.rs` | Shared row/repetition grammar and the label/pair readers. |
 | `crates/core/src/api/mod.rs` | Shared request dispatch and JSON entry points used by both adapters. |
-| `crates/core/src/api/protocol.rs` | Request, response, progress-event, and API error schema; generated TypeScript types. |
+| `crates/core/src/api/protocol.rs` | Shared state/operation envelope, response packets, progress/cache/proof events, and generated TypeScript types. |
+| `crates/core/src/api/state.rs` | Client-owned `ProblemState` and completed analysis cache, separate from the mathematical model. |
 | `crates/core/src/computation.rs` | Transport-independent cancellation flag and computation phases. |
 | `crates/core/src/algorithms/sat.rs` | RustSAT formula builder, generic cardinality encodings, and target-specific backend setup. |
 | `crates/core/src/algorithms/configurations.rs` | Concrete multiset enumeration, count-distribution stepping, condensed containment, and flow matching of offered labels to allowed configurations. |
@@ -207,7 +212,8 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/algorithms/solvability/zero_round/mod.rs` | Local-rule types and SAT search with counterexample refinement. |
 | `crates/core/src/algorithms/solvability/zero_round/prepare.rs` | Prepare initially empty active rules and their output domains. |
 | `crates/core/src/algorithms/solvability/zero_round/verify.rs` | Complete witness verification using the general passive checker. |
-| `crates/core/src/algorithms/solvability/coloring/mod.rs` | Coloring types, fixed/maximum palette search, unbounded certificates, and streamed bounds. |
+| `crates/core/src/algorithms/solvability/coloring/mod.rs` | Coloring types, incremental palette search, cached proof bounds and streamed decisions. |
+| `crates/core/src/algorithms/solvability/coloring/reuse.rs` | Restrict palette witnesses, expand order certificates, combine proved bounds and reuse zero-round strategies. |
 | `crates/core/src/algorithms/solvability/coloring/encoding.rs` | Incremental SAT on color/input output sets; active and passive counterexample refinement. |
 | `crates/core/src/algorithms/solvability/coloring/prepare.rs` | Visit color placements while preserving condensed original passive input choices. |
 | `crates/core/src/algorithms/solvability/coloring/verify.rs` | Verify finite and repeatable coloring witnesses independently of SAT. |
@@ -314,15 +320,30 @@ zero-round requests carry that displayed structured problem through either
 transport. Serde deserializes the model directly; the client is trusted to send
 the valid snapshot returned by Rust. Constructors validate newly built models.
 Editor changes do not affect an already displayed problem.
-The shared analysis request has `data: { problem, passive_mode }`, where
-`passive_mode` is `"general"` or `"maximized"`. Rust defaults an omitted mode to
-`"general"`; the typed UI sends it explicitly. Both transports accept the same
-request. The GUI currently uses general mode. Maximized mode is available to
-callers that can guarantee the passive constraint is maximized; it does not
-perform maximization or store a maximization flag on the problem. Integrating
-the separately cached maximum and adding a UI choice are future work.
-The zero-round response contains only the solvability result and any witness;
-witness label IDs refer to the submitted problem's label tables.
+The shared request is `Compute { state, operation }`. `ProblemState` contains the
+immutable mathematical problem and an `AnalysisCache` of completed results.
+`Operation::CheckZeroRound` has only `passive_mode`, defaulting to `general`;
+the typed UI sends it explicitly. Rust selects any applicable saved maximum or
+proof. The backend is stateless: no problem handles, server sessions, or resident
+wasm cache are required. `sendForProblem` in `web/src/api.ts` attaches the full
+state and merges incoming entries against the live cache, preserving concurrent
+analyses. UI controls specify operations rather than cache dependencies.
+
+Every response is a `ResponsePacket { response, cache }`. The response is the
+requested result; cache contains only completed entries newly produced or derived
+by this request. Existing state is not echoed. Parsing and transformations return
+a mathematical problem; a transformed problem starts with empty caches. A
+`cache_update` event publishes cumulative new source entries during computation,
+independently of progress and partial coloring bounds. Completed entries survive
+subsequent cancellation. IDs always refer to the source snapshot's label tables.
+
+The GUI uses general verification. A saved maximum supplies containment proofs
+without another maximization. Output-only maxima can verify ordinary output
+families; joint maxima verify input-output families after projecting auxiliary
+colors away. Counterexamples retain actual input/color source literals. General
+mode retains concrete output blocking clauses instead of weakening them to
+whole-family clauses. An explicit `maximized` mode remains available to callers
+that guarantee the corresponding original constraint's maximality.
 
 The check uses RustSAT with packaged CaDiCaL 2.2.1 for native builds and pure Rust
 BatSat for wasm. Target-specific dependencies keep CaDiCaL out of wasm builds.
@@ -396,13 +417,14 @@ Wasm runs each request in a dedicated worker and reports the same progress event
 through messages. Cancellation terminates that worker, including its synchronous
 wasm execution. Both transports use the same Rust request dispatch.
 
-Both transports coalesce progress and cumulative coloring-proof snapshots to at
+Both transports coalesce progress, cumulative cache updates and coloring-proof snapshots to at
 most ten update batches per second, with an immediate final flush. Native work
 publishes to latest-value slots without waiting for the stream consumer; a slow
 browser cannot fill a progress queue and block the CPU thread. Serialization and
 network delivery happen on the async side. Wasm throttles before serialization,
 JS callbacks, and worker messages. Short phases and superseded snapshots may be
-skipped; the latest counter, best proved bounds and witness, and final response
+skipped; independent slots preserve the latest counter, completed source entries,
+best proved bounds and witness, and final response
 are preserved. Cancellation checks remain independent of this delivery rate.
 Retain this snapshot contract for future partial-result types; additive events
 would need a separate delivery policy.
@@ -515,6 +537,25 @@ the existing problem tables; the response does not echo or reparse the problem.
 general passive verification, without SAT. Tests also compare the compact
 encoding with independently constructed explicit colored input problems.
 
+### Reusing coloring proofs
+
+Cached results stay scoped to the same problem and coloring kind. Fixed-palette
+strategies restrict to smaller feasible palettes; unsolvability extends to larger
+ones. Distance-two restriction trims both own-color and neighbor-color indices;
+order certificates expand using smaller/larger comparisons. Completed maxima and
+unbounded certificates answer related fixed queries without SAT.
+Maximum search starts above the largest already proved solvable palette and uses
+known upper bounds, testing consecutive unresolved palettes only. Adjacent known
+SAT/UNSAT decisions can determine a maximum without another search. A cached
+zero-round strategy certifies every coloring kind by ignoring its auxiliary
+colors; completed negative coloring results also rule out a zero-round strategy.
+The ordinary maximum search's zero-round preflight is retained for future requests.
+Cancelled partial bounds remain saved UI proofs; resuming directly from those
+partial snapshots is a separate future improvement.
+
+Run `npm run test:state -- http://127.0.0.1:8080/api` and `npm run test:client-api`
+in `web` to check stateless reuse and concurrent/cancelled cache delivery.
+
 ## Passive maximization
 
 Press **Maximize** inside a problem to compute its passive maximum. The action
@@ -599,8 +640,11 @@ keep their existing history policy; traced execution preserves ordered admission
 Both targets retain cancellation and coalesced progress. Scheduling thresholds
 and the optional exchange-precomputation cap never limit the mathematical search.
 
-Apply RE consumes this result. Existing diagrams and solvability checks continue
-using their current methods; connecting their fast paths to cached maxima is pending.
+RE, diagrams and solvability checks consume applicable saved maxima automatically.
+Exact output diagrams use the fast occurrence test on an output-only maximum.
+Exact joint/input-aware diagrams use a joint maximum directly. A joint maximum
+never certifies an output-only diagram; cheap joint diagrams continue to lift
+output arrows. No analysis implicitly computes a maximum it did not request.
 
 The native server uses pinned mimalloc v2, with option 26 (abandoned reclamation
 on free) disabled before starting Tokio, matching the benchmark configuration.
@@ -648,12 +692,11 @@ The conversion is zero-round equivalent to unpruned input-aware RE under the
 retained input promise, as documented in `round_elimination.rs`. Its tests compare
 both directions against an independent exhaustive oracle in 1,024 tiny cases.
 
-`ApplyRe { problem, maximum }` accepts an optional trusted maximum for that exact
-snapshot. A newly completed maximum is streamed as a self-contained
-`partial_result` containing `Maximization`, then the final `Problem` response
-contains the new definition. Neither transport needs request-specific glue.
-`ProblemTransformations.vue` owns the header transformations and cancellation;
-`ProblemCard.vue` connects its cache and result; `App.vue` appends the new card.
+`Operation::ApplyRe` receives the same `ProblemState` as every other operation.
+Its completed source maximum is published through `cache_update` and retained
+in the final response packet, while `response` contains the new problem.
+`ProblemTransformations.vue` owns the header controls and cancellation;
+`sendForProblem` stores source entries, and `App.vue` appends a new empty-cache card.
 Existing session export/import and links retain both cards normally.
 Run `npm run test:re -- http://127.0.0.1:8080/api` in `web` to check both backends,
 or omit the URL for wasm only.
@@ -681,7 +724,9 @@ metadata in the mathematical model.
 `fixed_point.rs` orchestrates the construction; `fixed_point/lattice.rs` owns the
 finite lattice and its algebra. Generic reachability stays in `graphs.rs`, and
 output simplification stays in `simplification.rs`. The request is
-`basic_fixed_point`, dispatched by both normal adapters. Run
+`Operation::BasicFixedPoint`, dispatched by both normal adapters. Basic FP retains
+its representation-dependent default partial diagram: substituting a stronger
+cached exact diagram would change the lattice construction. Run
 `npm run test:fixed-point -- http://127.0.0.1:8080/api` to verify both transports.
 
 For maximization and Apply RE, the progress bar counts completed pairs against

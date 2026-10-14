@@ -19,13 +19,14 @@ use rustsat::{
     solvers::{SolveIncremental, SolverResult},
     types::{Lit, TernaryVal},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::algorithms::maximize::MaximizationResult;
 use crate::model::LabelId;
 use crate::model::Problem;
 use encoding::Choice;
-use passive::{Emission, forbidden_combination};
+use passive::{Emission, forbidden_with_maximum};
 
 pub use super::passive::PassiveMode;
 
@@ -34,7 +35,7 @@ pub use super::passive::PassiveMode;
 /// For problems with no input, `input` is `None`.
 /// The input configuration is stored explicitly (not with multiplicities),
 /// because we may need to map the same label to different labels.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct LocalRule {
     pub degree: u32,
     pub input: Option<Vec<LabelId>>,
@@ -42,7 +43,7 @@ pub struct LocalRule {
 }
 
 /// A zero round algorithm is just a vector of local rules
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ZeroRoundResult {
     Solvable { strategy: Vec<LocalRule> },
@@ -96,8 +97,18 @@ pub fn check_with(
     mode: PassiveMode,
     computation: &mut Computation<'_>,
 ) -> Result<ZeroRoundResult, ZeroRoundError> {
+    check_with_maximum(problem, mode, None, computation)
+}
+
+/// A supplied maximum belongs to this exact snapshot; no implicit maximization.
+pub fn check_with_maximum(
+    problem: &Problem,
+    mode: PassiveMode,
+    maximum: Option<&MaximizationResult>,
+    computation: &mut Computation<'_>,
+) -> Result<ZeroRoundResult, ZeroRoundError> {
     let solver = backend(&computation.cancellation);
-    search(problem, mode, solver, computation)
+    search(problem, mode, maximum, solver, computation)
 }
 
 /// This is the function that actually looks for a zero round algorithm.
@@ -111,6 +122,7 @@ pub fn check_with(
 fn search<S: SolveIncremental>(
     problem: &Problem,
     mode: PassiveMode,
+    maximum: Option<&MaximizationResult>,
     solver: S,
     computation: &mut Computation<'_>,
 ) -> Result<ZeroRoundResult, ZeroRoundError> {
@@ -226,11 +238,13 @@ fn search<S: SolveIncremental>(
         // we found a valid assignment.
         // Now we check if it is actually correct.
         // If not, we add a clause to exclude the broken part of the current solution
-        if let Some(sources) = forbidden_combination(
+        if let Some(sources) = forbidden_with_maximum(
             passive,
             &passive_inputs,
             &selected,
             mode,
+            maximum,
+            |input| input,
             &computation.cancellation,
         )? {
             solver.add_clause(

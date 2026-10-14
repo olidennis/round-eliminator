@@ -6,5 +6,8 @@ pub mod computation;
 pub mod model;
 pub mod parser;
 
-pub use api::{Request, Response, execute, execute_json};
+pub use api::{
+    AnalysisCache, Operation, ProblemState, Request, Response, ResponsePacket, execute,
+    execute_json,
+};
 pub use parser::parse_problem;

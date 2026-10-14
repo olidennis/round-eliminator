@@ -18,8 +18,8 @@ const problem = {
 }
 const saved = newSavedProblem(problem)
 assert.equal(saved.diagram.layout, 'physics')
-assert.equal(saved.coloring.results.length, 0)
-assert.equal(saved.maximization, null)
+assert.equal(saved.state.analyses.coloring.length, 0)
+assert.equal(saved.state.analyses.maximization, null)
 assert.equal(coloringKey(coloringQuery(saved.coloring)), coloringKey(coloringQuery({ ...saved.coloring, colors: 10 })))
 assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 3 } }),
   coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 4 } }))
@@ -27,15 +27,15 @@ assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'maximum' } }),
   coloringKey({ kind: 'distance_two', search: { kind: 'maximum' } }))
 saved.collapsed = true
 saved.collapsedSections = { output: true, outputPassive: true, coloring: true }
-saved.zeroRound = { status: 'unsolvable' }
-saved.maximization = { kind: 'input_output', constraint: { degrees: [
+saved.state.analyses.zero_round = { status: 'unsolvable' }
+saved.state.analyses.maximization = { kind: 'input_output', constraint: { degrees: [
   { degree: 2, configurations: [{ parts: [{ labels: [{ input: null, output: 0 }], multiplicity: 2 }] }] },
 ] } }
 saved.collapsedSections.maximization = true
 saved.diagram.options = { kind: 'input_output', output: 'partial', input_output: 'exact' }
 saved.diagram.layout = 'hierarchical'
 const diagram = { nodes: [{ input: 0, output: 1 }], successors: [[0]], components: [[0]], edges: [], complete: true }
-saved.diagram.results = [{ options: saved.diagram.options, diagram }]
+saved.state.analyses.diagrams = [{ options: saved.diagram.options, diagram }]
 saved.collapsedSections.diagram = true
 saved.coloring.kind = 'distance_two'
 saved.coloring.bounds = { minimum: 1, lower: 3, upper: null, testing: 6,
@@ -44,7 +44,7 @@ saved.coloring.bounds = { minimum: 1, lower: 3, upper: null, testing: 6,
 const session = { editor: { kind: 'plain', constraints: { active: '()', passive: '(α) (blue 💙)' }, degrees: { active: '', passive: '' } },
   problems: [saved, newSavedProblem(problem)],
 }
-saved.coloring.results = [
+saved.state.analyses.coloring = [
   { kind: 'vertex', search: { kind: 'maximum' }, result: { status: 'maximum', colors: 3,
       witness: { kind: 'local_colors', behaviors: [] } } },
   { kind: 'distance_two', search: { kind: 'fixed', colors: 4 }, result: { status: 'unsolvable', colors: 4 } },
@@ -60,34 +60,50 @@ graphSectionSession.session.problems[0].collapsedSections.graph = true
 assert.deepEqual(deserializeSession(JSON.stringify(graphSectionSession)), expected,
   'Legacy graph-class folding must not hide header metadata or remain in saved state.')
 assert.equal(saved.coloring.bounds.testing, 6, 'Saving must not mutate a live query.')
-const oldColoring = JSON.parse(serializeSession(session))
+// Version-one caches lived beside the controls. Migrate every entry and
+// preserve the original problem independently of those artifacts.
+const oldFile = JSON.parse(serializeSession(session))
+oldFile.version = 1
+for (const entry of oldFile.session.problems) {
+  const { problem, analyses } = entry.state
+  entry.problem = problem
+  entry.zeroRound = analyses.zero_round
+  entry.maximization = analyses.maximization
+  entry.coloring.results = analyses.coloring
+  entry.diagram.results = analyses.diagrams
+  delete entry.state
+}
+assert.deepEqual(deserializeSession(JSON.stringify(oldFile)), expected)
+const oldColoring = structuredClone(oldFile)
 const current = oldColoring.session.problems[0].coloring
 current.result = current.results[1].result
 current.kind = 'distance_two'; current.search = 'fixed'; current.colors = 4
 current.results = undefined
-const migrated = deserializeSession(JSON.stringify(oldColoring)).problems[0].coloring
-assert.deepEqual(migrated.results, [{ kind: 'distance_two', search: { kind: 'fixed', colors: 4 }, result: current.result }])
-assert.equal('result' in migrated, false)
-const legacy = JSON.parse(serializeSession(session))
+const migrated = deserializeSession(JSON.stringify(oldColoring)).problems[0]
+assert.deepEqual(migrated.state.analyses.coloring,
+  [{ kind: 'distance_two', search: { kind: 'fixed', colors: 4 }, result: current.result }])
+assert.equal('result' in migrated.coloring, false)
+assert.equal('results' in migrated.coloring, false)
+const legacy = structuredClone(oldFile)
 delete legacy.session.problems[0].diagram
 delete legacy.session.problems[0].maximization
-assert.deepEqual(deserializeSession(JSON.stringify(legacy)).problems[0].diagram.results, [])
-assert.equal(deserializeSession(JSON.stringify(legacy)).problems[0].maximization, null)
-const olderDiagrams = JSON.parse(serializeSession(session))
+assert.deepEqual(deserializeSession(JSON.stringify(legacy)).problems[0].state.analyses.diagrams, [])
+assert.equal(deserializeSession(JSON.stringify(legacy)).problems[0].state.analyses.maximization, null)
+const olderDiagrams = structuredClone(oldFile)
 olderDiagrams.session.problems[0].diagram = {
   options: { output: 'partial', input_output: 'exact' }, view: 'input_specific', layout: 'physics',
   result: { options: { output: 'partial', input_output: 'exact' }, output: diagram, input_specific: diagram, uniform: diagram },
 }
-const restored = deserializeSession(JSON.stringify(olderDiagrams)).problems[0].diagram
-assert.equal(restored.options.kind, 'input_output')
-assert.deepEqual(restored.results.map(result => result.options.kind), ['output_only', 'input_output', 'input_aware'])
-assert.ok(restored.results.every(result => result.diagram.nodes[0].output === 1))
-const olderCache = JSON.parse(serializeSession(session))
+const restored = deserializeSession(JSON.stringify(olderDiagrams)).problems[0]
+assert.equal(restored.diagram.options.kind, 'input_output')
+assert.deepEqual(restored.state.analyses.diagrams.map(result => result.options.kind), ['output_only', 'input_output', 'input_aware'])
+assert.ok(restored.state.analyses.diagrams.every(result => result.diagram.nodes[0].output === 1))
+const olderCache = structuredClone(oldFile)
 olderCache.session.problems[0].diagram.options.kind = 'uniform'
 olderCache.session.problems[0].diagram.results[0].options.kind = 'uniform'
-const renamed = deserializeSession(JSON.stringify(olderCache)).problems[0].diagram
-assert.equal(renamed.options.kind, 'input_aware')
-assert.equal(renamed.results[0].options.kind, 'input_aware')
+const renamed = deserializeSession(JSON.stringify(olderCache)).problems[0]
+assert.equal(renamed.diagram.options.kind, 'input_aware')
+assert.equal(renamed.state.analyses.diagrams[0].options.kind, 'input_aware')
 
 for (const editor of [
   { kind: 'independent', input: session.editor.constraints, output: session.editor.constraints, degrees: session.editor.degrees },
@@ -110,7 +126,7 @@ const large = { ...session, problems: Array.from({ length: 1000 }, () => saved) 
 assert.equal((await sessionFromHash(new URL(await sessionLink(large)).hash)).problems.length, 1000)
 assert.throws(() => deserializeSession('{'), SyntaxError)
 assert.throws(() => deserializeSession(JSON.stringify({ v: 'old', d: {} })), /not a Round Eliminator 3 session/)
-assert.throws(() => deserializeSession(JSON.stringify({ format: 'round-eliminator-3', version: 2 })), /Unsupported/)
+assert.throws(() => deserializeSession(JSON.stringify({ format: 'round-eliminator-3', version: 3 })), /Unsupported/)
 assert.throws(() => deserializeSession(JSON.stringify({ format: 'round-eliminator-3', version: 1, session: {} })), /missing/)
 await assert.rejects(sessionFromHash('#old-link'), /not a Round Eliminator 3/)
 await assert.rejects(sessionFromHash('#re3=invalid'))

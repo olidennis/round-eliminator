@@ -60,6 +60,20 @@ pub struct DiagramOptions {
     pub input_output: InputOutputDiagramMethod,
 }
 
+impl DiagramOptions {
+    /// Ignore options that do not affect this requested relation.
+    pub fn same_computation(self, other: Self) -> bool {
+        self.kind == other.kind
+            && if self.kind == DiagramKind::OutputOnly {
+                self.output == other.output
+            } else {
+                self.input_output == other.input_output
+                    && (self.input_output == InputOutputDiagramMethod::Exact
+                        || self.output == other.output)
+            }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct Diagram {
     pub nodes: Vec<InputOutputLabel>,
@@ -111,11 +125,23 @@ pub fn compute_with(
     options: DiagramOptions,
     computation: &mut Computation<'_>,
 ) -> anyhow::Result<DiagramResult> {
+    compute_with_maximum(problem, options, None, computation)
+}
+
+/// Reuse a complete maximum of this snapshot without computing a new one.
+/// A joint maximum certifies only the joint relation, never output-only validity.
+pub fn compute_with_maximum(
+    problem: &Problem,
+    options: DiagramOptions,
+    maximum: Option<&crate::algorithms::maximize::MaximizationResult>,
+    computation: &mut Computation<'_>,
+) -> anyhow::Result<DiagramResult> {
+    use crate::algorithms::maximize::MaximizationResult;
     computation.report(Phase::Preparing, 0)?;
     let cancellation = computation.cancellation.clone();
     // Ignore output degrees outside the declared graph class, but retain every
     // output label as a vertex, including labels absent from passive constraints.
-    let output = Constraint::new(
+    let original_output = Constraint::new(
         problem
             .graph_class()
             .passive()
@@ -130,6 +156,11 @@ pub fn compute_with(
             })
             .collect(),
     );
+    let output_maximum = match maximum {
+        Some(MaximizationResult::OutputOnly(constraint)) => Some(constraint),
+        _ => None,
+    };
+    let output = output_maximum.unwrap_or(&original_output);
     let labels: Vec<_> = (0..problem.output().labels().len())
         .map(|i| LabelId(i as u32))
         .collect();
@@ -143,7 +174,13 @@ pub fn compute_with(
             .collect()
     };
     let output_only_rows = |computation: &mut Computation<'_>, exact| {
-        relation::compute(&output, &labels, exact, |_| 0..labels.len(), computation)
+        relation::compute(
+            output,
+            &labels,
+            exact && output_maximum.is_none(),
+            |_| 0..labels.len(),
+            computation,
+        )
     };
     if options.kind == DiagramKind::OutputOnly {
         let rows = output_only_rows(computation, options.output == OutputDiagramMethod::Exact)?;
@@ -153,7 +190,7 @@ pub fn compute_with(
             diagram: diagram(
                 output_nodes(),
                 rows,
-                options.output != OutputDiagramMethod::Partial,
+                output_maximum.is_some() || options.output != OutputDiagramMethod::Partial,
                 &cancellation,
             )?,
         });
@@ -188,21 +225,27 @@ pub fn compute_with(
     } else if options.input_output == InputOutputDiagramMethod::Exact {
         // Exact joint replacement does not need a separate output-only diagram.
         computation.report(Phase::Preparing, 0)?;
-        let input = Constraint::new(prepare_passive_inputs(problem, &cancellation)?);
-        let joint = product_with(
-            &input,
-            &output,
-            |input, output| {
-                problem
-                    .output_allowed(input, output)
-                    .then_some(InputOutputLabel { input, output })
-            },
-            &cancellation,
-        )?;
+        let prepared;
+        let joint = if let Some(MaximizationResult::InputOutput(constraint)) = maximum {
+            constraint
+        } else {
+            let input = Constraint::new(prepare_passive_inputs(problem, &cancellation)?);
+            prepared = product_with(
+                &input,
+                output,
+                |input, output| {
+                    problem
+                        .output_allowed(input, output)
+                        .then_some(InputOutputLabel { input, output })
+                },
+                &cancellation,
+            )?;
+            &prepared
+        };
         relation::compute(
-            &joint,
+            joint,
             &nodes,
-            true,
+            !matches!(maximum, Some(MaximizationResult::InputOutput(_))),
             |source| {
                 let input = nodes[source].input;
                 nodes.partition_point(|node| node.input < input)
@@ -229,7 +272,8 @@ pub fn compute_with(
             .collect()
     };
     let complete = options.input_output == InputOutputDiagramMethod::Exact
-        || (options.output != OutputDiagramMethod::Partial && trivial_unrestricted);
+        || ((output_maximum.is_some() || options.output != OutputDiagramMethod::Partial)
+            && trivial_unrestricted);
     if options.kind == DiagramKind::InputOutput {
         computation.report(Phase::Reducing, 0)?;
         return Ok(DiagramResult {

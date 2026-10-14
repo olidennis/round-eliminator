@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json, execute_with_events } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -14,14 +15,14 @@ const edge = (graph, input, output, target) => {
   return source >= 0 && destination >= 0 && graph.successors[source].includes(destination)
 }
 async function check(definition, options, verify = () => {}) {
-  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
+  const parsed = decode(execute_json(encode({ type: 'parse_problem', data: definition })))
   assert.equal(parsed.type, 'problem')
-  const body = JSON.stringify({ type: 'compute_diagram', data: { problem: parsed.data, options } })
+  const body = encode({ type: 'compute_diagram', data: { problem: parsed.data, options } })
   const events = []
-  const response = JSON.parse(execute_with_events(body, raw => events.push(JSON.parse(raw))))
+  const response = decode(execute_with_events(body, raw => events.push(decodeEvent(raw))))
   assert.equal(response.type, 'diagram')
   assert.ok(events.some(event => event.type === 'progress'))
-  assert.equal(events.at(-1).data.phase, 'reducing')
+  assert.equal(events.filter(event => event.type === 'progress').at(-1).data.phase, 'reducing')
   assert.ok(events.every(event => event.type !== 'progress' || event.data.phase !== 'parsing'))
   assert.equal(response.data.problem, undefined)
   assert.deepEqual(Object.keys(response.data).sort(), ['diagram', 'options'])
@@ -38,7 +39,7 @@ async function check(definition, options, verify = () => {}) {
     const http = await fetch(`${server}/stream`, { method: 'POST', headers: {'content-type':'application/json'}, body })
     assert.equal(http.status, 200)
     const native = (await http.text()).split('\n\n').filter(frame => frame.includes('data:'))
-      .map(frame => JSON.parse(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
+      .map(frame => decodeEvent(frame.split('\n').find(line => line.startsWith('data:')).slice(5)))
     assert.equal(native[0].data.phase, 'queued')
     assert.deepEqual(native.at(-1).data,response)
   }
@@ -57,7 +58,7 @@ for (const preset of problemPresets) {
   for (const input_output of ['cheap','exact']) {
     const graphs = await checkAll(preset.definition, {output:'exact',input_output})
     if (preset.name === 'Input-aware label replacement (mapped)') {
-      const parsed = JSON.parse(execute_json(JSON.stringify({type:'parse_problem',data:preset.definition}))).data
+      const parsed = decode(execute_json(encode({type:'parse_problem',data:preset.definition}))).data
       assert.deepEqual(diagramKinds(parsed),['output_only','input_output','input_aware'])
       const output = name => parsed.output.labels.indexOf(name)
       const input = parsed.input.data.labels.indexOf('i')
@@ -110,7 +111,7 @@ for (const [input, output, degrees, kinds] of [
   [{active:'i j',passive:'()'}, {active:'A B',passive:'()'}, undefined, ['output_only']],
 ]) {
   const definition = {kind:'independent',input,output,...(degrees ? {degrees} : {})}
-  const parsed = JSON.parse(execute_json(JSON.stringify({type:'parse_problem',data:definition}))).data
+  const parsed = decode(execute_json(encode({type:'parse_problem',data:definition}))).data
   assert.deepEqual(diagramKinds(parsed),kinds)
   for (const method of ['partial','exact']) {
     const graphs = await checkAll(definition,{output:method,input_output:'cheap'})

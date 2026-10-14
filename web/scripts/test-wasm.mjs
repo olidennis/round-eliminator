@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json, execute_with_progress } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -26,24 +27,24 @@ async function execute(data, type = 'parse_problem', passiveMode = 'general') {
     assert.equal(parsed.type, 'problem')
     data = { problem: parsed.data, passive_mode: passiveMode }
   }
-  const request = JSON.stringify({ type, data })
-  const response = JSON.parse(execute_json(request))
+  const request = encode({ type, data })
+  const response = decode(execute_json(request))
   if (serverUrl) {
     const http = await fetch(serverUrl, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: request,
     })
     assert.equal(http.status, 200)
-    assertEquivalent(await http.json(), response)
+    assertEquivalent(unwrap(await http.json()), response)
   }
   return response
 }
 
 const constraints = (active, passive) => ({ active, passive })
 const parsedForProgress = await execute({ kind: 'plain', constraints: constraints('A B', 'AB^3') })
-const progressRequest = JSON.stringify({ type: 'check_zero_round', data: { problem: parsedForProgress.data } })
+const progressRequest = encode({ type: 'check_zero_round', data: { problem: parsedForProgress.data } })
 const progress = []
-const progressResult = JSON.parse(execute_with_progress(progressRequest, json => progress.push(JSON.parse(json))))
-assert.deepEqual(progressResult, JSON.parse(execute_json(progressRequest)))
+const progressResult = decode(execute_with_progress(progressRequest, json => progress.push(JSON.parse(json))))
+assert.deepEqual(progressResult, decode(execute_json(progressRequest)))
 assert.equal(progress[0].phase, 'enumerating')
 assert.equal(progress.at(-1).phase, 'verifying')
 assert.ok(progress.every(update => ['enumerating', 'encoding', 'solving', 'verifying'].includes(update.phase)))
@@ -56,7 +57,7 @@ if (serverUrl) {
   assert.match(stream.headers.get('content-type'), /text\/event-stream/)
   const events = (await stream.text()).split('\n\n').flatMap(frame => {
     const data = frame.split('\n').find(line => line.startsWith('data:'))
-    return data ? [JSON.parse(data.slice(5))] : []
+    return data ? [decodeEvent(data.slice(5))] : []
   })
   assert.equal(events[0].data.phase, 'queued')
   // Scheduling differs; intermediate phases may be coalesced on either backend.

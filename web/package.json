@@ -14,7 +14,9 @@
     "test:maximization": "node scripts/test-maximization.mjs",
     "test:re": "node scripts/test-round-elimination.mjs",
     "test:fixed-point": "node scripts/test-fixed-point.mjs",
-    "test:physics": "node scripts/test-physics.mjs"
+    "test:physics": "node scripts/test-physics.mjs",
+    "test:state": "node scripts/test-state.mjs",
+    "test:client-api": "node scripts/test-client-api.mjs"
   },
   "dependencies": {
     "cytoscape": "^3.34.3",

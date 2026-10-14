@@ -24,6 +24,7 @@ use crate::algorithms::configurations::{
 };
 use crate::model::LabelId;
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
+use crate::{algorithms::maximize::MaximizationResult, model::InputOutputLabel};
 
 // The search attaches a SAT literal as provenance. Independent witness
 // verification uses (), sharing the exact check without constructing literals.
@@ -115,6 +116,76 @@ pub(crate) fn forbidden_combination<T: Copy + Ord, I: Copy + Ord>(
         }
     }
     Ok(None)
+}
+
+/// Use a cached maximum as a containment certificate. General search retains
+/// concrete counterexample clauses: blocking an entire failed family can cause
+/// substantially more SAT work. Colors are projected away only for the proof;
+/// original emission sources still justify every learned counterexample.
+pub(crate) fn forbidden_with_maximum<T: Copy + Ord, I: Copy + Ord>(
+    constraint: &Constraint,
+    inputs: &[CondensedConfiguration<I>],
+    emissions: &[Emission<T, I>],
+    mode: PassiveMode,
+    maximum: Option<&MaximizationResult>,
+    original_input: impl Fn(I) -> Option<LabelId>,
+    cancellation: &Cancellation,
+) -> Result<Option<Vec<T>>, Cancelled> {
+    match maximum {
+        None => forbidden_combination(constraint, inputs, emissions, mode, cancellation),
+        Some(MaximizationResult::OutputOnly(maximum)) => {
+            forbidden_combination(maximum, inputs, emissions, mode, cancellation)
+        }
+        Some(MaximizationResult::InputOutput(maximum)) => {
+            for input in inputs {
+                let mut parts = Vec::new();
+                let mut possible = true;
+                for part in input.parts() {
+                    let mut pairs = Vec::new();
+                    for emission in emissions {
+                        cancellation.check()?;
+                        if part.labels().contains(emission.input) {
+                            pairs.push(InputOutputLabel {
+                                input: original_input(emission.input),
+                                output: emission.output,
+                            });
+                        }
+                    }
+                    if pairs.is_empty() {
+                        possible = false;
+                        break;
+                    }
+                    parts.push(
+                        Part::new(LabelSet::new(pairs), part.multiplicity())
+                            .expect("nonempty pairs"),
+                    );
+                }
+                if !possible {
+                    continue;
+                }
+                let family = CondensedConfiguration::new(parts).expect("degree preserved");
+                let mut covered = false;
+                for target in maximum.configurations_at_degree(family.degree()) {
+                    if contains_condensed_with(target, &family, cancellation)? {
+                        covered = true;
+                        break;
+                    }
+                }
+                if covered {
+                    continue;
+                }
+                // This family lies within the original input promise, so failed
+                // joint containment guarantees a concrete invalid output. Find
+                // its actual origins rather than blocking every enabled origin.
+                if let Some(parts) = output_parts(input, emissions, cancellation)?
+                    && let Some(sources) = forbidden_output(constraint, &parts, cancellation)?
+                {
+                    return Ok(Some(sources));
+                }
+            }
+            Ok(None)
+        }
+    }
 }
 
 /// This function is used to encode the passive constraint in the case of degree <=2
@@ -363,6 +434,82 @@ mod tests {
         );
         cancellation.cancel();
         assert!(eager_encoding_work(&input, 0, |_| 0, &cancellation).is_err());
+    }
+
+    #[test]
+    fn cached_joint_counterexamples_preserve_colored_input_origins_for_all_future_supersets() {
+        let problem = crate::parse_problem(serde_json::from_value(serde_json::json!({
+            "kind":"mapped", "input":{"active":"ab^3","passive":"ab^3"},
+            "output":{"active":"AB^3","passive":"A^3\nA^2 B\nB^3"}, "mapping":"a -> AB\nb -> AB",
+        })).unwrap()).unwrap();
+        let maximum = crate::algorithms::maximize::compute(&problem).unwrap();
+        let input = CondensedConfiguration::new(vec![
+            Part::new(
+                LabelSet::new(vec![(Some(LabelId(0)), 0u32), (Some(LabelId(1)), 0)]),
+                1,
+            )
+            .unwrap(),
+            Part::new(
+                LabelSet::new(vec![(Some(LabelId(0)), 1u32), (Some(LabelId(1)), 1)]),
+                2,
+            )
+            .unwrap(),
+        ])
+        .unwrap();
+        let safe = |mask: u16| {
+            let mut counts = vec![0];
+            for (color, slots) in [(0, 1), (1, 2)] {
+                let a = mask & (0b0101 << (4 * color)) != 0;
+                let b = mask & (0b1010 << (4 * color)) != 0;
+                if !a && !b {
+                    return true;
+                }
+                counts = counts
+                    .into_iter()
+                    .flat_map(|old| {
+                        (0..=slots)
+                            .filter(move |count| (*count == 0 || a) && (*count == slots || b))
+                            .map(move |count| old + count)
+                    })
+                    .collect();
+            }
+            !counts.contains(&1)
+        };
+        for mask in 0u16..256 {
+            let emissions: Vec<_> = (0u8..8)
+                .filter(|source| mask & (1 << source) != 0)
+                .map(|source| Emission {
+                    input: (
+                        Some(LabelId(u32::from((source % 4) / 2))),
+                        u32::from(source / 4),
+                    ),
+                    output: LabelId(u32::from(source % 2)),
+                    source,
+                })
+                .collect();
+            let forbidden = forbidden_with_maximum(
+                problem.output().passive(),
+                std::slice::from_ref(&input),
+                &emissions,
+                PassiveMode::General,
+                Some(&maximum),
+                |input| input.0,
+                &Cancellation::default(),
+            )
+            .unwrap();
+            assert_eq!(forbidden.is_none(), safe(mask));
+            if let Some(sources) = forbidden {
+                let required = sources
+                    .into_iter()
+                    .fold(0u16, |bits, source| bits | (1 << source));
+                assert_eq!(required & mask, required);
+                for future in 0u16..256 {
+                    if future & required == required {
+                        assert!(!safe(future));
+                    }
+                }
+            }
+        }
     }
 
     // Independent oracle: allowed iff the number of A outputs is not three.

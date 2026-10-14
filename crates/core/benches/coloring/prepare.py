@@ -20,6 +20,41 @@ for name, relative in [('encoding.rs', 'solvability/coloring/encoding.rs'),
                        ('distance_two.rs', 'solvability/coloring/distance_two.rs'),
                        ('passive.rs', 'solvability/passive.rs'), ('sat.rs', 'sat.rs')]:
     shutil.copyfile(HERE / 'baseline' / name, core / 'src/algorithms' / relative)
+# The surrounding API now accepts cached artifacts. Historical probes always
+# use fresh snapshots; these adapters retain the original uncached kernels.
+for filename, local_color in [('encoding.rs', True), ('distance_two.rs', False)]:
+    path = core / 'src/algorithms/solvability/coloring' / filename
+    source = path.read_text()
+    marker = '    fn witness('
+    adapter = """    pub(super) fn new_with_maximum(
+        problem: &'a crate::model::Problem,
+        KIND
+        solver: S,
+        _maximum: Option<&'a crate::algorithms::maximize::MaximizationResult>,
+        computation: &mut crate::computation::Computation<'_>,
+    ) -> anyhow::Result<Self> { Self::new(problem, ARGsolver, computation) }
+
+""".replace('KIND', 'kind: super::ColoringKind,' if local_color else '').replace('ARG', 'kind, ' if local_color else '')
+    path.write_text(source.replace(marker, adapter + marker, 1))
+path = core / 'src/algorithms/solvability/passive.rs'
+source = path.read_text()
+source += """
+pub(crate) fn forbidden_with_maximum<T: Copy + Ord, I: Copy + Ord>(
+    constraint: &crate::model::Constraint, inputs: &[crate::model::CondensedConfiguration<I>],
+    emissions: &[Emission<T,I>], mode: PassiveMode,
+    _maximum: Option<&crate::algorithms::maximize::MaximizationResult>,
+    _original_input: impl Fn(I) -> Option<crate::model::LabelId>,
+    cancellation: &crate::computation::Cancellation,
+) -> Result<Option<Vec<T>>, crate::computation::Cancelled> {
+    forbidden_combination(constraint, inputs, emissions, mode, cancellation)
+}
+"""
+adapter_start = source.index('pub(crate) fn forbidden_with_maximum')
+adapter = source[adapter_start:]
+source = source[:adapter_start]
+pos = source.index('fn forbidden_output')
+source = source[:pos] + adapter + '\n' + source[pos:]
+path.write_text(source)
 # The post-integration degree-ten regression deliberately exercises a query
 # that the historical baseline times out on. Its experimental version remains
 # in this script's diagnostic tests; avoid duplicating the new production test.

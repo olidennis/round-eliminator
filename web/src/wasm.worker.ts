@@ -1,4 +1,4 @@
-import type { Response } from './generated/Response'
+import type { ResponsePacket } from './generated/ResponsePacket'
 import type { ComputationEvent } from './generated/ComputationEvent'
 
 type WasmModule = {
@@ -16,9 +16,9 @@ self.onmessage = async (event: MessageEvent<string>) => {
     const response = wasm.execute_with_events(event.data, json => {
       post(JSON.parse(json) as ComputationEvent)
     })
-    post({ type: 'response', data: JSON.parse(response) as Response })
+    post({ type: 'response', data: JSON.parse(response) as ResponsePacket })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    post({ type: 'response', data: { type: 'error', data: { message, location: null } } })
+    post({ type: 'response', data: { response: { type: 'error', data: { message, location: null } }, cache: { maximization: null, zero_round: null, coloring: [], diagrams: [] } } })
   }
 }

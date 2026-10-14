@@ -1,3 +1,4 @@
+import { encode, decode, decodeEvent, response as unwrap } from './protocol.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import init, { execute_json, execute_with_events } from '../public/wasm/round_eliminator_3_wasm.js'
@@ -57,7 +58,7 @@ async function nativeEvents(body) {
       buffer = buffer.slice(boundary + 2)
       const data = frame.split('\n').filter(line => line.startsWith('data:'))
         .map(line => line.slice(5).trimStart()).join('\n')
-      if (data) events.push(JSON.parse(data))
+      if (data) events.push(decodeEvent(data))
     }
   }
   assert.equal(events[0].data.phase, 'queued')
@@ -66,20 +67,20 @@ async function nativeEvents(body) {
 }
 
 async function check(definition, kind, search, expected, mode = 'general', reSteps = 0) {
-  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
+  const parsed = decode(execute_json(encode({ type: 'parse_problem', data: definition })))
   assert.equal(parsed.type, 'problem')
   let problem = parsed.data
   for (let step = 0; step < reSteps; step++) {
-    const transformed = JSON.parse(execute_json(JSON.stringify({ type: 'apply_re', data: { problem } })))
+    const transformed = decode(execute_json(encode({ type: 'apply_re', data: { problem } })))
     assert.equal(transformed.type, 'problem')
     problem = transformed.data
   }
-  const body = JSON.stringify({ type: 'check_coloring', data: {
+  const body = encode({ type: 'check_coloring', data: {
     problem, kind, search, passive_mode: mode,
   } })
   const events = []
-  const response = JSON.parse(execute_with_events(body, json => events.push(JSON.parse(json))))
-  assert.equal(response.type, 'coloring', JSON.stringify(response))
+  const response = decode(execute_with_events(body, json => events.push(decodeEvent(json))))
+  assert.equal(response.type, 'coloring', encode(response))
   assert.equal(response.data.status, expected.status)
   if ('colors' in expected) assert.equal(response.data.colors, expected.colors)
   assert.equal('problem' in response.data, false)
@@ -185,11 +186,11 @@ for (const [definition, search] of [
   [plain('O I', 'O I'), { kind: 'fixed', colors: 2 }],
   [plain('A', 'A^3'), { kind: 'fixed', colors: 3 }],
 ]) {
-  const parsed = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data: definition })))
-  const body = JSON.stringify({ type: 'check_coloring', data: {
+  const parsed = decode(execute_json(encode({ type: 'parse_problem', data: definition })))
+  const body = encode({ type: 'check_coloring', data: {
     problem: parsed.data, kind: 'distance_two', search,
   } })
-  const response = JSON.parse(execute_json(body))
+  const response = decode(execute_json(body))
   assert.equal(response.type, 'error')
   if (serverUrl) {
     const native = await nativeEvents(body)
