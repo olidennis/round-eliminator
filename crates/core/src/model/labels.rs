@@ -11,6 +11,15 @@ use ts_rs::TS;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct LabelId(pub u32);
 
+/// A joint label used in computed constraints and input-aware diagrams.
+/// IDs refer to the original problem's separate input/output name tables.
+/// `None` denotes the implicit trivial input or an output-only diagram vertex.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
+pub struct InputOutputLabel {
+    pub input: Option<LabelId>,
+    pub output: LabelId,
+}
+
 /// A set of labels (or of L), stored in increasing order without duplicates.
 ///
 /// Set operations preserve this invariant. The storage is private so algorithms
@@ -48,6 +57,9 @@ impl<L: Copy + Ord> LabelSet<L> {
     }
 
     pub fn is_subset_of(&self, other: &Self) -> bool {
+        if self.len() > other.len() {
+            return false;
+        }
         let mut right = 0;
         for label in &self.0 {
             while other

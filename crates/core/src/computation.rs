@@ -27,8 +27,30 @@ impl<'a> Computation<'a> {
     }
 
     pub fn report(&mut self, phase: Phase, iterations: u32) -> Result<(), Cancelled> {
+        self.report_progress(Progress {
+            phase,
+            iterations,
+            work: None,
+        })
+    }
+
+    /// A known work total for the current pass; subsequent passes start afresh.
+    pub fn report_work(
+        &mut self,
+        phase: Phase,
+        iterations: u32,
+        work: WorkProgress,
+    ) -> Result<(), Cancelled> {
+        self.report_progress(Progress {
+            phase,
+            iterations,
+            work: Some(work),
+        })
+    }
+
+    pub(crate) fn report_progress(&mut self, progress: Progress) -> Result<(), Cancelled> {
         self.cancellation.check()?;
-        (self.report)(Progress { phase, iterations });
+        (self.report)(progress);
         // A consumer may cancel in response to an update.
         self.cancellation.check()
     }
@@ -39,6 +61,20 @@ impl<'a> Computation<'a> {
 pub struct Progress {
     pub phase: Phase,
     pub iterations: u32,
+    /// Absent when the remaining work is unknown, for example SAT search.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub work: Option<WorkProgress>,
+}
+
+/// Counts actual completed work, not elapsed time or predicted overall completion.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, TS)]
+pub struct WorkProgress {
+    #[ts(type = "number")]
+    pub completed: u64,
+    #[ts(type = "number")]
+    pub total: u64,
+    pub pass: u32,
 }
 
 /// These are all the possible things we could be doing
@@ -54,6 +90,11 @@ pub enum Phase {
     Preparing,
     Comparing,
     Reducing,
+    Maximizing,
+    Transforming,
+    ClosingActive,
+    ClosingPassive,
+    Cleaning,
 }
 
 /// Cancellation is just a bool that we can update atomically

@@ -69,6 +69,30 @@ Input-aware output diagrams derive arrows that hold for every input admitting th
 Missing arrows in a partial result remain unknown. Native comparisons use a
 shared Rayon pool; wasm remains serial in its cancellable request worker.
 
+Passive maximization is implemented as a separate reusable result. Unrestricted
+mappings maximize outputs; restricted mappings maximize the condensed joint
+input-output relation without enumerating complete input configurations. The
+original definition and input promise stay unchanged. Native closure uses a
+shared pool for larger workloads; wasm runs in its cancellable request worker.
+The engine supports custom ordered operations, optional derivations, and empty
+values for algebraic uses while ordinary problem parts remain nonempty.
+Measured optimizations include early exchange pruning, capacity rejection before
+flow allocation, recent-dominator caches, larger bounded batches, parallel native
+global pruning with immediately shared admissions/removals, packed small alphabets,
+adaptive pruning concurrency, and concurrent lookups for large duplicate histories. Ordered
+derivation admissions and serial wasm execution are retained. Later review
+experiments added early useful-join rejection, reusable alignment buffers and
+conflicts, component-balance rejection, stack compatibility caching, selective
+exact generated-history sharing, and two-word packing up to 128 labels. Dense
+wider alphabets now use four-word or dynamic shared masks; sparse wide alphabets
+retain vectors. Dynamic masks use exact interned/varint history, and packed
+unit-count seeds use coarser tasks. There is no search limit. Flow reuse and
+generation/pruning overlap were tested and rejected for the default path. See
+`crates/core/benches/re_comparison/investigation/final-four.md`.
+Apply RE (old Speedup) uses the source maximum to build a new set-label problem,
+with input-aware fibers and the subset mapping when needed, then swaps side roles.
+It appends a fresh problem and supports cancellation and reuse of the source cache.
+
 ### Completed entry and display controls
 
 | Feature | Short description |
@@ -114,6 +138,9 @@ are inferred rather than explicitly specified.
 
 | Feature | Short description |
 | --- | --- |
+| Maximize | Compute and cache the passive maximum, respecting input-dependent validity, with progress, cancellation, and retry. |
+| Saved maximization | Retain the complete result in files and links while keeping the displayed problem unchanged. |
+| Apply RE (Speedup) | Apply one round-elimination step and append its result, reusing the source maximum; supports progress, cancellation, and all input variants. |
 | Check zero-round solvability | Decide deterministic active-side zero-round solvability; show a short result and table, with strategy help collapsed by default. |
 | Coloring assumptions / Diagram assumptions | Expand detailed explanations while keeping analysis controls compact. |
 | Coloring (vertex / strong hypergraph) | Check strategies using the given vertex color and original inputs; colors differ around each passive node. |
@@ -178,7 +205,19 @@ to make their correspondence with the new UI explicit.
 Running computations are not resumed on import. The versioned RE3 files and
 links differ from the old GUI's `.re` files and links.
 
+### Completed fixed-point tools (temporary)
+
+| Feature | Short description |
+| --- | --- |
+| Basic / Basic FP (temporary) | Construct the default-lattice candidate, run the dual closures and cleanup, and append a cancellable new problem on server or wasm. Supports output-independent validity and preserves inputs and graph class. |
+| Determinate RE progress | Count pairs against the current closure pass's total, then count resolved parts during RE conversion (including cached maxima). Each stage fills from 0% to 100% and resets for the next pass or phase. |
+
 ## Things to think about in the future
+
+Deferred performance investigation: incidence edge coloring solvability is fast
+on bipartite maximal matching but becomes very slow after one Apply RE step.
+Investigate SAT encoding/refinement and passive verification on both problems;
+current performance experiments concern maximization only. See `REVIEW.md`.
 
 The current representation supports the implemented parsing and display features.
 Revisit these design considerations as algorithms and transformations are added;
@@ -188,19 +227,37 @@ explicitly deferred at the user's request.
 | Topic | Short description |
 | --- | --- |
 | Normalize condensed configurations | Merge identical parts and sort parts. Equality currently compares stored structure; this normalization will not decide all semantic equivalences. |
-| Benchmark label-set storage | Compare the current sorted-vector storage with bitsets on representative algorithm workloads before optimizing it. |
+| Benchmark label-set storage | Maximization uses packed masks for up to 64 labels while the model retains sorted vectors; evaluate larger bitsets on representative workloads before extending this. |
 | Preserve label-set serialization | If storage changes, explicitly preserve the JSON array shape and generated TypeScript type instead of deriving them from the new storage. |
 | Support long computations | Native searches have bounded concurrency and cancellable progress streams; wasm uses cancellable per-request workers. Consider worker reuse only if startup measurements justify it. |
-| Optimize zero-round search | Benchmark the shared SAT search and counterexample checker on large instances before adding specialized paths or stronger refinements. |
-| Optimize coloring search | Benchmark lazy color-placement checks and incremental SAT refinements before adding symmetry breaking or alternate encodings. |
+| Optimize zero-round search | Compare membership tables per input against current port variables; consider old degree-two behavior/compatibility searches, preserving original inputs and witness verification. |
+| Optimize coloring search | Benchmark lazy color placement, safe symmetry breaking and refinement; reuse known zero-round proofs and derive fixed-palette answers from applicable cached bounds/certificates. |
+| Avoid allocations for set overlap | Vector subset cardinality rejection is implemented. Boolean overlap/disjointness for SAT matching remains future work; it was outside the maximization-only experiments. |
+| Share generated duplicates earlier | Implemented for untraced dense algebras certified by a common admissible meet, including covered local rejections. Broad sharing regressed the large fixture; sparse searches keep their previous policy. Monitor history memory on other workloads. |
+| Reduce traversal memory | Skip the visited-configuration set for multiset families whose distributions are provably unique; retain provenance-correct deduplication for overlapping domains. |
+| Reuse matching/search preparation | Prepared alignments, component rejection and stack compatibility caching are implemented. Flow-network reuse was tested without a meaningful runtime gain and left out; petgraph still performs exact matching. |
+| Scale Basic FP lattices | For larger successor-closed lattices, compare direct set operations and lazy operation caching with the current quadratic tables; do not introduce search limits. |
+| Further maximization performance | Density-dependent multiword masks, compressed dynamic-mask history and unit-count task grains are integrated. Flow reuse and bounded overlap were tested without selecting them. Evaluate the chosen policies on other workloads when requested; all four requested experiments are complete. See `crates/core/benches/re_comparison/investigation/final-four.md`. |
+| Custom-algebra maximization | The shared generic engine supports live native pruning, early history and exchange rejection, and adaptive generation batches. Keep ordinary task splitting for custom algebras, ordered tracing, and serial wasm; benchmark other algebras before tuning their scheduling. |
+| Native allocator portability | Native server now uses pinned mimalloc v2, option26=0 before Tokio starts, matching the comparison executable. Monitor platform memory/performance; core and wasm remain allocator-independent. |
 | Evaluate parallel native SAT solvers | Deferred by the user. Benchmark a candidate such as CryptoMiniSat against CaDiCaL before integrating it; require incremental assumptions and cancellation, retaining RustSAT encodings and the wasm backend. |
 | GPU computation | A possible future optimization requested by the user; select kernels only after profiling identifies suitable work. |
 | Greedy distance-two coloring | Characterize compatible local views under the Grundy promise before choosing an exact strategy representation. |
-| Expose maximized verification in the UI | Both verification modes are implemented and benchmarked. Once maximization exists, offer direct checking versus maximizing first, including that preparation cost. |
+| Reuse computed maxima in analyses | Connect an already stored maximum to fast diagrams and passive verification; distinguish output-only/joint guarantees and avoid silently maximizing unrelated requested analyses. |
+| Compact/lazy diagram computation | Group identical occurrence profiles and defer expensive contexts; consider representing transitive relations by SCCs and their DAG with explicit session migration. |
+| Lazy active input checks | Investigate checking condensed active promises and adding only violated SAT obligations; exact coverage remains potentially exponential. |
+| Cheap unbounded witness verification | Verify the repeated behavior directly against original constraints instead of enumerating redundant dummy color assignments. |
+| UI computation and data handling | Consider a small shared controller composable and raw/shallow immutable problem/result snapshots; preserve independent caches, cancellation, and collapse behavior. |
+| Runtime scheduling and progress | Consider mixed SAT/Rayon request budgets and clearer generation/pruning completion accounting; preserve coalescing and cooperative cancellation. |
 | Cancellation within a flow call | Petgraph has no native interruption hook inside maximum flow. Cancellation is checked during construction and around each call; revisit if large networks cause noticeable delays. |
 | Optimize exact joint diagrams | Benchmark count-matrix products and union coverage on large input promises before adding alternative encodings; condensed preparation can still be combinatorial. |
 | Global realizability of input promises | The zero-round check uses every listed active input configuration as a local obligation. Consider whether a future mode should first exclude configurations unrealizable on globally valid input-labeled graphs. |
 | Preserve input promises in transformations | Keep the graph class and explicit input promise independent of changes to outputs or the mapping; recomputing either can silently narrow the problem domain. |
+
+The [implementation review](REVIEW.md) records source evidence, tradeoffs and a
+suggested order for these ideas. Flow domination is stronger than semantic language
+coverage: future pruning must preserve the complete maximum guarantee used by
+fast verification and Apply RE. No new performance measurements accompanied the review.
 
 ## Unimplemented: problem entry, history, and sharing
 
@@ -218,10 +275,8 @@ explicitly deferred at the user's request.
 
 | Feature | Short description |
 | --- | --- |
-| Speedup | Apply one round-elimination step to a problem. |
 | Speedup with Star Relaxation | Apply speedup using one-coordinate-star relaxation in the universal phase. |
 | Inverse Speedup | Apply the inverse round-elimination transformation. |
-| Maximize | Maximize the passive constraint, then recompute derived information. |
 | Merge (equivalent labels) | Merge labels identified as equivalent in the computed diagram. |
 | All Different Labels | Split or distinguish labels that currently denote the same choices. |
 | Delta Edge Coloring | Transform labels using an assumed degree-size edge coloring. |
@@ -267,12 +322,14 @@ explicitly deferred at the user's request.
 
 ## Unimplemented: fixed-point tools
 
+Basic is listed among completed features above. Other fixed-point variants and
+controls below remain unimplemented.
+
 | Feature | Short description |
 | --- | --- |
 | Partial Fixpointing | Restrict fixed-point generation to a selected subset of labels. |
 | Only determine triviality | Check triviality during fixed-point search without constructing the full result. |
 | From diagram selection (Fixed Point) | Select partial-fixpoint labels from the strength diagram. |
-| Basic | Generate a fixed-point candidate using the default diagram. |
 | Loop | Generate a candidate while automatically repairing the default diagram. |
 | Make fixed point good | Build a nontrivial lattice-based fixed-point relaxation; native only in the old UI. |
 | Generate Default Diagram | Build the default fixed-point diagram, with optional extra arrows. |

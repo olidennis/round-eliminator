@@ -3,6 +3,8 @@
 //! Count matrices align parts, rather than expanding repetitions or permutations.
 //! Each nonzero cell produces one condensed set of compatible label pairs.
 
+use super::visit_alignments_with;
+
 use crate::{
     computation::{Cancellation, Cancelled},
     model::{CondensedConfiguration, Constraint, LabelSet, Part},
@@ -22,7 +24,6 @@ pub(crate) fn product_with<A: Copy + Ord, B: Copy + Ord, L: Copy + Ord>(
     for first in left.configurations() {
         for second in right.configurations_at_degree(first.degree()) {
             cancellation.check()?;
-            let columns = second.parts().len();
             let mut choices = Vec::new();
             for first_part in first.parts() {
                 for second_part in second.parts() {
@@ -40,128 +41,20 @@ pub(crate) fn product_with<A: Copy + Ord, B: Copy + Ord, L: Copy + Ord>(
             }
             let rows: Vec<_> = first.parts().iter().map(Part::multiplicity).collect();
             let remaining: Vec<_> = second.parts().iter().map(Part::multiplicity).collect();
-            // A singleton compatible partner needs no occurrence expansion,
-            // even when the input and output exponents are enormous.
-            Alignments {
-                columns,
-                choices: &choices,
-                rows,
-                remaining,
-                parts: Vec::new(),
-                result: &mut result,
-                cancellation,
-            }
-            .visit(0)?;
+            let compatible: Vec<_> = choices.iter().map(|set| !set.is_empty()).collect();
+            visit_alignments_with(&rows, &remaining, &compatible, cancellation, |counts| {
+                let parts = counts
+                    .iter()
+                    .zip(&choices)
+                    .filter(|(count, _)| **count > 0)
+                    .map(|(&count, set)| Part::new(set.clone(), count).expect("compatible choices"))
+                    .collect();
+                result.push(CondensedConfiguration::new(parts).expect("product preserves degree"));
+                Ok(())
+            })?;
         }
     }
     Ok(Constraint::new(result))
-}
-
-/// Each search frame remembers one count choice and restores its capacities
-/// before trying a sibling. Heap storage avoids call-stack growth with the
-/// product of the numbers of input and output parts.
-struct Frame {
-    cell: usize,
-    values: std::ops::RangeInclusive<u32>,
-    chosen: Option<u32>,
-}
-
-struct Alignments<'a, L> {
-    columns: usize,
-    choices: &'a [LabelSet<L>],
-    rows: Vec<u32>,
-    remaining: Vec<u32>,
-    parts: Vec<Part<L>>,
-    result: &'a mut Vec<CondensedConfiguration<L>>,
-    cancellation: &'a Cancellation,
-}
-
-impl<L: Copy + Ord> Alignments<'_, L> {
-    fn bounds(&self, cell: usize) -> Option<std::ops::RangeInclusive<u32>> {
-        let row = cell / self.columns;
-        let column = cell % self.columns;
-        let maximum = if self.choices[cell].is_empty() {
-            0
-        } else {
-            self.rows[row].min(self.remaining[column])
-        };
-        // Demand which later compatible cells cannot fill must be allocated here.
-        // At the last column/row this forces the exact remaining row/column count.
-        let later_columns: u32 = ((column + 1)..self.columns)
-            .filter(|&c| !self.choices[row * self.columns + c].is_empty())
-            .map(|c| self.remaining[c])
-            .sum();
-        let later_rows: u32 = ((row + 1)..self.rows.len())
-            .filter(|&r| !self.choices[r * self.columns + column].is_empty())
-            .map(|r| self.rows[r])
-            .sum();
-        let minimum = self.rows[row]
-            .saturating_sub(later_columns)
-            .max(self.remaining[column].saturating_sub(later_rows));
-        (minimum <= maximum).then_some(minimum..=maximum)
-    }
-
-    /// Skip forced zero cells without allocating frames. Empty degree-zero
-    /// products reach the terminal case directly, without dividing by zero.
-    fn advance(&mut self, start: usize, stack: &mut Vec<Frame>) -> Result<(), Cancelled> {
-        for cell in start..self.choices.len() {
-            self.cancellation.check()?;
-            let Some(values) = self.bounds(cell) else {
-                return Ok(());
-            };
-            if *values.end() != 0 {
-                stack.push(Frame {
-                    cell,
-                    values,
-                    chosen: None,
-                });
-                return Ok(());
-            }
-        }
-        if self
-            .rows
-            .iter()
-            .chain(&self.remaining)
-            .all(|&count| count == 0)
-        {
-            self.result.push(
-                CondensedConfiguration::new(self.parts.clone()).expect("product preserves degree"),
-            );
-        }
-        Ok(())
-    }
-
-    fn visit(&mut self, start: usize) -> Result<(), Cancelled> {
-        let mut stack = Vec::new();
-        self.advance(start, &mut stack)?;
-        while let Some(frame) = stack.last_mut() {
-            self.cancellation.check()?;
-            let row = frame.cell / self.columns;
-            let column = frame.cell % self.columns;
-            if let Some(previous) = frame.chosen.take() {
-                self.rows[row] += previous;
-                self.remaining[column] += previous;
-                if previous != 0 {
-                    self.parts.pop();
-                }
-            }
-            let Some(count) = frame.values.next() else {
-                stack.pop();
-                continue;
-            };
-            self.rows[row] -= count;
-            self.remaining[column] -= count;
-            if count != 0 {
-                self.parts.push(
-                    Part::new(self.choices[frame.cell].clone(), count).expect("compatible choices"),
-                );
-            }
-            frame.chosen = Some(count);
-            let next = frame.cell + 1;
-            self.advance(next, &mut stack)?;
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]

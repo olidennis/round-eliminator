@@ -90,12 +90,12 @@ fn edge(diagram: &Diagram, input: Option<LabelId>, a: LabelId, b: LabelId) -> bo
     let source = diagram
         .nodes
         .iter()
-        .position(|n| *n == DiagramNode { input, output: a })
+        .position(|n| *n == InputOutputLabel { input, output: a })
         .unwrap();
     let Some(target) = diagram
         .nodes
         .iter()
-        .position(|n| *n == DiagramNode { input, output: b })
+        .position(|n| *n == InputOutputLabel { input, output: b })
     else {
         return false;
     };
@@ -343,7 +343,7 @@ fn exact_joint_relations_agree_with_exhaustive_input_output_multisets() {
             for _ in 0..3 {
                 let pair = code % 4;
                 code /= 4;
-                pairs.push(DiagramNode {
+                pairs.push(InputOutputLabel {
                     input: Some(LabelId(pair / 2)),
                     output: LabelId(pair % 2),
                 });

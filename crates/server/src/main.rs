@@ -10,8 +10,20 @@ use round_eliminator_3::execute_json;
 use tokio::sync::Semaphore;
 use tower_http::services::ServeDir;
 
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Match the configured v2 benchmarks and the old server's macOS setting.
+    // The pinned v2 C header names option 26 abandoned_reclaim_on_free; the
+    // wrapper's older Rust option constants do not expose this name.
+    // SAFETY: valid option in the pinned v2 ABI; configure before starting workers.
+    unsafe { libmimalloc_sys::mi_option_set(26, 0) };
+    run()
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let workers = std::thread::available_parallelism().map_or(1, usize::from);
     let app = Router::new()
         .route("/api", post(api))

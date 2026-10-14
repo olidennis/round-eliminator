@@ -6,7 +6,7 @@ pub use protocol::{ApiError, ComputationEvent, Request, Response};
 
 use crate::{
     algorithms::{
-        diagram,
+        diagram, fixed_point, maximize, round_elimination,
         solvability::{coloring, zero_round},
     },
     computation::{Cancellation, Computation, Phase},
@@ -47,6 +47,44 @@ fn execute_inner(
     partial: &mut dyn FnMut(Response),
 ) -> Response {
     match request {
+        Request::BasicFixedPoint { problem } => {
+            match fixed_point::basic_with(&problem, computation) {
+                Ok(problem) => Response::Problem(problem),
+                Err(error) => Response::Error(ApiError {
+                    message: error.to_string(),
+                    location: None,
+                }),
+            }
+        }
+        Request::ApplyRe { problem, maximum } => {
+            let result = (|| {
+                let maximum = match maximum {
+                    Some(maximum) => maximum,
+                    None => {
+                        let maximum = maximize::compute_with(&problem, computation)?;
+                        // This snapshot is already a complete reusable maximum,
+                        // even if the subsequent transformation is cancelled.
+                        partial(Response::Maximization(maximum.clone()));
+                        maximum
+                    }
+                };
+                round_elimination::apply_with(&problem, &maximum, computation)
+            })();
+            match result {
+                Ok(problem) => Response::Problem(problem),
+                Err(error) => Response::Error(ApiError {
+                    message: error.to_string(),
+                    location: None,
+                }),
+            }
+        }
+        Request::Maximize { problem } => match maximize::compute_with(&problem, computation) {
+            Ok(result) => Response::Maximization(result),
+            Err(error) => Response::Error(ApiError {
+                message: error.to_string(),
+                location: None,
+            }),
+        },
         Request::ComputeDiagram { problem, options } => {
             match diagram::compute_with(&problem, options, computation) {
                 Ok(result) => Response::Diagram(result),

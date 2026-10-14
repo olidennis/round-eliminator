@@ -18,6 +18,7 @@ const collapsedTarget = ref<HTMLElement | null>(null)
 const sectionKeys = computed<ProblemSection[]>(() => [
   ...(input.value ? ['input' as const] : []), 'output',
   ...(mapping.value ? ['mapping' as const] : []), 'zeroRound', 'coloring', 'diagram',
+  'maximization',
 ])
 const hasCollapsedSections = computed(() => sectionKeys.value.some(section => sections[section]))
 const hasExpandedSections = computed(() => sectionKeys.value.some(section => !sections[section]))

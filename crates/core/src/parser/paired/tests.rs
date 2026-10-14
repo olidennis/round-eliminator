@@ -17,8 +17,14 @@ fn input_projection_discards_duplicates_without_merging_distinct_outputs() {
     };
     assert_eq!(input.active().configurations_at_degree(3).len(), 3);
     assert_eq!(input.passive().configurations_at_degree(2).len(), 1);
-    assert_eq!(problem.output().active().configurations_at_degree(3).len(), 6);
-    assert_eq!(problem.output().passive().configurations_at_degree(2).len(), 2);
+    assert_eq!(
+        problem.output().active().configurations_at_degree(3).len(),
+        6
+    );
+    assert_eq!(
+        problem.output().passive().configurations_at_degree(2).len(),
+        2
+    );
     assert_eq!(problem.graph_class().active(), &[3]);
     assert_eq!(problem.graph_class().passive(), &[2]);
 }

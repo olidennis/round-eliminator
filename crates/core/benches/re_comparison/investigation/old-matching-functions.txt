@@ -1,0 +1,31 @@
+Functions sorted by metric: Exclusive Total CPU Time
+
+Excl. Total   Incl. Total    Name
+CPU           CPU
+ sec.      %   sec.      %
+7.430 100.00  7.430 100.00   <Total>
+4.005  53.90  5.245  70.59   round_eliminator_lib::algorithms::maximize::intersections
+1.190  16.02  1.190  16.02   round_eliminator_lib::group::Group::is_superset
+0.345   4.64  0.345   4.64   <round_eliminator_lib::algorithms::multisets_pairing::Comb as streaming_iterator::StreamingIterator>::advance
+0.315   4.24  0.330   4.44   malloc
+0.310   4.17  0.330   4.44   <static>@0x93ba0 (<libc.so.6>)
+0.255   3.43  0.520   7.00   free
+0.230   3.10  0.230   3.10   bcmp
+0.205   2.76  0.570   7.67   <round_eliminator_lib::algorithms::multisets_pairing::Pairings as streaming_iterator::StreamingIterator>::advance
+0.055   0.74  0.210   2.83   round_eliminator_lib::line::Line::compressed
+0.050   0.67  0.050   0.67   __lll_lock_wake_private
+0.050   0.67  0.050   0.67   serde_core::ser::Serializer::collect_seq
+0.050   0.67  0.050   0.67   syscall
+0.040   0.54  0.040   0.54   __rustc::__rdl_alloc
+0.035   0.47  0.035   0.47   <static>@0xa14e8 (<libc.so.6>)
+0.025   0.34  0.025   0.34   <std::collections::hash::set::Union<T,S> as core::iter::traits::iterator::Iterator>::next
+0.020   0.27  0.020   0.27   <static>@0x91de8 (<libc.so.6>)
+0.020   0.27  0.020   0.27   lz4_flex::block::compress::compress_internal
+0.015   0.20  0.015   0.20   <static>@0x14068c (<libc.so.6>)
+0.015   0.20  0.015   0.20   munmap
+0.015   0.20  0.015   0.20   pthread_create
+0.015   0.20  1.510  20.32   round_eliminator_lib::algorithms::maximize::combine_lines_custom
+0.010   0.13  0.010   0.13   __rustc::__rust_no_alloc_shim_is_unstable_v2
+0.010   0.13  0.010   0.13   contest_algorithms::graph::flow::FlowGraph::dinic
+0.010   0.13  0.010   0.13   core::hash::BuildHasher::hash_one
+

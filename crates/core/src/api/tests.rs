@@ -1,6 +1,165 @@
 use super::*;
 
 #[test]
+fn conversion_progress_reaches_its_total_when_an_impossible_part_skips_the_rest_of_a_row() {
+    let problem = crate::parse_problem(
+        serde_json::from_value(serde_json::json!({
+            "kind":"mapped","input":{"active":"i^2","passive":"i^2"},
+            "output":{"active":"A B","passive":"B^2"},"mapping":"i -> A"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let body = serde_json::json!({"type":"apply_re","data":{"problem":problem}}).to_string();
+    let mut updates = Vec::new();
+    let response = execute_text_with_events(&body, Cancellation::default(), &mut |event| {
+        if let ComputationEvent::Progress(progress) = event {
+            if progress.phase == Phase::Transforming {
+                if let Some(work) = progress.work {
+                    updates.push(work);
+                }
+            }
+        }
+    });
+    assert!(matches!(response, Response::Problem(_)));
+    assert_eq!(updates[0].completed, 0);
+    assert_eq!(updates[0].total, 2);
+    assert_eq!(updates.last().unwrap().completed, 2);
+}
+
+#[test]
+fn basic_fixed_point_returns_a_new_problem_and_cancellation_in_either_closure_is_distinct() {
+    let problem = crate::parse_problem(
+        serde_json::from_value(serde_json::json!({
+            "kind":"plain","constraints":{"active":"A^2","passive":"A^2"}
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let body =
+        serde_json::json!({"type":"basic_fixed_point","data":{"problem":problem}}).to_string();
+    let response = execute_text_with_events(&body, Cancellation::default(), &mut |event| {
+        if let ComputationEvent::Progress(p) = event {
+            assert_ne!(p.phase, Phase::Parsing);
+        }
+    });
+    let Response::Problem(result) = response else {
+        panic!()
+    };
+    assert_eq!(result.graph_class(), problem.graph_class());
+    for phase in [
+        Phase::ClosingActive,
+        Phase::ClosingPassive,
+        Phase::Transforming,
+    ] {
+        let cancellation = Cancellation::default();
+        let response = execute_text_with_events(&body, cancellation.clone(), &mut |event| {
+            if let ComputationEvent::Progress(p) = event {
+                if p.phase == phase {
+                    cancellation.cancel();
+                }
+            }
+        });
+        assert!(matches!(response, Response::Cancelled));
+    }
+}
+
+#[test]
+fn apply_re_reuses_maxima_streams_complete_cache_and_cancels_without_a_new_problem() {
+    let problem = crate::parse_problem(
+        serde_json::from_value(serde_json::json!({
+            "kind":"plain", "constraints":{"active":"A B", "passive":"A^2\nA B\nB^2"}
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    // Omitting the optional cache works for direct API callers as well.
+    let body = serde_json::json!({"type":"apply_re", "data":{"problem":problem}}).to_string();
+    let mut events = Vec::new();
+    let response = execute_text_with_events(&body, Cancellation::default(), &mut |event| {
+        events.push(event)
+    });
+    let Response::Problem(transformed) = response else {
+        panic!()
+    };
+    let maximum = events
+        .iter()
+        .find_map(|event| match event {
+            ComputationEvent::PartialResult(response) => match response.as_ref() {
+                Response::Maximization(maximum) => Some(maximum.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .expect("complete source maximum is available for caching");
+    assert!(events.iter().all(|event| !matches!(event,
+        ComputationEvent::Progress(p) if p.phase == Phase::Parsing)));
+    let cached =
+        serde_json::json!({"type":"apply_re", "data":{"problem":problem, "maximum":maximum}})
+            .to_string();
+    let response = execute_text_with_events(&cached, Cancellation::default(), &mut |event| {
+        assert!(!matches!(event, ComputationEvent::PartialResult(_)));
+        if let ComputationEvent::Progress(p) = event {
+            assert_eq!(p.phase, Phase::Transforming);
+            if let Some(work) = p.work {
+                assert!(work.completed <= work.total);
+            }
+        }
+    });
+    let Response::Problem(reused) = response else {
+        panic!()
+    };
+    assert_eq!(reused, transformed);
+    for stop in [Phase::Maximizing, Phase::Transforming] {
+        let cancellation = Cancellation::default();
+        let mut complete_maximum = false;
+        let response =
+            execute_text_with_events(&body, cancellation.clone(), &mut |event| match event {
+                ComputationEvent::Progress(p) if p.phase == stop => cancellation.cancel(),
+                ComputationEvent::PartialResult(response) => {
+                    assert!(matches!(*response, Response::Maximization(_)));
+                    complete_maximum = true;
+                }
+                _ => {}
+            });
+        assert!(matches!(response, Response::Cancelled));
+        assert_eq!(complete_maximum, stop == Phase::Transforming);
+    }
+}
+
+#[test]
+fn maximization_reuses_snapshots_and_cancels_without_partial_certificates() {
+    let problem = crate::parse_problem(
+        serde_json::from_value(serde_json::json!({
+            "kind":"plain","constraints":{"active":"A B", "passive":"A^3\nA^2 B\nA B^2\nB^3"}
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let body = serde_json::json!({"type":"maximize","data":{"problem":problem}}).to_string();
+    let result: serde_json::Value = serde_json::from_str(&execute_json(&body)).unwrap();
+    assert_eq!(result["type"], "maximization");
+    assert_eq!(result["data"]["kind"], "output_only");
+    assert_eq!(
+        result["data"]["constraint"]["degrees"][0]["configurations"],
+        serde_json::json!([{"parts":[{"labels":[0,1],"multiplicity":3}]}])
+    );
+    assert!(result["data"].get("problem").is_none());
+    for stop in [Phase::Preparing, Phase::Maximizing] {
+        let cancellation = Cancellation::default();
+        let response = execute_text_with_events(&body, cancellation.clone(), &mut |event| {
+            if let ComputationEvent::Progress(p) = event {
+                assert_ne!(p.phase, Phase::Parsing);
+                if p.phase == stop {
+                    cancellation.cancel();
+                }
+            }
+        });
+        assert!(matches!(response, Response::Cancelled));
+    }
+}
+
+#[test]
 fn diagram_protocol_reuses_the_problem_and_supports_cancellation_in_every_phase() {
     let parsed = crate::parse_problem(
         serde_json::from_value(serde_json::json!({

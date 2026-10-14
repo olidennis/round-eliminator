@@ -19,6 +19,7 @@ const problem = {
 const saved = newSavedProblem(problem)
 assert.equal(saved.diagram.layout, 'physics')
 assert.equal(saved.coloring.results.length, 0)
+assert.equal(saved.maximization, null)
 assert.equal(coloringKey(coloringQuery(saved.coloring)), coloringKey(coloringQuery({ ...saved.coloring, colors: 10 })))
 assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 3 } }),
   coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 4 } }))
@@ -27,6 +28,10 @@ assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'maximum' } }),
 saved.collapsed = true
 saved.collapsedSections = { output: true, outputPassive: true, coloring: true }
 saved.zeroRound = { status: 'unsolvable' }
+saved.maximization = { kind: 'input_output', constraint: { degrees: [
+  { degree: 2, configurations: [{ parts: [{ labels: [{ input: null, output: 0 }], multiplicity: 2 }] }] },
+] } }
+saved.collapsedSections.maximization = true
 saved.diagram.options = { kind: 'input_output', output: 'partial', input_output: 'exact' }
 saved.diagram.layout = 'hierarchical'
 const diagram = { nodes: [{ input: 0, output: 1 }], successors: [[0]], components: [[0]], edges: [], complete: true }
@@ -65,7 +70,9 @@ assert.deepEqual(migrated.results, [{ kind: 'distance_two', search: { kind: 'fix
 assert.equal('result' in migrated, false)
 const legacy = JSON.parse(serializeSession(session))
 delete legacy.session.problems[0].diagram
+delete legacy.session.problems[0].maximization
 assert.deepEqual(deserializeSession(JSON.stringify(legacy)).problems[0].diagram.results, [])
+assert.equal(deserializeSession(JSON.stringify(legacy)).problems[0].maximization, null)
 const olderDiagrams = JSON.parse(serializeSession(session))
 olderDiagrams.session.problems[0].diagram = {
   options: { output: 'partial', input_output: 'exact' }, view: 'input_specific', layout: 'physics',

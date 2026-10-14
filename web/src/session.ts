@@ -9,6 +9,7 @@ import type { DiagramOptions } from './generated/DiagramOptions'
 import type { DiagramResult } from './generated/DiagramResult'
 import type { Diagram } from './generated/Diagram'
 import type { DiagramKind } from './generated/DiagramKind'
+import type { MaximizationResult } from './generated/MaximizationResult'
 
 export type DiagramLayout = 'hierarchical' | 'physics' | 'free'
 export type SavedDiagram = {
@@ -82,7 +83,7 @@ function restoreColoring(saved: SavedColoring): SavedColoring {
   return { kind: saved.kind, search: saved.search, colors: saved.colors, bounds: saved.bounds, results }
 }
 
-export type ProblemSection = 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring' | 'diagram'
+export type ProblemSection = 'input' | 'output' | 'mapping' | 'zeroRound' | 'coloring' | 'diagram' | 'maximization'
   | 'inputActive' | 'inputPassive' | 'outputActive' | 'outputPassive'
 export type CollapsedSections = Partial<Record<ProblemSection, boolean>>
 
@@ -91,6 +92,7 @@ export type SavedProblem = {
   collapsed: boolean
   collapsedSections: CollapsedSections
   zeroRound: ZeroRoundResult | null
+  maximization: MaximizationResult | null
   coloring: SavedColoring
   diagram: SavedDiagram
 }
@@ -100,7 +102,7 @@ type SessionFile = { format: 'round-eliminator-3'; version: 1; session: Session 
 
 export function newSavedProblem(problem: Problem): SavedProblem {
   return {
-    problem, collapsed: false, collapsedSections: {}, zeroRound: null,
+    problem, collapsed: false, collapsedSections: {}, zeroRound: null, maximization: null,
     coloring: { kind: 'vertex', search: 'maximum', colors: 3, bounds: null, results: [] },
     diagram: newSavedDiagram(),
   }
@@ -138,7 +140,8 @@ export function deserializeSession(text: string): Session {
   return { ...session, problems: session.problems.map(entry => {
     // Graph class is now always-visible header metadata; discard its old fold flag.
     const { graph: _graph, ...collapsedSections } = (entry.collapsedSections ?? {}) as CollapsedSections & { graph?: boolean }
-    return { ...entry, collapsedSections, coloring: restoreColoring(entry.coloring), diagram: restoreDiagram(entry.diagram) }
+    return { ...entry, collapsedSections, maximization: entry.maximization ?? null,
+      coloring: restoreColoring(entry.coloring), diagram: restoreDiagram(entry.diagram) }
   }) }
 }
 

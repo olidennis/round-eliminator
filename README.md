@@ -5,6 +5,8 @@ active/passive problem definitions, and the GUI displays the returned definition
 It supports plain problems and all three input variants described below.
 Zero-round and coloring checks support all four variants and return strategy witnesses.
 Passive label diagrams support output-only, input-output pairs, and input-aware outputs.
+Passive maximization supports ordinary outputs and input-aware joint constraints.
+Apply RE transforms any of the four problem-entry variants by one elimination step.
 Other operations remain listed in [FEATURES.md](FEATURES.md).
 
 ## Problems and saved sessions
@@ -155,11 +157,15 @@ crates/core/src/
 ├── parser/                # text entry, notation, and paired conversion
 ├── algorithms/
 │   ├── configurations.rs # generic enumeration, membership, and matching
-│   ├── configurations/   # context coverage and condensed constraint products
+│   ├── configurations/   # coverage, products, count alignments, and flow matching
 │   ├── diagram.rs        # diagram types, methods, and three views
 │   ├── diagram/          # parallel relation computation and tests
 │   ├── graphs.rs         # SCC condensation and transitive reduction
 │   ├── inputs.rs         # original input preparation shared by analyses
+│   ├── maximize.rs       # passive maximization preparation and result schema
+│   ├── maximize/         # generic pairwise closure and correctness tests
+│   ├── round_elimination.rs # universal/existential transformation and side swap
+│   ├── round_elimination/   # transformation and independent equivalence tests
 │   ├── parallel.rs       # bounded native parallel work; serial wasm fallback
 │   ├── sat.rs            # solver setup and generic formula operations
 │   └── solvability/       # analyses and strategy-specific shared helpers
@@ -180,7 +186,7 @@ on this same API; folder organization does not change the JSON schema.
 
 | File | Responsibility |
 | --- | --- |
-| `crates/core/src/model/labels.rs` | Numeric label IDs, sorted label sets, and shared label-name validation. |
+| `crates/core/src/model/labels.rs` | Numeric label IDs, sorted label sets, joint input-output labels, and shared label-name validation. |
 | `crates/core/src/model.rs` | Model module declarations and public exports. |
 | `crates/core/src/model/problem.rs` | Shared mapped problem, compact input/mapping enums, accessors, and construction errors. |
 | `crates/core/src/model/configuration.rs` | Concrete multisets, condensed configurations, and their parts; multiplicity validation. |
@@ -207,6 +213,14 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/algorithms/solvability/coloring/verify.rs` | Verify finite and repeatable coloring witnesses independently of SAT. |
 | `crates/core/src/algorithms/configurations/coverage.rs` | Remove one label to obtain contexts; test universal coverage by a union of configurations. |
 | `crates/core/src/algorithms/configurations/product.rs` | Join condensed input/output constraints through compatible incidence pairs, keeping multiplicities counted. |
+| `crates/core/src/algorithms/configurations/alignments.rs` | Visit compatible count matrices with fixed margins, shared by products and maximization. |
+| `crates/core/src/algorithms/configurations/matching.rs` | Counted flow matching with a supplied compatibility relation, shared by membership and dominance. |
+| `crates/core/src/algorithms/maximize.rs` | Prepare ordinary or joint passive constraints; return a separate complete maximum. |
+| `crates/core/src/algorithms/maximize/engine.rs` | Generic algebra, closure scheduling, degree frontiers, and ordered duplicate history. |
+| `crates/core/src/algorithms/maximize/combination.rs` | Counted pair combinations, early intersection-exchange pruning, and optional derivations. |
+| `crates/core/src/algorithms/maximize/antichain.rs` | Dominance checks, recent-dominator caches, and parallel batch rejection/removal. |
+| `crates/core/src/algorithms/configurations/substitution.rs` | Substitute condensed part choices, preserving repetitions and removing impossible configurations. |
+| `crates/core/src/algorithms/round_elimination.rs` | Build the set-label alphabet from a complete maximum, apply existential substitution, and swap the graph/input roles. |
 | `crates/core/src/algorithms/diagram.rs` | Diagram schema, methods, canonical input integration, and input-aware projection. |
 | `crates/core/src/algorithms/diagram/relation.rs` | Compare occurrence profiles and residual languages, with cached degree-one context unions. |
 | `crates/core/src/algorithms/graphs.rs` | Library SCC grouping and transitive reduction, preserving isolated vertices. |
@@ -305,8 +319,8 @@ The shared analysis request has `data: { problem, passive_mode }`, where
 `"general"`; the typed UI sends it explicitly. Both transports accept the same
 request. The GUI currently uses general mode. Maximized mode is available to
 callers that can guarantee the passive constraint is maximized; it does not
-perform maximization or store a maximization flag on the problem. A UI choice
-can be added when maximization is implemented.
+perform maximization or store a maximization flag on the problem. Integrating
+the separately cached maximum and adding a UI choice are future work.
 The zero-round response contains only the solvability result and any witness;
 witness label IDs refer to the submitted problem's label tables.
 
@@ -488,6 +502,183 @@ the existing problem tables; the response does not echo or reparse the problem.
 `algorithms::solvability::coloring::verify_witness` checks the strategy with flow matching and
 general passive verification, without SAT. Tests also compare the compact
 encoding with independently constructed explicit colored input problems.
+
+## Passive maximization
+
+Press **Maximize** inside a problem to compute its passive maximum. The action
+becomes progress and Cancel while running, then shows a short completion status.
+The displayed problem stays unchanged. Each immutable problem snapshot retains
+its complete result, including in exported files and links; older sessions start
+without a maximum. Cancelled computations remain retryable and provide no maximum.
+
+Unrestricted mappings use ordinary output maximization, independently for each
+declared passive degree. Restricted mappings use the condensed relation of valid
+input-output pairs: its input projection satisfies the original promise, its
+output projection satisfies the passive output constraint, and each pair respects
+the mapping. The existing counted product constructs that relation without
+enumerating complete input configurations. The original input promise is retained
+even when some inputs admit no outputs. Joint maximality is a different guarantee
+from output-only maximality.
+
+`algorithms/maximize.rs` prepares snapshots and defines `MaximizationResult`;
+`maximize/engine.rs` performs pairwise closure with one union and intersections
+elsewhere. Working configurations normalize repeated values and keep multiplicities
+counted. `Operations<T>` supplies union, intersection, ordering and admissibility
+for a finite ordered algebra; custom operations must satisfy the documented laws.
+The optional observer receives accepted derivations without imposing tracking
+allocations on ordinary use. Empty values are supported internally for other
+algebraic computations; normal problem parts continue to require nonempty sets.
+
+`maximize/combination.rs` caches intersections and rejects dominated two-by-two
+exchanges while exploring partial count matrices, before enumerating their
+completions. The generic conflict-aware search lives in
+`configurations/alignments.rs`. Generation checks the immutable global duplicate
+history before local containment and flow work. Dense, untraced alignments also
+prune operand choices with the same union; sparse alignments and traced runs
+retain their operand order. `maximize/antichain.rs` remembers recently useful
+dominators. Its native `antichain/live.rs` workers publish admitted configurations
+immediately and mark obsolete ones removed. Other workers scan the newest entries
+first and skip removed entries. Containment checks run outside the short list
+lock; admission checks every concurrent append before publishing. Final survivors
+are compacted after the workers finish. With derivation tracking, admissions remain
+ordered so intermediate accepted configurations still have their traces.
+The engine visits only pairs involving a new configuration, amortizes scheduling
+over bounded batches, and queries large duplicate histories concurrently before
+ordered insertion. Native work shares Rayon's bounded pool, with adaptive range
+splitting and bounded result batches to amortize scheduling and channel traffic.
+Progress reports completed-item counts on the caller once per received batch;
+cancellation remains independent of progress. Small work stays serial.
+Native generation batches adapt to measured generation cost, targeting about
+10 ms per batch and learning from expensive partial batches at round ends.
+The size stays between 512 and the worker-scaled cap (at most 4,096), with each
+adjustment bounded to a factor of two. This publishes duplicate history earlier
+for expensive generation while amortizing dispatch/pruning for cheap generation.
+Each degree learns separately. Serial, wasm and derivation-tracking runs retain
+their fixed batches; no wasm clock or timing-dependent trace ordering is needed.
+Untraced native pruning also adapts its worker count. Summed worker elapsed time
+estimates the cost per offered candidate for the next batch, targeting about
+12 ms per worker, between two workers and the shared pool size. This is a measured
+scheduling heuristic, not an exact runtime prediction or a CPU-overhead guarantee.
+Small pruning batches retain ordinary serial insertion.
+`maximize/packed.rs` interns alphabets with at most 64 distinct labels into `u64`
+masks and 65–128 labels into `u128`. Wider alphabets use four-word masks up to 256
+or immutable shared word arrays above 256 when average source set size is at least
+the word count; sparse wide sets retain vectors. This density rule selects storage,
+not the searched configurations. The masks implement union, intersection and
+subset operations. The adapter decodes and sorts
+the maximum back into normal label sets; the model and wire format stay unchanged.
+Dynamic wide masks use dictionary/varint duplicate history: repeated values are
+interned once and configuration keys store exact value IDs/counts. This reduces
+memory and matching work without a Hash/Serialize requirement. Other algebras
+retain full keys. Key buffers grow beyond their inline capacity without a limit.
+Packed generation uses 512-item minimum ranges for degrees whose normalized seed
+counts are all one, and 256 otherwise, on large maps to reduce scheduling and channel
+traffic; custom algebras retain normal task splitting and the same generic engine.
+Wasm uses the same closure serially in its request worker. Generic
+matching rejects insufficient compatible capacity before allocating a flow graph.
+For up to 128 compatibility cells it caches successful comparisons in a stack
+bitmask; larger networks retain the same exact flow procedure. Parent combination
+finds useful joins first, rejects impossible component balances before exchange
+preparation, and reuses alignment conflicts, margins, counts and traversal frames.
+Dense algebras certified by a common admissible meet also share exact generated
+keys within each untraced batch and retain covered local rejections in history.
+This saves repeated matching at the cost of more history storage. Sparse searches
+keep their existing history policy; traced execution preserves ordered admissions.
+Both targets retain cancellation and coalesced progress. Scheduling thresholds
+and the optional exchange-precomputation cap never limit the mathematical search.
+
+Apply RE consumes this result. Existing diagrams and solvability checks continue
+using their current methods; connecting their fast paths to cached maxima is pending.
+
+The native server uses pinned mimalloc v2, with option 26 (abandoned reclamation
+on free) disabled before starting Tokio, matching the benchmark configuration.
+Allocator configuration belongs to the server executable; core and wasm do not
+choose an allocator.
+
+Run `npm run test:maximization -- http://127.0.0.1:8080/api` in `web` to check all
+presets and edge cases through wasm and the server. Omit the URL for wasm only.
+`cargo bench -p round-eliminator-3 --bench maximization` records a native baseline;
+compare runs with `RAYON_NUM_THREADS=1` and the normal CPU count.
+For measured old/new RE and maximization comparisons, including harder cases,
+see [the native benchmark report](crates/core/benches/re_comparison/README.md).
+The [review experiment report](crates/core/benches/re_comparison/investigation/review-improvements.md)
+records the later alignment, history and wider-packing comparisons.
+The [four remaining experiment report](crates/core/benches/re_comparison/investigation/final-four.md)
+records flow reuse, wider masks, overlap, compression and task-grain comparisons.
+Flow reuse and overlap were tested and left out of production.
+The [profiling investigation](crates/core/benches/re_comparison/investigation/README.md)
+explains the original regressions, compares optimization trials, and records
+the production integration. Performance claims apply to the measured fixtures.
+
+## Apply RE
+
+Each problem header has **Apply RE** (the old **Speedup** operation). It appends a
+new problem, leaving the source and its analysis results intact. The new problem
+starts with fresh analysis caches and supports further RE steps. A cached source
+maximum is reused; otherwise it is computed first and saved as soon as complete.
+The action shows progress and Cancel, including when the source card is folded.
+Cancelled or failed work appends no problem and can be retried. A source maximum
+already completed before cancellation remains reusable.
+
+For unrestricted mappings, each set in the passive maximum becomes a new label.
+For restricted mappings, a joint part R contributes its distinct nonempty sets
+R(i) = {o | (i,o) belongs to R}. These sets become labels, and R becomes choices
+among their IDs, preserving multiplicity. Identical sets share an ID. A new set S
+is allowed at input i exactly when S is a subset of the previous allowed outputs.
+The existential side replaces an old active part O by all new sets S intersecting
+O; if no such set exists, the configuration is removed. Counts stay condensed.
+
+Active and passive roles, declared graph degrees, and input constraints are
+swapped. Input names and the full original input promise are preserved, including
+admissible inputs with no outputs. Fresh output names are A–Z, a–z, 0–9, then L62,
+L63, etc.; names do not recursively expand source sets on repeated steps.
+The conversion is zero-round equivalent to unpruned input-aware RE under the
+retained input promise, as documented in `round_elimination.rs`. Its tests compare
+both directions against an independent exhaustive oracle in 1,024 tiny cases.
+
+`ApplyRe { problem, maximum }` accepts an optional trusted maximum for that exact
+snapshot. A newly completed maximum is streamed as a self-contained
+`partial_result` containing `Maximization`, then the final `Problem` response
+contains the new definition. Neither transport needs request-specific glue.
+`ProblemTransformations.vue` owns the header transformations and cancellation;
+`ProblemCard.vue` connects its cache and result; `App.vue` appends the new card.
+Existing session export/import and links retain both cards normally.
+Run `npm run test:re -- http://127.0.0.1:8080/api` in `web` to check both backends,
+or omit the URL for wasm only.
+
+## Basic fixed point (temporary)
+
+**Basic FP (temporary)** constructs the old Basic candidate and appends it as a
+new problem. It computes the default partial output diagram, closes its arrows
+transitively, and forms the lattice of all successor-closed subsets, including
+the empty set. Original concrete configurations are seeded with their principal
+closures. The active side uses intersection as join and reverse inclusion; the
+passive side uses union as join and inclusion. Both share the generic maximizer.
+Passive values expand to their downward choices, then the old button's cleanup
+removes weak active choices, dominated rows and labels appearing on only one side.
+
+The button supports output-independent validity, including independent input
+promises and nonregular graph classes, which remain unchanged. Input-dependent
+mappings need a separate fixed-point definition, so the temporary button is
+hidden for those problems and the API rejects them. Cancel interrupts either
+closure or cleanup; closing its source card also cancels the operation. Folding
+keeps it running. The resulting problem uses normal import/export/link support.
+Set-based label names retain the meaning of the construction, without extra
+metadata in the mathematical model.
+
+`fixed_point.rs` orchestrates the construction; `fixed_point/lattice.rs` owns the
+finite lattice and its algebra. Generic reachability stays in `graphs.rs`, and
+output simplification stays in `simplification.rs`. The request is
+`basic_fixed_point`, dispatched by both normal adapters. Run
+`npm run test:fixed-point -- http://127.0.0.1:8080/api` to verify both transports.
+
+For maximization and Apply RE, the progress bar counts completed pairs against
+all pairs queued for the current closure pass, independently of batch size.
+It fills from 0% to 100% and resets for a new pass or phase, with the pass number
+displayed. SAT searches keep indeterminate progress because their remaining work
+is unknown. Progress still uses the existing coalesced, throttled transport.
+RE conversion reports transformed parts against its known total too, including
+when a cached maximum lets it skip the pair-closure phase.
 
 ## Passive label diagrams
 

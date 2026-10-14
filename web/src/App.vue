@@ -5,6 +5,7 @@ import type { ConstraintText } from './generated/ConstraintText'
 import type { DegreeText } from './generated/DegreeText'
 import type { Field } from './generated/Field'
 import type { ProblemText } from './generated/ProblemText'
+import type { Problem } from './generated/Problem'
 import ConstraintEditor from './ConstraintEditor.vue'
 import CollapsibleSection from './CollapsibleSection.vue'
 import ProblemCard from './ProblemCard.vue'
@@ -82,6 +83,12 @@ function closeAllProblems() {
   currentProblemId.value = null
 }
 
+function appendProblem(problem: Problem) {
+  const id = nextProblemId++
+  problems.value.push({ ...newSavedProblem(problem), id })
+  currentProblemId.value = id
+}
+
 function collapseProblems(mode: 'all' | 'others' | 'none') {
   for (const entry of problems.value) {
     entry.collapsed = mode === 'all' || (mode === 'others' && entry.id !== currentProblemId.value)
@@ -113,9 +120,7 @@ async function start() {
     const response = await send({ type: 'parse_problem', data: definition() }, backend.value, { signal: current.signal })
     if (parsing !== current) return
     if (response.type === 'problem') {
-      const id = nextProblemId++
-      problems.value.push({ ...newSavedProblem(response.data), id })
-      currentProblemId.value = id
+      appendProblem(response.data)
     } else if (response.type === 'error') {
       const location = response.data.location
       const where = location
@@ -232,7 +237,8 @@ async function start() {
         @collapse="entry.collapsed = $event"
         @section="(section, collapsed) => entry.collapsedSections[section] = collapsed"
         @close="closeProblem(entry.id)" @zero-round="entry.zeroRound = $event"
-        @coloring="entry.coloring = $event" @diagram="entry.diagram = $event" />
+        @coloring="entry.coloring = $event" @diagram="entry.diagram = $event"
+        @maximization="entry.maximization = $event" @transformed="appendProblem" />
     </section>
   </main>
 </template>

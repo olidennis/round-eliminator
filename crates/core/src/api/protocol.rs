@@ -5,6 +5,7 @@ use ts_rs::TS;
 
 use crate::{
     algorithms::diagram::{DiagramOptions, DiagramResult},
+    algorithms::maximize::MaximizationResult,
     algorithms::solvability::{
         coloring::{ColoringBounds, ColoringKind, ColoringResult, PaletteSearch},
         passive::PassiveMode,
@@ -21,6 +22,18 @@ use crate::{
 #[ts(export)]
 pub enum Request {
     ParseProblem(ProblemText),
+    Maximize {
+        problem: Problem,
+    },
+    ApplyRe {
+        problem: Problem,
+        /// A complete maximum of this snapshot, if already computed.
+        #[serde(default)]
+        maximum: Option<MaximizationResult>,
+    },
+    BasicFixedPoint {
+        problem: Problem,
+    },
     ComputeDiagram {
         problem: Problem,
         #[serde(default)]
@@ -47,6 +60,7 @@ pub enum Request {
 #[ts(export)]
 pub enum Response {
     Problem(Problem),
+    Maximization(MaximizationResult),
     Diagram(DiagramResult),
     ZeroRound(ZeroRoundResult),
     Coloring(ColoringResult),

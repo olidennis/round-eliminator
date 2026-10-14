@@ -1,10 +1,39 @@
-//! Condensation and transitive reduction of directed relations.
+//! Reachability, condensation and transitive reduction of directed relations.
 
 use crate::computation::{Cancellation, Cancelled};
 use petgraph::{
     algo::{kosaraju_scc, toposort, tred},
     graph::DiGraph,
+    visit::Bfs,
 };
+
+/// Include each vertex itself, matching the reflexive replacement order.
+pub(crate) fn reachability_with(
+    successors: &[Vec<usize>],
+    cancellation: &Cancellation,
+) -> Result<Vec<Vec<usize>>, Cancelled> {
+    let mut graph = DiGraph::<(), ()>::new();
+    let vertices: Vec<_> = successors.iter().map(|_| graph.add_node(())).collect();
+    for (source, targets) in successors.iter().enumerate() {
+        cancellation.check()?;
+        for &target in targets {
+            graph.add_edge(vertices[source], vertices[target], ());
+        }
+    }
+    let mut result = Vec::new();
+    for start in vertices {
+        let mut traversal = Bfs::new(&graph, start);
+        let mut reachable = Vec::new();
+        while let Some(node) = traversal.next(&graph) {
+            cancellation.check()?;
+            reachable.push(node.index());
+        }
+        reachable.sort_unstable();
+        result.push(reachable);
+    }
+    cancellation.check()?;
+    Ok(result)
+}
 
 pub(crate) struct Reduction {
     /// Original vertex indices in each component, ordered deterministically.

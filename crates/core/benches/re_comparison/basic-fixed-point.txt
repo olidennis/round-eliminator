@@ -1,0 +1,7 @@
+A^5 X^2
+B^5 Y^2
+C^5 Z^2
+
+AX BYCZ
+BY CZ
+XYZ^2

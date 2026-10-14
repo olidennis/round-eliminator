@@ -7,7 +7,10 @@ use super::{LabelId, LabelSet, ValidationError};
 
 /// One concrete multiset, such as `A^2 B`, rather than a family of choices.
 /// Entries are sorted by label, unique, and have positive multiplicities.
-/// The empty configuration has degree zero. 
+/// The empty configuration has degree zero.
+/// Algorithms may also use counted non-label values, such as label sets during
+/// maximization; this does not give each value independent choices like a
+/// `CondensedConfiguration` does.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
 pub struct Configuration<L = LabelId> {
     multiplicities: Vec<(L, u32)>,
@@ -21,11 +24,11 @@ impl<L> Default for Configuration<L> {
     }
 }
 
-impl<L: Copy + Ord> Configuration<L> {
+impl<L: Ord> Configuration<L> {
     /// Merge repeated labels, discard zero counts, and check degree overflow.
     pub fn new(mut multiplicities: Vec<(L, u32)>) -> Result<Self, ValidationError> {
-        multiplicities.retain(|&(_, count)| count != 0);
-        multiplicities.sort_unstable_by_key(|&(label, _)| label);
+        multiplicities.retain(|(_, count)| *count != 0);
+        multiplicities.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
         let mut entries: Vec<(L, u32)> = Vec::with_capacity(multiplicities.len());
         let mut degree = 0u32;
         for (label, count) in multiplicities {
@@ -48,20 +51,24 @@ impl<L: Copy + Ord> Configuration<L> {
     ) -> Result<Self, ValidationError> {
         Self::new(occurrences.into_iter().map(|label| (label, 1)).collect())
     }
+}
 
+impl<L> Configuration<L> {
     pub fn multiplicities(&self) -> &[(L, u32)] {
         &self.multiplicities
     }
 
     pub fn degree(&self) -> u32 {
-        self.multiplicities.iter().map(|&(_, count)| count).sum()
+        self.multiplicities.iter().map(|(_, count)| count).sum()
     }
+}
 
+impl<L: Clone> Configuration<L> {
     /// Expand only when an algorithm needs an entry for each occurrence or port.
     pub fn occurrences(&self) -> impl Iterator<Item = L> + '_ {
         self.multiplicities
             .iter()
-            .flat_map(|&(label, count)| std::iter::repeat_n(label, count as usize))
+            .flat_map(|(label, count)| std::iter::repeat_n(label.clone(), *count as usize))
     }
 }
 

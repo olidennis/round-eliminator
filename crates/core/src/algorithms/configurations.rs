@@ -2,15 +2,19 @@
 
 use std::collections::BTreeSet;
 
-use petgraph::{Graph, algo::dinics};
-
 use crate::computation::{Cancellation, Cancelled};
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
 
+mod alignments;
 mod coverage;
+mod matching;
 mod product;
+mod substitution;
+pub(crate) use alignments::{AlignmentComponents, AlignmentSearch, visit_alignments_with};
 pub(crate) use coverage::{contexts_with, covers_with};
+pub(crate) use matching::matches_counts_with;
 pub(crate) use product::product_with;
+pub(crate) use substitution::map_parts_with;
 
 /// Checks whether a constraint allows a configuration
 pub fn accepts<L: Copy + Ord>(constraint: &Constraint<L>, concrete: &Configuration<L>) -> bool {
@@ -66,46 +70,16 @@ fn matches<L: Copy + Ord>(
         return Ok(true);
     }
 
-    // we construct the flow network
-    // source -> concrete labels -> condensed parts -> sink.
-    // Counts are capacities, so a large exponent never creates one vertex per
-    // occurrence. Saturating the source assigns every occurrence to a part;
-    // equal degrees then also fill every part to its required multiplicity.
-    let mut network = Graph::<(), u32>::new();
-    let source = network.add_node(());
-    let sink = network.add_node(());
-    let mut destinations = Vec::with_capacity(parts.len());
-    // edges from target condensed configuration to sink
-    for part in parts {
-        cancellation.check()?;
-        let node = network.add_node(());
-        network.add_edge(node, sink, part.multiplicity());
-        destinations.push(node);
-    }
-    for &(label, count) in concrete.multiplicities() {
-        cancellation.check()?;
-        // edges from source to concrete configuration
-        let node = network.add_node(());
-        network.add_edge(source, node, count);
-        // edges from concrete to target
-        let mut available = 0u32;
-        for (part, &destination) in parts.iter().zip(&destinations) {
-            cancellation.check()?;
-            if part.labels().contains(label) {
-                available += part.multiplicity();
-                network.add_edge(node, destination, count.min(part.multiplicity()));
-            }
-        }
-        // Even assigning every compatible slot cannot place this label.
-        // This often rules out a candidate without any flow search.
-        if available < count {
-            return Ok(false);
-        }
-    }
-    cancellation.check()?;
-    let (flow, _) = dinics(&network, source, sink);
-    cancellation.check()?;
-    Ok(flow == concrete.degree())
+    let allowed: Vec<_> = parts
+        .iter()
+        .map(|part| (part.labels(), part.multiplicity()))
+        .collect();
+    matches_counts_with(
+        concrete.multiplicities(),
+        &allowed,
+        |label, set| set.contains(*label),
+        cancellation,
+    )
 }
 
 /// checks whether the condensed configuration target dominates the condensed configuration family
@@ -160,62 +134,17 @@ fn match_parts_with<L: Copy + Ord>(
     compatible: impl Fn(&LabelSet<L>, &LabelSet<L>) -> bool,
     cancellation: &Cancellation,
 ) -> Result<bool, Cancelled> {
-    cancellation.check()?;
-    if target.degree() != family.degree() {
-        return Ok(false);
-    }
-    if let [part] = target.parts() {
-        for query in family.parts() {
-            cancellation.check()?;
-            if !compatible(query.labels(), part.labels()) {
-                return Ok(false);
-            }
-        }
-        return Ok(true);
-    }
-    if let [part] = family.parts() {
-        for query in target.parts() {
-            cancellation.check()?;
-            if !compatible(part.labels(), query.labels()) {
-                return Ok(false);
-            }
-        }
-        return Ok(true);
-    }
-    let mut network = Graph::<(), u32>::new();
-    let source = network.add_node(());
-    let sink = network.add_node(());
-    let mut destinations = Vec::new();
-    for part in target.parts() {
-        cancellation.check()?;
-        let node = network.add_node(());
-        network.add_edge(node, sink, part.multiplicity());
-        destinations.push(node);
-    }
-    for part in family.parts() {
-        cancellation.check()?;
-        let node = network.add_node(());
-        network.add_edge(source, node, part.multiplicity());
-        let mut available = 0;
-        for (target, &destination) in target.parts().iter().zip(&destinations) {
-            cancellation.check()?;
-            if compatible(part.labels(), target.labels()) {
-                available += target.multiplicity();
-                network.add_edge(
-                    node,
-                    destination,
-                    part.multiplicity().min(target.multiplicity()),
-                );
-            }
-        }
-        if available < part.multiplicity() {
-            return Ok(false);
-        }
-    }
-    cancellation.check()?;
-    let flow = dinics(&network, source, sink).0;
-    cancellation.check()?;
-    Ok(flow == family.degree())
+    let offered: Vec<_> = family
+        .parts()
+        .iter()
+        .map(|part| (part.labels(), part.multiplicity()))
+        .collect();
+    let allowed: Vec<_> = target
+        .parts()
+        .iter()
+        .map(|part| (part.labels(), part.multiplicity()))
+        .collect();
+    matches_counts_with(&offered, &allowed, |a, b| compatible(a, b), cancellation)
 }
 
 /// Extracts all uncondensed configurations of given degrees from a constraint

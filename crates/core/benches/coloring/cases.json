@@ -1,0 +1,42 @@
+{
+  "bmm-before": {
+    "kind": "incidence_edges", "palette": "maximum",
+    "definition": {"kind":"plain","constraints":{"active":"M U^9\nP^10","passive":"M UP^9\nU^10"}}
+  },
+  "bmm-after": {
+    "kind": "incidence_edges", "palette": "maximum", "steps": 1,
+    "definition": {"kind":"plain","constraints":{"active":"M U^9\nP^10","passive":"M UP^9\nU^10"}}
+  },
+  "bmm-vertex": {
+    "kind": "vertex", "palette": 10, "steps": 1,
+    "definition": {"kind":"plain","constraints":{"active":"M U^9\nP^10","passive":"M UP^9\nU^10"}}
+  },
+  "matching-edges": {
+    "kind": "graph_edges", "palette": "maximum",
+    "definition": {"kind":"plain","constraints":{"active":"M U^9\nP^10","passive":"M^2\nU UP"}}
+  },
+  "orientation-vertex": {
+    "kind": "vertex", "palette": "maximum",
+    "definition": {"kind":"independent","input":{"active":"O^2 I^3","passive":"I O"},"output":{"active":"A^5\nB^5\nC^5\nD^5\nE^5","passive":"A BCDE\nB CDE\nC DE\nD E"}}
+  },
+  "list-vertex": {
+    "kind": "vertex", "palette": 3,
+    "definition": {"kind":"mapped","input":{"active":"r^3\ng^3\nb^3","passive":"rgb^2"},"output":{"active":"A^3\nB^3\nC^3","passive":"A BC\nB C"},"mapping":"r -> BC\ng -> AC\nb -> AB"}
+  },
+  "matching-distance-four": {
+    "kind": "distance_two", "palette": 4,
+    "definition": {"kind":"plain","constraints":{"active":"M U^2\nP^3","passive":"M^2\nU UP"}}
+  },
+  "matching-distance-five": {
+    "kind": "distance_two", "palette": 5,
+    "definition": {"kind":"plain","constraints":{"active":"M U^2\nP^3","passive":"M^2\nU UP"}}
+  },
+  "coloring-distance": {
+    "kind": "distance_two", "palette": 4,
+    "definition": {"kind":"plain","constraints":{"active":"A^3\nB^3\nC^3","passive":"A BC\nB C"}}
+  },
+  "orientation-distance": {
+    "kind": "distance_two", "palette": 6,
+    "definition": {"kind":"independent","input":{"active":"O^2 I^3","passive":"I O"},"output":{"active":"A^5\nB^5\nC^5\nD^5\nE^5","passive":"A BCDE\nB CDE\nC DE\nD E"}}
+  }
+}

@@ -11,6 +11,9 @@
     "test:coloring": "node scripts/test-coloring.mjs",
     "test:session": "node scripts/test-session.mjs",
     "test:diagram": "node scripts/test-diagram.mjs",
+    "test:maximization": "node scripts/test-maximization.mjs",
+    "test:re": "node scripts/test-round-elimination.mjs",
+    "test:fixed-point": "node scripts/test-fixed-point.mjs",
     "test:physics": "node scripts/test-physics.mjs"
   },
   "dependencies": {

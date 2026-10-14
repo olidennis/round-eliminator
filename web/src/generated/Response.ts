@@ -3,10 +3,11 @@ import type { ApiError } from "./ApiError";
 import type { ColoringBounds } from "./ColoringBounds";
 import type { ColoringResult } from "./ColoringResult";
 import type { DiagramResult } from "./DiagramResult";
+import type { MaximizationResult } from "./MaximizationResult";
 import type { Problem } from "./Problem";
 import type { ZeroRoundResult } from "./ZeroRoundResult";
 
 /**
  * These are the possible answers that we can send to the UI
  */
-export type Response = { "type": "problem", "data": Problem } | { "type": "diagram", "data": DiagramResult } | { "type": "zero_round", "data": ZeroRoundResult } | { "type": "coloring", "data": ColoringResult } | { "type": "coloring_bounds", "data": ColoringBounds } | { "type": "error", "data": ApiError } | { "type": "cancelled" };
+export type Response = { "type": "problem", "data": Problem } | { "type": "maximization", "data": MaximizationResult } | { "type": "diagram", "data": DiagramResult } | { "type": "zero_round", "data": ZeroRoundResult } | { "type": "coloring", "data": ColoringResult } | { "type": "coloring_bounds", "data": ColoringBounds } | { "type": "error", "data": ApiError } | { "type": "cancelled" };

@@ -1,5 +1,54 @@
 # Algorithm benchmarks
 
+## RE and maximization against the old version
+
+The [RE comparison](re_comparison/README.md) measures ten elimination steps on
+degree-10 bipartite maximal matching and two steps on the second old `test_all()`
+fixture. It separates raw RE, the old button workflow, and maximization on identical
+inputs. Both libraries are built in one isolated native release benchmark, with
+the old implementation excluded from production dependencies. Per-step timings,
+input/output sizes, equivalence checks, and repeatable commands are recorded there.
+The follow-up [profiling investigation](re_comparison/investigation/README.md)
+isolates pruning, matching allocation, dominance scans, and scheduling costs;
+controlled trials run only in temporary library copies; selected optimizations
+are now integrated into production. The [aggregate-work comparison](re_comparison/investigation/README.md#aggregate-work-versus-fully-serial-execution)
+measures summed CPU time and elapsed time at 1, 4 and 10 workers on identical inputs.
+The [Basic fixed-point/allocator report](re_comparison/investigation/allocator-comparison.md)
+also tests the custom reversed algebra and empty lattice values, and compares
+system, jemalloc and configured mimalloc allocation without changing production.
+The [current performance investigation](re_comparison/investigation/current-performance.md)
+identifies late duplicate checks and matrix rejection in Basic, and per-pair
+task/channel overhead on the large fixture. The selected improvements are now
+integrated; it records elapsed and aggregate CPU time, with historical kernels
+retained as benchmark fixtures.
+The [adaptive generation-batch follow-up](re_comparison/investigation/adaptive-batches.md)
+benchmarks fixed sizes from 256 to 4,096 and a timing-based policy. The recommended
+prototype reduces Basic CPU by 15% and elapsed by 7%, with matching and the large
+fixture effectively unchanged. This policy is now integrated into native
+untraced generation; serial, wasm and observed derivations keep fixed batches.
+
+The [live-pruning comparison](re_comparison/investigation/live-pruning.md)
+combines immediately shared pruning decisions, packed small alphabets, and
+adaptive pruning concurrency. It compares the large fixture, Basic and matching,
+including uninstrumented serial/parallel aggregate CPU measurements. These
+improvements are now integrated; historical snapshot variants remain reproducible.
+
+The [review experiment follow-up](re_comparison/investigation/review-improvements.md)
+compares early pair rejection, prepared alignment traversal, component balance,
+compatibility caching, generated-history sharing and 128-bit packing. It retains
+controlled prototypes and confirms the selected changes in uninstrumented native
+executables, with complete-output comparisons, total CPU and per-process peak RSS.
+
+The [four final categories](re_comparison/investigation/final-four.md) include
+flow-network retention, density-dependent multiword masks, bounded overlap,
+exact dictionary/varint history and conditional generation grains. Every category
+was tested; only measured beneficial choices were integrated. The native server
+now shares the benchmark's pinned mimalloc-v2 configuration.
+The [CPU budget follow-up](re_comparison/investigation/packed-cpu.md) finds a
+packed-set/coarse-generation/serial-pruning prototype for the large fixture:
+1.91 s elapsed, 4.29 s aggregate CPU, and 29.2% overhead over its own serial path.
+This performance prototype has not been integrated.
+
 ## Passive diagrams
 
 ```sh
@@ -371,7 +420,8 @@ The adopted general mode first tries a containment proof, then enumerates output
 lazily only if that proof fails. The maximized mode uses the same proof and can
 reject immediately on failure. Both share preparation, eager clauses for passive
 degrees at most two, the SAT search, cancellation, and independent witness checking.
-The API mode is explicit; the GUI uses general mode until maximization exists.
+The API mode is explicit; the GUI uses general mode until cached maxima are
+integrated into solvability checks.
 
 The current measurements are in
 [passive_inputs/adopted-results.csv](passive_inputs/adopted-results.csv), using the

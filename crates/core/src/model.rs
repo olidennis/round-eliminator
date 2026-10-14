@@ -13,7 +13,7 @@ pub use constraint::{Constraint, DegreeGroup};
 pub use constraint_pair::ConstraintPair;
 pub use graph::GraphClass;
 pub(crate) use labels::validate_names;
-pub use labels::{LabelId, LabelSet};
+pub use labels::{InputOutputLabel, LabelId, LabelSet};
 pub use problem::{Input, OutputMapping, Problem, ValidationError};
 
 #[cfg(test)]

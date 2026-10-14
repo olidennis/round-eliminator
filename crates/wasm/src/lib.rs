@@ -99,6 +99,7 @@ mod tests {
         ComputationEvent::Progress(Progress {
             phase: Phase::Solving,
             iterations,
+            work: None,
         })
     }
 
@@ -149,6 +150,7 @@ mod tests {
                 event = ComputationEvent::Progress(Progress {
                     phase: Phase::Verifying,
                     iterations: i,
+                    work: None,
                 });
             }
             updates.push(event, f64::from(i), &mut |event| events.push(event));

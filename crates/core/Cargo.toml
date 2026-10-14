@@ -30,3 +30,7 @@ harness = false
 [[bench]]
 name = "diagram"
 harness = false
+
+[[bench]]
+name = "maximization"
+harness = false

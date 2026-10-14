@@ -1,12 +1,12 @@
 import type { Diagram } from './generated/Diagram'
 import type { DiagramKind } from './generated/DiagramKind'
-import type { DiagramNode } from './generated/DiagramNode'
+import type { InputOutputLabel } from './generated/InputOutputLabel'
 import type { DiagramOptions } from './generated/DiagramOptions'
 import type { DiagramResult } from './generated/DiagramResult'
 import type { Problem } from './generated/Problem'
 
 /** Pair labels come from the canonical name tables, including converted inputs. */
-export function diagramNodeName(problem: Problem, node: DiagramNode): string {
+export function diagramNodeName(problem: Problem, node: InputOutputLabel): string {
   const output = problem.output.labels[node.output]
   const name = (label: string) => /[,()\s]/u.test(label) ? JSON.stringify(label) : label
   return node.input === null ? output : `(${name(problem.input.kind === 'explicit'

@@ -38,7 +38,7 @@ pub enum Input {
 }
 
 /// For problems where the constraints do not depend on the input, we use `Unrestricted`.
-/// Otherwise, we use `Restricted`, 
+/// Otherwise, we use `Restricted`,
 /// and in position `i`` we store the set of allowed outputs for the ports with input label `i``.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 #[serde(tag = "kind", content = "data", rename_all = "snake_case")]

@@ -4,7 +4,7 @@ import type { LabelSet } from "./LabelSet";
 
 /**
  * For problems where the constraints do not depend on the input, we use `Unrestricted`.
- * Otherwise, we use `Restricted`, 
+ * Otherwise, we use `Restricted`,
  * and in position `i`` we store the set of allowed outputs for the ports with input label `i``.
  */
 export type OutputMapping = { "kind": "unrestricted" } | { "kind": "restricted", "data": Array<LabelSet<LabelId>> };

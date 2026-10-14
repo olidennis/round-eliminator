@@ -14,7 +14,7 @@ use crate::{
         configurations::product_with, graphs::reduce_relation, inputs::prepare_passive_inputs,
     },
     computation::{Cancellation, Computation, Phase},
-    model::{Constraint, Input, LabelId, OutputMapping, Problem},
+    model::{Constraint, Input, InputOutputLabel, LabelId, OutputMapping, Problem},
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize, TS)]
@@ -60,17 +60,9 @@ pub struct DiagramOptions {
     pub input_output: InputOutputDiagramMethod,
 }
 
-/// Label IDs refer to the submitted problem, never to original paired-entry data.
-/// `None` identifies output-only vertices or the implicit trivial input.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, TS)]
-pub struct DiagramNode {
-    pub input: Option<LabelId>,
-    pub output: LabelId,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, TS)]
 pub struct Diagram {
-    pub nodes: Vec<DiagramNode>,
+    pub nodes: Vec<InputOutputLabel>,
     /// Full relation including reflexive arrows, indexed by `nodes`.
     pub successors: Vec<Vec<u32>>,
     /// SCC members are node indices. The UI displays one vertex per component.
@@ -88,7 +80,7 @@ pub struct DiagramResult {
 }
 
 fn diagram(
-    nodes: Vec<DiagramNode>,
+    nodes: Vec<InputOutputLabel>,
     successors: Vec<Vec<usize>>,
     complete: bool,
     cancellation: &Cancellation,
@@ -144,7 +136,7 @@ pub fn compute_with(
     let output_nodes = || {
         labels
             .iter()
-            .map(|&output| DiagramNode {
+            .map(|&output| InputOutputLabel {
                 input: None,
                 output,
             })
@@ -177,7 +169,7 @@ pub fn compute_with(
         for &label in &labels {
             cancellation.check()?;
             if problem.output_allowed(input, label) {
-                nodes.push(DiagramNode {
+                nodes.push(InputOutputLabel {
                     input,
                     output: label,
                 });
@@ -203,7 +195,7 @@ pub fn compute_with(
             |input, output| {
                 problem
                     .output_allowed(input, output)
-                    .then_some(DiagramNode { input, output })
+                    .then_some(InputOutputLabel { input, output })
             },
             &cancellation,
         )?;
@@ -259,11 +251,11 @@ pub fn compute_with(
         for (index, &b) in labels.iter().enumerate() {
             cancellation.check()?;
             if inputs.iter().all(|&input| {
-                let Some(&source) = pair_index.get(&DiagramNode { input, output: a }) else {
+                let Some(&source) = pair_index.get(&InputOutputLabel { input, output: a }) else {
                     return true;
                 };
                 pair_index
-                    .get(&DiagramNode { input, output: b })
+                    .get(&InputOutputLabel { input, output: b })
                     .is_some_and(|target| pair_rows[source].binary_search(target).is_ok())
             }) {
                 row.push(index)

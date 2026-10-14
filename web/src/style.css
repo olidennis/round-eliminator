@@ -75,6 +75,8 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #0069d9; outlin
 .preset-buttons button { background: white; color: #0069d9; border-color: #b8cce6; text-align: left; }
 .preset-buttons button:hover { background: #e7f1ff; }
 .problem-list-actions { margin-top: 0; }
+.problem-transformations { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; min-width: 0; max-width: 100%; }
+.problem-transformations .computation-progress { margin-top: 0; }
 
 .analysis-options { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem .75rem; max-width: 34rem; }
 .analysis-options label { display: grid; gap: .2rem; max-width: 100%; font-size: .87rem; }

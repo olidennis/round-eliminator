@@ -132,6 +132,7 @@ impl Stream for ComputationStream {
             return Poll::Ready(Some(event(&ComputationEvent::Progress(Progress {
                 phase: Phase::Queued,
                 iterations: 0,
+                work: None,
             }))));
         }
         if self.final_response.is_none() {
@@ -219,6 +220,7 @@ mod tests {
                 report(ComputationEvent::Progress(Progress {
                     phase: Phase::Solving,
                     iterations,
+                    work: None,
                 }));
             }
             for lower in [3, 4] {
@@ -263,6 +265,7 @@ mod tests {
             report(ComputationEvent::Progress(Progress {
                 phase: Phase::Solving,
                 iterations: 0,
+                work: None,
             }));
             let _ = ready_tx.send(());
             let _ = release_rx.blocking_recv();
@@ -270,6 +273,7 @@ mod tests {
                 report(ComputationEvent::Progress(Progress {
                     phase: Phase::Verifying,
                     iterations,
+                    work: None,
                 }));
             }
             let _ = updated_tx.send(());
@@ -277,6 +281,7 @@ mod tests {
             report(ComputationEvent::Progress(Progress {
                 phase: Phase::Reducing,
                 iterations: 100_000,
+                work: None,
             }));
             Response::Cancelled
         });
