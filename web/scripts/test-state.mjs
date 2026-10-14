@@ -30,6 +30,26 @@ const coloring = (kind, search) => ({ type: 'check_coloring', data: { kind, sear
 const diagram = kind => ({ type: 'compute_diagram', data: { options: { kind, output: 'exact', input_output: 'exact' } } })
 
 for (const backend of server ? ['wasm', 'server'] : ['wasm']) {
+  {
+    const problem = JSON.parse(execute_json(JSON.stringify({ type: 'parse_problem', data:
+      plain('A B', 'A^3\nA^2 B\nA B^2\nB^3') }))).response.data
+    const state = { problem, analyses: empty() }
+    const operation = { type: 'compute_diagram', data: { options:
+      { kind: 'output_only', output: 'partial', input_output: 'cheap' } } }
+    const partial = await compute(state, operation, backend)
+    assert.equal(partial.response.data.diagram.complete, false)
+    state.analyses = partial.cache
+    const maximum = await compute(state, { type: 'maximize' }, backend)
+    state.analyses.maximization = maximum.cache.maximization
+    const upgraded = await compute(state, operation, backend)
+    assert.equal(upgraded.response.data.diagram.complete, true)
+    assert.equal(upgraded.response.data.options.output, 'exact')
+    state.analyses.diagrams.push(upgraded.response.data)
+    const exact = await compute(state, diagram('output_only'), backend)
+    assert.deepEqual(exact.response.data.diagram, upgraded.response.data.diagram)
+    assert.ok(!exact.events.some(e => e.type === 'progress' && e.data.phase === 'comparing'))
+    checks++
+  }
   for (const definition of [plain('A B', 'A^3\nA^2 B\nA B^2\nB^3'),
     { kind: 'mapped', input: { active: 'i^3\nj^3', passive: 'ij^2' },
       output: { active: 'A^3\nB^3\nC^3', passive: 'A C\nBC^2' }, mapping: 'i -> AB\nj -> C' },

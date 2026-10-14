@@ -1782,3 +1782,24 @@ Historical coloring benchmark preparation was adapted without changing frozen
 kernel behavior; its selected copy passed release cargo check. No new timings.
 Server and wasm artifacts rebuilt. No commits/pushes. Preserve pre-existing dirty
 changes. Do not add more optimizations or benchmark sweeps without a new request.
+
+
+## Simplified diagram methods and maximum display (2026-10-14)
+
+Only Exact and Partial output diagram methods remain. Both use a compatible
+output-only maximum when present; normalize Partial to Exact for computation and
+cache lookup so an old incomplete partial result cannot block the upgrade.
+Joint maxima certify only exact input-related diagrams, never output-only ones.
+The Cheap input-output method remains a lower bound even with exact output arrows.
+Saved retired maximized choices migrate to Exact and their unchecked assumed-
+complete results are discarded. Preserve explicit fold choices. Maximization now
+displays the passive constraint with the shared ConstraintTable (also used by
+ConstraintView); joint maxima display pairs from separate input/output name tables.
+Default collapse when maximal configuration count > 3/2 of original passive
+output configuration count, strictly greater, never greater-or-equal.
+
+Verified 178 Rust tests (170 core, 5 server, 3 wasm adapters), frontend build
+and saved-state migration, 151 diagram fixtures and 30 cache checks across
+server/wasm. Browser checked the strict 3/2 boundary, large-result folding,
+explicit expansion, maximum table contents and both computation transports.
+Native/wasm artifacts rebuilt; no commits or pushes.

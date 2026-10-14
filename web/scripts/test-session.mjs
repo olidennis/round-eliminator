@@ -20,6 +20,20 @@ const saved = newSavedProblem(problem)
 assert.equal(saved.diagram.layout, 'physics')
 assert.equal(saved.state.analyses.coloring.length, 0)
 assert.equal(saved.state.analyses.maximization, null)
+// Retire unchecked maximality assumptions in both version-one and version-two
+// files, including cached results. The next request must establish exactness.
+for (const version of [1, 2]) {
+  const old = JSON.parse(serializeSession({ editor: { kind: 'plain', degrees: {} }, problems: [saved] }))
+  old.version = version
+  old.session.problems[0].diagram.options.output = 'maximized'
+  old.session.problems[0].state.analyses.diagrams = [{
+    options: { kind: 'output_only', output: 'maximized', input_output: 'cheap' },
+    diagram: { nodes: [], successors: [], components: [], edges: [], complete: true },
+  }]
+  const restored = deserializeSession(JSON.stringify(old)).problems[0]
+  assert.equal(restored.diagram.options.output, 'exact')
+  assert.deepEqual(restored.state.analyses.diagrams, [])
+}
 assert.equal(coloringKey(coloringQuery(saved.coloring)), coloringKey(coloringQuery({ ...saved.coloring, colors: 10 })))
 assert.notEqual(coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 3 } }),
   coloringKey({ kind: 'vertex', search: { kind: 'fixed', colors: 4 } }))

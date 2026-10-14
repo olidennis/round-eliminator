@@ -22,8 +22,6 @@ use crate::{
 pub enum OutputDiagramMethod {
     /// The occurrence test proves arrows but can omit valid ones.
     Partial,
-    /// Exactly the same test; caller guarantees a complete maximized constraint.
-    Maximized,
     #[default]
     Exact,
 }
@@ -61,6 +59,23 @@ pub struct DiagramOptions {
 }
 
 impl DiagramOptions {
+    /// A cached output maximum makes the occurrence test exact. Normalize the
+    /// cache key too, so an earlier incomplete partial result is not reused.
+    pub fn with_maximum(
+        mut self,
+        maximum: Option<&crate::algorithms::maximize::MaximizationResult>,
+    ) -> Self {
+        if matches!(
+            maximum,
+            Some(crate::algorithms::maximize::MaximizationResult::OutputOnly(
+                _
+            ))
+        ) {
+            self.output = OutputDiagramMethod::Exact;
+        }
+        self
+    }
+
     /// Ignore options that do not affect this requested relation.
     pub fn same_computation(self, other: Self) -> bool {
         self.kind == other.kind
@@ -137,6 +152,7 @@ pub fn compute_with_maximum(
     computation: &mut Computation<'_>,
 ) -> anyhow::Result<DiagramResult> {
     use crate::algorithms::maximize::MaximizationResult;
+    let options = options.with_maximum(maximum);
     computation.report(Phase::Preparing, 0)?;
     let cancellation = computation.cancellation.clone();
     // Ignore output degrees outside the declared graph class, but retain every

@@ -51,6 +51,7 @@ pub struct CachedColoring {
 
 impl AnalysisCache {
     pub fn diagram(&self, options: DiagramOptions) -> Option<DiagramResult> {
+        let options = options.with_maximum(self.maximization.as_ref());
         self.diagrams
             .iter()
             .find(|cached| {

@@ -7,7 +7,7 @@ import type { DiagramResult } from './generated/DiagramResult'
 import type { InputOutputDiagramMethod } from './generated/InputOutputDiagramMethod'
 import type { OutputDiagramMethod } from './generated/OutputDiagramMethod'
 import type { SavedDiagram } from './session'
-import { diagramKey, diagramKinds, reuseOutputOnlyDiagram } from './diagram'
+import { diagramKey, diagramKinds, effectiveDiagramOptions, reuseOutputOnlyDiagram } from './diagram'
 import ComputationProgress from './ComputationProgress.vue'
 import CollapsibleSection from './CollapsibleSection.vue'
 // Load the visualization library only when a diagram is actually displayed.
@@ -33,7 +33,9 @@ const results = computed(() => Array.from(new Map(props.state.analyses.diagrams.
   return reusable ? [[diagramKey(reusable.options), reusable] as const] : []
 })).values()))
 const options = computed(() => ({ kind: kind.value, output: output.value, input_output: inputOutput.value }))
-const result = computed(() => results.value.find(candidate => diagramKey(candidate.options) === diagramKey(options.value)))
+const result = computed(() => results.value.find(candidate => diagramKey(candidate.options)
+  === diagramKey(effectiveDiagramOptions(options.value, props.state.analyses.maximization))
+  || (candidate.options.kind === kind.value && candidate.diagram.complete)))
 const progress = shallowRef<Progress | null>(null)
 const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(result.value ? 'done' : 'idle')
 const error = ref('')
@@ -43,6 +45,9 @@ onBeforeUnmount(() => { controller?.abort(); controller = null })
 watch([kind, output, inputOutput], () => {
   state.value = result.value ? 'done' : 'idle'
   error.value = ''
+})
+watch(result, value => {
+  if (state.value !== 'running') state.value = value ? 'done' : 'idle'
 })
 watch([options, layout, results], () => emit('update', {
   options: options.value,
@@ -102,8 +107,7 @@ async function run() {
         {{ kind === 'output_only' ? 'Output-only diagram method' : 'Underlying output-arrow method' }}
         <select v-model="output" :aria-label="kind === 'output_only' ? 'Output-only diagram method' : 'Underlying output-arrow method'">
           <option value="exact">Exact</option>
-          <option value="partial">Fast, partial</option>
-          <option value="maximized">Fast, assuming maximized</option>
+          <option value="partial">Partial</option>
         </select>
       </label>
       <label v-if="result">Layout
@@ -117,10 +121,11 @@ async function run() {
         {{ state === 'idle' ? 'Compute diagram' : 'Retry diagram computation' }}
       </button>
     </fieldset>
-    <p v-if="output === 'maximized' && (kind === 'output_only' || inputOutput === 'cheap')" class="hint">Uses a saved output-only maximum when available.
-      Otherwise, the displayed passive output constraint must already be maximized. This computation does not maximize it.</p>
     <details class="help-details analysis-help">
     <summary>Diagram assumptions</summary>
+    <p class="hint">Exact checks all replacement contexts. Partial uses the cheaper occurrence test;
+      missing arrows are unknown. Both use a saved output-only maximum when available,
+      making that occurrence test exact. Neither computes maximization automatically.</p>
     <p class="hint">Arrows describe replacements preserving passive validity.
       <template v-if="kinds.includes('input_output')">For input-output pairs, arrows keep the input fixed.</template>
       <template v-if="kinds.includes('input_aware')">For input-aware outputs, they hold for every input permitting the source output.</template>

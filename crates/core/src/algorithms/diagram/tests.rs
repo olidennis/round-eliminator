@@ -181,7 +181,7 @@ fn maximal_occurrence_test_and_nonmaximal_exact_have_the_same_semantics() {
     let full = compute_all(
         &maximum,
         DiagramOptions {
-            output: OutputDiagramMethod::Maximized,
+            output: OutputDiagramMethod::Exact,
             ..exact()
         },
     )

@@ -77,7 +77,7 @@ for (const preset of problemPresets) {
     }
   }
 }
-for (const output of ['partial','maximized','exact']) {
+for (const output of ['partial','exact']) {
   for (const input_output of ['cheap','exact']) {
     await checkAll(plain('ABC^3'),{output,input_output}, result => {
       assert.deepEqual(result.output_only.components,[[0,1,2]])

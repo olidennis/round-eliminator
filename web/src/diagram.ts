@@ -4,6 +4,12 @@ import type { InputOutputLabel } from './generated/InputOutputLabel'
 import type { DiagramOptions } from './generated/DiagramOptions'
 import type { DiagramResult } from './generated/DiagramResult'
 import type { Problem } from './generated/Problem'
+import type { MaximizationResult } from './generated/MaximizationResult'
+
+/** Match Rust's cache key: a saved output maximum upgrades Partial to Exact. */
+export function effectiveDiagramOptions(options: DiagramOptions, maximum: MaximizationResult | null): DiagramOptions {
+  return maximum?.kind === 'output_only' ? { ...options, output: 'exact' } : options
+}
 
 /** Pair labels come from the canonical name tables, including converted inputs. */
 export function diagramNodeName(problem: Problem, node: InputOutputLabel): string {

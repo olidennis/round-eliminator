@@ -16,7 +16,20 @@ import type { MaximizationResult } from './generated/MaximizationResult'
 
 export type DiagramLayout = 'hierarchical' | 'physics' | 'free'
 export type SavedDiagram = { options: DiagramOptions; layout: DiagramLayout }
-type LegacySavedDiagram = SavedDiagram & { results?: DiagramResult[] }
+type LegacyDiagramOptions = Omit<DiagramOptions, 'output'> & { output: DiagramOptions['output'] | 'maximized' }
+type LegacyDiagramResult = Omit<DiagramResult, 'options'> & { options: LegacyDiagramOptions }
+type LegacySavedDiagram = Omit<SavedDiagram, 'options'> & { options: LegacyDiagramOptions; results?: LegacyDiagramResult[] }
+
+/** The retired assumption-based method becomes an exact request. Its result
+ * cannot certify completeness, so recompute it rather than reuse the assumption. */
+function restoreDiagramOptions(options: LegacyDiagramOptions): DiagramOptions {
+  return { ...options, kind: restoreDiagramKind(options.kind),
+    output: options.output === 'maximized' ? 'exact' : options.output }
+}
+function restoreDiagramResults(results: LegacyDiagramResult[]): DiagramResult[] {
+  return results.filter(result => result.options.output !== 'maximized')
+    .map(result => ({ ...result, options: restoreDiagramOptions(result.options) }))
+}
 
 export function newSavedDiagram(): SavedDiagram {
   return { options: { kind: 'output_only', output: 'exact', input_output: 'cheap' }, layout: 'physics' }
@@ -41,7 +54,7 @@ function restoreDiagram(saved?: LegacySavedDiagram): SavedDiagram & { results: D
   // result. Keep those already-computed relations in the per-choice cache.
   const older = saved as LegacySavedDiagram & { view?: DiagramKind | LegacyDiagramKind; result?: DiagramResult & Partial<Record<LegacyDiagramKind, Diagram>> }
   const kind = restoreDiagramKind(saved.options.kind ?? older.view)
-  const options = { ...saved.options, kind }
+  const options = restoreDiagramOptions({ ...saved.options, kind })
   let results = saved.results
   if (!results) {
     const previous = older.result
@@ -50,9 +63,7 @@ function restoreDiagram(saved?: LegacySavedDiagram): SavedDiagram & { results: D
         options: { ...previous.options, kind: restoreDiagramKind(kind) }, diagram: previous[kind]!,
       }))
   }
-  return { options, layout: saved.layout ?? 'physics', results: results.map(result => ({
-    ...result, options: { ...result.options, kind: restoreDiagramKind(result.options.kind) },
-  })) }
+  return { options, layout: saved.layout ?? 'physics', results: restoreDiagramResults(results) }
 }
 
 /** Browser state only; problems and analysis results use the Rust protocol types. */
@@ -140,10 +151,11 @@ export function deserializeSession(text: string): Session {
     // into the shared computational state, keeping view settings independently.
     const oldColoring = restoreColoring(entry.coloring)
     const oldDiagram = restoreDiagram(entry.diagram as LegacySavedDiagram)
-    const analyses: AnalysisCache = entry.state?.analyses ?? {
+    const restored: AnalysisCache = entry.state?.analyses ?? {
       maximization: entry.maximization ?? null, zero_round: entry.zeroRound ?? null,
       coloring: oldColoring.results, diagrams: oldDiagram.results,
     }
+    const analyses = { ...restored, diagrams: restoreDiagramResults(restored.diagrams) }
     const { graph: _graph, ...collapsedSections } = (entry.collapsedSections ?? {}) as CollapsedSections & { graph?: boolean }
     return { state: { problem, analyses }, collapsed: entry.collapsed ?? false, collapsedSections,
       coloring: { kind: oldColoring.kind, search: oldColoring.search, colors: oldColoring.colors, bounds: oldColoring.bounds },

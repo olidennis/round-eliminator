@@ -559,7 +559,10 @@ in `web` to check stateless reuse and concurrent/cancelled cache delivery.
 ## Passive maximization
 
 Press **Maximize** inside a problem to compute its passive maximum. The action
-becomes progress and Cancel while running, then shows a short completion status.
+becomes progress and Cancel while running, then displays the maximized passive
+constraint, using input-output pairs for input-aware results. The Maximization
+section collapses by default when its configuration count exceeds 3/2 of the
+original passive output count; explicit saved fold choices take precedence.
 The displayed problem stays unchanged. Each immutable problem snapshot retains
 its complete result, including in exported files and links; older sessions start
 without a maximum. Cancelled computations remain retryable and provide no maximum.
@@ -766,13 +769,18 @@ An admitted pair with no admissible passive context has vacuous replacement
 arrows to other outputs admitted at the same input. Trivial unrestricted input
 reduces both input-related types to the output-only relation.
 
-**Fast, partial** checks whether every passive label set containing A also
-contains B. **Fast, assuming maximized** runs the same code, but is exact only
-under the caller's guarantee of a complete maximized passive representation.
-Neither mode performs maximization. **Exact** compares residual context languages
-without that prerequisite. For passive degree 2, contexts are single labels and
-their unions are cached for set-inclusion checks. Higher degrees use containment,
-cheap counted counterexamples, and lazy exact multiset enumeration as needed.
+**Partial** uses the cheap occurrence test; without a cached output maximum,
+missing arrows are unknown. **Exact** compares residual context languages.
+Both automatically use a saved output-only maximum when available, making the
+occurrence test exact and sharing the same cache entry. An earlier partial
+result is upgraded on the next computation rather than reused as complete.
+Neither choice performs maximization. A joint input-output maximum accelerates
+exact input-related diagrams but cannot certify output-only arrows.
+For passive degree 2, contexts are single labels and their unions are cached for
+set-inclusion checks. Higher degrees use containment, cheap counted
+counterexamples, and lazy exact multiset enumeration as needed.
+Older saved assumption-based choices migrate to Exact; their results are
+recomputed because their completeness relied on an unchecked assumption.
 
 Input-output **Cheap** lifts established output arrows through the mapping;
 it can miss arrows even with an exact output-only diagram. Input-output **Exact**

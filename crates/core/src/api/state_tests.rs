@@ -131,6 +131,46 @@ fn cached_output_and_joint_maxima_preserve_every_diagram_relation() {
 }
 
 #[test]
+fn cached_output_maximum_upgrades_partial_without_reusing_an_incomplete_diagram() {
+    let mut state = ProblemState::from(plain("A B", "A^3\nA^2 B\nA B^2\nB^3"));
+    let options = DiagramOptions {
+        output: OutputDiagramMethod::Partial,
+        ..exact(DiagramKind::OutputOnly)
+    };
+    let (partial, _) = run(&state, Operation::ComputeDiagram { options });
+    let Response::Diagram(partial_result) = &partial.response else {
+        panic!()
+    };
+    assert!(!partial_result.diagram.complete);
+    state.analyses.diagrams = partial.cache.diagrams;
+    state.analyses.maximization = Some(maximize::compute(&state.problem).unwrap());
+    let (upgraded, phases) = run(&state, Operation::ComputeDiagram { options });
+    assert!(phases.contains(&Phase::Comparing));
+    let Response::Diagram(upgraded_result) = &upgraded.response else {
+        panic!()
+    };
+    assert!(upgraded_result.diagram.complete);
+    assert_eq!(upgraded_result.options.output, OutputDiagramMethod::Exact);
+    assert_eq!(upgraded_result.diagram.components, vec![vec![0, 1]]);
+    assert_ne!(
+        upgraded_result.diagram.successors,
+        partial_result.diagram.successors
+    );
+    state.analyses.diagrams.extend(upgraded.cache.diagrams);
+    let (reused, phases) = run(
+        &state,
+        Operation::ComputeDiagram {
+            options: exact(DiagramKind::OutputOnly),
+        },
+    );
+    assert!(phases.is_empty());
+    let Response::Diagram(reused_result) = reused.response else {
+        panic!()
+    };
+    assert_eq!(&reused_result, upgraded_result);
+}
+
+#[test]
 fn cached_maximum_removes_exact_diagram_context_work_and_complete_diagrams_are_reused() {
     let problem = plain("A B", "A^3\nA^2 B\nA B^2\nB^3");
     let mut state = ProblemState::from(problem);

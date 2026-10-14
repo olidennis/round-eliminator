@@ -3,8 +3,10 @@ import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { sendForProblem, type Backend } from './api'
 import type { ProblemState } from './generated/ProblemState'
 import type { Progress } from './generated/Progress'
+import type { InputOutputLabel } from './generated/InputOutputLabel'
 import CollapsibleSection from './CollapsibleSection.vue'
 import ComputationProgress from './ComputationProgress.vue'
+import ConstraintTable from './ConstraintTable.vue'
 
 const props = defineProps<{
   state: ProblemState; backend: Backend
@@ -18,10 +20,28 @@ const state = ref<'idle' | 'running' | 'cancelled' | 'done' | 'error'>(result.va
 const progress = shallowRef<Progress | null>(null)
 const error = ref('')
 const count = computed(() => result.value?.constraint.degrees.reduce((sum, group) => sum + group.configurations.length, 0) ?? 0)
+const originalCount = computed(() => problem.value.output.passive.degrees.reduce((sum, group) => sum + group.configurations.length, 0))
+const defaultCollapsed = computed(() => !!result.value && count.value * 2 > originalCount.value * 3)
+
+function outputLabel(id: number): string {
+  const name = problem.value.output.labels[id]
+  return [...name].length === 1 && !'()^*'.includes(name) ? name : `(${name})`
+}
+function pairLabel(pair: InputOutputLabel): string {
+  const input = pair.input === null ? 'Trivial input' : problem.value.input.kind === 'explicit'
+    ? problem.value.input.data.labels[pair.input] : 'Trivial input'
+  const quote = (name: string) => /[,()\s]/u.test(name) ? JSON.stringify(name) : name
+  return `(${quote(input)},${quote(problem.value.output.labels[pair.output])})`
+}
 let controller: AbortController | null = null
 
 // Apply RE can complete the source maximum through the same saved snapshot.
 watch(result, value => { if (value) { state.value = 'done' } })
+// Persist the automatic choice so section grouping and session exports agree.
+// Explicit saved choices, including collapsed=false, take precedence.
+watch(result, value => {
+  if (value && props.collapsed === undefined) emit('collapse', defaultCollapsed.value)
+}, { immediate: true })
 watch(() => state.value === 'running', value => emit('busy', value), { flush: 'sync' })
 onBeforeUnmount(() => { controller?.abort(); controller = null })
 
@@ -57,12 +77,16 @@ async function run() {
 
 <template>
   <CollapsibleSection class="analysis maximization-analysis" title="Maximization" :aria-busy="state === 'running'"
-    :collapsed="collapsed" :collapsed-target="collapsedTarget" @update:collapsed="emit('collapse', $event)">
+    :collapsed="collapsed ?? defaultCollapsed" :collapsed-target="collapsedTarget" @update:collapsed="emit('collapse', $event)">
     <ComputationProgress v-if="state === 'running'" :progress="progress" label="Maximization in progress"
       iteration-label="configuration pairs processed" @cancel="cancel" />
     <div v-else aria-live="polite">
       <p v-if="result">{{ result.kind === 'input_output' ? 'Input-aware passive maximum ready.' : 'Passive maximum ready.' }}
         <small>{{ count }} maximal {{ count === 1 ? 'configuration' : 'configurations' }}.</small></p>
+      <ConstraintTable v-if="result?.kind === 'output_only'" :constraint="result.constraint"
+        :degrees="problem.graph_class.passive" :format-label="outputLabel" />
+      <ConstraintTable v-else-if="result?.kind === 'input_output'" :constraint="result.constraint"
+        :degrees="problem.graph_class.passive" :format-label="pairLabel" />
       <template v-else>
         <p v-if="state === 'cancelled'" role="status">Computation cancelled.</p>
         <p v-if="state === 'error'" class="error" role="alert">{{ error }}</p>

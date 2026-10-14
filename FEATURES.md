@@ -138,7 +138,7 @@ are inferred rather than explicitly specified.
 
 | Feature | Short description |
 | --- | --- |
-| Maximize | Compute and cache the passive maximum, respecting input-dependent validity, with progress, cancellation, and retry. |
+| Maximize | Compute, cache and display the passive maximum, including input-output pairs. Collapse by default above 3/2 of the original row count. |
 | Saved maximization | Retain the source maximum and reuse it automatically in RE, applicable diagrams and passive solvability checks; keep the displayed problem unchanged. |
 | Stateless problem state | Send the problem and completed caches through one shared envelope; Rust selects reusable artifacts, and the client API merges new entries, including across cancellation. |
 | Saved-state migration | Version-two files and links separate computational state from UI controls; import version-one sessions with their proofs and caches intact. |
@@ -167,9 +167,8 @@ are inferred rather than explicitly specified.
 | Feature | Short description |
 | --- | --- |
 | Compute diagram / Full Diagram | Compute only the selected relation and its dependencies; changing the choice requires a button click. |
-| Fast, partial | Establish arrows using label-set occurrences; missing arrows are unknown. |
-| Fast, assuming maximized | Use the same occurrence test, exact when the complete passive constraint is already maximized. |
-| Exact output diagram | Compare residual context languages, with degree-one coverage shortcuts for passive degree 2. |
+| Partial output diagram | Use cheap occurrence checks; a cached output maximum makes the result exact. |
+| Exact output diagram | Use a cached output maximum when available; otherwise compare residual contexts, with passive-degree-two shortcuts. |
 | Cheap input-output diagram | Lift known output arrows at inputs permitting both source and target outputs. |
 | Exact input-output diagram | Check fixed-input replacement in admissible joint configurations while retaining condensed sets and counts. |
 | Output-only / Input-output pairs / Input-aware outputs | Select output strength, pair vertices, or replacements valid for every admitting input before computing. |
