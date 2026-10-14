@@ -1,0 +1,1586 @@
+{
+  "native-batsat": {
+    "events": [
+      {
+        "active_rows": 2,
+        "degree": 10,
+        "event": "problem",
+        "labels": 4,
+        "passive_rows": 2,
+        "problem": {
+          "graph_class": {
+            "active": [
+              10
+            ],
+            "passive": [
+              10
+            ]
+          },
+          "input": {
+            "kind": "trivial"
+          },
+          "mapping": {
+            "kind": "unrestricted"
+          },
+          "output": {
+            "active": {
+              "degrees": [
+                {
+                  "configurations": [
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            2
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    }
+                  ],
+                  "degree": 10
+                }
+              ]
+            },
+            "labels": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "passive": {
+              "degrees": [
+                {
+                  "configurations": [
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            3
+                          ],
+                          "multiplicity": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "degree": 10
+                }
+              ]
+            }
+          }
+        },
+        "steps": 1
+      },
+      {
+        "bounds": {
+          "lower": null,
+          "minimum": 10,
+          "testing": 10,
+          "upper": null,
+          "witness": null
+        },
+        "event": "bounds",
+        "seconds": 0.000216667
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": null,
+          "upper": null,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0,
+                    3
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.0003315
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": 11,
+          "upper": null,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0,
+                    3
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.000338
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": null,
+          "upper": 10,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0,
+                    3
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.295264417
+      },
+      {
+        "error": null,
+        "event": "result",
+        "iterations": 1807,
+        "phase_seconds": {
+          "Encoding": 0.00045779200000000005,
+          "Enumerating": 7.541e-06,
+          "Preparing": 4.6667e-05,
+          "Solving": 0.16485046700000006,
+          "Verifying": 0.12997757499999985
+        },
+        "result": {
+          "colors": 10,
+          "status": "maximum",
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0,
+                    3
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "seconds": 0.295340208
+      }
+    ],
+    "screening_samples": 1,
+    "diagnostic": [
+      {
+        "active_encodings": 11,
+        "active_visits": 19802,
+        "blocking_lengths": {
+          "10": 1795
+        },
+        "candidates": 1807,
+        "event": "diagnostic",
+        "memberships": 44,
+        "passive_visits": 2727
+      }
+    ],
+    "binary_sha256": "fbba03b24dab1c2fa4f014ca28557a0505e3c6f72eec2c267a69713a5c060004"
+  },
+  "maximized-only": {
+    "events": [
+      {
+        "active_rows": 2,
+        "degree": 10,
+        "event": "problem",
+        "labels": 4,
+        "passive_rows": 3,
+        "problem": {
+          "graph_class": {
+            "active": [
+              10
+            ],
+            "passive": [
+              10
+            ]
+          },
+          "input": {
+            "kind": "trivial"
+          },
+          "mapping": {
+            "kind": "unrestricted"
+          },
+          "output": {
+            "active": {
+              "degrees": [
+                {
+                  "configurations": [
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            2
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    }
+                  ],
+                  "degree": 10
+                }
+              ]
+            },
+            "labels": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "passive": {
+              "degrees": [
+                {
+                  "configurations": [
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 8
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1,
+                            3
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    }
+                  ],
+                  "degree": 10
+                }
+              ]
+            }
+          }
+        },
+        "steps": 1
+      },
+      {
+        "bounds": {
+          "lower": null,
+          "minimum": 10,
+          "testing": 10,
+          "upper": null,
+          "witness": null
+        },
+        "event": "bounds",
+        "seconds": 0.000287583
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": null,
+          "upper": null,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.000410792
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": 11,
+          "upper": null,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.000418167
+      },
+      {
+        "event": "progress",
+        "iterations": 2919,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 0.8687748009999993,
+          "Verifying": 0.13109661499999986
+        },
+        "seconds": 1.000308334
+      },
+      {
+        "event": "progress",
+        "iterations": 4222,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 1.810503222,
+          "Verifying": 0.18997136100000042
+        },
+        "seconds": 2.000913501
+      },
+      {
+        "event": "progress",
+        "iterations": 5216,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 2.7646017520000012,
+          "Verifying": 0.23623529000000068
+        },
+        "seconds": 3.001273793
+      },
+      {
+        "event": "progress",
+        "iterations": 6058,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 3.7248977599999993,
+          "Verifying": 0.2760565320000011
+        },
+        "seconds": 4.001391169
+      },
+      {
+        "event": "progress",
+        "iterations": 6795,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 4.689504277999995,
+          "Verifying": 0.31163776400000054
+        },
+        "seconds": 5.001579211
+      },
+      {
+        "event": "progress",
+        "iterations": 7469,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 5.658094269999988,
+          "Verifying": 0.34396356500000114
+        },
+        "seconds": 6.00249717
+      },
+      {
+        "event": "progress",
+        "iterations": 8100,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 6.630457483999981,
+          "Verifying": 0.3730890590000018
+        },
+        "seconds": 7.003983587
+      },
+      {
+        "event": "progress",
+        "iterations": 8683,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 7.603401190999991,
+          "Verifying": 0.40049727000000207
+        },
+        "seconds": 8.004335421
+      },
+      {
+        "event": "progress",
+        "iterations": 9231,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 8.578460790999983,
+          "Verifying": 0.42604700300000253
+        },
+        "seconds": 9.004946379
+      },
+      {
+        "event": "progress",
+        "iterations": 9749,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 9.55492228899998,
+          "Verifying": 0.4504248390000028
+        },
+        "seconds": 10.005784713
+      },
+      {
+        "event": "progress",
+        "iterations": 10242,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 10.53295768599998,
+          "Verifying": 0.4738308180000028
+        },
+        "seconds": 11.007225339
+      },
+      {
+        "event": "progress",
+        "iterations": 10712,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 11.511098891999973,
+          "Verifying": 0.4961604870000023
+        },
+        "seconds": 12.007696256
+      },
+      {
+        "event": "progress",
+        "iterations": 11164,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 12.490735631999954,
+          "Verifying": 0.517661498000003
+        },
+        "seconds": 13.00883484
+      },
+      {
+        "event": "progress",
+        "iterations": 11599,
+        "phase": "verifying",
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 13.471277621999956,
+          "Verifying": 0.5384239250000034
+        },
+        "seconds": 14.010138757
+      },
+      {
+        "error": "Computation cancelled.",
+        "event": "result",
+        "iterations": 12009,
+        "phase_seconds": {
+          "Encoding": 0.00038554299999999996,
+          "Enumerating": 7.209e-06,
+          "Preparing": 4.3083e-05,
+          "Solving": 14.44362366499995,
+          "Verifying": 0.5592435490000026
+        },
+        "result": null,
+        "seconds": 15.003303757
+      }
+    ],
+    "screening_samples": 1
+  },
+  "symmetry-maximized": {
+    "events": [
+      {
+        "active_rows": 2,
+        "degree": 10,
+        "event": "problem",
+        "labels": 4,
+        "passive_rows": 3,
+        "problem": {
+          "graph_class": {
+            "active": [
+              10
+            ],
+            "passive": [
+              10
+            ]
+          },
+          "input": {
+            "kind": "trivial"
+          },
+          "mapping": {
+            "kind": "unrestricted"
+          },
+          "output": {
+            "active": {
+              "degrees": [
+                {
+                  "configurations": [
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            2
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    }
+                  ],
+                  "degree": 10
+                }
+              ]
+            },
+            "labels": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "passive": {
+              "degrees": [
+                {
+                  "configurations": [
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            2,
+                            3
+                          ],
+                          "multiplicity": 8
+                        }
+                      ]
+                    },
+                    {
+                      "parts": [
+                        {
+                          "labels": [
+                            0,
+                            1,
+                            3
+                          ],
+                          "multiplicity": 1
+                        },
+                        {
+                          "labels": [
+                            1,
+                            3
+                          ],
+                          "multiplicity": 9
+                        }
+                      ]
+                    }
+                  ],
+                  "degree": 10
+                }
+              ]
+            }
+          }
+        },
+        "steps": 1
+      },
+      {
+        "bounds": {
+          "lower": null,
+          "minimum": 10,
+          "testing": 10,
+          "upper": null,
+          "witness": null
+        },
+        "event": "bounds",
+        "seconds": 0.000321125
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": null,
+          "upper": null,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.000535959
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": 11,
+          "upper": null,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.000542417
+      },
+      {
+        "bounds": {
+          "lower": 10,
+          "minimum": 10,
+          "testing": null,
+          "upper": 10,
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "event": "bounds",
+        "seconds": 0.301146125
+      },
+      {
+        "error": null,
+        "event": "result",
+        "iterations": 1079,
+        "phase_seconds": {
+          "Encoding": 0.0006186249999999999,
+          "Enumerating": 5.5009999999999995e-06,
+          "Preparing": 4.675e-05,
+          "Solving": 0.24826036400000023,
+          "Verifying": 0.052427927
+        },
+        "result": {
+          "colors": 10,
+          "status": "maximum",
+          "witness": {
+            "behaviors": [
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    3
+                  ]
+                ]
+              },
+              {
+                "outputs_by_input": [
+                  [
+                    0
+                  ]
+                ]
+              }
+            ],
+            "kind": "local_colors"
+          }
+        },
+        "seconds": 0.301359375
+      }
+    ],
+    "screening_samples": 1,
+    "diagnostic": [
+      {
+        "clauses": 349,
+        "event": "formula",
+        "variables": 172
+      },
+      {
+        "clauses": 2634,
+        "event": "formula",
+        "variables": 683
+      },
+      {
+        "active_encodings": 6,
+        "active_visits": 11811,
+        "blocking_lengths": {
+          "11": 4,
+          "12": 8,
+          "13": 9,
+          "14": 11,
+          "15": 18,
+          "16": 23,
+          "17": 24,
+          "18": 59,
+          "19": 47,
+          "20": 52,
+          "21": 51,
+          "22": 56,
+          "23": 62,
+          "24": 67,
+          "25": 63,
+          "26": 79,
+          "27": 69,
+          "28": 64,
+          "29": 66,
+          "30": 57,
+          "31": 56,
+          "32": 43,
+          "33": 27,
+          "34": 21,
+          "35": 13,
+          "36": 10,
+          "37": 7,
+          "38": 4,
+          "39": 1,
+          "40": 1
+        },
+        "candidates": 1079,
+        "event": "diagnostic",
+        "memberships": 44,
+        "passive_visits": 1694
+      }
+    ],
+    "binary_sha256": "0ce00c2ab0287ee3b022591027f729afaba91c728253ddbd76d27e65983db83d"
+  }
+}

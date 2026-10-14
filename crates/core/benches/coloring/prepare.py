@@ -7,7 +7,7 @@ import shutil
 HERE = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser()
 parser.add_argument('destination', type=Path)
-parser.add_argument('--variant', choices=['baseline', 'symmetry', 'batch', 'symmetry-batch', 'batsat', 'eager', 'symmetry-eager', 'probes', 'symmetry-eager-probes'], default='baseline')
+parser.add_argument('--variant', choices=['baseline', 'symmetry', 'batch', 'symmetry-batch', 'batsat', 'eager', 'symmetry-eager', 'probes', 'symmetry-eager-probes', 'grouped', 'symmetry-eager-grouped'], default='baseline')
 parser.add_argument('--wasm', action='store_true', help='also copy the unchanged production wasm adapter')
 args = parser.parse_args()
 core = args.destination / 'core'
@@ -92,7 +92,7 @@ mod diagnostic_tests {
     }
 }
 '''
-if args.variant in ['symmetry', 'symmetry-batch', 'symmetry-eager', 'symmetry-eager-probes']:
+if args.variant in ['symmetry', 'symmetry-batch', 'symmetry-eager', 'symmetry-eager-probes', 'symmetry-eager-grouped']:
     # Color names are exchangeable for these three local-color kinds. Sort the
     # full membership bit vectors lexicographically; keep equal rows allowed.
     # The successor color gate disables the constraint for unused palettes.
@@ -173,7 +173,7 @@ mod diagnostic_tests {
 '''
 path.write_text(distance)
 
-if args.variant in ['eager', 'symmetry-eager', 'symmetry-eager-probes']:
+if args.variant in ['eager', 'symmetry-eager', 'symmetry-eager-probes', 'symmetry-eager-grouped']:
     path = core / 'src/algorithms/solvability/coloring/encoding.rs'
     source = path.read_text().replace('self.extend(colors)?;', '''
         let previous_colors = self.memberships.len() as u32;
@@ -231,6 +231,120 @@ if args.variant in ['eager', 'symmetry-eager', 'symmetry-eager-probes']:
     end = source.index('            return Ok(Some(witness));', start)
     source = source[:start] + source[end:]
     source = source.replace('        mode: PassiveMode,', '        _mode: PassiveMode,')
+    path.write_text(source)
+
+if args.variant in ['grouped', 'symmetry-eager-grouped']:
+    path = core / 'src/algorithms/solvability/passive.rs'
+    source = path.read_text()
+    start = source.index('        let family = CondensedConfiguration::new(')
+    end = source.index('.expect("transformation preserves degree");', start) + len('.expect("transformation preserves degree");')
+    source = source[:start] + '        let family = output_family(&parts);' + source[end:]
+    start = source.index('fn forbidden_output')
+    source = source[:start] + '''
+fn forbidden_output<T: Copy + Ord, I: Copy + Ord>(
+    constraint: &Constraint,
+    parts: &mut [OutputPart<'_, T, I>],
+    cancellation: &Cancellation,
+) -> Result<Option<Vec<T>>, Cancelled> {
+    let mut grouped = BTreeMap::<Vec<LabelId>, Vec<&OutputPart<'_, T, I>>>::new();
+    for part in parts.iter() {
+        cancellation.check()?;
+        grouped.entry(part.choices.iter().map(|emission| emission.output).collect())
+            .or_default().push(part);
+    }
+    // Group only the semantic choices. Provenance stays attached to every
+    // original part; equal output domains may have distinct input/color origins.
+    let groups: Vec<_> = grouped.into_values().collect();
+    let family = output_family(parts);
+    let mut forbidden = None;
+    visit_multisets_with(&family, cancellation, |output, counts| {
+        if accepts_with(constraint, output, cancellation)? { return Ok(true); }
+        let mut sources = Vec::new();
+        for (origins, counts) in groups.iter().zip(counts) {
+            let mut remaining = counts.clone();
+            for origin in origins {
+                cancellation.check()?;
+                let mut slots = origin.multiplicity;
+                for (emission, count) in origin.choices.iter().zip(&mut remaining) {
+                    let used = slots.min(*count);
+                    if used != 0 { sources.push(emission.source); }
+                    slots -= used;
+                    *count -= used;
+                }
+                debug_assert_eq!(slots, 0);
+            }
+            debug_assert!(remaining.iter().all(|count| *count == 0));
+        }
+        sources.sort_unstable();
+        sources.dedup();
+        forbidden = Some(sources);
+        Ok(false)
+    })?;
+    Ok(forbidden)
+}
+
+fn output_family<T, I>(parts: &[OutputPart<'_, T, I>]) -> CondensedConfiguration {
+    let normalized = Configuration::new(parts.iter().map(|part| (
+        LabelSet::new(part.choices.iter().map(|emission| emission.output).collect()),
+        part.multiplicity,
+    )).collect()).expect("same total degree");
+    CondensedConfiguration::new(normalized.multiplicities().iter().map(|(labels, count)|
+        Part::new(labels.clone(), *count).expect("nonempty choices")
+    ).collect()).expect("same degree")
+}
+
+#[cfg(test)]
+mod grouped_diagnostic_tests {
+    use super::*;
+
+    // Independent oracle: allowed iff the number of A outputs is not three.
+    fn safe(mask: u8) -> bool {
+        let counts = [1, 2, 4];
+        let mut totals = vec![0];
+        for (input, count) in counts.into_iter().enumerate() {
+            let a = mask & (1 << (2 * input)) != 0;
+            let b = mask & (1 << (2 * input + 1)) != 0;
+            if !a && !b { return true; } // this emission family cannot occur
+            totals = totals.into_iter().flat_map(|total| {
+                (0..=count).filter(move |n| (*n == 0 || a) && (*n == count || b))
+                    .map(move |n| total + n)
+            }).collect();
+        }
+        !totals.contains(&3)
+    }
+
+    #[test]
+    fn every_grouped_counterexample_clause_preserves_input_origins() {
+        let target = Constraint::new((0..=7).filter(|count| *count != 3).map(|count|
+            CondensedConfiguration::new(vec![
+                Part::new(LabelSet::new(vec![LabelId(0)]), count).unwrap(),
+                Part::new(LabelSet::new(vec![LabelId(1)]), 7 - count).unwrap(),
+            ]).unwrap()
+        ).collect());
+        let input = CondensedConfiguration::new([1, 2, 4].into_iter().enumerate().map(|(input, count)|
+            Part::new(LabelSet::new(vec![input as u8]), count).unwrap()
+        ).collect()).unwrap();
+        for mask in 0u8..64 {
+            let emissions: Vec<_> = (0u8..6).filter(|source| mask & (1 << source) != 0)
+                .map(|source| Emission { input: source / 2,
+                    output: LabelId(u32::from(source % 2)), source }).collect();
+            let forbidden = forbidden_combination(&target, std::slice::from_ref(&input),
+                &emissions, PassiveMode::General, &Cancellation::default()).unwrap();
+            assert_eq!(forbidden.is_none(), safe(mask), "mask {mask}");
+            if let Some(sources) = forbidden {
+                assert!(!sources.is_empty());
+                let required = sources.into_iter().fold(0, |bits, source| bits | (1 << source));
+                assert_eq!(mask & required, required);
+                for future in 0u8..64 {
+                    if future & required == required {
+                        assert!(!safe(future), "clause admitted a valid future assignment");
+                    }
+                }
+            }
+        }
+    }
+}
+'''
     path.write_text(source)
 
 if args.variant in ['probes', 'symmetry-eager-probes']:

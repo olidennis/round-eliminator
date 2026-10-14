@@ -214,10 +214,11 @@ links differ from the old GUI's `.re` files and links.
 
 ## Things to think about in the future
 
-Deferred performance investigation: incidence edge coloring solvability is fast
-on bipartite maximal matching but becomes very slow after one Apply RE step.
-Investigate SAT encoding/refinement and passive verification on both problems;
-current performance experiments concern maximization only. See `REVIEW.md`.
+Coloring performance investigation completed: color-behavior ordering, eager
+passive degree-two clauses and grouping equal output domains with separate origins
+help all four coloring kinds on native/wasm, including degree-ten RE(BMM).
+These are verified temporary prototypes, with production integration pending.
+See [the measurements](crates/core/benches/coloring/README.md) and `REVIEW.md`.
 
 The current representation supports the implemented parsing and display features.
 Revisit these design considerations as algorithms and transformations are added;

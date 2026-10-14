@@ -78,8 +78,15 @@ fn main() {
             problem.mapping().clone(),
         )
         .unwrap();
-        println!("{}", serde_json::json!({"event":"premaximization", "seconds":started.elapsed().as_secs_f64()}));
-        if mode_name == "maximized" { PassiveMode::Maximized } else { PassiveMode::General }
+        println!(
+            "{}",
+            serde_json::json!({"event":"premaximization", "seconds":started.elapsed().as_secs_f64()})
+        );
+        if mode_name == "maximized" {
+            PassiveMode::Maximized
+        } else {
+            PassiveMode::General
+        }
     } else {
         PassiveMode::General
     };

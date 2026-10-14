@@ -28,18 +28,20 @@ and latest [live-pruning report](crates/core/benches/re_comparison/investigation
 retain methodology and raw records. The initial contaminated live-pruning trials
 remain excluded. Aggregate CPU is a work proxy, not an instruction/energy count.
 
-## Deferred investigation requested after this review
+## Coloring investigation completed (2026-10-14)
 
-Incidence edge coloring solvability is fast on bipartite maximal matching, but
-after applying RE once, checking the transformed problem takes an unreasonably
-long time. Compare encoding sizes, candidate/refinement work, and passive
-verification on those two problems, on native and wasm, preserving coloring
-semantics and input promises. This is saved for a later task; the current
-experiments concern maximization only.
+The [coloring report](crates/core/benches/coloring/README.md) investigates the
+degree-ten BMM/RE(BMM) incidence slowdown and extends the experiments to all four
+coloring kinds. Native CaDiCaL's weak refinement path is the principal cause;
+equal output domains with distinct sources also cause duplicate enumeration.
+Ordering color behaviors, eager passive degree-two encoding, and grouping domains
+with separate provenance reduce RE(BMM) from a 30-second cutoff to 16 ms native
+and 397→40 ms wasm. Original inputs, exact General checking and cancellation are
+preserved. The tested changes are temporary prototypes; integration is pending.
 
-The full review below remains a future-work record. The next task prototypes
-only maximization improvements, compares complete results and total CPU, and
-integrates changes supported by those experiments.
+The full review below retains the original findings. The maximization follow-ups
+have been completed and integrated selectively; the coloring investigation now
+has verified prototypes. Other items remain future work.
 
 ### Maximization follow-up
 
@@ -50,7 +52,7 @@ rejection, stack compatibility caching, selective exact generated history, and
 65–128-label packing. Broad history sharing regressed sparse workloads and was
 not selected. Larger representation changes (interning/multiword storage) and
 flow-network reuse remain possible future experiments. The non-maximization
-items below remain deferred, including the incidence-coloring slowdown above.
+items below remain deferred except for the completed coloring investigation above.
 The numbered descriptions retain the original review's observations and proposals;
 consult the follow-up for the current implementation and measurements.
 

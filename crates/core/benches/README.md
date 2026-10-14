@@ -1,5 +1,13 @@
 # Algorithm benchmarks
 
+## Coloring solvability
+
+The [coloring investigation](coloring/README.md) reproduces the native incidence
+edge coloring slowdown after one RE on degree-ten BMM. Temporary prototypes
+test color symmetry, eager passive degree-two clauses and output-domain grouping
+with exact provenance. It compares all four coloring kinds, including original
+inputs, on native and wasm. Selected prototypes are verified but **not integrated**.
+
 ## RE and maximization against the old version
 
 The [RE comparison](re_comparison/README.md) measures ten elimination steps on
