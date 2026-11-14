@@ -2,7 +2,7 @@
 
 use super::ColoringKind;
 use crate::algorithms::inputs::LocalInput;
-use crate::computation::Cancellation;
+use crate::computation::{Cancellation, Cancelled};
 use crate::model::{CondensedConfiguration, Input, LabelId, LabelSet, Part, Problem};
 
 /// LLM: An original input descriptor augmented with the auxiliary color information needed by
@@ -38,6 +38,36 @@ pub(super) fn input_labels(problem: &Problem) -> Vec<Option<LabelId>> {
             .map(|id| Some(LabelId(id as u32)))
             .collect(),
     }
+}
+
+/// LLM: Bound each vertex color's output support per original input label. Used by
+/// LLM: membership SAT: keep one active realization per input context, then union its
+/// LLM: emitted labels. Shrinking supports preserves universal passive validity.
+pub(super) fn vertex_membership_bounds(
+    contexts: &[LocalInput],
+    input_count: usize,
+    cancellation: &Cancellation,
+) -> Result<Vec<usize>, Cancelled> {
+    // LLM: Each occurrence in one chosen realization contributes at most one label
+    // LLM: to its input's support. Trivial input has one context per allowed degree.
+    cancellation.check()?;
+    let mut bounds = vec![0usize; input_count];
+    for context in contexts {
+        cancellation.check()?;
+        match &context.labels {
+            Some(labels) => {
+                for &label in labels {
+                    cancellation.check()?;
+                    let bound = &mut bounds[input_index(Some(label))];
+                    *bound = bound.saturating_add(1);
+                }
+            }
+            None => bounds[0] = bounds[0].saturating_add(context.degree as usize),
+        }
+    }
+    // LLM: Saturation only weakens the optimization if the total exceeds usize;
+    // LLM: it never imposes an unsound smaller bound or limits input enumeration.
+    Ok(bounds)
 }
 
 /// LLM: Compute the smallest palette locally compatible with the graph degrees and coloring

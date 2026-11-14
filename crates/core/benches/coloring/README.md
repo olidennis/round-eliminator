@@ -1,5 +1,9 @@
 # Coloring solvability investigation
 
+The [four-RE path-coloring investigation](path_re/README.md) records the later
+large-domain slowdown, integrated input-aware support bounds and binary checks,
+and independent exact maximum calculations (148 plain, 235 with A B inputs).
+
 2026-10-14. Investigate incidence edge coloring on the **degree-ten** GUI BMM
 example after one RE, then check whether the improvements help other coloring
 kinds. The historical measurements below compare controlled **prototypes**.

@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-20",
+  "git_commit": "cc5bbe22324c038aeb68b2e25f2e3c7ec9ef3514",
+  "platform": "Linux 6.12.76-linuxkit",
+  "architecture": "aarch64",
+  "visible_cpus": 10,
+  "linux_online_cpus": "0-9",
+  "container_cpu_quota": "max 100000",
+  "host_physical_cores_reported_by_user": 18,
+  "host_chip_model": "not exposed by VM",
+  "rustc": "rustc 1.89.0 (29483883e 2025-08-04)",
+  "allocator": "mimalloc 0.1.52 v2 / libmimalloc-sys 0.1.49, option 26 = 0",
+  "binary_sha256": "cf71eb12dc6f97209ca6ee844df58dbe70ec56cc0ca08c6b7ca62b396650319d",
+  "fixture_sha256": "549aa61dae8e0527bb6bcb1ea7271c2a0335dd1b71aefc252e27b45ae9888d1d",
+  "build": "release, default target CPU, no concurrent builds/tests/benchmarks",
+  "rustflags": null,
+  "kernel_comparison": [
+    {
+      "case": "matching",
+      "workers": 10,
+      "previous_ms": 14.826376433333333,
+      "current_ms": 9.627294366666666,
+      "speedup": 1.5400356391581684,
+      "time_reduction_percent": 35.06643777759382,
+      "previous_cpu_ms": 49.834566666666674,
+      "current_cpu_ms": 32.95033333333333,
+      "previous_record": "four-final-matching.jsonl"
+    },
+    {
+      "case": "test-all-second",
+      "workers": 10,
+      "previous_ms": 1122.6845839999999,
+      "current_ms": 719.2580419999999,
+      "speedup": 1.5608926399741248,
+      "time_reduction_percent": 35.934094735908474,
+      "previous_cpu_ms": 2927.5619999999994,
+      "current_cpu_ms": 1906.358,
+      "previous_record": "four-final-large.jsonl"
+    },
+    {
+      "case": "test-all-second",
+      "workers": 1,
+      "previous_ms": 2358.4505010000003,
+      "current_ms": 1467.315251,
+      "speedup": 1.6073236473161965,
+      "time_reduction_percent": 37.78477647176196,
+      "previous_cpu_ms": 2359.8800000000006,
+      "current_cpu_ms": 1466.9080000000001,
+      "previous_record": "four-final-large-serial.jsonl"
+    }
+  ],
+  "full_re": {
+    "matching": {
+      "steps": 10,
+      "median_total_ms": 42.795666
+    },
+    "test-all-second": {
+      "steps": 2,
+      "median_total_ms": 669.1357089999999
+    }
+  }
+}

@@ -214,12 +214,13 @@ on this same API; folder organization does not change the JSON schema.
 | `crates/core/src/algorithms/solvability/zero_round/verify.rs` | Complete witness verification using the general passive checker. |
 | `crates/core/src/algorithms/solvability/coloring/mod.rs` | Coloring types, incremental palette search, cached proof bounds and streamed decisions. |
 | `crates/core/src/algorithms/solvability/coloring/reuse.rs` | Restrict palette witnesses, expand order certificates, combine proved bounds and reuse zero-round strategies. |
-| `crates/core/src/algorithms/solvability/coloring/encoding.rs` | Incremental SAT on color/input output sets; active and passive counterexample refinement. |
+| `crates/core/src/algorithms/solvability/coloring/encoding.rs` | Incremental SAT on color/input output sets, input-aware vertex support bounds, selected active realizations, and passive refinement. |
 | `crates/core/src/algorithms/solvability/coloring/prepare.rs` | Visit color placements while preserving condensed original passive input choices. |
 | `crates/core/src/algorithms/solvability/coloring/verify.rs` | Verify finite and repeatable coloring witnesses independently of SAT. |
 | `crates/core/src/algorithms/configurations/coverage.rs` | Remove one label to obtain contexts; test universal coverage by a union of configurations. |
 | `crates/core/src/algorithms/configurations/product.rs` | Join condensed input/output constraints through compatible incidence pairs, keeping multiplicities counted. |
 | `crates/core/src/algorithms/configurations/alignments.rs` | Visit compatible count matrices with fixed margins, shared by products and maximization. |
+| `crates/core/src/algorithms/configurations/binary.rs` | Exact coverage of two output domains by a union of condensed rows using temporary bitsets. |
 | `crates/core/src/algorithms/configurations/matching.rs` | Counted flow matching with a supplied compatibility relation, shared by membership and dominance. |
 | `crates/core/src/algorithms/maximize.rs` | Prepare ordinary or joint passive constraints; return a separate complete maximum. |
 | `crates/core/src/algorithms/maximize/engine.rs` | Generic algebra, closure scheduling, degree frontiers, and ordered duplicate history. |

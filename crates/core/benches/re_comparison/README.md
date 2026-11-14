@@ -1,5 +1,10 @@
 # Old/new RE and maximization comparison
 
+For the 2026-10-20 machine comparison, see the
+[new-machine report](investigation/machine-2026-10-20.md): about 1.54–1.56× faster
+on the comparable parallel kernels with ten visible VM CPUs. The host is reported
+to have eighteen physical cores; this is not an eighteen-core native measurement.
+
 The latest maximization implementation and measurements are in the
 [live-pruning report](investigation/live-pruning.md). Tables below retain the
 historical comparison stages.

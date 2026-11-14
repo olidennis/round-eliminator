@@ -23,7 +23,7 @@ pub enum PassiveMode {
 }
 
 use crate::algorithms::configurations::{
-    accepts_with, contains_condensed_with, visit_multisets_with,
+    accepts_with, contains_condensed_with, forbidden_pair_with, visit_multisets_with,
 };
 use crate::model::LabelId;
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
@@ -387,14 +387,51 @@ fn output_parts<'a, T: Copy + Ord, I: Copy + Ord>(
     Ok(Some(parts))
 }
 
-/// LLM: Search counted output distributions lazily for a forbidden multiset and recover its
-/// LLM: emission origins. Used by passive strategy refinement after single-row containment
-/// LLM: cannot establish validity.
+/// LLM: Find a forbidden output and its emission origins after containment fails.
+/// LLM: Passive refinement and independent verification use direct binary coverage at
+/// LLM: degree two and lazy counted multiset traversal at other degrees.
 fn forbidden_output<T: Copy + Ord, I: Copy + Ord>(
     constraint: &Constraint,
     parts: &[OutputPart<'_, T, I>],
     cancellation: &Cancellation,
 ) -> Result<Option<Vec<T>>, Cancelled> {
+    // LLM: Degree-two families have two independent endpoints, including a single
+    // LLM: domain repeated twice. Keep original sources even when semantic domains agree.
+    let endpoints = match parts {
+        [part] if part.multiplicity == 2 => Some([part, part]),
+        [left, right] if left.multiplicity == 1 && right.multiplicity == 1 => Some([left, right]),
+        _ => None,
+    };
+    if let Some([left, right]) = endpoints {
+        let domain = |part: &OutputPart<'_, T, I>| {
+            LabelSet::new(
+                part.choices
+                    .iter()
+                    .map(|emission| emission.output)
+                    .collect(),
+            )
+        };
+        let forbidden =
+            forbidden_pair_with(constraint, &domain(left), &domain(right), cancellation)?;
+        // LLM: Translate the concrete violation back to its real origins. Duplicate
+        // LLM: literals collapse when one membership can supply both endpoints.
+        return Ok(forbidden.map(|(a, b)| {
+            let mut sources: Vec<_> = [left, right]
+                .into_iter()
+                .zip([a, b])
+                .map(|(part, label)| {
+                    part.choices
+                        .iter()
+                        .find(|emission| emission.output == label)
+                        .expect("counterexample belongs to its endpoint domain")
+                        .source
+                })
+                .collect();
+            sources.sort_unstable();
+            sources.dedup();
+            sources
+        }));
+    }
     // LLM: Prepare `grouped` for the following computation; it stores the grouped for this
     // LLM: stage.
     let mut grouped = BTreeMap::<Vec<LabelId>, Vec<&OutputPart<'_, T, I>>>::new();
@@ -511,6 +548,77 @@ fn output_family<T, I>(parts: &[OutputPart<'_, T, I>]) -> CondensedConfiguration
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// LLM: Check binary counterexamples against an exhaustive input/output oracle,
+    /// LLM: including repeated parts and distinct original input origins.
+    #[test]
+    fn binary_counterexamples_preserve_sources_for_every_future_superset() {
+        // LLM: Proper three-coloring is represented by two condensed rows, which
+        // LLM: may jointly cover a family that neither row contains by itself.
+        let row = |a: Vec<u32>, b: Vec<u32>| {
+            CondensedConfiguration::new(vec![
+                Part::new(LabelSet::new(a.into_iter().map(LabelId).collect()), 1).unwrap(),
+                Part::new(LabelSet::new(b.into_iter().map(LabelId).collect()), 1).unwrap(),
+            ])
+            .unwrap()
+        };
+        let target = Constraint::new(vec![row(vec![0], vec![1, 2]), row(vec![1], vec![2])]);
+        let inputs = [
+            CondensedConfiguration::new(vec![
+                Part::new(LabelSet::new(vec![0u8]), 1).unwrap(),
+                Part::new(LabelSet::new(vec![1]), 1).unwrap(),
+            ])
+            .unwrap(),
+            CondensedConfiguration::new(vec![Part::new(LabelSet::new(vec![0u8, 1]), 2).unwrap()])
+                .unwrap(),
+        ];
+        for (repeated, input) in inputs.iter().enumerate() {
+            // LLM: Independently test every enabled pair of emission origins,
+            // LLM: respecting which original input may fill each endpoint.
+            let safe = |mask: u8| {
+                (0u8..6).all(|a| {
+                    (0u8..6).all(|b| {
+                        mask & (1 << a) == 0
+                            || mask & (1 << b) == 0
+                            || (repeated == 0 && (a / 3 != 0 || b / 3 != 1))
+                            || a % 3 != b % 3
+                    })
+                })
+            };
+            for mask in 0u8..64 {
+                let emissions: Vec<_> = (0u8..6)
+                    .filter(|source| mask & (1 << source) != 0)
+                    .map(|source| Emission {
+                        input: source / 3,
+                        output: LabelId(u32::from(source % 3)),
+                        source,
+                    })
+                    .collect();
+                let forbidden = forbidden_combination(
+                    &target,
+                    std::slice::from_ref(input),
+                    &emissions,
+                    PassiveMode::General,
+                    &Cancellation::default(),
+                )
+                .unwrap();
+                assert_eq!(forbidden.is_none(), safe(mask));
+                // LLM: Every returned clause must exclude only invalid supersets
+                // LLM: of the actual selected sources, independently of other emissions.
+                if let Some(sources) = forbidden {
+                    let required = sources
+                        .into_iter()
+                        .fold(0u8, |bits, source| bits | (1 << source));
+                    assert_eq!(mask & required, required);
+                    for future in 0u8..64 {
+                        if future & required == required {
+                            assert!(!safe(future));
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     /// LLM: Regression test: verify that eager work estimate handles condensed inputs overflow
     /// LLM: and no placements. Used by the test suite to protect this behavior while

@@ -1941,3 +1941,72 @@ Nine benchmark preparation paths completed without rerunning measurements.
 Verified 181 workspace tests, the wasm target check, frontend typecheck, formatting,
 and comment-prefix/source-preservation audits. Keep the prefix convention in future
 edits. Remaining algorithmic investigations are explicitly deferred by the user.
+
+## New-machine measurements (2026-10-20)
+
+The user moved to an 18-core MacBook, but this workspace's Apple ARM Linux VM
+still exposes only 10 vCPUs (online 0-9, unlimited container CPU quota). Do not
+describe that as the host's physical core count or claim an 18-core/native test.
+Same Rust1.89 release, configured mimallocv2, frozen fixtures, and 10-worker
+parallel settings: matching fixed maximum 14.826→9.627ms (1.540x), large fixed
+maximum 1.123→0.719s (1.561x). Large serial 2.358→1.467s (1.607x). Three-sample
+medians; complete maxima agree across worker counts. Previous numbers reused
+from final-four records, not RE1. Full current raw RE sequences: matching ten
+steps42.796ms; large two steps669.136ms, uncached with maximization/conversion.
+These full totals have no directly comparable final-code historical sequence
+baseline; don't attribute the difference from early sequence reports to hardware.
+Report and raw records: benches/re_comparison/investigation/machine-2026-10-20*.
+No algorithm edits, concurrent benchmark jobs, or commits. Full 18-core testing
+requires host VM allocation changes or running directly on macOS.
+
+## Four-RE path-coloring investigation (2026-11-13)
+
+User fixture: active `A A / B B / C C`, passive `A BC / B C`, inferred degrees
+2/2, four Apply RE steps. Result: 8565 labels, 4313 active concrete rows (61
+homogeneous, 4252 disjoint pairs), 39 passive rows. Original fixed vertex25
+timed out30s: verification28.30s, SAT1.59s; dense memberships and counted passive
+enumeration dominated. Integrated safe vertex per-input support bounds over ALL
+active input contexts, selected active-realization support clauses, identical-domain
+and concrete-binary active matching shortcuts, and generic direct binary union
+coverage in configurations/binary.rs. Keep original-input provenance and exact
+General/Maximized semantics. No hardcoded labels or hand-built positive preflight.
+Bounds alone still timed out; selected-realization clauses were needed. Final
+normal fixed25 through release HTTP stream returned SAT6.950s; standalone7.140s.
+Large explicit A B input variant still timed out30s (551 candidates); this is
+not UNSAT. Small A B, repeated-input and full-context regressions pass. Bounded
+batching, binary color-renaming clauses and native phase-zero trials did not
+justify adoption. Default backend remains unchanged.
+
+User then requested exact maximum values for BOTH the final plain output problem
+and that SAME output problem with A B inputs on both sides, attached AFTER RE.
+Independent behavior-graph diagnostic certifies maxima148 plain and235 with A B.
+Both maximal witnesses checked directly against original passive rows. Plain
+upper also has an explicit148-coloring of its full behavior graph; SAT rejects
+149. Input upper uses safe domination/degree/neighborhood-color reductions and
+SAT rejects236. Retained script reproduces both in20.24s excluding compilation/RE;
+final SAT stages0.573s/0.277s. This diagnostic is NOT integrated into the UI or
+general maximum search: explicitly distinguish its timings/results from Retor.
+Its applicability requires concrete degree-two active rows partitioning labels
+into singleton loops or disjoint pairs, trivial original input and unrestricted
+mapping; it separately constructs the A B promise. Do not claim arbitrary mapped
+or nonregular support. Report/reproducer/witnesses in benches/coloring/path_re.
+
+Why maximum starts slowly: zero-round/unbounded preflight builds4621^2=21353641
+compatibility entries on the plain fixture (10s still Preparing), or eagerly
+visits8565^2=73359225 origin pairs in the A B SAT precheck (Encoding). Fixed
+palette skips this work. Future work: lazy compatibility, budgeted eager
+zero-round encoding with exact refinement, and evaluate behavior-graph solving
+where applicable. Original-input search can ignore inputs to reuse a plain
+strategy mathematically, but current per-problem search does not exploit this
+relationship automatically. These are remaining improvements, not integrated.
+
+Verified178 core+5server+3wasm-adapter=186tests;39coloring and30state-cache fixtures
+pass on rebuilt native/wasm. Native server, wasm bindings and frontend rebuilt.
+Preserve prior machine-measurement dirty files. No agents, commits or pushes.
+
+Follow-up 2026-11-14: user asked what Retor itself can establish for the large
+A B/A B input variant. Production core fixed25 via the existing timing driver
+timed out120.158s,2382 candidates: SAT94.662s,verification24.978s,encoding0.517s.
+Fixed5 separately timed out15.026s,1717 candidates. Neither is UNSAT. These are
+production algorithm runs, not server transport or independent graph results.
+Temporary raw logs: /tmp/re3-path-coloring/retor-ab-{25-120s,5-15s}.jsonl.

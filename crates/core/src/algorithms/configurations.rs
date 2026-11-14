@@ -6,11 +6,13 @@ use crate::computation::{Cancellation, Cancelled};
 use crate::model::{CondensedConfiguration, Configuration, Constraint, LabelSet, Part};
 
 mod alignments;
+mod binary;
 mod coverage;
 mod matching;
 mod product;
 mod substitution;
 pub(crate) use alignments::{AlignmentComponents, AlignmentSearch, visit_alignments_with};
+pub(crate) use binary::forbidden_pair_with;
 pub(crate) use coverage::{contexts_with, covers_with};
 pub(crate) use matching::matches_counts_with;
 pub(crate) use product::product_with;

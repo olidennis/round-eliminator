@@ -10,7 +10,7 @@ use round_eliminator_3::{
         },
     },
     computation::{Cancellation, Computation, Phase, Progress},
-    model::{ConstraintPair, Problem},
+    model::{ConstraintPair, Input, OutputMapping, Problem},
     parse_problem,
 };
 use std::{
@@ -71,6 +71,22 @@ fn main() {
     // LLM: condition is settled.
     for _ in 0..steps {
         problem = round_elimination::apply(&problem).unwrap();
+    }
+    // LLM: Optionally attach a supplied input promise after the RE sequence, keeping
+    // LLM: the same output fixture for input-aware coloring comparisons. This diagnostic
+    // LLM: option accepts a plain definition whose output constraints become the input.
+    if let Ok(path) = std::env::var("RE3_COLORING_INPUT") {
+        assert!(matches!(problem.input(), Input::Trivial));
+        assert!(matches!(problem.mapping(), OutputMapping::Unrestricted));
+        let input = parse_problem(
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap(),
+        ).unwrap();
+        problem = Problem::new(
+            problem.graph_class().clone(),
+            Input::Explicit(input.output().clone()),
+            problem.output().clone(),
+            OutputMapping::Unrestricted,
+        ).unwrap();
     }
     let mode_name = args.get(5).map(String::as_str).unwrap_or("general");
     // LLM: Prepare `mode` for the following computation; it stores the mode for this stage.

@@ -45,6 +45,52 @@ pub(super) fn fixed(problem: &Problem, kind: ColoringKind, colors: u32) -> bool 
     }
 }
 
+/// LLM: Exercise vertex strategies with original inputs and with contexts that
+/// LLM: force more than one output for the same input label. Verify returned certificates.
+#[test]
+fn vertex_support_bounds_preserve_input_dependent_strategies() {
+    // LLM: The A B promise has one occurrence of each input per node and edge.
+    // LLM: Constant-node output coloring supports three auxiliary colors, but not four.
+    let paths = problem(
+        serde_json::json!({"kind":"independent", "input":{"active":"A B","passive":"A B"},
+        "output":{"active":"X X\nY Y\nZ Z","passive":"X YZ\nY Z"}}),
+    );
+    assert!(fixed(&paths, ColoringKind::Vertex, 3));
+    assert!(!fixed(&paths, ColoringKind::Vertex, 4));
+
+    // LLM: Different input contexts require a->X and a->Y respectively. Forcing
+    // LLM: one output per input label would reject this valid strategy.
+    let contexts = problem(
+        serde_json::json!({"kind":"mapped", "input":{"active":"a b\na c","passive":"abc^2"},
+        "output":{"active":"X B\nY C","passive":"XYBC^2"}, "mapping":"a -> XY\nb -> B\nc -> C"}),
+    );
+    let repeated = problem(
+        serde_json::json!({"kind":"mapped", "input":{"active":"a a","passive":"a a"},
+        "output":{"active":"X Y","passive":"XY^2"}, "mapping":"a -> XY"}),
+    );
+    for p in [contexts, repeated] {
+        let result = check(
+            &p,
+            ColoringKind::Vertex,
+            PaletteSearch::Fixed { colors: 2 },
+            PassiveMode::General,
+        )
+        .unwrap();
+        let ColoringResult::Solvable { witness, .. } = result else {
+            panic!("support restriction lost a strategy")
+        };
+        assert!(verify_witness(&p, ColoringKind::Vertex, &witness, false));
+        let ColoringWitness::LocalColors { behaviors } = witness else {
+            unreachable!()
+        };
+        assert!(
+            behaviors
+                .iter()
+                .all(|behavior| behavior.outputs_by_input[0].len() == 2)
+        );
+    }
+}
+
 // LLM: Independent color enumeration, deliberately including all permutations.
 // LLM: Construct a small explicit colored input promise and use the separately
 // LLM: tested local-rule solver as a reference for the compact membership encoding.

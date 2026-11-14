@@ -15,6 +15,10 @@ show no meaningful end-to-end gain. The small change is integrated.
 
 ## Coloring solvability
 
+The [path-coloring follow-up](coloring/path_re/README.md) profiles four RE steps,
+records integrated support bounds and direct binary verification, and reproduces
+the independently certified maxima with and without the A B input promise.
+
 The [coloring investigation](coloring/README.md) reproduces the native incidence
 edge coloring slowdown after one RE on degree-ten BMM. Temporary prototypes
 test color symmetry, eager passive degree-two clauses and output-domain grouping

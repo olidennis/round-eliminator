@@ -4,7 +4,7 @@ use rustsat::{
     solvers::{SolveIncremental, SolverResult},
     types::{Lit, TernaryVal},
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
     ColorBehavior, ColoringKind, ColoringWitness,
@@ -16,7 +16,7 @@ use crate::{
         inputs::{LocalInput, active_inputs, prepare_passive_inputs},
         sat::Formula,
         solvability::{
-            constraint_encoding::{Choice, encode_constraint},
+            constraint_encoding::{Choice, encode_constraint, encode_constraint_supports},
             passive::{
                 EAGER_ENCODING_BUDGET, Emission, PassiveMode, eager_encoding_work,
                 forbidden_with_maximum, visit_forbidden,
@@ -37,6 +37,9 @@ pub(super) struct PaletteSolver<'a, S> {
     formula: Formula<S>,
     inputs: Vec<Option<LabelId>>,
     active_inputs: Vec<LocalInput>,
+    // LLM: Safe per-input support bounds for vertex coloring. A color needs only
+    // LLM: the outputs used by one realization of every active input context.
+    membership_bounds: Option<Vec<usize>>,
     passive_inputs: Vec<CondensedConfiguration<Option<LabelId>>>,
     // LLM: Per input row: every passive color placement through this palette has
     // LLM: been encoded. Larger rows/palettes continue to use exact refinement.
@@ -76,14 +79,26 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
         // LLM: Update the current working state before continuing this operation.
         computation.report(Phase::Enumerating, 0)?;
         let passive_inputs = prepare_passive_inputs(problem, &computation.cancellation)?;
+        let inputs = prepare::input_labels(problem);
+        let active_inputs = active_inputs(problem, &computation.cancellation)?;
+        let membership_bounds = (kind == ColoringKind::Vertex)
+            .then(|| {
+                prepare::vertex_membership_bounds(
+                    &active_inputs,
+                    inputs.len(),
+                    &computation.cancellation,
+                )
+            })
+            .transpose()?;
         // LLM: Prepare one canonical rule obligation for each promised active input context.
         Ok(Self {
             problem,
             maximum,
             kind,
             formula: Formula::new(solver, computation.cancellation.clone()),
-            inputs: prepare::input_labels(problem),
-            active_inputs: active_inputs(problem, &computation.cancellation)?,
+            inputs,
+            active_inputs,
+            membership_bounds,
             eager_palettes: vec![0; passive_inputs.len()],
             passive_inputs,
             memberships: Vec::new(),
@@ -122,8 +137,24 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                         outputs.push(Choice { label, literal });
                     }
                 }
+                // LLM: Restrict vertex strategies to supports sufficient for all original
+                // LLM: active input contexts. Disabled colors already have empty supports.
+                if let Some(bounds) = &self.membership_bounds {
+                    self.formula.at_most(
+                        &outputs
+                            .iter()
+                            .map(|choice| choice.literal)
+                            .collect::<Vec<_>>(),
+                        bounds[input_index(input)],
+                    )?;
+                }
                 // LLM: Retain the newly constructed choices in the result for this stage.
                 behavior.push(outputs);
+            }
+            // LLM: Vertex colors share a single color across every active port.
+            // LLM: Tie memberships to chosen active realizations before ordering behaviors.
+            if self.kind == ColoringKind::Vertex {
+                self.encode_vertex_supports(&behavior, enabled)?;
             }
             // LLM: Order interchangeable complete color behaviors without excluding equal
             // LLM: behavior tables.
@@ -151,6 +182,47 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
             self.memberships.push(behavior);
         }
         // LLM: Return the result of this completed search or conversion to its caller.
+        Ok(())
+    }
+
+    /// LLM: Select active realizations for one vertex color and exclude unrelated
+    /// LLM: memberships. Called during palette extension; all original input contexts
+    /// LLM: contribute to the union, allowing context-dependent outputs for one input.
+    fn encode_vertex_supports(
+        &mut self,
+        behavior: &[Vec<Choice>],
+        enabled: Lit,
+    ) -> anyhow::Result<()> {
+        // LLM: Match each original input context using this color's per-input tables.
+        // LLM: Support must be accumulated across every context before restricting a table.
+        let mut supports = BTreeMap::new();
+        let color = self.enabled.len() as u32 - 1;
+        for (context, input) in self.active_inputs.iter().enumerate() {
+            self.formula.check()?;
+            let inputs = port_inputs(input);
+            let positions: Vec<_> = inputs
+                .iter()
+                .map(|&input| behavior[input_index(input)].clone())
+                .collect();
+            encode_constraint_supports(
+                &mut self.formula,
+                self.problem.output().active(),
+                input.degree,
+                &positions,
+                &[enabled],
+                &mut supports,
+            )?;
+            self.encoded.insert((context, vec![color; inputs.len()]));
+        }
+        // LLM: Each retained membership must belong to at least one selected active
+        // LLM: realization for its input. Shrinking a valid strategy always permits this.
+        for choice in behavior.iter().flatten() {
+            let mut clause = supports.remove(&choice.literal).unwrap_or_default();
+            clause.sort_unstable();
+            clause.dedup();
+            clause.push(!choice.literal);
+            self.formula.add_clause(&clause)?;
+        }
         Ok(())
     }
 
@@ -455,8 +527,7 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                     }
                 }
             }
-            // LLM: Preserve the violation or conflict needed to reject an invalid search
-            // LLM: branch.
+            // LLM: Learn one concrete passive counterexample before querying SAT again.
             let mut forbidden = None;
             prepare::passive_families(
                 &passive_inputs,
@@ -475,16 +546,13 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
                         |input| input.0,
                         &computation.cancellation,
                     )?;
-                    // LLM: Return the result of this completed search or conversion to its
-                    // LLM: caller.
                     Ok(forbidden.is_none())
                 },
             )?;
             // LLM: Add the necessary SAT restriction; a refinement clause forbids the selected
             // LLM: violating combination.
             if let Some(sources) = forbidden {
-                // LLM: Add the necessary SAT restriction; a refinement clause forbids the
-                // LLM: selected violating combination.
+                // LLM: Exclude only the simultaneous emissions that justify this failure.
                 self.formula.add_clause(
                     &sources
                         .into_iter()
@@ -504,6 +572,46 @@ impl<'a, S: SolveIncremental> PaletteSolver<'a, S> {
 mod tests {
     use super::super::{tests::plain, verify_witness};
     use super::*;
+
+    /// LLM: Check that vertex support bounds respect original input occurrences and
+    /// LLM: that edge-coloring strategies retain their broader context-dependent domains.
+    #[test]
+    fn vertex_support_bounds_use_all_original_input_contexts() {
+        // LLM: A B has one occurrence of each input. Repeated a and multiple contexts
+        // LLM: require larger supports; input names unused actively have zero support.
+        let cases = [
+            (
+                super::super::tests::problem(
+                    serde_json::json!({"kind":"independent", "input":{"active":"A B","passive":"A B"}, "output":{"active":"X X\nY Y", "passive":"X Y"}}),
+                ),
+                vec![1, 1],
+            ),
+            (
+                super::super::tests::problem(
+                    serde_json::json!({"kind":"independent", "input":{"active":"a a\na b","passive":"a b\nc c"}, "output":{"active":"X Y", "passive":"XY^2"}}),
+                ),
+                vec![3, 1, 0],
+            ),
+            (plain("X\nX^3", "X^2"), vec![4]),
+        ];
+        for (p, expected) in cases {
+            for kind in [ColoringKind::Vertex, ColoringKind::IncidenceEdges] {
+                let mut report = |_| {};
+                let mut computation = Computation::new(Cancellation::default(), &mut report);
+                let solver = PaletteSolver::new(
+                    &p,
+                    kind,
+                    crate::algorithms::sat::backend(&computation.cancellation),
+                    &mut computation,
+                )
+                .unwrap();
+                assert_eq!(
+                    solver.membership_bounds,
+                    (kind == ColoringKind::Vertex).then_some(expected.clone())
+                );
+            }
+        }
+    }
 
     /// LLM: Regression test: verify that large domains use lazy refinement and reuse smaller
     /// LLM: eager palettes. Used by the test suite to protect this behavior while
